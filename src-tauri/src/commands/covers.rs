@@ -19,7 +19,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::sync::Mutex;
+#[cfg(feature = "desktop")]
 use tauri::{AppHandle, State};
+#[cfg(feature = "desktop")]
 use tauri_plugin_dialog::{DialogExt, FilePath};
 
 /// Prepared cover results live on local disk rather than accumulating one
@@ -127,6 +129,7 @@ const COVER_NAMES: &[&str] = &[
 const COVER_EXTENSIONS: &[&str] = &["jpg", "jpeg", "png"];
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "flac", "m4a", "mp4", "wav", "ogg", "opus", "ape"];
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn cover_data_url(album_path: String, preferred_track: Option<String>) -> Option<String> {
     // Fast path: return the prepared local-cache result, including a known
@@ -141,6 +144,7 @@ pub fn cover_data_url(album_path: String, preferred_track: Option<String>) -> Op
     url
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn cover_set(
     app: AppHandle,
@@ -160,6 +164,7 @@ pub async fn cover_set(
     Ok(set_cover_from_path_queued(&queue, PathBuf::from(album_path), source.to_path_buf()).await)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn cover_remove(
     album_path: String,
@@ -180,8 +185,9 @@ enum ArtworkKind {
     Artist,
 }
 
-pub(super) type ArtworkDownload = (Vec<u8>, &'static str, PathBuf);
+pub(crate) type ArtworkDownload = (Vec<u8>, &'static str, PathBuf);
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn cover_download(
     album_path: String,
@@ -202,6 +208,7 @@ pub async fn cover_download(
     Ok(Some(url))
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn cover_download_artist_art(
     album_path: String,
@@ -220,7 +227,10 @@ pub async fn cover_download_artist_art(
     )
 }
 
-fn remote_client(providers: &ProviderState, config: &ConfigState) -> RemoteArtworkClient {
+pub(crate) fn remote_client(
+    providers: &ProviderState,
+    config: &ConfigState,
+) -> RemoteArtworkClient {
     let config = config.raw();
     RemoteArtworkClient::new(
         providers.http(),
@@ -371,7 +381,7 @@ async fn download_album_artwork_with_policy(
     Some(result)
 }
 
-pub(super) async fn download_album_artwork_at(
+pub(crate) async fn download_album_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
@@ -379,7 +389,7 @@ pub(super) async fn download_album_artwork_at(
     download_album_artwork_with_policy(album_path, remote, queue, true).await
 }
 
-pub(super) async fn download_artist_artwork_at(
+pub(crate) async fn download_artist_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
@@ -611,6 +621,7 @@ pub fn set_cover_from_path(album_path: &Path, source: &Path) -> Option<String> {
     image_data_url(&jpeg, 500, 85)
 }
 
+#[cfg(feature = "desktop")]
 async fn set_cover_from_path_queued(
     queue: &WriteQueue,
     album_path: PathBuf,
@@ -644,6 +655,7 @@ pub fn remove_cover_at(album_path: &Path) -> bool {
     result.is_ok()
 }
 
+#[cfg(feature = "desktop")]
 async fn remove_cover_queued(queue: &WriteQueue, album_path: PathBuf) -> bool {
     let album_str = album_path.display().to_string();
     cover_cache_invalidate(&album_str);
@@ -766,7 +778,7 @@ fn image_data_url(bytes: &[u8], max_dimension: u32, quality: u8) -> Option<Strin
     ))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use crate::commands::tracks::read_album;

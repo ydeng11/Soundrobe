@@ -3,14 +3,16 @@
 use crate::commands::library::is_audio_file;
 use crate::commands::tracks::read_track_metadata;
 use crate::error::ApiError;
+#[cfg(feature = "desktop")]
 use crate::state::write_queue::WriteQueue;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(feature = "desktop")]
 use tauri::State;
 
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SortByAlbumOptions {
     pub copy: Option<bool>,
 }
@@ -42,6 +44,7 @@ pub struct SortByAlbumFile {
     pub error: Option<String>,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn files_sort_by_album(
     source_dir: String,

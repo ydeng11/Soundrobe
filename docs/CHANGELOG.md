@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Local browser-service sign-in accepts both standard loopback addresses.
+
+### Added
+
+- Soundrobe can now run as a self-hosted web service: a password-protected
+  browser dashboard manages mounted music libraries through the existing Rust
+  metadata pipeline.
+- The service scans mounted libraries, maintains a health index for releases
+  already tagged, automatically processes only releases that need tagging,
+  and leaves failed or ambiguous releases in the review queue for user input.
+- Docker and Compose deployment files provide a hardened non-root service,
+  persistent configuration, direct per-library mounts, and a health endpoint.
+- `just web-local <libraries-root>` now builds and starts the browser service
+  on loopback for local development, using a separate ignored state directory.
+
+### Changed
+
+- The self-hosted dashboard now opens mounted libraries automatically as a
+  viewer and editor. Manual tagging, search, lyrics, audit, and library-load
+  controls remain in the desktop app; web users can inspect automatic tagging
+  outcomes through an on-demand Activity diagnostics portal.
+
 ## [0.1.11] - 2026-09-16
 
 ### Fixed

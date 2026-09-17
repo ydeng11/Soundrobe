@@ -16,12 +16,14 @@ pub fn is_not_redacted(key: &str) -> bool {
     !key.is_empty() && !key.starts_with("****")
 }
 
+#[cfg(feature = "desktop")]
 pub mod agent_completion;
 pub mod aliases;
 pub mod artwork;
 pub mod encoding;
 pub mod fs;
 pub mod http;
+#[cfg(feature = "desktop")]
 pub mod logging;
 pub mod openrouter;
 pub mod sqlite;

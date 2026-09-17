@@ -132,6 +132,61 @@ describe("package scripts", () => {
     expect(scripts.dist).toBe("tauri build");
   });
 
+  it("keeps the headless server behind an opt-in Cargo feature", () => {
+    const cargoToml = readFileSync(
+      resolve(__dirname, "../src-tauri/Cargo.toml"),
+      "utf8",
+    );
+    const rustLib = readFileSync(
+      resolve(__dirname, "../src-tauri/src/lib.rs"),
+      "utf8",
+    );
+
+    expect(cargoToml).toMatch(/^default = \["desktop"\]$/m);
+    expect(cargoToml).toMatch(/^desktop = \[/m);
+    const serverFeature = cargoToml.match(/^server = \[([^\]]*)\]$/m)?.[1];
+    expect(serverFeature).toBeDefined();
+    expect(
+      serverFeature!
+        .split(",")
+        .map((entry) => entry.trim().replaceAll('"', "")),
+    ).toEqual([
+      "dep:axum",
+      "dep:tower",
+      "dep:tower-http",
+      "dep:subtle",
+      "dep:tokio-util",
+      "dep:futures-util",
+      "dep:url",
+    ]);
+    expect(cargoToml).toMatch(/^name = "soundrobe-server"$/m);
+    expect(cargoToml).toMatch(/^required-features = \["server"\]$/m);
+    expect(cargoToml).toMatch(/^tauri = \{[^\n]*optional = true[^\n]*\}$/m);
+    expect(rustLib).toContain('cfg(all(feature = "desktop", feature = "server"))');
+    expect(rustLib).toContain('compile_error!("desktop and server features are mutually exclusive")');
+  });
+
+  it("publishes only smoke-tested multi-architecture web images", () => {
+    const workflow = readFileSync(
+      resolve(__dirname, "../.github/workflows/web-service.yml"),
+      "utf8",
+    );
+
+    expect(workflow).toMatch(/^name: Web service image$/m);
+    expect(workflow).toContain('tags:\n      - "v*.*.*"');
+    expect(workflow).toContain("workflow_dispatch:");
+    expect(workflow).toContain("packages: write");
+    expect(workflow).toContain("docker/setup-qemu-action@v3");
+    expect(workflow).toContain("platforms: linux/amd64");
+    expect(workflow).toContain("platforms: linux/amd64,linux/arm64");
+    expect(workflow).toContain("Build amd64 smoke-test image");
+    expect(workflow).toContain("Smoke-test the image before publication");
+    expect(workflow).toContain("--read-only");
+    expect(workflow).toContain("--cap-drop ALL");
+    expect(workflow).toContain("Publish multi-architecture image");
+    expect(workflow).toContain("push: true");
+  });
+
   it("keeps the renderer build separate for Tauri lifecycle hooks", () => {
     const { scripts } = readPackageJson();
 
@@ -161,6 +216,12 @@ describe("package scripts", () => {
       expect(justfile).toContain(`DEPRECATED: use 'just ${recipe}'`);
     }
     expect(justfile).toContain("smoke-openrouter:");
+    expect(justfile).toMatch(/^web-local library_root: _deps-check$/m);
+    expect(justfile).toContain("SOUNDROBE_LIBRARY_ROOT_DIR=\"$library_root\"");
+    expect(justfile).toContain(
+      'SOUNDROBE_ADDITIONAL_ORIGINS="${SOUNDROBE_ADDITIONAL_ORIGINS:-http://localhost:8080}"',
+    );
+    expect(justfile).toContain("--features server --bin soundrobe-server");
     expect(justfile).toContain("fe-smoke-openrouter:");
     expect(justfile).toContain("live_openrouter_returns_schema_constrained_json");
     expect(justfile).toContain("fe-smoke-assistant:");
@@ -214,7 +275,9 @@ describe("package scripts", () => {
     const temporaryKeyMarker = ["__SOUNDROBE", "UPDATER_PUBLIC_KEY__"].join("_");
     expect(tauriConfig.plugins.updater.pubkey).not.toContain(temporaryKeyMarker);
     expect(tauriConfig.plugins.updater.pubkey.length).toBeGreaterThan(80);
-    expect(cargoToml).toMatch(/^tauri-plugin-updater = "2\.10\.1"$/m);
+    expect(cargoToml).toMatch(
+      /^tauri-plugin-updater = \{ version = "2\.10\.1", optional = true \}$/m,
+    );
     expect(capability).not.toContain("updater:");
   });
 

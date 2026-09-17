@@ -8,12 +8,12 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use tauri::{AppHandle, Emitter};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tracing_subscriber::fmt::MakeWriter;
 
 use crate::state::paths::app_dir;
+use crate::state::events::{emit_event, EventSink};
 
 #[derive(Clone)]
 pub(crate) struct GeneralLogWriter {
@@ -52,12 +52,18 @@ impl<'a> MakeWriter<'a> for GeneralLogWriter {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn general_log_writer(
     home: &std::path::Path,
 ) -> io::Result<(PathBuf, GeneralLogWriter)> {
-    let directory = app_dir(home);
-    fs::create_dir_all(&directory)?;
-    let path = directory.join("auto-tagger.log");
+    general_log_writer_in(&app_dir(home))
+}
+
+pub(crate) fn general_log_writer_in(
+    data_dir: &std::path::Path,
+) -> io::Result<(PathBuf, GeneralLogWriter)> {
+    fs::create_dir_all(data_dir)?;
+    let path = data_dir.join("auto-tagger.log");
     let file = OpenOptions::new().create(true).append(true).open(&path)?;
     Ok((
         path,
@@ -93,8 +99,12 @@ pub struct DebugState {
 
 impl DebugState {
     pub fn new(home: PathBuf, enabled: bool) -> Self {
+        Self::new_in(app_dir(&home), enabled)
+    }
+
+    pub fn new_in(data_dir: PathBuf, enabled: bool) -> Self {
         let state = Self {
-            log_dir: app_dir(&home),
+            log_dir: data_dir,
             inner: Mutex::new(DebugInner {
                 enabled: false,
                 log_file: None,
@@ -142,9 +152,9 @@ impl DebugState {
             .and_then(|inner| inner.log_file.clone())
     }
 
-    pub fn emit(
+    pub fn emit<S: EventSink>(
         &self,
-        app: &AppHandle,
+        sink: &S,
         level: &str,
         tag: &str,
         message: impl Into<String>,
@@ -175,7 +185,7 @@ impl DebugState {
             }
         }
         self.forwarded.fetch_add(1, Ordering::AcqRel);
-        let _ = app.emit("debug:log", entry);
+        emit_event(sink, "debug:log", &entry);
     }
 }
 
@@ -227,6 +237,17 @@ mod tests {
     }
 
     #[test]
+    fn server_debug_logs_use_exact_data_directory() {
+        let root = home();
+        let data_dir = root.join("config");
+        let state = DebugState::new_in(data_dir.clone(), true);
+
+        assert!(state.log_file().unwrap().starts_with(&data_dir));
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn general_log_writer_appends_in_place_without_truncating() {
         let home = home();
         let directory = home.join(".soundrobe");
@@ -245,5 +266,17 @@ mod tests {
             "previous session\ncurrent session\n"
         );
         fs::remove_dir_all(home).unwrap();
+    }
+
+    #[test]
+    fn server_general_log_uses_exact_data_directory() {
+        let root = home();
+        let data_dir = root.join("config");
+
+        let (path, _) = general_log_writer_in(&data_dir).unwrap();
+
+        assert_eq!(path, data_dir.join("auto-tagger.log"));
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(root).unwrap();
     }
 }

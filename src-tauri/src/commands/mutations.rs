@@ -3,25 +3,28 @@
 
 use crate::commands::lyrics::{is_lyrics_alias, LyricsDocument};
 use crate::commands::tracks::{
-    canonical_legacy_recording_date, id3_user_text_values, legacy_mp3_v22_parser_bytes,
-    legacy_mp3_v22_year, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
+    id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
+use crate::state::events::{emit_event, EventSink};
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
-use lofty::config::{ParseOptions, ParsingMode, WriteOptions};
-use lofty::error::ErrorKind;
-use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::config::{ParseOptions, WriteOptions};
+use lofty::file::AudioFile;
+#[cfg(feature = "desktop")]
+use lofty::file::TaggedFileExt;
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{
     BinaryFrame, Frame, FrameId, Id3v2Tag, SyncTextContentType, SynchronizedTextFrame,
-    TextInformationFrame, TimestampFormat, TimestampFrame, UnsynchronizedTextFrame,
+    TextInformationFrame, TimestampFormat, UnsynchronizedTextFrame,
 };
 use lofty::iff::wav::WavFile;
 use lofty::mp4::{Atom, AtomData, AtomIdent, Ilst, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OggPictureStorage, OpusFile, VorbisFile};
+#[cfg(feature = "desktop")]
 use lofty::probe::Probe;
+#[cfg(feature = "desktop")]
 use lofty::tag::TagType;
 use lofty::tag::{Accessor, ItemValue, TagExt};
 use lofty::TextEncoding;
@@ -35,7 +38,8 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use tauri::{Emitter, State};
+#[cfg(feature = "desktop")]
+use tauri::State;
 
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -300,13 +304,6 @@ impl ExtraTagWriteReport {
 /// single folder worker. Albums larger than this are split into chunks so
 /// memory stays bounded and each chunk acts as a natural checkpoint.
 pub(crate) const SUBBATCH_SIZE: usize = 20;
-const DEFAULT_FOLDER_WRITE_CONCURRENCY: usize = 4;
-
-fn effective_write_concurrency(configured: Option<usize>) -> usize {
-    configured
-        .filter(|value| *value > 0)
-        .unwrap_or(DEFAULT_FOLDER_WRITE_CONCURRENCY)
-}
 
 /// Group a flat list of track updates by their parent album folder.
 ///
@@ -325,6 +322,7 @@ pub(crate) fn group_by_folder(updates: Vec<TrackUpdate>) -> HashMap<PathBuf, Vec
     groups
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_write(
     path: String,
@@ -334,27 +332,42 @@ pub async fn track_write(
     write_track_with_readback(&queue, PathBuf::from(path), fields).await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn tracks_batch_write(
     app: tauri::AppHandle,
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<BatchWriteResult, ApiError> {
-    batch_write_with_readback(&queue, updates, Some(app)).await
+    batch_write_with_readback(
+        &queue,
+        updates,
+        Some(Arc::new(app) as Arc<dyn EventSink>),
+    )
+    .await
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_extra_tags_write(
     track_path: String,
     tags: Vec<ExtraTagUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<TrackData, ApiError> {
-    let path = PathBuf::from(track_path);
-    write_extra_tags_queued(&queue, path.clone(), tags).await?;
+    write_extra_tags_with_readback(&queue, PathBuf::from(track_path), tags).await
+}
+
+pub(crate) async fn write_extra_tags_with_readback(
+    queue: &WriteQueue,
+    path: PathBuf,
+    tags: Vec<ExtraTagUpdate>,
+) -> Result<TrackData, ApiError> {
+    write_extra_tags_queued(queue, path.clone(), tags).await?;
     read_track_metadata(&path)
 }
 
 /// Helper: record a single probe phase outcome.
+#[cfg(feature = "desktop")]
 fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
     match result {
         Ok(_) => WriteProbePhase {
@@ -374,6 +387,7 @@ fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
 
 /// Diagnose why writes to a given path or its parent directory may be failing.
 /// Creates and cleans up temp files but never modifies the target.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn volume_probe_write(path: String) -> WriteProbeResult {
     let target = PathBuf::from(&path);
@@ -500,6 +514,7 @@ pub struct RealWriteProbeResult {
 /// Diagnostic: copies `path` to a sibling `.probe-test.flac`, runs the real
 /// `write_track_dispatch` with the given JSON field patch on the copy, reads
 /// back before/after metadata, cleans up, and reports everything.
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn volume_probe_write_real(
     path: String,
@@ -599,11 +614,13 @@ pub async fn volume_probe_write_real(
     }
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn file_exists(file_path: String) -> bool {
     Path::new(&file_path).exists()
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_delete_files(
     file_paths: Vec<String>,
@@ -612,6 +629,7 @@ pub async fn track_delete_files(
     Ok(delete_files_queued(&queue, file_paths).await)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn track_rename(
     old_path: String,
@@ -621,7 +639,10 @@ pub async fn track_rename(
     rename_track_queued(&queue, PathBuf::from(old_path), PathBuf::from(new_path)).await
 }
 
-async fn delete_files_queued(queue: &WriteQueue, file_paths: Vec<String>) -> Vec<DeleteFileResult> {
+pub(crate) async fn delete_files_queued(
+    queue: &WriteQueue,
+    file_paths: Vec<String>,
+) -> Vec<DeleteFileResult> {
     let fallback_paths = file_paths.clone();
     match queue
         .run(async move {
@@ -680,10 +701,18 @@ pub(crate) async fn rename_track_queued(
     read_track_metadata(&readback_path)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn tracks_batch_write_extra_tags(
     updates: Vec<ExtraTagBatchUpdate>,
     queue: State<'_, WriteQueue>,
+) -> Result<Vec<TrackData>, ApiError> {
+    write_extra_tags_batch_with_readback(&queue, updates).await
+}
+
+pub(crate) async fn write_extra_tags_batch_with_readback(
+    queue: &WriteQueue,
+    updates: Vec<ExtraTagBatchUpdate>,
 ) -> Result<Vec<TrackData>, ApiError> {
     let supported = updates
         .iter()
@@ -691,7 +720,7 @@ pub async fn tracks_batch_write_extra_tags(
         .cloned()
         .collect::<Vec<_>>();
     if !supported.is_empty() {
-        batch_write_extra_tags_queued(&queue, supported).await?;
+        batch_write_extra_tags_queued(queue, supported).await?;
     }
     updates
         .into_iter()
@@ -752,16 +781,11 @@ pub(crate) async fn write_track_queued(
 ) -> Result<(), ApiError> {
     validated_track_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
-    let review = super::auto_tag_review::active_review();
     queue
-        .run_exclusive(async move {
+        .run(async move {
             tokio::task::spawn_blocking(move || {
                 let write_start = std::time::Instant::now();
-                let result = if let Some(review) = review {
-                    review.mutate(&path, || write_track_dispatch(&path, &patch))
-                } else {
-                    write_track_dispatch(&path, &patch)
-                };
+                let result = write_track_dispatch(&path, &patch);
                 let elapsed = write_start.elapsed();
                 match &result {
                     Ok(_) => tracing::debug!(
@@ -787,6 +811,7 @@ pub(crate) async fn write_track_queued(
 
 /// Remove all embedded cover art pictures from a single audio track file.
 /// Uses lofty's unified `Probe` + `TaggedFile` API to handle all formats.
+#[cfg(feature = "desktop")]
 pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
     let mut tagged_file = Probe::open(path)
         .map_err(|e| ApiError::WriteTask(format!("Failed to open track for cover removal: {e}")))?
@@ -822,6 +847,7 @@ pub(crate) fn remove_embedded_cover_at(path: &Path) -> Result<(), ApiError> {
 }
 
 /// Remove embedded cover art from a single track, queued through the global write lock.
+#[cfg(feature = "desktop")]
 pub(crate) async fn remove_embedded_cover_queued(
     queue: &WriteQueue,
     path: PathBuf,
@@ -865,6 +891,7 @@ struct BatchAccumulator {
 pub(crate) type TrackWriteProgress = Arc<dyn Fn(u64, u64) + Send + Sync>;
 
 #[derive(Debug)]
+#[cfg(feature = "desktop")]
 pub(crate) struct ExclusiveBatchWriteResult {
     pub successes: Vec<String>,
     pub failures: Vec<TrackWriteFailure>,
@@ -875,6 +902,7 @@ async fn batch_write_grouped(
     updates: Vec<TrackUpdate>,
     progress: Option<TrackWriteProgress>,
     accum: &Arc<Mutex<BatchAccumulator>>,
+    max_concurrency: usize,
 ) -> Result<(), ApiError> {
     let total = updates.len() as u64;
     // 1. Partition by folder (Path::parent() — no syscall needed)
@@ -893,15 +921,9 @@ async fn batch_write_grouped(
     //    Within a folder, tracks are written in sub-batches of SUBBATCH_SIZE
     //    (sequential within the folder worker) to keep memory bounded.
     //
-    //    Cap concurrent folder workers at 4 by default. Controlled local and
-    //    SMB benchmarks both improved through four workers after per-file I/O
-    //    amplification was removed. The user can override
-    //    via `write_concurrency` in ~/.soundrobe/config.yaml or the
-    //    AUTO_TAG_WRITE_CONCURRENCY environment variable (e.g. 8 for
-    //    local NVMe).
-    let max_concurrency = effective_write_concurrency(
-        crate::state::config::resolve_write_concurrency(&dirs::home_dir().unwrap_or_default()),
-    );
+    //    The shared WriteQueue owns the configured process policy. Controlled
+    //    local and SMB benchmarks use four workers by default; runtimes may
+    //    supply an explicit override when constructing the queue.
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     for (folder, folder_updates) in folder_groups {
@@ -997,14 +1019,15 @@ async fn join_folder_workers(
 async fn batch_write_queued(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
-    progress_tracker: Option<(tauri::AppHandle, u64)>,
+    progress_tracker: Option<(Arc<dyn EventSink>, u64)>,
     accum: &Arc<Mutex<BatchAccumulator>>,
 ) -> Result<(), ApiError> {
-    let progress = progress_tracker.map(|(app, _)| {
+    let progress = progress_tracker.map(|(sink, _)| {
         Arc::new(move |current, total| {
-            let _ = app.emit(
+            emit_event(
+                &sink,
                 "tracks:write-event",
-                TrackWriteEvent {
+                &TrackWriteEvent {
                     current,
                     total,
                     message: format!("Writing {current}/{total}"),
@@ -1012,7 +1035,14 @@ async fn batch_write_queued(
             );
         }) as TrackWriteProgress
     });
-    batch_write_grouped(Some(queue.clone()), updates, progress, accum).await?;
+    batch_write_grouped(
+        Some(queue.clone()),
+        updates,
+        progress,
+        accum,
+        queue.max_folder_concurrency(),
+    )
+    .await?;
 
     // After all folder workers complete, check whether anything succeeded.
     let acc = accum.lock().expect("accum lock poisoned");
@@ -1038,12 +1068,21 @@ async fn batch_write_queued(
 /// `WriteQueue::run_exclusive`. Queue locks are intentionally skipped to avoid
 /// recursive coordination-lock acquisition; this function still serializes
 /// same-folder writes and applies configured cross-folder concurrency.
+#[cfg(feature = "desktop")]
 pub(crate) async fn batch_write_with_exclusive_queue_held(
     updates: Vec<TrackUpdate>,
     progress: Option<TrackWriteProgress>,
+    max_folder_concurrency: usize,
 ) -> Result<ExclusiveBatchWriteResult, ApiError> {
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_grouped(None, updates, progress, &accum).await?;
+    batch_write_grouped(
+        None,
+        updates,
+        progress,
+        &accum,
+        max_folder_concurrency,
+    )
+    .await?;
     let mut accum = accum.lock().expect("accum lock poisoned");
     Ok(ExclusiveBatchWriteResult {
         successes: std::mem::take(&mut accum.successes),
@@ -1063,7 +1102,7 @@ fn read_track_with_fallback(path: &Path) -> Result<TrackData, ApiError> {
     })
 }
 
-async fn write_track_with_readback(
+pub(crate) async fn write_track_with_readback(
     queue: &WriteQueue,
     path: PathBuf,
     patch: TrackPatch,
@@ -1072,16 +1111,22 @@ async fn write_track_with_readback(
     read_track_with_fallback(&path)
 }
 
-async fn batch_write_with_readback(
+pub(crate) async fn batch_write_with_readback(
     queue: &WriteQueue,
     updates: Vec<TrackUpdate>,
-    app: Option<tauri::AppHandle>,
+    sink: Option<Arc<dyn EventSink>>,
 ) -> Result<BatchWriteResult, ApiError> {
     // Preserve input paths before updates is moved into batch_write_queued
     let input_paths: Vec<String> = updates.iter().map(|u| u.path.clone()).collect();
     let total = updates.len() as u64;
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_queued(queue, updates, app.map(|a| (a, total)), &accum).await?;
+    batch_write_queued(
+        queue,
+        updates,
+        sink.map(|sink| (sink, total)),
+        &accum,
+    )
+    .await?;
     let mut acc = accum.lock().expect("accum lock poisoned");
     let successes: std::collections::HashSet<String> = acc.successes.drain(..).collect();
     let failures = acc.failures.clone();
@@ -1146,6 +1191,7 @@ pub(crate) async fn write_extra_tags_queued(
     Ok(())
 }
 
+#[cfg(feature = "desktop")]
 pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     path: PathBuf,
     tags: Vec<ExtraTagUpdate>,
@@ -2615,171 +2661,6 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
     result
 }
 
-/// Return the ID3 major version only for legacy MP3 tags Soundrobe can safely
-/// normalize. Untagged files, ID3v2.4, and unknown future/obsolete versions do
-/// not enter the automatic upgrade path.
-pub(crate) fn legacy_mp3_tag_version(path: &Path) -> Result<Option<u8>, ApiError> {
-    let mut file = File::open(path)?;
-    let mut header = [0_u8; 4];
-    match file.read_exact(&mut header) {
-        Ok(()) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(error) => return Err(error.into()),
-    }
-    if &header[..3] != b"ID3" {
-        return Ok(None);
-    }
-    Ok(matches!(header[3], 2 | 3).then_some(header[3]))
-}
-
-/// Read just enough legacy metadata to avoid scheduling a permanent ID3v2.3
-/// lyrics compatibility exception as an exclusive repair on every album load.
-/// ID3v2.2 always needs at least a v2.3 rewrite; ID3v2.3 is already at its
-/// required target when it contains USLT/SYLT.
-pub(crate) fn legacy_mp3_upgrade_required(path: &Path) -> Result<bool, ApiError> {
-    let Some(version) = legacy_mp3_tag_version(path)? else {
-        return Ok(false);
-    };
-    if version == 2 {
-        return Ok(true);
-    }
-
-    let mut file = File::open(path)?;
-    let options = ParseOptions::new()
-        .read_properties(false)
-        .read_cover_art(false)
-        .parsing_mode(ParsingMode::Relaxed)
-        .implicit_conversions(false);
-    let parsed = MpegFile::read_from(&mut file, options)?;
-    Ok(!parsed.id3v2().is_some_and(tag_has_lyrics))
-}
-
-/// Upgrade an ID3v2.2/v2.3 MP3 through the same sibling-file validation used
-/// by normal metadata writes. Lyric-bearing tags retain ID3v2.3 for broad
-/// player compatibility; all other legacy tags become ID3v2.4.
-pub(crate) fn upgrade_legacy_mp3_tag_atomic(path: &Path) -> Result<TrackWriteOutcome, ApiError> {
-    let original_bytes = fs::read(path)?;
-    let Some(original_version) = legacy_mp3_version_from_bytes(&original_bytes) else {
-        return Ok(TrackWriteOutcome::Skipped);
-    };
-    let original_payload = mpeg_payload(&original_bytes)
-        .ok_or_else(|| ApiError::MediaSafety("invalid ID3v2 boundary".to_string()))?;
-    let before = read_track_metadata(path)?;
-    let mut tag = read_legacy_id3v2_for_upgrade(path)?;
-    let use_id3v23 = tag_has_lyrics(&tag);
-
-    if original_version == 3 && use_id3v23 {
-        return Ok(TrackWriteOutcome::Skipped);
-    }
-    if (&tag).into_iter().any(|frame| frame.id().is_outdated()) {
-        return Err(ApiError::MediaSafety(
-            "legacy MP3 contains an unmapped ID3v2.2 frame".to_string(),
-        ));
-    }
-
-    normalize_empty_id3_picture_descriptions(&mut tag, use_id3v23);
-    let expected_version = if use_id3v23 { 3 } else { 4 };
-    let temporary = sibling_temp_path(path);
-    let result = (|| {
-        write_loaded_file_data(&original_bytes, &temporary)?;
-        tag.save_to_path(&temporary, id3_write_options(use_id3v23))?;
-
-        let candidate_bytes = fs::read(&temporary)?;
-        if candidate_bytes.get(..4) != Some(&[b'I', b'D', b'3', expected_version]) {
-            let actual_version = candidate_bytes.get(3).copied();
-            return Err(ApiError::MediaSafety(format!(
-                "legacy MP3 tag upgrade expected ID3v2.{expected_version}, got {actual_version:?}"
-            )));
-        }
-        let candidate_payload = mpeg_payload(&candidate_bytes)
-            .ok_or_else(|| ApiError::MediaSafety("invalid upgraded ID3v2 boundary".to_string()))?;
-        if candidate_payload != original_payload {
-            return Err(ApiError::MediaSafety(
-                "MP3 audio payload changed during legacy tag upgrade".to_string(),
-            ));
-        }
-
-        let after = read_track_metadata(&temporary)?;
-        if !same_metadata(before, after) {
-            return Err(ApiError::MediaSafety(
-                "MP3 metadata changed unexpectedly during legacy tag upgrade".to_string(),
-            ));
-        }
-        replace_file_atomic(&temporary, path)?;
-        Ok(TrackWriteOutcome::Replaced)
-    })();
-
-    if temporary.exists() {
-        let _ = fs::remove_file(&temporary);
-    }
-    result
-}
-
-fn legacy_mp3_version_from_bytes(bytes: &[u8]) -> Option<u8> {
-    if bytes.get(..3) != Some(b"ID3") {
-        return None;
-    }
-    bytes
-        .get(3)
-        .copied()
-        .filter(|version| matches!(version, 2 | 3))
-}
-
-fn read_legacy_id3v2_for_upgrade(path: &Path) -> Result<Id3v2Tag, ApiError> {
-    let mut file = File::open(path)?;
-    let options = ParseOptions::new().read_properties(false);
-    match MpegFile::read_from(&mut file, options) {
-        Ok(parsed) => Ok(parsed.id3v2().cloned().unwrap_or_default()),
-        Err(error) if matches!(error.kind(), ErrorKind::BadTimestamp(_)) => {
-            let options = ParseOptions::new()
-                .read_properties(false)
-                .parsing_mode(ParsingMode::Relaxed)
-                .implicit_conversions(false);
-            let parsed = if let Some(bytes) = legacy_mp3_v22_parser_bytes(path)? {
-                let mut cursor = Cursor::new(bytes);
-                MpegFile::read_from(&mut cursor, options)?
-            } else {
-                let mut file = File::open(path)?;
-                MpegFile::read_from(&mut file, options)?
-            };
-            let mut tag = parsed.id3v2().cloned().unwrap_or_default();
-            normalize_legacy_timestamp_for_upgrade(path, &mut tag)?;
-            Ok(tag)
-        }
-        Err(error) => Err(error.into()),
-    }
-}
-
-fn normalize_legacy_timestamp_for_upgrade(path: &Path, tag: &mut Id3v2Tag) -> Result<(), ApiError> {
-    let raw = legacy_mp3_v22_year(path)
-        .or_else(|| tag.get_text(&frame_id("TYER")).map(ToOwned::to_owned))
-        .ok_or_else(|| {
-            ApiError::MediaSafety(
-                "legacy MP3 has an unsupported malformed timestamp frame".to_string(),
-            )
-        })?;
-    let canonical = canonical_legacy_recording_date(&raw).ok_or_else(|| {
-        ApiError::MediaSafety(format!(
-            "legacy MP3 year is not safely convertible: {raw:?}"
-        ))
-    })?;
-    let timestamp = canonical.parse().map_err(|_| {
-        ApiError::MediaSafety(format!(
-            "legacy MP3 year is not a valid recording date: {raw:?}"
-        ))
-    })?;
-
-    for id in ["TYER", "TDAT", "TIME", "TDRC"] {
-        drop(tag.remove(&frame_id(id)));
-    }
-    tag.insert(Frame::Timestamp(TimestampFrame::new(
-        frame_id("TDRC"),
-        TextEncoding::UTF8,
-        timestamp,
-    )));
-    Ok(())
-}
-
 fn read_flac(path: &Path) -> Result<FlacFile, ApiError> {
     let mut file = File::open(path)?;
     Ok(FlacFile::read_from(
@@ -3780,7 +3661,7 @@ fn wav_data_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
     (!ranges.is_empty()).then_some(ranges)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn wav_data_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     wav_data_ranges(bytes).map(|ranges| {
         ranges
@@ -3879,7 +3760,7 @@ fn wav_payloads_match<R: Read + Seek>(
 /// Strip the RIFF `LIST` chunk from a WAV byte buffer, returning a new
 /// buffer with the same audio payload but no LIST INFO metadata.
 /// The RIFF total size in the header is updated accordingly.
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn strip_wav_list_chunk(bytes: &[u8]) -> Vec<u8> {
     let mut out = Vec::with_capacity(bytes.len());
     if write_wav_without_list_info(bytes, &mut out).is_err() {
@@ -3962,7 +3843,7 @@ fn mp4_mdat_payload_ranges(bytes: &[u8]) -> Option<Vec<Range<usize>>> {
     (offset == bytes.len() && !payloads.is_empty()).then_some(payloads)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn mp4_mdat_payloads(bytes: &[u8]) -> Option<Vec<Vec<u8>>> {
     mp4_mdat_payload_ranges(bytes).map(|payloads| {
         payloads
@@ -4005,7 +3886,7 @@ fn ogg_audio_packet_ranges(bytes: &[u8], header_packets: usize) -> Option<Vec<Ve
     Some(packets.into_iter().skip(header_packets).collect())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 fn ogg_audio_packets(bytes: &[u8], header_packets: usize) -> Option<Vec<Vec<u8>>> {
     ogg_audio_packet_ranges(bytes, header_packets).map(|packets| {
         packets
@@ -4330,7 +4211,7 @@ pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io:
 }
 
 #[cfg(windows)]
-pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,
@@ -4450,10 +4331,9 @@ fn on_different_filesystem(path: &Path) -> bool {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
-    use crate::commands::tracks::read_extra_tags;
     use lofty::id3::v2::BinaryFrame;
     use lofty::picture::{MimeType, Picture, PictureInformation, PictureType};
 
@@ -4471,51 +4351,6 @@ mod tests {
 
     fn copy_fixture() -> (PathBuf, PathBuf) {
         copy_to_temp(&fixture(), "track.mp3")
-    }
-
-    fn syncsafe_test_size(value: usize) -> [u8; 4] {
-        [
-            ((value >> 21) & 0x7f) as u8,
-            ((value >> 14) & 0x7f) as u8,
-            ((value >> 7) & 0x7f) as u8,
-            (value & 0x7f) as u8,
-        ]
-    }
-
-    fn append_id3v22_frame(frames: &mut Vec<u8>, id: &[u8; 3], payload: &[u8]) {
-        frames.extend_from_slice(id);
-        frames.extend_from_slice(&[
-            ((payload.len() >> 16) & 0xff) as u8,
-            ((payload.len() >> 8) & 0xff) as u8,
-            (payload.len() & 0xff) as u8,
-        ]);
-        frames.extend_from_slice(payload);
-    }
-
-    fn install_id3v22(path: &Path, lyrics: bool) {
-        install_id3v22_with_year(path, lyrics, "2016", false);
-    }
-
-    fn install_id3v22_with_year(path: &Path, lyrics: bool, year: &str, unknown: bool) {
-        let source = fs::read(path).unwrap();
-        let payload = mpeg_payload(&source).unwrap();
-        let mut frames = Vec::new();
-        append_id3v22_frame(&mut frames, b"TT2", b"\0Legacy V2");
-        append_id3v22_frame(&mut frames, b"TP1", b"\0Legacy Artist");
-        append_id3v22_frame(&mut frames, b"TAL", b"\0Legacy Album");
-        append_id3v22_frame(&mut frames, b"TRK", b"\x001/1");
-        append_id3v22_frame(&mut frames, b"TYE", &[&[0][..], year.as_bytes()].concat());
-        if lyrics {
-            append_id3v22_frame(&mut frames, b"ULT", b"\0eng\0legacy lyrics");
-        }
-        if unknown {
-            append_id3v22_frame(&mut frames, b"ZZZ", b"preserve-me");
-        }
-        let mut bytes = Vec::from(&b"ID3\x02\0\0"[..]);
-        bytes.extend_from_slice(&syncsafe_test_size(frames.len()));
-        bytes.extend_from_slice(&frames);
-        bytes.extend_from_slice(payload);
-        fs::write(path, bytes).unwrap();
     }
 
     fn writer_fixture(name: &str) -> PathBuf {
@@ -4568,33 +4403,6 @@ mod tests {
         payload.extend_from_slice(&[0, 0, 3]);
         payload.extend_from_slice(title.as_bytes());
         payload
-    }
-
-    fn append_id3v23_text_frame(frames: &mut Vec<u8>, id: &[u8; 4], value: &str) {
-        let mut payload = vec![3];
-        payload.extend_from_slice(value.as_bytes());
-        frames.extend_from_slice(id);
-        frames.extend_from_slice(&(payload.len() as u32).to_be_bytes());
-        frames.extend_from_slice(&[0, 0]);
-        frames.extend_from_slice(&payload);
-    }
-
-    fn install_conflicting_id3_prefix(path: &Path) {
-        let source = fs::read(path).unwrap();
-        let marker = source
-            .windows(4)
-            .position(|window| window == b"fLaC")
-            .unwrap();
-        let mut frames = Vec::new();
-        append_id3v23_text_frame(&mut frames, b"TIT2", "Legacy title");
-        append_id3v23_text_frame(&mut frames, b"TALB", "Legacy album");
-        append_id3v23_text_frame(&mut frames, b"TPE1", "Legacy artist");
-        append_id3v23_text_frame(&mut frames, b"TRCK", "9/9");
-        let mut id3 = b"ID3\x03\0\0".to_vec();
-        id3.extend_from_slice(&syncsafe_test_size(frames.len()));
-        id3.extend_from_slice(&frames);
-        id3.extend_from_slice(&source[marker..]);
-        fs::write(path, id3).unwrap();
     }
 
     fn make_wav_8bit_mono(bytes: &mut [u8]) {
@@ -4859,150 +4667,6 @@ mod tests {
             TrackWriteOutcome::Skipped
         );
         assert_eq!(fs::read(&path).unwrap(), before);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn legacy_id3v23_upgrade_preserves_unknown_frames_artwork_and_payload() {
-        let (root, path) = copy_fixture();
-        let mut tag = read_id3v2(&path).unwrap();
-        drop(tag.remove(&frame_id("USLT")));
-        drop(tag.remove(&frame_id("SYLT")));
-        tag.insert(Frame::Binary(BinaryFrame::new(
-            frame_id("XZZZ"),
-            b"preserve-me".to_vec(),
-        )));
-        tag.save_to_path(&path, WriteOptions::new().use_id3v23(true))
-            .unwrap();
-        let before_tag = read_id3v2(&path).unwrap();
-        let before_pictures = (&before_tag)
-            .into_iter()
-            .filter_map(|frame| match frame {
-                Frame::Picture(picture) => Some(picture.picture.data().to_vec()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        let before = fs::read(&path).unwrap();
-        let before_payload = mpeg_payload(&before).unwrap().to_vec();
-
-        assert_eq!(
-            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-            TrackWriteOutcome::Replaced
-        );
-
-        let after = fs::read(&path).unwrap();
-        assert_eq!(&after[..4], b"ID3\x04");
-        assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
-        let after_tag = read_id3v2(&path).unwrap();
-        let unknown = after_tag
-            .get(&frame_id("XZZZ"))
-            .and_then(|frame| match frame {
-                Frame::Binary(frame) => Some(frame.data.as_ref()),
-                _ => None,
-            });
-        assert_eq!(unknown, Some(b"preserve-me".as_slice()));
-        let after_pictures = (&after_tag)
-            .into_iter()
-            .filter_map(|frame| match frame {
-                Frame::Picture(picture) => Some(picture.picture.data().to_vec()),
-                _ => None,
-            })
-            .collect::<Vec<_>>();
-        assert_eq!(after_pictures, before_pictures);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn legacy_id3v22_upgrades_to_v4_or_v3_for_lyrics() {
-        for (lyrics, expected_version) in [(false, 4_u8), (true, 3_u8)] {
-            let (root, path) = copy_fixture();
-            install_id3v22(&path, lyrics);
-            let before = fs::read(&path).unwrap();
-            let before_payload = mpeg_payload(&before).unwrap().to_vec();
-
-            assert_eq!(
-                upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-                TrackWriteOutcome::Replaced
-            );
-
-            let after = fs::read(&path).unwrap();
-            assert_eq!(after[3], expected_version);
-            assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
-            let track = read_track_metadata(&path).unwrap();
-            assert_eq!(track.title.as_deref(), Some("Legacy V2"));
-            assert_eq!(track.artist.as_deref(), Some("Legacy Artist"));
-            assert_eq!(track.year.as_deref(), Some("2016"));
-            fs::remove_dir_all(root).unwrap();
-        }
-    }
-
-    #[test]
-    fn legacy_id3v22_malformed_year_upgrades_and_preserves_display_year() {
-        for year in ["2016.12.26", "2016/12/26"] {
-            let (root, path) = copy_fixture();
-            install_id3v22_with_year(&path, false, year, false);
-            let before = fs::read(&path).unwrap();
-            let before_payload = mpeg_payload(&before).unwrap().to_vec();
-            assert_eq!(
-                read_track_metadata(&path).unwrap().year.as_deref(),
-                Some("2016")
-            );
-
-            assert_eq!(
-                upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-                TrackWriteOutcome::Replaced
-            );
-
-            let after = fs::read(&path).unwrap();
-            assert_eq!(&after[..4], b"ID3\x04");
-            assert_eq!(mpeg_payload(&after).unwrap(), before_payload);
-            assert_eq!(
-                read_track_metadata(&path).unwrap().year.as_deref(),
-                Some("2016")
-            );
-            fs::remove_dir_all(root).unwrap();
-        }
-    }
-
-    #[test]
-    fn legacy_id3v22_unknown_frame_aborts_without_mutation() {
-        let (root, path) = copy_fixture();
-        install_id3v22_with_year(&path, false, "2016", true);
-        let original = fs::read(&path).unwrap();
-
-        let result = upgrade_legacy_mp3_tag_atomic(&path);
-
-        assert!(matches!(result, Err(ApiError::MediaSafety(_))));
-        assert_eq!(fs::read(&path).unwrap(), original);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
-    fn current_or_untagged_mp3_is_not_rewritten_by_legacy_upgrade() {
-        let (root, path) = copy_fixture();
-        let before = fs::read(&path).unwrap();
-        assert_eq!(
-            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-            TrackWriteOutcome::Skipped
-        );
-        assert_eq!(fs::read(&path).unwrap(), before);
-
-        let untagged = mpeg_payload(&before).unwrap().to_vec();
-        fs::write(&path, &untagged).unwrap();
-        assert_eq!(
-            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-            TrackWriteOutcome::Skipped
-        );
-        assert_eq!(fs::read(&path).unwrap(), untagged);
-
-        let mut unknown_version = before;
-        unknown_version[3] = 5;
-        fs::write(&path, &unknown_version).unwrap();
-        assert_eq!(
-            upgrade_legacy_mp3_tag_atomic(&path).unwrap(),
-            TrackWriteOutcome::Skipped
-        );
-        assert_eq!(fs::read(&path).unwrap(), unknown_version);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -6363,46 +6027,6 @@ mod tests {
     }
 
     #[test]
-    fn flac_dual_tag_readback_prefers_canonical_vorbis_and_preserves_audio() {
-        let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "dual-tag.flac");
-        install_conflicting_id3_prefix(&path);
-        // This is the Wild Child failure shape: a stale legacy ID3 album is
-        // present ahead of the canonical Vorbis comments in the container.
-        // The reader must already prefer Vorbis before any write takes place.
-        let before_read = read_track_metadata(&path).unwrap();
-        assert_eq!(before_read.album.as_deref(), Some("Corpus Album"));
-        let before = fs::read(&path).unwrap();
-        let before_audio = flac_audio_payload(&before).unwrap().to_vec();
-        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
-            "title": "Canonical title",
-            "artist": "Canonical artist",
-            "album": "Canonical album",
-            "year": "2024",
-            "trackNumber": 2,
-            "trackTotal": 3,
-            "discNumber": 1,
-            "discTotal": 1,
-            "musicbrainzAlbumId": "mb-album",
-            "discogsReleaseId": "544115"
-        }))
-        .unwrap();
-        write_flac_atomic(&path, &patch).unwrap();
-        let read = read_track_metadata(&path).unwrap();
-        assert_eq!(read.title.as_deref(), Some("Canonical title"));
-        assert_eq!(read.artist.as_deref(), Some("Canonical artist"));
-        assert_eq!(read.album.as_deref(), Some("Canonical album"));
-        assert_eq!(read.year.as_deref(), Some("2024"));
-        assert_eq!(read.track_number, Some(2));
-        assert_eq!(read.discogs_release_id.as_deref(), Some("544115"));
-        assert_eq!(read.genre.as_deref(), Some("Electronic"));
-        assert!(read_extra_tags(&path)
-            .into_iter()
-            .any(|tag| tag.key.eq_ignore_ascii_case("encoder") && tag.value == "Lavf62.12.101"));
-        assert_eq!(flac_audio_payload(&fs::read(&path).unwrap()).unwrap(), before_audio);
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[test]
     fn flac_inplace_fits_with_padding() {
         // padded.flac has ample PADDING — the in-place fast path should succeed.
         let (root, path) = copy_to_temp(&writer_fixture("padded.flac"), "inplace-padded.flac");
@@ -7496,9 +7120,13 @@ mod tests {
                 .push((current, total));
         }) as TrackWriteProgress;
 
-        let result = batch_write_with_exclusive_queue_held(updates, Some(progress))
-            .await
-            .unwrap();
+        let result = batch_write_with_exclusive_queue_held(
+            updates,
+            Some(progress),
+            WriteQueue::default().max_folder_concurrency(),
+        )
+        .await
+        .unwrap();
 
         assert_eq!(result.successes.len(), 1);
         assert_eq!(result.failures.len(), 1);
@@ -7748,16 +7376,6 @@ mod tests {
         let groups = group_by_folder(updates);
         assert_eq!(groups.len(), 1);
         assert_eq!(groups.get(Path::new("/single")).map(|v| v.len()), Some(1));
-    }
-
-    /// Intent: the measured cross-folder default should use four workers while
-    /// preserving an explicit user override for slower storage.
-    #[test]
-    fn effective_write_concurrency_uses_measured_default_and_override() {
-        assert_eq!(effective_write_concurrency(None), 4);
-        assert_eq!(effective_write_concurrency(Some(0)), 4);
-        assert_eq!(effective_write_concurrency(Some(1)), 1);
-        assert_eq!(effective_write_concurrency(Some(8)), 8);
     }
 
     #[test]

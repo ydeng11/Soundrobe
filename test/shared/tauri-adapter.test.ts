@@ -27,6 +27,7 @@ const CHANNEL_PARITY: Array<{
   args: Record<string, unknown>;
 }> = [
   { method: "appInfo", command: "app_info", args: {} },
+  { method: "listLibraryRoots", command: "library_list_roots", args: {} },
   { method: "checkForUpdate", command: "updater_check", args: {} },
   { method: "scanLibrary", command: "library_scan", args: { dirPath: "/lib" } },
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },

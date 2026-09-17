@@ -11,6 +11,8 @@
 # Project specific
 .env
 .env.local
+.env.web
+.soundrobe-web-local/
 *.log
 .cache/
 cache.db

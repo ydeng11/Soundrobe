@@ -280,7 +280,36 @@ describe("SettingsModal", () => {
       expect(setConfig).toHaveBeenCalledWith("chineseScript", null);
     });
 
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith("assistantAutonomous", false);
+    });
+
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the provider base URL when the provider is reset", async () => {
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api = {
+      getConfig: vi.fn().mockResolvedValue({
+        llmModel: "model",
+        llmProvider: "openrouter",
+        llmBaseUrl: "https://old.example/v1",
+      }),
+      setConfig,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+    await screen.findByDisplayValue("model");
+
+    const provider = screen.getByDisplayValue("OpenRouter") as HTMLSelectElement;
+    fireEvent.change(provider, { target: { value: "" } });
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith("llmBaseUrl", null);
+    });
   });
 
   it("saves chineseScript as simplified when Simplified Chinese is selected", async () => {

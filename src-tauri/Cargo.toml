@@ -1,7 +1,7 @@
 [package]
 name = "soundrobe"
 version = "0.1.11"
-description = "Desktop audio file tag editor — Tauri 2 shell (Electron migration)"
+description = "Audio metadata editor with desktop and headless web runtimes"
 authors = ["Soundrobe Contributors"]
 license = "MIT"
 homepage = "https://github.com/ydeng11/Soundrobe"
@@ -13,14 +13,27 @@ edition = "2021"
 name = "soundrobe_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[[bin]]
+name = "soundrobe"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[[bin]]
+name = "soundrobe-server"
+path = "src/bin/soundrobe-server.rs"
+required-features = ["server"]
+
 [build-dependencies]
-tauri-build = { version = "2.6", features = [] }
+tauri-build = { version = "2.6", features = [], optional = true }
 
 [dependencies]
-tauri = { version = "2.11", features = [] }
-tauri-plugin-dialog = "2.7"
-tauri-plugin-clipboard-manager = "2.3"
-tauri-plugin-updater = "2.10.1"
+tauri = { version = "2.11", features = [], optional = true }
+tauri-plugin-dialog = { version = "2.7", optional = true }
+tauri-plugin-clipboard-manager = { version = "2.3", optional = true }
+tauri-plugin-updater = { version = "2.10.1", optional = true }
+axum = { version = "0.8", optional = true }
+tower = { version = "0.5", features = ["util"], optional = true }
+tower-http = { version = "0.6", features = ["fs"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"
@@ -28,7 +41,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2"
 anyhow = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "fs", "io-util", "signal"] }
 dirs = "6"
 # Reader plus format-by-format writer cores, enabled only behind differential
 # media-safety tests before command exposure.
@@ -48,6 +61,10 @@ opencc-fmmseg = "0.11"
 sha2 = "0.10"
 regex = "1"
 semver = "1"
+subtle = { version = "2", optional = true }
+tokio-util = { version = "0.7", optional = true }
+futures-util = { version = "0.3", optional = true }
+url = { version = "2", optional = true }
 tauri-plugin-wdio = { version = "1", optional = true }
 tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 
@@ -61,10 +78,18 @@ tauri-plugin-wdio-webdriver = { version = "1", optional = true }
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_Threading"] }
 
 [features]
-# Production build hides the embedded dev server URL and ships the packaged
-# renderer from `frontendDist`. Default is the dev shell.
-default = []
-wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
+# Desktop remains the default for Tauri CLI compatibility. The server feature
+# deliberately excludes Tauri/WebKit and builds only the headless binary.
+default = ["desktop"]
+desktop = [
+  "dep:tauri-build",
+  "dep:tauri",
+  "dep:tauri-plugin-dialog",
+  "dep:tauri-plugin-clipboard-manager",
+  "dep:tauri-plugin-updater",
+]
+server = ["dep:axum", "dep:tower", "dep:tower-http", "dep:subtle", "dep:tokio-util", "dep:futures-util", "dep:url"]
+wdio = ["desktop", "dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
 
 # memchr uses explicit SIMD intrinsics (SSE2/AVX2 on x86_64, NEON on aarch64)
 # that need at least -O1 to inline and eliminate loop overhead.  Compiling it
