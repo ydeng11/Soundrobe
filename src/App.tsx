@@ -71,6 +71,7 @@ import { WebLibraryPicker } from "./components/WebLibraryPicker";
 import { WebServiceShell, type WebServiceView } from "./components/WebServiceShell";
 import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
 import { WebSettingsPage } from "./components/WebSettingsPage";
+import { WebWorkspaceSettingsDrawer } from "./components/WebWorkspaceSettingsDrawer";
 import { WebHomeView } from "./components/WebHomeView";
 import {
   getWebSession,
@@ -121,6 +122,7 @@ export default function App() {
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
   const [webLibraryPickerOpen, setWebLibraryPickerOpen] = React.useState(webRuntime);
   const [webWorkspaceSettingsOpen, setWebWorkspaceSettingsOpen] = React.useState(false);
+  const [webDetailsVisible, setWebDetailsVisible] = React.useState(true);
   const libraryLoadIdRef = useRef(0);
   const webCoverInputRef = useRef<HTMLInputElement | null>(null);
   const webCoverTargetRef = useRef<string | null>(null);
@@ -2949,6 +2951,7 @@ export default function App() {
           {webView === "workspace" && !webLibraryPickerOpen && (
             <button type="button" className="web-workspace-detail-toggle" aria-label="Workspace settings" title="Workspace settings" onClick={() => setWebWorkspaceSettingsOpen(true)}>
               <WorkspaceSettingsIcon />
+              <span>Settings</span>
             </button>
           )}
           <button type="button" onClick={handleChangeWebLibrary} className="web-button-secondary">Change library</button>
@@ -2962,7 +2965,7 @@ export default function App() {
       <div className="web-workspace-panes">
         <div className="web-folder-pane"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
         <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} webSort={webSort} onWebSortChange={setWebSort} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
-        <aside className="web-editor-pane">
+        <aside className={webDetailsVisible ? "web-editor-pane" : "web-editor-pane hidden"}>
           {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="web-file-details-empty"><p className="web-eyebrow">File details</p><h2>Select a track to begin</h2><p>Choose a file from the workspace to inspect and edit its metadata.</p></div>}
         </aside>
       </div>
@@ -3035,7 +3038,14 @@ export default function App() {
           </div>
         )}
         {webView === "workspace" && state.libraryPath && !webLibraryPickerOpen && webWorkspaceSettingsOpen && (
-          <WebSettingsPage presentation="drawer" onClose={() => setWebWorkspaceSettingsOpen(false)} />
+          <WebWorkspaceSettingsDrawer
+            detailsVisible={webDetailsVisible}
+            onApply={(detailsVisible) => {
+              setWebDetailsVisible(detailsVisible);
+              setWebWorkspaceSettingsOpen(false);
+            }}
+            onClose={() => setWebWorkspaceSettingsOpen(false)}
+          />
         )}
         {settingsModal}
       </WebServiceShell>

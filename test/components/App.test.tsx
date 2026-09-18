@@ -246,6 +246,7 @@ describe("App — batch save progress", () => {
 
     const workspace = await screen.findByTestId("web-library-workspace");
     expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workspace settings" }).textContent).toContain("Settings");
     expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
     const filter = screen.getByRole("searchbox", { name: "Filter workspace" });
     expect(filter).toBeTruthy();

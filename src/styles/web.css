@@ -149,7 +149,8 @@
 .web-workspace-toolbar-spacer { flex: 1; }
 .web-workspace-toolbar-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
 .web-workspace-sort-direction, .web-workspace-sort select, .web-workspace-detail-toggle { height: 29px; border: 1px solid var(--web-border); border-radius: 8px; color: var(--web-muted); background: var(--web-surface-soft); font-size: 11px; }
-.web-workspace-sort-direction, .web-workspace-detail-toggle { display: inline-flex; width: 29px; align-items: center; justify-content: center; cursor: pointer; }
+.web-workspace-sort-direction { display: inline-flex; width: 29px; align-items: center; justify-content: center; cursor: pointer; }
+.web-workspace-detail-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 0 9px; cursor: pointer; font-weight: 650; }
 .web-workspace-sort-direction:hover, .web-workspace-sort select:hover, .web-workspace-detail-toggle:hover { border-color: #d7d0ef; color: var(--web-plum); }
 .web-workspace-sort-direction:focus-visible, .web-workspace-sort select:focus-visible, .web-workspace-detail-toggle:focus-visible { outline: 2px solid rgba(155,124,247,.45); outline-offset: 1px; }
 .web-workspace-sort-direction svg { width: 14px; height: 14px; }
@@ -163,6 +164,22 @@
 .web-file-details-empty { display: flex; width: 100%; min-height: 100%; flex-direction: column; align-items: flex-start; justify-content: center; padding: 36px; background: radial-gradient(circle at 80% 18%, rgba(155,124,247,.09), transparent 32%), #fbfcff; }
 .web-file-details-empty h2 { max-width: 230px; margin: 0; color: var(--web-text); font-size: 22px; font-weight: 750; letter-spacing: -.04em; line-height: 1.1; }
 .web-file-details-empty p:last-child { max-width: 250px; margin: 10px 0 0; color: var(--web-muted); font-size: 12px; line-height: 1.6; }
+
+.web-workspace-settings-backdrop { position: fixed; z-index: 70; inset: 0; display: flex; align-items: stretch; background: rgba(38, 37, 45, .38); }
+.web-workspace-settings-drawer { display: flex; width: min(380px, 100vw); flex-direction: column; outline: 0; background: #fff; box-shadow: 18px 0 40px rgba(31, 28, 45, .2); }
+.web-workspace-settings-header { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 13px; border-bottom: 2px solid var(--web-lilac); }
+.web-workspace-settings-header h2 { margin: 0; color: var(--web-text); font-size: 14px; font-weight: 750; }
+.web-workspace-settings-header > div { display: flex; align-items: center; gap: 8px; }
+.web-workspace-settings-header .web-button-primary { padding: 6px 9px; font-size: 11px; }
+.web-workspace-settings-body { flex: 1; overflow: auto; padding: 14px; }
+.web-workspace-settings-section { margin: 0 0 10px; padding-left: 8px; border-left: 2px solid var(--web-lilac); color: var(--web-text); font-size: 12px; font-weight: 750; }
+.web-workspace-settings-section span { margin-left: 7px; color: var(--web-muted); font-size: 10px; font-weight: 600; }
+.web-workspace-settings-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 12px 8px 18px; }
+.web-workspace-settings-switch { position: relative; display: inline-flex; width: 30px; height: 17px; flex: 0 0 auto; margin-top: 2px; padding: 0; border: 0; border-radius: 999px; background: #aeb4bf; cursor: pointer; }
+.web-workspace-settings-switch span { position: absolute; top: 2px; left: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s ease; }
+.web-workspace-settings-switch.is-enabled { background: var(--web-lilac); }
+.web-workspace-settings-switch.is-enabled span { transform: translateX(13px); }
+.web-workspace-settings-note { margin: 0 8px; color: var(--web-muted); font-size: 11px; line-height: 1.55; }
 .web-folder-sidebar { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; background: #fff; color: var(--web-text); }
 .web-folder-sidebar-heading { padding: 14px 16px 12px; border-bottom: 1px solid var(--web-border); }
 .web-folder-sidebar-heading .web-rail-label { margin: 0 0 6px; }
