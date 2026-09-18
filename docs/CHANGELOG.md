@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser Settings now keeps saving unavailable until configuration loads
   successfully, tests protected provider credentials after a masked key is
   cleared, and sorts the browser Format column by codec.
+- Browser Workspace remains reachable with its editor draft after opening and
+  closing the Change library picker, while compact navigation and workspace
+  filtering remain accessible on narrow screens.
 
 ### Added
 

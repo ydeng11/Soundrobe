@@ -1759,7 +1759,10 @@ export default function App() {
 
   const handleWebViewChange = useCallback((view: WebServiceView) => {
     setWebView(view);
-  }, []);
+    if (view === "workspace" && state.libraryPath) {
+      setWebLibraryPickerOpen(false);
+    }
+  }, [state.libraryPath]);
 
   // --- Assistant ---
 

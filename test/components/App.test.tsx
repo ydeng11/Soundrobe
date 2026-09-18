@@ -389,6 +389,35 @@ describe("App — batch save progress", () => {
     fetchMock.mockRestore();
   });
 
+  it("restores the loaded workspace and editor draft after Change library then Workspace", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "Draft title" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change library" }));
+    expect(await screen.findByText("Choose a library")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+    const workspace = await screen.findByTestId("web-library-workspace");
+    expect(workspace.className).not.toContain("hidden");
+    expect(screen.queryByText("Choose a library")).toBeNull();
+    expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(workspace.parentElement?.getAttribute("aria-hidden")).toBe("false");
+    expect(workspace.querySelector('[placeholder="Track title"]')).toBeTruthy();
+    expect((screen.getByPlaceholderText("Track title") as HTMLInputElement).value).toBe(
+      "Draft title",
+    );
+
+    fetchMock.mockRestore();
+  });
+
   it("uploads a browser-selected cover without invoking the native picker", async () => {
     window.__SOUNDROBE_RUNTIME__ = "web";
     const fetchMock = vi

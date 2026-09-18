@@ -228,8 +228,8 @@
 }
 @media (max-width: 700px) {
   .web-header { gap: 9px; margin: 8px 8px 0; padding: 0 10px; }
-  .web-search { width: 34px; padding: 0 9px; }
-  .web-search input, .web-search kbd { display: none; }
+  .web-search { width: min(220px, 40vw); min-width: 0; padding: 0 9px; }
+  .web-search kbd { display: none; }
   .web-body { gap: 8px; padding: 8px; }
   .web-rail { flex-basis: 52px; }
   .web-rail-nav { padding: 12px 6px; }

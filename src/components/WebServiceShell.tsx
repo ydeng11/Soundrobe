@@ -56,7 +56,6 @@ export function WebServiceShell({
             disabled={!searchEnabled}
             onChange={(event) => onSearchChange?.(event.target.value)}
           />
-          <kbd>⌘ K</kbd>
         </label>
         <span className="web-session" title="Session active"><span aria-hidden="true" />Session active</span>
         {onLogout && <button type="button" className="web-account" onClick={onLogout} aria-label="Sign out">Sign out</button>}
@@ -72,6 +71,7 @@ export function WebServiceShell({
                 <button
                   key={view}
                   type="button"
+                  aria-label={label}
                   aria-current={selected ? "page" : undefined}
                   onClick={() => onViewChange?.(view)}
                   className={`web-nav-item ${selected ? "is-selected" : ""}`}
