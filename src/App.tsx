@@ -23,7 +23,7 @@ import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
-import { FileGrid, type WebSort } from "./components/FileGrid";
+import { FileGrid, type WebFileColumn, type WebSort } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
@@ -123,6 +123,7 @@ export default function App() {
   const [webLibraryPickerOpen, setWebLibraryPickerOpen] = React.useState(webRuntime);
   const [webWorkspaceSettingsOpen, setWebWorkspaceSettingsOpen] = React.useState(false);
   const [webDetailsVisible, setWebDetailsVisible] = React.useState(true);
+  const [webVisibleColumns, setWebVisibleColumns] = React.useState<WebFileColumn[]>(["filename", "title", "artist", "year", "track", "bitrate"]);
   const libraryLoadIdRef = useRef(0);
   const webCoverInputRef = useRef<HTMLInputElement | null>(null);
   const webCoverTargetRef = useRef<string | null>(null);
@@ -2964,7 +2965,7 @@ export default function App() {
       {state.error && <div role="alert" className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-5">{state.error}</div>}
       <div className="web-workspace-panes">
         <div className="web-folder-pane"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
-        <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} webSort={webSort} onWebSortChange={setWebSort} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
+        <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} webSort={webSort} onWebSortChange={setWebSort} webVisibleColumns={webVisibleColumns} onWebVisibleColumnsChange={setWebVisibleColumns} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
         <aside className={webDetailsVisible ? "web-editor-pane" : "web-editor-pane hidden"}>
           {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="web-file-details-empty"><p className="web-eyebrow">File details</p><h2>Select a track to begin</h2><p>Choose a file from the workspace to inspect and edit its metadata.</p></div>}
         </aside>
@@ -3040,8 +3041,10 @@ export default function App() {
         {webView === "workspace" && state.libraryPath && !webLibraryPickerOpen && webWorkspaceSettingsOpen && (
           <WebWorkspaceSettingsDrawer
             detailsVisible={webDetailsVisible}
-            onApply={(detailsVisible) => {
+            visibleColumns={webVisibleColumns}
+            onApply={(detailsVisible, visibleColumns) => {
               setWebDetailsVisible(detailsVisible);
+              setWebVisibleColumns(visibleColumns);
               setWebWorkspaceSettingsOpen(false);
             }}
             onClose={() => setWebWorkspaceSettingsOpen(false)}

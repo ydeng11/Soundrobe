@@ -21,6 +21,16 @@ export type WebSort = {
   ascending: boolean;
 };
 
+export type WebFileColumn = "filename" | "title" | "artist" | "year" | "track" | "bitrate";
+export const WEB_FILE_COLUMNS: Array<{ key: WebFileColumn; label: string }> = [
+  { key: "filename", label: "Location" },
+  { key: "title", label: "Title" },
+  { key: "artist", label: "Artist" },
+  { key: "year", label: "Year" },
+  { key: "track", label: "Track" },
+  { key: "bitrate", label: "Format" },
+];
+
 interface Column {
   key: SortKey;
   label: string;
@@ -96,6 +106,9 @@ interface FileGridProps {
   webSort?: WebSort;
   /** Receives browser toolbar/table sort updates when webSort is controlled. */
   onWebSortChange?: (sort: WebSort) => void;
+  /** Optional browser-owned visible columns. Desktop keeps its local chooser. */
+  webVisibleColumns?: WebFileColumn[];
+  onWebVisibleColumnsChange?: (columns: WebFileColumn[]) => void;
 }
 
 export function FileGrid({
@@ -113,6 +126,8 @@ export function FileGrid({
   webActive = false,
   webSort,
   onWebSortChange,
+  webVisibleColumns,
+  onWebVisibleColumnsChange,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
@@ -123,9 +138,12 @@ export function FileGrid({
   );
 
   // Memoize visible column descriptors — stable identity while visible set is unchanged
+  const activeVisibleColumns = web && webVisibleColumns
+    ? new Set<string>(webVisibleColumns)
+    : visibleColumns;
   const COLUMNS = useMemo(
-    () => (web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => visibleColumns.has(c.key)),
-    [visibleColumns, web]
+    () => (web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => activeVisibleColumns.has(c.key)),
+    [activeVisibleColumns, web]
   );
 
   // Derive multi-selected paths from props instead of mirroring in local state
@@ -293,6 +311,18 @@ export function FileGrid({
   }, [contextMenu]);
 
   const toggleColumn = useCallback((key: string) => {
+    if (web && webVisibleColumns && onWebVisibleColumnsChange) {
+      const webKey = key as WebFileColumn;
+      const current = new Set(webVisibleColumns);
+      if (current.has(webKey)) {
+        if (current.size <= 1) return;
+        current.delete(webKey);
+      } else {
+        current.add(webKey);
+      }
+      onWebVisibleColumnsChange(WEB_FILE_COLUMNS.map((column) => column.key).filter((column) => current.has(column)));
+      return;
+    }
     setVisibleColumns((prev) => {
       const next = new Set(prev);
       // Don't allow hiding the last column
@@ -304,7 +334,7 @@ export function FileGrid({
       }
       return next;
     });
-  }, []);
+  }, [onWebVisibleColumnsChange, web, webVisibleColumns]);
 
   const activeSortKey = web && webSort ? webSort.key : sortKey;
   const activeSortAscending = web && webSort ? webSort.ascending : sortAsc;

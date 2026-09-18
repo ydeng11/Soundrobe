@@ -10,7 +10,7 @@ describe("WebWorkspaceSettingsDrawer", () => {
   it("applies the draft detail preference only when Apply is chosen", () => {
     const onApply = vi.fn();
     const onClose = vi.fn();
-    render(<WebWorkspaceSettingsDrawer detailsVisible onApply={onApply} onClose={onClose} />);
+    render(<WebWorkspaceSettingsDrawer detailsVisible visibleColumns={["filename", "title"]} onApply={onApply} onClose={onClose} />);
 
     expect(screen.getByRole("dialog", { name: "Workspace settings" })).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Show file details" }).getAttribute("aria-checked")).toBe("true");
@@ -24,10 +24,20 @@ describe("WebWorkspaceSettingsDrawer", () => {
 
   it("commits the detail preference through Apply", () => {
     const onApply = vi.fn();
-    render(<WebWorkspaceSettingsDrawer detailsVisible onApply={onApply} onClose={vi.fn()} />);
+    render(<WebWorkspaceSettingsDrawer detailsVisible visibleColumns={["filename", "title"]} onApply={onApply} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("switch", { name: "Show file details" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
-    expect(onApply).toHaveBeenCalledWith(false);
+    expect(onApply).toHaveBeenCalledWith(false, ["filename", "title"]);
+  });
+
+  it("applies selected file columns while keeping at least one visible", () => {
+    const onApply = vi.fn();
+    render(<WebWorkspaceSettingsDrawer detailsVisible visibleColumns={["filename", "title"]} onApply={onApply} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Title" }));
+    expect((screen.getByRole("checkbox", { name: "Location" }) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(onApply).toHaveBeenCalledWith(true, ["filename"]);
   });
 });
