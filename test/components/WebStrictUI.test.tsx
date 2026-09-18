@@ -57,51 +57,21 @@ describe("strict browser service UI", () => {
     expect(onViewChange).toHaveBeenCalledWith("workspace");
   });
 
-  it("owns the browser search field and disables it when no root is loaded", () => {
-    const onSearchChange = vi.fn();
+  it("does not place the workspace filter in the global shell", () => {
     const { rerender } = render(
-      <WebServiceShell activeView="home" searchText="" onSearchChange={onSearchChange}>
+      <WebServiceShell activeView="home">
         <p>Home content</p>
       </WebServiceShell>,
     );
 
-    const search = screen.getByRole("searchbox", { name: "Filter workspace" });
-    expect((search as HTMLInputElement).disabled).toBe(true);
+    expect(screen.queryByRole("searchbox", { name: "Filter workspace" })).toBeNull();
 
     rerender(
-      <WebServiceShell
-        activeView="workspace"
-        searchText=""
-        searchEnabled
-        onSearchChange={onSearchChange}
-      >
+      <WebServiceShell activeView="workspace">
         <p>Workspace content</p>
       </WebServiceShell>,
     );
-    fireEvent.change(screen.getByRole("searchbox", { name: "Filter workspace" }), {
-      target: { value: "jazz" },
-    });
-    expect(onSearchChange).toHaveBeenCalledWith("jazz");
-  });
-
-  it("keeps the workspace filter available without advertising an unsupported shortcut", () => {
-    const onSearchChange = vi.fn();
-    render(
-      <WebServiceShell
-        activeView="workspace"
-        searchText=""
-        searchEnabled
-        onSearchChange={onSearchChange}
-      >
-        <p>Workspace content</p>
-      </WebServiceShell>,
-    );
-
-    const search = screen.getByRole("searchbox", { name: "Filter workspace" });
-    expect((search as HTMLInputElement).disabled).toBe(false);
-    expect(screen.queryByText("⌘ K")).toBeNull();
-    fireEvent.change(search, { target: { value: "jazz" } });
-    expect(onSearchChange).toHaveBeenCalledWith("jazz");
+    expect(screen.queryByRole("searchbox", { name: "Filter workspace" })).toBeNull();
   });
 
   it("keeps navigation buttons named when their visual labels are compacted", () => {

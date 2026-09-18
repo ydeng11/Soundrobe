@@ -225,7 +225,7 @@ describe("App — batch save progress", () => {
     await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/classical"));
     expect(window.api.scanLibrary).not.toHaveBeenCalledWith("/libraries/jazz");
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh library" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     await waitFor(() => {
       const calls = (window.api.scanLibrary as ReturnType<typeof vi.fn>).mock.calls;
       expect(calls.filter(([path]) => path === "/libraries/classical")).toHaveLength(2);
@@ -245,8 +245,14 @@ describe("App — batch save progress", () => {
 
     const workspace = await screen.findByTestId("web-library-workspace");
     expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
+    const filter = screen.getByRole("searchbox", { name: "Filter workspace" });
+    expect(filter).toBeTruthy();
+    expect(screen.getByLabelText("Workspace location")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Library" })).toBeNull();
     expect(workspace.querySelector("aside")?.className).not.toMatch(/\bhidden\b/);
+    fireEvent.change(filter, { target: { value: "no matching track" } });
+    expect(workspace.querySelector('[data-testid^="file-row-"]')).toBeNull();
     fetchMock.mockRestore();
   });
 

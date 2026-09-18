@@ -2907,11 +2907,22 @@ export default function App() {
     <section data-testid="web-library-workspace" className="web-workspace">
       <input ref={webCoverInputRef} type="file" accept="image/jpeg,image/png,image/webp" aria-label="Cover artwork" className="hidden" onChange={handleWebCoverSelected} />
       <div className="web-workspace-toolbar">
-        <div className="web-workspace-folder"><FolderIcon /><span title={state.libraryPath ?? undefined}>{state.libraryPath}</span><span className="web-visually-hidden">Mounted library: {state.libraryPath}</span></div>
+        <div className="web-workspace-breadcrumb" aria-label="Workspace location">
+          <FolderIcon />
+          <span>Library</span>
+          <span aria-hidden="true">/</span>
+          <strong title={state.libraryPath ?? undefined}>{basename(state.libraryPath ?? "") || "Mounted root"}</strong>
+          {state.activeAlbumPath && <><span aria-hidden="true">/</span><strong title={state.activeAlbumPath}>{basename(state.activeAlbumPath) || "Album"}</strong></>}
+          <span className="web-visually-hidden">Mounted library: {state.libraryPath}</span>
+        </div>
         <div className="web-workspace-toolbar-spacer" />
         <div className="flex shrink-0 items-center gap-2">
+          <label className="web-search">
+            <SearchIcon />
+            <input type="search" aria-label="Filter workspace" placeholder="Filter files and folders" value={state.filterText} onChange={(event) => handleFilterChange(event.target.value)} />
+          </label>
           <button type="button" onClick={handleChangeWebLibrary} className="web-button-secondary">Change library</button>
-          <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="web-button-primary">{state.scanning ? "Refreshing…" : "Refresh library"}</button>
+          <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="web-button-primary">{state.scanning ? "Refreshing…" : "Refresh"}</button>
         </div>
       </div>
       <ScanProgressBar scanning={state.scanning || state.autoTagging} progress={state.autoTagProgress ? { current: state.autoTagProgress.current, total: state.autoTagProgress.total } : state.scanningProgress} label={state.autoTagProgress?.message ?? null} />
@@ -2922,7 +2933,7 @@ export default function App() {
         <div className="web-folder-pane"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
         <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
         <aside className="web-editor-pane">
-          {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="flex min-h-48 items-center justify-center px-8 text-center text-sm text-[#8a7e71]">Select a file to edit its tags.</div>}
+          {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="web-file-details-empty"><p className="web-eyebrow">File details</p><h2>Select a track to begin</h2><p>Choose a file from the workspace to inspect and edit its metadata.</p></div>}
         </aside>
       </div>
     </section>
@@ -2950,12 +2961,6 @@ export default function App() {
         activeView={webView}
         onViewChange={handleWebViewChange}
         onLogout={handleWebLogout}
-        searchText={state.filterText}
-        onSearchChange={handleFilterChange}
-        searchEnabled={webView === "workspace" && Boolean(state.libraryPath) && !webLibraryPickerOpen}
-        libraryPath={state.libraryPath}
-        albumCount={state.albums.length}
-        trackCount={state.tracks.length}
       >
         {webView === "home" && (
           <WebHomeView
@@ -3013,6 +3018,10 @@ function FolderIcon() {
       <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
     </svg>
   );
+}
+
+function SearchIcon() {
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>;
 }
 
 /** Build an undo snapshot from a track's current field values. */

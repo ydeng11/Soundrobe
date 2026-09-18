@@ -40,18 +40,18 @@
 .web-header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex: 0 0 58px;
-  min-height: 58px;
-  margin: 12px 14px 0;
-  padding: 0 16px;
+  gap: 18px;
+  flex: 0 0 46px;
+  min-height: 46px;
+  margin: 5px 6px 0;
+  padding: 0 12px;
   border: 1px solid var(--web-border);
-  border-radius: 14px;
+  border-radius: 9px;
   background: rgba(255,255,255,.96);
   box-shadow: 0 4px 18px rgba(39,33,63,.035);
 }
 
-.web-brand { display: flex; align-items: center; gap: 9px; min-width: 208px; }
+.web-brand { display: flex; align-items: center; gap: 8px; min-width: 180px; }
 .web-brand-mark {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 9px;
@@ -61,6 +61,10 @@
 .web-brand-name { color: var(--web-text); font-size: 15px; font-weight: 700; letter-spacing: -.025em; }
 .web-brand-badge { color: var(--web-lilac); font-size: 9px; font-weight: 800; letter-spacing: .13em; }
 .web-header-spacer { flex: 1 1 auto; min-width: 10px; }
+.web-header-nav { display: flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid var(--web-border); border-radius: 9px; background: var(--web-surface-soft); }
+.web-header-nav-item { display: inline-flex; min-height: 28px; align-items: center; gap: 6px; padding: 0 10px; border: 0; border-radius: 6px; color: var(--web-muted); background: transparent; font-size: 11px; font-weight: 600; cursor: pointer; }
+.web-header-nav-item:hover { color: var(--web-text); background: #fff; }
+.web-header-nav-item.is-selected { color: #fff; background: var(--web-lilac); }
 
 .web-search {
   display: flex; align-items: center; gap: 8px;
@@ -80,7 +84,7 @@
 .web-account { border: 0; border-radius: 8px; padding: 7px 9px; color: var(--web-muted); background: transparent; font-size: 12px; cursor: pointer; }
 .web-account:hover { color: var(--web-text); background: var(--web-surface-soft); }
 
-.web-body { display: flex; min-height: 0; flex: 1 1 auto; gap: 12px; padding: 12px 14px 14px; }
+.web-body { display: flex; min-height: 0; flex: 1 1 auto; padding: 5px 6px 6px; }
 .web-rail {
   display: flex; flex: 0 0 230px; flex-direction: column; min-height: 0;
   overflow: hidden; border: 1px solid var(--web-border); border-radius: 12px;
@@ -101,7 +105,7 @@
 .web-root-name { overflow: hidden; margin: 0; color: var(--web-text); font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .web-root-count { margin: 4px 0 0; color: var(--web-subtle); font-size: 11px; }
 
-.web-main { min-width: 0; min-height: 0; flex: 1 1 auto; overflow: auto; border-radius: 12px; }
+.web-main { min-width: 0; min-height: 0; flex: 1 1 auto; overflow: auto; border-radius: 9px; }
 .web-content { min-width: 0; min-height: 100%; }
 .web-page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 4px 4px 14px; }
 .web-eyebrow { margin: 0 0 5px; color: var(--web-lilac); font-size: 10px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
@@ -137,16 +141,20 @@
 .web-library-item-path { overflow: hidden; margin-top: 3px; color: var(--web-subtle); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .web-library-empty { max-width: 720px; padding: 56px 0; color: var(--web-muted); text-align: left; }
 
-.web-workspace { display: flex; flex-direction: column; min-height: 100%; overflow: hidden; border: 1px solid var(--web-border); background: #fff; }
-.web-workspace-toolbar { display: flex; align-items: center; gap: 10px; min-height: 54px; padding: 0 15px; border-bottom: 1px solid var(--web-border); background: #fff; }
-.web-workspace-folder { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--web-muted); font-size: 12px; }
-.web-workspace-folder svg { width: 15px; height: 15px; color: var(--web-lilac); }
-.web-workspace-folder span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.web-workspace { display: flex; flex-direction: column; min-height: 100%; overflow: hidden; border: 1px solid var(--web-border); border-radius: 9px; background: #f8faff; }
+.web-workspace-toolbar { display: flex; align-items: center; gap: 9px; min-height: 43px; padding: 0 12px; border-bottom: 1px solid var(--web-border); background: #fff; }
+.web-workspace-breadcrumb { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--web-subtle); font-size: 11px; }
+.web-workspace-breadcrumb svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--web-lilac); }
+.web-workspace-breadcrumb strong { overflow: hidden; max-width: 15rem; color: var(--web-text); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .web-workspace-toolbar-spacer { flex: 1; }
-.web-workspace-panes { display: flex; flex: 1 1 auto; min-height: 35rem; overflow: hidden; }
-.web-folder-pane { flex: 0 0 230px; min-width: 190px; border-right: 1px solid var(--web-border); overflow: hidden; }
-.web-table-pane { min-width: 0; flex: 1 1 auto; border-right: 1px solid var(--web-border); overflow: hidden; }
-.web-editor-pane { flex: 0 0 320px; min-width: 280px; overflow: auto; }
+.web-workspace-toolbar .web-search { width: min(290px, 25vw); height: 29px; }
+.web-workspace-panes { display: flex; flex: 1 1 auto; min-height: 35rem; overflow: hidden; background: #f8faff; }
+.web-folder-pane { flex: 0 0 212px; min-width: 180px; border-right: 1px solid var(--web-border); overflow: hidden; background: #fff; }
+.web-table-pane { min-width: 0; flex: 1 1 auto; border-right: 1px solid var(--web-border); overflow: hidden; background: #fff; }
+.web-editor-pane { display: flex; flex: 0 0 340px; min-width: 290px; overflow: auto; background: #fbfcff; }
+.web-file-details-empty { display: flex; width: 100%; min-height: 100%; flex-direction: column; align-items: flex-start; justify-content: center; padding: 36px; background: radial-gradient(circle at 80% 18%, rgba(155,124,247,.09), transparent 32%), #fbfcff; }
+.web-file-details-empty h2 { max-width: 230px; margin: 0; color: var(--web-text); font-size: 22px; font-weight: 750; letter-spacing: -.04em; line-height: 1.1; }
+.web-file-details-empty p:last-child { max-width: 250px; margin: 10px 0 0; color: var(--web-muted); font-size: 12px; line-height: 1.6; }
 .web-folder-sidebar { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; background: #fff; color: var(--web-text); }
 .web-folder-sidebar-heading { padding: 14px 16px 12px; border-bottom: 1px solid var(--web-border); }
 .web-folder-sidebar-heading .web-rail-label { margin: 0 0 6px; }
@@ -222,26 +230,26 @@
 @media (max-width: 900px) {
   .web-brand { min-width: auto; }
   .web-brand-badge, .web-session { display: none; }
-  .web-rail { flex-basis: 190px; }
+  .web-header-nav-item { padding: 0 7px; }
+  .web-header-nav-item > span:last-child { display: none; }
   .web-folder-pane { flex-basis: 190px; }
   .web-editor-pane { flex-basis: 290px; }
 }
 @media (max-width: 700px) {
-  .web-header { gap: 9px; margin: 8px 8px 0; padding: 0 10px; }
+  .web-header { gap: 9px; margin: 4px 4px 0; padding: 0 8px; }
+  .web-brand-name { display: none; }
+  .web-header-nav { overflow-x: auto; }
   .web-search { width: min(220px, 40vw); min-width: 0; padding: 0 9px; }
   .web-search kbd { display: none; }
-  .web-body { gap: 8px; padding: 8px; }
-  .web-rail { flex-basis: 52px; }
-  .web-rail-nav { padding: 12px 6px; }
-  .web-rail-label, .web-rail-root { display: none; }
-  .web-nav-item { justify-content: center; min-height: 38px; padding: 0; }
-  .web-nav-item > span:last-child { display: none; }
+  .web-body { padding: 4px; }
   .web-nav-icon, .web-nav-icon svg { width: 17px; height: 17px; }
   .web-home, .web-library, .web-activity, .web-settings-page { padding: 16px; }
   .web-home-stats { grid-template-columns: 1fr; }
   .web-home-stat, .web-home-stat + .web-home-stat { padding: 12px 0; border-right: 0; border-bottom: 1px solid var(--web-border); }
   .web-home-stat:last-child { border-bottom: 0; }
   .web-workspace-panes { display: block; overflow: auto; }
+  .web-workspace-toolbar { flex-wrap: wrap; min-height: 72px; padding: 8px; }
+  .web-workspace-toolbar .web-search { width: min(100%, 310px); }
   .web-folder-pane, .web-table-pane, .web-editor-pane { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--web-border); }
   .web-folder-pane { height: 170px; }
   .web-table-pane { height: 330px; }

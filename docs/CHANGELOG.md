@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Redesigned the browser Workspace around a compact header, utility breadcrumb, album rail, and focused file-details canvas while preserving Soundrobe's existing tag editing flow.
+
 ### Fixed
 
 - Local browser-service sign-in accepts both standard loopback addresses.

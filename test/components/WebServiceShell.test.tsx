@@ -62,4 +62,17 @@ describe("WebServiceShell", () => {
     expect(main.className).toMatch(/\bmin-h-0\b/);
     expect(main.className).toMatch(/\boverflow-y-auto\b/);
   });
+
+  it("keeps primary navigation in the compact header instead of adding a duplicate side rail", () => {
+    render(
+      <WebServiceShell activeView="workspace">
+        <div>Workspace content</div>
+      </WebServiceShell>,
+    );
+
+    const header = document.querySelector("header");
+    expect(header?.querySelector('nav[aria-label="Primary navigation"]')).toBeTruthy();
+    expect(screen.queryByTestId("web-navigation-rail")).toBeNull();
+    expect(screen.queryByRole("searchbox", { name: "Filter workspace" })).toBeNull();
+  });
 });

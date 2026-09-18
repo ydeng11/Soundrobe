@@ -8,13 +8,6 @@ export interface WebServiceShellProps {
   onViewChange?: (view: WebServiceView) => void;
   onLogout?: () => void;
   children?: React.ReactNode;
-  searchText?: string;
-  onSearchChange?: (text: string) => void;
-  /** Search only becomes interactive when a mounted root is loaded in Workspace. */
-  searchEnabled?: boolean;
-  libraryPath?: string | null;
-  albumCount?: number;
-  trackCount?: number;
 }
 
 const navigation: Array<{ view: WebServiceView; label: string; icon: React.ReactNode }> = [
@@ -30,12 +23,6 @@ export function WebServiceShell({
   onViewChange,
   onLogout,
   children,
-  searchText = "",
-  onSearchChange,
-  searchEnabled = false,
-  libraryPath = null,
-  albumCount = 0,
-  trackCount = 0,
 }: WebServiceShellProps) {
   return (
     <div data-testid="web-service-shell" className="web-app h-screen overflow-hidden">
@@ -45,50 +32,30 @@ export function WebServiceShell({
           <span className="web-brand-name">Soundrobe</span>
           <span className="web-brand-badge">WEB</span>
         </div>
+        <nav aria-label="Primary navigation" className="web-header-nav">
+          {navigation.map(({ view, label, icon }) => {
+            const selected = view === activeView;
+            return (
+              <button
+                key={view}
+                type="button"
+                aria-label={label}
+                aria-current={selected ? "page" : undefined}
+                onClick={() => onViewChange?.(view)}
+                className={`web-header-nav-item ${selected ? "is-selected" : ""}`}
+              >
+                <span className="web-nav-icon" aria-hidden="true">{icon}</span>
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </nav>
         <div className="web-header-spacer" />
-        <label className={`web-search ${searchEnabled ? "" : "is-disabled"}`}>
-          <SearchIcon />
-          <input
-            type="search"
-            aria-label="Filter workspace"
-            placeholder="Filter workspace"
-            value={searchText}
-            disabled={!searchEnabled}
-            onChange={(event) => onSearchChange?.(event.target.value)}
-          />
-        </label>
         <span className="web-session" title="Session active"><span aria-hidden="true" />Session active</span>
         {onLogout && <button type="button" className="web-account" onClick={onLogout} aria-label="Sign out">Sign out</button>}
       </header>
 
       <div className="web-body">
-        <aside className="web-rail" data-testid="web-navigation-rail">
-          <nav aria-label="Primary navigation" className="web-rail-nav">
-            <p className="web-rail-label">Soundrobe</p>
-            {navigation.map(({ view, label, icon }) => {
-              const selected = view === activeView;
-              return (
-                <button
-                  key={view}
-                  type="button"
-                  aria-label={label}
-                  aria-current={selected ? "page" : undefined}
-                  onClick={() => onViewChange?.(view)}
-                  className={`web-nav-item ${selected ? "is-selected" : ""}`}
-                >
-                  <span className="web-nav-icon" aria-hidden="true">{icon}</span>
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </nav>
-          <div className="web-rail-root">
-            <p className="web-rail-label">Current root</p>
-            <p className="web-root-name" title={libraryPath ?? undefined}>{libraryPath ? libraryPath.split(/[\\/]/).filter(Boolean).pop() : "No library selected"}</p>
-            {libraryPath && <p className="web-root-count">{albumCount} albums · {trackCount} files</p>}
-          </div>
-        </aside>
-
         <main className="web-main min-h-0 overflow-y-auto">
           <div className="web-content">{children}</div>
         </main>
@@ -115,10 +82,6 @@ function ActivityIcon() {
 
 function SettingsIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" /><circle cx="12" cy="12" r="4" /></svg>;
-}
-
-function SearchIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>;
 }
 
 function MusicIcon() {
