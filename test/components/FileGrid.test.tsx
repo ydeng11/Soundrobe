@@ -78,6 +78,35 @@ const tracks: TrackData[] = [
 ];
 
 describe("FileGrid", () => {
+  it("renders user-selected supported metadata fields in the browser table", () => {
+    const onSelect = vi.fn();
+    render(
+      <FileGrid
+        web
+        webVisibleColumns={["album", "albumArtist", "composer", "disc", "lyrics"]}
+        tracks={[makeTrack("/music/song.mp3", {
+          album: "Album X",
+          albumArtist: "Album Artist A",
+          composer: "Composer A",
+          discNumber: 1,
+          discTotal: 2,
+          lyrics: { syncedLyrics: null, plainLyrics: "Words", language: "en" },
+        })]}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />,
+    );
+
+    expect(screen.getByText("Album")).toBeTruthy();
+    expect(screen.getByText("Album Artist")).toBeTruthy();
+    expect(screen.getByText("Composer")).toBeTruthy();
+    expect(screen.getByText("Disc")).toBeTruthy();
+    expect(screen.getByText("Lyrics")).toBeTruthy();
+    expect(screen.getByText("1/2")).toBeTruthy();
+    expect(screen.getByText("Available")).toBeTruthy();
+  });
+
   it("uses the compact browser table hierarchy without the native context menu", () => {
     const onSelect = vi.fn();
     const showTrackContextMenu = vi.fn();

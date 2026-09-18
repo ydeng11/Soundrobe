@@ -12,24 +12,22 @@ type SortKey =
   | "year"
   | "track"
   | "genre"
+  | "composer"
+  | "comment"
+  | "disc"
+  | "lyrics"
+  | "cover"
   | "duration"
+  | "sampleRate"
   | "bitrate";
 
 /** Browser workspace ordering shared by the toolbar and compact file table. */
 export type WebSort = {
-  key: Extract<SortKey, "track" | "title" | "artist" | "year" | "filename" | "bitrate">;
+  key: SortKey;
   ascending: boolean;
 };
 
-export type WebFileColumn = "filename" | "title" | "artist" | "year" | "track" | "bitrate";
-export const WEB_FILE_COLUMNS: Array<{ key: WebFileColumn; label: string }> = [
-  { key: "filename", label: "Location" },
-  { key: "title", label: "Title" },
-  { key: "artist", label: "Artist" },
-  { key: "year", label: "Year" },
-  { key: "track", label: "Track" },
-  { key: "bitrate", label: "Format" },
-];
+export type WebFileColumn = SortKey;
 
 interface Column {
   key: SortKey;
@@ -71,21 +69,24 @@ const ALL_COLUMNS: Column[] = [
   { key: "bitrate", label: "Bitrate", width: "w-20", align: "right" },
 ];
 
-const WEB_COLUMN_KEYS = new Set<SortKey>([
-  "track",
-  "title",
-  "artist",
-  "year",
-  "bitrate",
-  "filename",
-]);
+const WEB_EXTRA_COLUMNS: Column[] = [
+  { key: "disc", label: "Disc", width: "w-16", align: "right" },
+  { key: "composer", label: "Composer", width: "flex-[1.5]", align: "left" },
+  { key: "lyrics", label: "Lyrics", width: "w-20", align: "left" },
+  { key: "comment", label: "Comment", width: "flex-[1.5]", align: "left" },
+  { key: "cover", label: "Cover", width: "w-16", align: "left" },
+  { key: "sampleRate", label: "Sample rate", width: "w-24", align: "right" },
+];
 
-const WEB_COLUMNS: Column[] = ALL_COLUMNS
-  .filter((column) => WEB_COLUMN_KEYS.has(column.key))
-  .map((column) => ({
-    ...column,
-    label: column.key === "filename" ? "Location" : column.key === "bitrate" ? "Format" : column.label,
-  }));
+const WEB_COLUMNS: Column[] = [
+  ...ALL_COLUMNS,
+  ...WEB_EXTRA_COLUMNS,
+].map((column) => ({
+  ...column,
+  label: column.key === "filename" ? "Location" : column.key === "bitrate" ? "Format" : column.label,
+}));
+
+export const WEB_FILE_COLUMNS: Array<{ key: WebFileColumn; label: string }> = WEB_COLUMNS.map(({ key, label }) => ({ key, label }));
 
 interface FileGridProps {
   tracks: TrackData[];
@@ -169,7 +170,8 @@ export function FileGrid({
     if (columnWidths) return; // Already initialized
     const container = headerRef.current?.parentElement;
     if (!container) return;
-    const visKeys = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
+    const availableColumns = web ? WEB_COLUMNS : ALL_COLUMNS;
+    const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
     // Account for resize handle widths between columns
     const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
     const totalWidth = container.clientWidth - 24 - handleTotal;
@@ -207,7 +209,7 @@ export function FileGrid({
     }
 
     setColumnWidths(widths);
-  }, [visibleColumns, columnWidths]);
+  }, [activeVisibleColumns, columnWidths, web]);
 
   // Column resize drag state
   const dragRef = useRef<{
@@ -225,9 +227,8 @@ export function FileGrid({
       if (!container || !visibleColumns || !columnWidths) {
         return;
       }
-      const visKeys = ALL_COLUMNS.filter((c) =>
-        visibleColumns.has(c.key)
-      );
+      const availableColumns = web ? WEB_COLUMNS : ALL_COLUMNS;
+      const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
       const curCol = visKeys[colIndex];
       const nextCol = visKeys[colIndex + 1];
       if (!curCol || !nextCol) return;
@@ -245,9 +246,7 @@ export function FileGrid({
         if (!container) return;
         const { startX, startW, nextStartW } = dragRef.current;
         // Compute the current total width to cap overflow
-        const visKeys = ALL_COLUMNS.filter((c) =>
-          visibleColumns.has(c.key)
-        );
+        const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
         const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
         const availableForCols = container.clientWidth - 24 - handleTotal;
         const delta = ev.clientX - startX;
@@ -291,7 +290,7 @@ export function FileGrid({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [visibleColumns, columnWidths]
+    [activeVisibleColumns, columnWidths, web]
   );
 
   // Right-click context menu state
@@ -404,8 +403,26 @@ export function FileGrid({
         case "genre":
           cmp = (a.genre ?? "").localeCompare(b.genre ?? "");
           break;
+        case "composer":
+          cmp = (a.composer ?? "").localeCompare(b.composer ?? "");
+          break;
+        case "comment":
+          cmp = (a.comment ?? "").localeCompare(b.comment ?? "");
+          break;
+        case "disc":
+          cmp = (a.discNumber ?? 999) - (b.discNumber ?? 999);
+          break;
+        case "lyrics":
+          cmp = Number(Boolean(a.lyrics?.syncedLyrics || a.lyrics?.plainLyrics)) - Number(Boolean(b.lyrics?.syncedLyrics || b.lyrics?.plainLyrics));
+          break;
+        case "cover":
+          cmp = Number(a.hasCover) - Number(b.hasCover);
+          break;
         case "duration":
           cmp = a.duration - b.duration;
+          break;
+        case "sampleRate":
+          cmp = (a.sampleRate ?? 0) - (b.sampleRate ?? 0);
           break;
         case "bitrate":
           cmp = web
@@ -744,8 +761,24 @@ function getCellValue(track: TrackData, key: SortKey): string {
         : "—";
     case "genre":
       return track.genre ?? "—";
+    case "composer":
+      return track.composer ?? "—";
+    case "comment":
+      return track.comment ?? "—";
+    case "disc":
+      return track.discNumber != null
+        ? track.discTotal != null
+          ? `${track.discNumber}/${track.discTotal}`
+          : String(track.discNumber)
+        : "—";
+    case "lyrics":
+      return track.lyrics?.syncedLyrics || track.lyrics?.plainLyrics ? "Available" : "—";
+    case "cover":
+      return track.hasCover ? "Available" : "—";
     case "duration":
       return formatDuration(track.duration);
+    case "sampleRate":
+      return track.sampleRate != null ? `${Math.round(track.sampleRate / 1000)} kHz` : "—";
     case "bitrate":
       return track.bitrate ? `${Math.round(track.bitrate / 1000)}k` : "—";
   }

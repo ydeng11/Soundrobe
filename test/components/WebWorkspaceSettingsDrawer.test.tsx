@@ -40,4 +40,14 @@ describe("WebWorkspaceSettingsDrawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onApply).toHaveBeenCalledWith(true, ["filename"]);
   });
+
+  it("adds supported metadata fields to the browser table draft", () => {
+    const onApply = vi.fn();
+    render(<WebWorkspaceSettingsDrawer detailsVisible visibleColumns={["filename"]} onApply={onApply} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Album" }));
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onApply).toHaveBeenCalledWith(true, ["filename", "album"]);
+  });
 });

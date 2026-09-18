@@ -23,7 +23,7 @@ import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
-import { FileGrid, type WebFileColumn, type WebSort } from "./components/FileGrid";
+import { FileGrid, WEB_FILE_COLUMNS, type WebFileColumn, type WebSort } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
@@ -2937,12 +2937,7 @@ export default function App() {
           <label className="web-workspace-sort">
             <span className="web-visually-hidden">Sort workspace</span>
             <select aria-label="Sort workspace" value={webSort.key} onChange={(event) => setWebSort({ key: event.target.value as WebSort["key"], ascending: true })}>
-              <option value="track">Track</option>
-              <option value="title">Title</option>
-              <option value="artist">Artist</option>
-              <option value="year">Year</option>
-              <option value="filename">Location</option>
-              <option value="bitrate">Format</option>
+              {WEB_FILE_COLUMNS.map((column) => <option key={column.key} value={column.key}>{column.label}</option>)}
             </select>
           </label>
           <label className="web-search">
