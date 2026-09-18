@@ -77,26 +77,36 @@ export function WebWorkspaceSettingsDrawer({
           </section>
 
           <section aria-labelledby="workspace-columns-settings">
-            <p id="workspace-columns-settings" className="web-workspace-settings-section">Visible columns <span>Choose one or more</span></p>
+            <p id="workspace-columns-settings" className="web-workspace-settings-section">Visible columns <span>{draftVisibleColumns.length} fields</span></p>
+            <p className="web-workspace-settings-note">Choose the metadata shown in the file table.</p>
             <div className="web-workspace-columns">
-              {WEB_FILE_COLUMNS.map((column) => {
-                const checked = draftVisibleColumns.includes(column.key);
-                const onlyColumn = checked && draftVisibleColumns.length === 1;
-                return (
-                  <label key={column.key} className="web-workspace-column-option">
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={onlyColumn}
-                      onChange={() => setDraftVisibleColumns((columns) => checked
-                        ? columns.filter((key) => key !== column.key)
-                        : [...columns, column.key])}
-                    />
-                    <span>{column.label}</span>
-                  </label>
-                );
-              })}
+              {WEB_FILE_COLUMNS.filter((column) => draftVisibleColumns.includes(column.key)).map((column) => (
+                <button
+                  key={column.key}
+                  type="button"
+                  className="web-workspace-field-chip"
+                  disabled={draftVisibleColumns.length === 1}
+                  aria-label={`Remove ${column.label}`}
+                  onClick={() => setDraftVisibleColumns((columns) => columns.filter((key) => key !== column.key))}
+                >
+                  {column.label}<span aria-hidden="true">×</span>
+                </button>
+              ))}
             </div>
+            {WEB_FILE_COLUMNS.some((column) => !draftVisibleColumns.includes(column.key)) && (
+              <div className="web-workspace-column-additions" aria-label="Available file columns">
+                {WEB_FILE_COLUMNS.filter((column) => !draftVisibleColumns.includes(column.key)).map((column) => (
+                  <button
+                    key={column.key}
+                    type="button"
+                    className="web-workspace-column-add"
+                    onClick={() => setDraftVisibleColumns((columns) => [...columns, column.key])}
+                  >
+                    + {column.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>

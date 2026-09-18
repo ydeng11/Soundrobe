@@ -180,10 +180,16 @@
 .web-workspace-settings-switch.is-enabled { background: var(--web-lilac); }
 .web-workspace-settings-switch.is-enabled span { transform: translateX(13px); }
 .web-workspace-settings-note { margin: 0 8px; color: var(--web-muted); font-size: 11px; line-height: 1.55; }
-.web-workspace-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 0 8px; }
-.web-workspace-column-option { display: flex; align-items: center; gap: 7px; min-height: 30px; padding: 0 8px; border: 1px solid var(--web-border); border-radius: 7px; color: var(--web-text); font-size: 11px; cursor: pointer; }
-.web-workspace-column-option input { accent-color: var(--web-lilac); }
-.web-workspace-column-option:has(input:disabled) { cursor: not-allowed; opacity: .55; }
+.web-workspace-columns, .web-workspace-column-additions { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px; }
+.web-workspace-columns { margin-top: 8px; }
+.web-workspace-column-additions { margin-top: 7px; }
+.web-workspace-field-chip, .web-workspace-column-add { display: inline-flex; min-height: 26px; align-items: center; gap: 5px; padding: 0 8px; border-radius: 6px; font-size: 10px; }
+.web-workspace-field-chip { border: 1px solid #ddd4ff; background: var(--web-lilac-soft); color: var(--web-plum); cursor: pointer; }
+.web-workspace-field-chip:hover:not(:disabled) { border-color: var(--web-lilac); background: #e8e1ff; }
+.web-workspace-field-chip span { color: #8364df; font-size: 13px; line-height: 1; }
+.web-workspace-field-chip:disabled { cursor: not-allowed; opacity: .55; }
+.web-workspace-column-add { border: 1px dashed var(--web-border-strong); background: #fff; color: var(--web-muted); cursor: pointer; }
+.web-workspace-column-add:hover { border-color: var(--web-lilac); color: var(--web-plum); background: var(--web-surface-soft); }
 .web-folder-sidebar { display: flex; flex-direction: column; height: 100%; min-width: 0; overflow: hidden; background: #fff; color: var(--web-text); }
 .web-folder-sidebar-heading { padding: 14px 16px 12px; border-bottom: 1px solid var(--web-border); }
 .web-folder-sidebar-heading .web-rail-label { margin: 0 0 6px; }

@@ -35,8 +35,8 @@ describe("WebWorkspaceSettingsDrawer", () => {
     const onApply = vi.fn();
     render(<WebWorkspaceSettingsDrawer detailsVisible visibleColumns={["filename", "title"]} onApply={onApply} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Title" }));
-    expect((screen.getByRole("checkbox", { name: "Location" }) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Remove Title" }));
+    expect(screen.getByRole("button", { name: "Remove Location" }).hasAttribute("disabled")).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));
     expect(onApply).toHaveBeenCalledWith(true, ["filename"]);
   });
