@@ -23,7 +23,7 @@ import { dirname as dirPath, basename, isInsideDirectory } from "./utils/path";
 import { AssistantPanel } from "./components/AssistantPanel";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/Sidebar";
-import { FileGrid } from "./components/FileGrid";
+import { FileGrid, type WebSort } from "./components/FileGrid";
 import { MetadataEditor } from "./components/MetadataEditor";
 import { BatchEditor } from "./components/BatchEditor";
 import { ScanProgressBar } from "./components/ScanProgressBar";
@@ -115,6 +115,7 @@ export default function App() {
     "desktop" | "checking" | "login" | "authenticated"
   >(webRuntime ? "checking" : "desktop");
   const [webView, setWebView] = React.useState<WebServiceView>("library");
+  const [webSort, setWebSort] = React.useState<WebSort>({ key: "track", ascending: true });
   const [webRoots, setWebRoots] = React.useState<LibraryRoot[]>([]);
   const [webRootsLoading, setWebRootsLoading] = React.useState(webRuntime);
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
@@ -2916,7 +2917,27 @@ export default function App() {
           <span className="web-visually-hidden">Mounted library: {state.libraryPath}</span>
         </div>
         <div className="web-workspace-toolbar-spacer" />
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="web-workspace-toolbar-controls">
+          <button
+            type="button"
+            className="web-workspace-sort-direction"
+            aria-label={`Sort ${webSort.ascending ? "ascending" : "descending"}`}
+            title={`Sort ${webSort.ascending ? "ascending" : "descending"}`}
+            onClick={() => setWebSort((current) => ({ ...current, ascending: !current.ascending }))}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9"><path d="M8 5v14m0-14-3 3m3-3 3 3M16 19V5m0 14-3-3m3 3 3-3" /></svg>
+          </button>
+          <label className="web-workspace-sort">
+            <span className="web-visually-hidden">Sort workspace</span>
+            <select aria-label="Sort workspace" value={webSort.key} onChange={(event) => setWebSort({ key: event.target.value as WebSort["key"], ascending: true })}>
+              <option value="track">Track</option>
+              <option value="title">Title</option>
+              <option value="artist">Artist</option>
+              <option value="year">Year</option>
+              <option value="filename">Location</option>
+              <option value="bitrate">Format</option>
+            </select>
+          </label>
           <label className="web-search">
             <SearchIcon />
             <input type="search" aria-label="Filter workspace" placeholder="Filter files and folders" value={state.filterText} onChange={(event) => handleFilterChange(event.target.value)} />
@@ -2931,7 +2952,7 @@ export default function App() {
       {state.error && <div role="alert" className="mx-4 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 sm:mx-5">{state.error}</div>}
       <div className="web-workspace-panes">
         <div className="web-folder-pane"><Sidebar web albums={state.albums} libraryPath={state.libraryPath} activeAlbumPath={state.activeAlbumPath} onSelectAlbum={handleSelectAlbum} onOpenLibrary={handleChangeWebLibrary} /></div>
-        <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
+        <div className="web-table-pane"><FileGrid web webActive={webView === "workspace" && !webLibraryPickerOpen} webSort={webSort} onWebSortChange={setWebSort} tracks={state.tracks} activeAlbumPath={state.activeAlbumPath} selectedTrackPath={state.selectedTrackPath} selectedTrackPaths={state.selectedTrackPaths} filterText={state.filterText} auditByTrackPath={auditByTrackPath} onSelectTrack={handleSelectTrack} onMultiSelect={handleMultiSelect} onEditExtraTags={handleEditExtraTagsFromSelection} onDeleteFiles={handleDeleteFiles} /></div>
         <aside className="web-editor-pane">
           {state.selectedTrackPaths.length > 1 ? <BatchEditor web tracks={selectedTracksForBatch} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleBatchSave} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /> : state.selectedTrack ? <>{selectedTrackAudit && <SelectedTrackAuditFindings results={selectedTrackAudit.results} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, trackPath: state.selectedTrackPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, dirPath(state.selectedTrackPath!)))} applying={mutationBusy} />}<MetadataEditor web track={state.selectedTrack} dirPath={dirPath(state.selectedTrack.path)} coverDataUrl={state.coverDataUrl} saving={mutationBusy} onSave={handleSaveMetadata} onChangeCover={handleChangeCover} onRemoveCover={handleRemoveCover} onDownloadCover={handleDownloadCover} onDownloadArtistArt={handleDownloadArtistArt} /></> : visibleAuditResult ? <AuditPanel results={visibleAuditResult.results} albumName={basename(visibleAuditResult.albumPath) ?? ""} onApplyFixes={() => handleApplyAuditFixes(buildAuditApplyAlbumResults({ auditResults: state.auditResults, tracks: state.tracks, albumPath: visibleAuditResult.albumPath }))} onApplyFix={(result) => handleApplyAuditFixes(singleAuditFixResult(result, visibleAuditResult.albumPath))} applying={mutationBusy} /> : <div className="web-file-details-empty"><p className="web-eyebrow">File details</p><h2>Select a track to begin</h2><p>Choose a file from the workspace to inspect and edit its metadata.</p></div>}
         </aside>

@@ -147,6 +147,13 @@
 .web-workspace-breadcrumb svg { width: 14px; height: 14px; flex: 0 0 auto; color: var(--web-lilac); }
 .web-workspace-breadcrumb strong { overflow: hidden; max-width: 15rem; color: var(--web-text); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .web-workspace-toolbar-spacer { flex: 1; }
+.web-workspace-toolbar-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
+.web-workspace-sort-direction, .web-workspace-sort select { height: 29px; border: 1px solid var(--web-border); border-radius: 8px; color: var(--web-muted); background: var(--web-surface-soft); font-size: 11px; }
+.web-workspace-sort-direction { display: inline-flex; width: 29px; align-items: center; justify-content: center; cursor: pointer; }
+.web-workspace-sort-direction:hover, .web-workspace-sort select:hover { border-color: #d7d0ef; color: var(--web-plum); }
+.web-workspace-sort-direction:focus-visible, .web-workspace-sort select:focus-visible { outline: 2px solid rgba(155,124,247,.45); outline-offset: 1px; }
+.web-workspace-sort-direction svg { width: 14px; height: 14px; }
+.web-workspace-sort select { min-width: 82px; padding: 0 24px 0 9px; cursor: pointer; }
 .web-workspace-toolbar .web-search { width: min(290px, 25vw); height: 29px; }
 .web-workspace-panes { display: flex; flex: 1 1 auto; min-height: 35rem; overflow: hidden; background: #f8faff; }
 .web-folder-pane { flex: 0 0 212px; min-width: 180px; border-right: 1px solid var(--web-border); overflow: hidden; background: #fff; }
@@ -203,11 +210,16 @@
 
 .web-settings-page { min-height: 100%; padding: 22px 24px 36px; background: #fff; }
 .web-settings-page .web-settings-heading { margin-bottom: 18px; }
-.web-settings-tabs { display: flex; gap: 4px; overflow-x: auto; margin-bottom: 18px; border-bottom: 1px solid var(--web-border); }
-.web-settings-tab { display: block; flex: 0 0 auto; padding: 10px 13px; border: 0; border-bottom: 2px solid transparent; color: var(--web-muted); background: transparent; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
-.web-settings-tab:hover { color: var(--web-text); }
-.web-settings-tab.is-selected { border-bottom-color: var(--web-lilac); color: var(--web-plum); }
-.web-settings-card { overflow: hidden; margin-bottom: 12px; border: 1px solid var(--web-border-strong); background: #fff; }
+.web-settings-detail { display: grid; grid-template-columns: minmax(172px, 210px) minmax(0, 760px); align-items: start; border: 1px solid var(--web-border); border-radius: 11px; background: #fff; box-shadow: 0 8px 28px rgba(39,33,63,.04); }
+.web-settings-detail-rail { position: sticky; top: 0; min-height: 100%; padding: 16px 10px; border-right: 1px solid var(--web-border); background: #fbfcff; }
+.web-settings-detail-label { margin: 0 9px 9px; color: var(--web-subtle); font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.web-settings-tabs { display: flex; flex-direction: column; gap: 2px; }
+.web-settings-tab { display: block; padding: 8px 9px; border: 0; border-radius: 7px; color: var(--web-muted); background: transparent; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.web-settings-tab:hover { color: var(--web-text); background: #fff; }
+.web-settings-tab.is-selected { color: var(--web-plum); background: var(--web-lilac-soft); }
+.web-settings-detail-note { margin: 18px 9px 0; color: var(--web-subtle); font-size: 10px; line-height: 1.55; }
+.web-settings-detail-content { min-width: 0; padding: 16px; }
+.web-settings-card { overflow: hidden; margin-bottom: 12px; border: 1px solid var(--web-border-strong); border-radius: 8px; background: #fff; }
 .web-settings-card-heading { padding: 16px 18px; border-bottom: 1px solid var(--web-border); }
 .web-settings-card-heading h2 { margin: 0; color: var(--web-text); font-size: 14px; font-weight: 700; }
 .web-settings-card-heading p { margin: 4px 0 0; color: var(--web-muted); font-size: 11px; }
@@ -249,9 +261,15 @@
   .web-home-stat:last-child { border-bottom: 0; }
   .web-workspace-panes { display: block; overflow: auto; }
   .web-workspace-toolbar { flex-wrap: wrap; min-height: 72px; padding: 8px; }
+  .web-workspace-toolbar-controls { flex-wrap: wrap; }
   .web-workspace-toolbar .web-search { width: min(100%, 310px); }
   .web-folder-pane, .web-table-pane, .web-editor-pane { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid var(--web-border); }
   .web-folder-pane { height: 170px; }
   .web-table-pane { height: 330px; }
   .web-editor-pane { min-height: 330px; }
+  .web-settings-detail { grid-template-columns: 1fr; }
+  .web-settings-detail-rail { position: static; padding: 10px; border-right: 0; border-bottom: 1px solid var(--web-border); }
+  .web-settings-tabs { flex-direction: row; overflow-x: auto; }
+  .web-settings-tab { flex: 0 0 auto; }
+  .web-settings-detail-note { display: none; }
 }

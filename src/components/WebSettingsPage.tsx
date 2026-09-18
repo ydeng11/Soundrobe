@@ -227,8 +227,11 @@ export function WebSettingsPage() {
 
       {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f0c9d0] bg-[#fff7f8] px-4 py-3 text-sm text-[#a24557]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
 
-      <nav aria-label="Settings sections" className="web-settings-tabs">
-        {SECTIONS.map((section) => (
+      <div data-testid="web-settings-detail" className="web-settings-detail">
+        <aside className="web-settings-detail-rail">
+          <p className="web-settings-detail-label">Settings</p>
+          <nav aria-label="Settings sections" className="web-settings-tabs">
+            {SECTIONS.map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
@@ -243,10 +246,11 @@ export function WebSettingsPage() {
                 {section.label}
               </a>
             ))}
-      </nav>
-      <p className="mb-4 text-xs text-[#9a98a4]">Changes stay on the service until you save them.</p>
+          </nav>
+          <p className="web-settings-detail-note">Changes stay on the service until you save them.</p>
+        </aside>
 
-        <div className="min-w-0">
+        <div className="web-settings-detail-content">
           <section id="general" className="web-settings-card">
             <CardHeading title="General" description="Service information for this browser session." />
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
@@ -318,6 +322,7 @@ export function WebSettingsPage() {
               {saving ? "Saving…" : "Save settings"}
             </button>
           </div>
+        </div>
       </div>
     </div>
   );

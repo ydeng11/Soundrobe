@@ -150,4 +150,15 @@ describe("WebSettingsPage", () => {
     expect(screen.queryByRole("button", { name: /update/i })).toBeNull();
     expect(screen.queryByText(/application updates/i)).toBeNull();
   });
+
+  it("uses the browser detail layout without unsupported storage controls", async () => {
+    render(<WebSettingsPage />);
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+
+    expect(screen.getByTestId("web-settings-detail")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "General" })).toBeTruthy();
+    expect(screen.queryByText(/WebDAV/i)).toBeNull();
+    expect(screen.queryByText(/recursive scan/i)).toBeNull();
+    expect(screen.queryByText(/directory root/i)).toBeNull();
+  });
 });

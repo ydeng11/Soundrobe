@@ -15,6 +15,12 @@ type SortKey =
   | "duration"
   | "bitrate";
 
+/** Browser workspace ordering shared by the toolbar and compact file table. */
+export type WebSort = {
+  key: Extract<SortKey, "track" | "title" | "artist" | "year" | "filename" | "bitrate">;
+  ascending: boolean;
+};
+
 interface Column {
   key: SortKey;
   label: string;
@@ -86,6 +92,10 @@ interface FileGridProps {
   web?: boolean;
   /** Select All is scoped to the visible, focused browser workspace only. */
   webActive?: boolean;
+  /** Optional browser-owned ordering. Omit to retain FileGrid's desktop-local sorting. */
+  webSort?: WebSort;
+  /** Receives browser toolbar/table sort updates when webSort is controlled. */
+  onWebSortChange?: (sort: WebSort) => void;
 }
 
 export function FileGrid({
@@ -101,6 +111,8 @@ export function FileGrid({
   auditByTrackPath = {},
   web = false,
   webActive = false,
+  webSort,
+  onWebSortChange,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
@@ -294,14 +306,25 @@ export function FileGrid({
     });
   }, []);
 
+  const activeSortKey = web && webSort ? webSort.key : sortKey;
+  const activeSortAscending = web && webSort ? webSort.ascending : sortAsc;
+
   const toggleSort = useCallback((key: SortKey) => {
+    if (web && onWebSortChange) {
+      const webKey = key as WebSort["key"];
+      onWebSortChange({
+        key: webKey,
+        ascending: key === activeSortKey ? !activeSortAscending : true,
+      });
+      return;
+    }
     if (key === sortKey) {
       setSortAsc((prev) => !prev);
     } else {
       setSortKey(key);
       setSortAsc(true);
     }
-  }, [sortKey]);
+  }, [activeSortAscending, activeSortKey, onWebSortChange, sortKey, web]);
 
   // Filter tracks by active album in-memory (no disk reads)
   const albumFiltered = useMemo(() => {
@@ -326,7 +349,7 @@ export function FileGrid({
 
     return [...list].sort((a, b) => {
       let cmp = 0;
-      switch (sortKey) {
+      switch (activeSortKey) {
         case "filename":
           cmp = shortPath(a.path).localeCompare(shortPath(b.path));
           break;
@@ -360,9 +383,9 @@ export function FileGrid({
             : (a.bitrate ?? 0) - (b.bitrate ?? 0);
           break;
       }
-      return sortAsc ? cmp : -cmp;
+      return activeSortAscending ? cmp : -cmp;
     });
-  }, [albumFiltered, filterText, sortKey, sortAsc, web]);
+  }, [activeSortAscending, activeSortKey, albumFiltered, filterText, web]);
 
   // Memoize the sorted paths array for quick lookups in the Cmd+A handler
   const sortedPaths = useMemo(() => sorted.map((t) => t.path), [sorted]);
@@ -518,7 +541,7 @@ export function FileGrid({
             <button
               onClick={() => toggleSort(col.key)}
               className={`flex items-center gap-1.5 px-1.5 transition-all duration-150 truncate shrink-0 rounded-md ${
-                col.key === sortKey
+                col.key === activeSortKey
                   ? web ? "web-file-header-selected" : "bg-accent/10 text-accent font-semibold"
                   : web ? "hover:bg-[#f3f1ef] hover:text-[#4b4641]" : "hover:bg-surface-hover hover:text-text-secondary"
               }`}
@@ -529,8 +552,8 @@ export function FileGrid({
             >
               <span className="truncate">{col.label}</span>
               <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
-                {col.key === sortKey ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent transition-transform duration-200" style={{ transform: sortAsc ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+                {col.key === activeSortKey ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent transition-transform duration-200" style={{ transform: activeSortAscending ? 'rotate(0deg)' : 'rotate(180deg)' }}>
                     <polyline points="18 15 12 9 6 15" />
                   </svg>
                 ) : (

@@ -527,6 +527,24 @@ describe("FileGrid", () => {
     ]);
   });
 
+  it("uses the browser toolbar sort contract for table header sorting", () => {
+    const onWebSortChange = vi.fn();
+    render(
+      <FileGrid
+        web
+        webSort={{ key: "artist", ascending: true }}
+        onWebSortChange={onWebSortChange}
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Artist"));
+    expect(onWebSortChange).toHaveBeenCalledWith({ key: "artist", ascending: false });
+  });
+
   it("shift-click range select calls onMultiSelect with all paths in range, not onSelectTrack", () => {
     const onSelect = vi.fn();
     const onMulti = vi.fn();
