@@ -120,6 +120,7 @@ export default function App() {
   const [webRootsLoading, setWebRootsLoading] = React.useState(webRuntime);
   const [webRootsError, setWebRootsError] = React.useState<string | null>(null);
   const [webLibraryPickerOpen, setWebLibraryPickerOpen] = React.useState(webRuntime);
+  const [webWorkspaceSettingsOpen, setWebWorkspaceSettingsOpen] = React.useState(false);
   const libraryLoadIdRef = useRef(0);
   const webCoverInputRef = useRef<HTMLInputElement | null>(null);
   const webCoverTargetRef = useRef<string | null>(null);
@@ -363,6 +364,7 @@ export default function App() {
       setWebRootsLoading(false);
       setWebRootsError(null);
       setWebLibraryPickerOpen(true);
+      setWebWorkspaceSettingsOpen(false);
       setWebView("library");
       setWebAuthState("login");
     }
@@ -378,6 +380,7 @@ export default function App() {
   );
 
   const handleChangeWebLibrary = useCallback(() => {
+    setWebWorkspaceSettingsOpen(false);
     setWebLibraryPickerOpen(true);
     setWebView("library");
   }, []);
@@ -1759,6 +1762,7 @@ export default function App() {
   }, []);
 
   const handleWebViewChange = useCallback((view: WebServiceView) => {
+    if (view !== "workspace") setWebWorkspaceSettingsOpen(false);
     setWebView(view);
     if (view === "workspace" && state.libraryPath) {
       setWebLibraryPickerOpen(false);
@@ -2942,6 +2946,11 @@ export default function App() {
             <SearchIcon />
             <input type="search" aria-label="Filter workspace" placeholder="Filter files and folders" value={state.filterText} onChange={(event) => handleFilterChange(event.target.value)} />
           </label>
+          {webView === "workspace" && !webLibraryPickerOpen && (
+            <button type="button" className="web-workspace-detail-toggle" aria-label="Workspace settings" title="Workspace settings" onClick={() => setWebWorkspaceSettingsOpen(true)}>
+              <WorkspaceSettingsIcon />
+            </button>
+          )}
           <button type="button" onClick={handleChangeWebLibrary} className="web-button-secondary">Change library</button>
           <button type="button" onClick={() => void handleRefresh()} disabled={state.scanning} className="web-button-primary">{state.scanning ? "Refreshing…" : "Refresh"}</button>
         </div>
@@ -3025,6 +3034,9 @@ export default function App() {
             {webLibraryWorkspace}
           </div>
         )}
+        {webView === "workspace" && state.libraryPath && !webLibraryPickerOpen && webWorkspaceSettingsOpen && (
+          <WebSettingsPage presentation="drawer" onClose={() => setWebWorkspaceSettingsOpen(false)} />
+        )}
         {settingsModal}
       </WebServiceShell>
     );
@@ -3037,6 +3049,15 @@ function FolderIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v8A2.5 2.5 0 0 1 18.5 19h-13A2.5 2.5 0 0 1 3 16.5z" />
+    </svg>
+  );
+}
+
+function WorkspaceSettingsIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06-2.12 2.12-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.66v.1h-3v-.1A1.8 1.8 0 0 0 10.5 18.74a1.8 1.8 0 0 0-1.98.36l-.06.06-2.12-2.12.06-.06A1.8 1.8 0 0 0 6.76 15a1.8 1.8 0 0 0-1.66-1.1H5v-3h.1a1.8 1.8 0 0 0 1.66-1.1 1.8 1.8 0 0 0-.36-1.98l-.06-.06 2.12-2.12.06.06a1.8 1.8 0 0 0 1.98.36A1.8 1.8 0 0 0 11.6 4.4v-.1h3v.1a1.8 1.8 0 0 0 1.1 1.66 1.8 1.8 0 0 0 1.98-.36l.06-.06 2.12 2.12-.06.06a1.8 1.8 0 0 0-.36 1.98 1.8 1.8 0 0 0 1.66 1.1h.1v3h-.1A1.8 1.8 0 0 0 19.4 15Z" />
     </svg>
   );
 }

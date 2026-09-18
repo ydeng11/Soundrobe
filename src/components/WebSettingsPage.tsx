@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type WebSettingsState = {
   llmApiKey: string;
@@ -85,7 +85,16 @@ function settingBoolean(value: unknown): boolean {
   return value === true;
 }
 
-export function WebSettingsPage() {
+export interface WebSettingsPageProps {
+  presentation?: "page" | "drawer";
+  onClose?: () => void;
+}
+
+export function WebSettingsPage({
+  presentation = "page",
+  onClose,
+}: WebSettingsPageProps) {
+  const isDrawer = presentation === "drawer";
   const [settings, setSettings] = useState<WebSettingsState>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -97,8 +106,12 @@ export function WebSettingsPage() {
   const [connection, setConnection] = useState<"idle" | "testing" | "success" | "error">("idle");
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<(typeof SECTIONS)[number]["id"]>("general");
+  const loadGenerationRef = useRef(0);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
 
   const loadSettings = useCallback(async () => {
+    const generation = ++loadGenerationRef.current;
+    const isCurrent = () => loadGenerationRef.current === generation;
     setLoading(true);
     setLoaded(false);
     setError(null);
@@ -108,6 +121,7 @@ export function WebSettingsPage() {
         window.api.getConfig(),
         window.api.appInfo().catch(() => null),
       ]);
+      if (!isCurrent()) return;
       setSettings({
         llmApiKey: settingString(config.llmApiKey),
         llmModel: settingString(config.llmModel),
@@ -125,15 +139,27 @@ export function WebSettingsPage() {
       setAppVersion(info?.version ?? null);
       setLoaded(true);
     } catch (reason) {
+      if (!isCurrent()) return;
       setError(reason instanceof Error ? reason.message : "Failed to load settings");
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadSettings();
+    return () => {
+      loadGenerationRef.current += 1;
+    };
   }, [loadSettings]);
+
+  useEffect(() => {
+    if (!isDrawer) return;
+    const frame = requestAnimationFrame(() => {
+      drawerRef.current?.querySelector<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled])")?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [isDrawer]);
 
   const updateSetting = useCallback(<K extends keyof WebSettingsState>(key: K, value: WebSettingsState[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
@@ -184,12 +210,35 @@ export function WebSettingsPage() {
       writes.push(window.api.setDebugMode(settings.debug));
       await Promise.all(writes);
       setSaveMessage("Settings saved");
+      onClose?.();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Failed to save settings");
     } finally {
       setSaving(false);
     }
-  }, [loaded, settings]);
+  }, [loaded, onClose, settings]);
+
+  const handleDrawerKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onClose?.();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>(
+      "button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href]",
+    ) ?? []).filter((element) => !element.hasAttribute("hidden") && !element.closest(".web-settings-save"));
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }, [onClose]);
 
   const handleTestConnection = useCallback(async () => {
     if (!settings.llmModel || (!keyConfigured && !settings.llmApiKey)) return;
@@ -214,16 +263,16 @@ export function WebSettingsPage() {
   const modelOptions = useMemo(() => PROVIDERS[settings.llmProvider]?.models ?? [], [settings.llmProvider]);
   const hasConfiguredKey = keyConfigured || Boolean(settings.llmApiKey);
 
-  return (
-    <div data-testid="web-settings-page" className="web-settings-page">
-      <header className="web-settings-heading web-page-heading">
+  const settingsContent = (
+    <>
+      {!isDrawer && <header className="web-settings-heading web-page-heading">
         <div>
           <span className="web-visually-hidden">CONFIGURATION</span>
           <p className="web-eyebrow">Configuration</p>
           <h1 className="web-page-title">Settings</h1>
           <p className="web-page-description">Control metadata providers, lyrics, and editing preferences for this browser UI.</p>
         </div>
-      </header>
+      </header>}
 
       {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f0c9d0] bg-[#fff7f8] px-4 py-3 text-sm text-[#a24557]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
 
@@ -324,8 +373,29 @@ export function WebSettingsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
+
+  if (isDrawer) {
+    return (
+      <div className="web-settings-drawer-backdrop" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose?.();
+      }}>
+        <div ref={drawerRef} role="dialog" aria-modal="true" aria-label="Workspace settings" className="web-settings-drawer" onKeyDown={handleDrawerKeyDown}>
+          <header className="web-settings-drawer-header">
+            <h2>Workspace settings</h2>
+            <div>
+              <button type="button" className="web-button-primary" onClick={() => void handleSave()} disabled={loading || saving || !loaded}>{saving ? "Applying…" : "Apply"}</button>
+              <button type="button" className="web-settings-drawer-cancel" onClick={onClose}>Cancel</button>
+            </div>
+          </header>
+          <div className="web-settings-drawer-body">{settingsContent}</div>
+        </div>
+      </div>
+    );
+  }
+
+  return <div data-testid="web-settings-page" className="web-settings-page">{settingsContent}</div>;
 }
 
 function CardHeading({ title, description }: { title: string; description: string }) {

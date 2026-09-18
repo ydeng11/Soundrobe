@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Redesigned the browser Workspace around a compact header, utility breadcrumb, album rail, and focused file-details canvas while preserving Soundrobe's existing tag editing flow.
 - Browser Workspace now keeps its real file ordering in a compact toolbar and presents browser Settings in a detail-pane hierarchy without adding unsupported storage controls.
+- Browser Workspace now offers a compact settings drawer from its toolbar, reusing protected service configuration and applying changes only after a successful save.
 
 ### Fixed
 

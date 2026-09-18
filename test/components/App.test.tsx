@@ -241,6 +241,7 @@ describe("App — batch save progress", () => {
       .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
 
     render(<App />);
+    expect(screen.queryByRole("button", { name: "Workspace settings" })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: /music/ }));
 
     const workspace = await screen.findByTestId("web-library-workspace");
@@ -253,6 +254,22 @@ describe("App — batch save progress", () => {
     expect(workspace.querySelector("aside")?.className).not.toMatch(/\bhidden\b/);
     fireEvent.change(filter, { target: { value: "no matching track" } });
     expect(workspace.querySelector('[data-testid^="file-row-"]')).toBeNull();
+    fetchMock.mockRestore();
+  });
+
+  it("opens workspace settings from the mounted browser toolbar and closes it when the workspace changes", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Workspace settings" }));
+    expect(await screen.findByRole("dialog", { name: "Workspace settings" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    expect(screen.queryByRole("dialog", { name: "Workspace settings" })).toBeNull();
     fetchMock.mockRestore();
   });
 

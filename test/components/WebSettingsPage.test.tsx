@@ -161,4 +161,45 @@ describe("WebSettingsPage", () => {
     expect(screen.queryByText(/recursive scan/i)).toBeNull();
     expect(screen.queryByText(/directory root/i)).toBeNull();
   });
+
+  it("uses the same protected settings lifecycle in the workspace drawer and only closes after Apply succeeds", async () => {
+    const onClose = vi.fn();
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api.setConfig = setConfig;
+    render(<WebSettingsPage presentation="drawer" onClose={onClose} />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Workspace settings" });
+    expect(dialog).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Apply" })).toBeTruthy();
+    expect(screen.queryByText(/WebDAV/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    await waitFor(() => expect(setConfig).toHaveBeenCalled());
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(setConfig).not.toHaveBeenCalledWith("llmApiKey", "****7f");
+  });
+
+  it("keeps the workspace drawer open when Apply fails and discards its draft on Cancel", async () => {
+    const onClose = vi.fn();
+    window.api.setConfig = vi.fn().mockRejectedValue(new Error("save unavailable"));
+    render(<WebSettingsPage presentation="drawer" onClose={onClose} />);
+
+    await screen.findByRole("dialog", { name: "Workspace settings" });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("save unavailable");
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("dismisses the workspace drawer with Escape without saving", async () => {
+    const onClose = vi.fn();
+    render(<WebSettingsPage presentation="drawer" onClose={onClose} />);
+
+    const dialog = await screen.findByRole("dialog", { name: "Workspace settings" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(window.api.setConfig).not.toHaveBeenCalled();
+  });
 });

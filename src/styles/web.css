@@ -148,11 +148,12 @@
 .web-workspace-breadcrumb strong { overflow: hidden; max-width: 15rem; color: var(--web-text); font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
 .web-workspace-toolbar-spacer { flex: 1; }
 .web-workspace-toolbar-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 7px; }
-.web-workspace-sort-direction, .web-workspace-sort select { height: 29px; border: 1px solid var(--web-border); border-radius: 8px; color: var(--web-muted); background: var(--web-surface-soft); font-size: 11px; }
-.web-workspace-sort-direction { display: inline-flex; width: 29px; align-items: center; justify-content: center; cursor: pointer; }
-.web-workspace-sort-direction:hover, .web-workspace-sort select:hover { border-color: #d7d0ef; color: var(--web-plum); }
-.web-workspace-sort-direction:focus-visible, .web-workspace-sort select:focus-visible { outline: 2px solid rgba(155,124,247,.45); outline-offset: 1px; }
+.web-workspace-sort-direction, .web-workspace-sort select, .web-workspace-detail-toggle { height: 29px; border: 1px solid var(--web-border); border-radius: 8px; color: var(--web-muted); background: var(--web-surface-soft); font-size: 11px; }
+.web-workspace-sort-direction, .web-workspace-detail-toggle { display: inline-flex; width: 29px; align-items: center; justify-content: center; cursor: pointer; }
+.web-workspace-sort-direction:hover, .web-workspace-sort select:hover, .web-workspace-detail-toggle:hover { border-color: #d7d0ef; color: var(--web-plum); }
+.web-workspace-sort-direction:focus-visible, .web-workspace-sort select:focus-visible, .web-workspace-detail-toggle:focus-visible { outline: 2px solid rgba(155,124,247,.45); outline-offset: 1px; }
 .web-workspace-sort-direction svg { width: 14px; height: 14px; }
+.web-workspace-detail-toggle svg { width: 14px; height: 14px; }
 .web-workspace-sort select { min-width: 82px; padding: 0 24px 0 9px; cursor: pointer; }
 .web-workspace-toolbar .web-search { width: min(290px, 25vw); height: 29px; }
 .web-workspace-panes { display: flex; flex: 1 1 auto; min-height: 35rem; overflow: hidden; background: #f8faff; }
@@ -234,6 +235,21 @@
 .web-settings-info-label { color: var(--web-subtle); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .web-settings-info-value { margin-top: 3px; color: var(--web-text); font-size: 12px; }
 .web-settings-save { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 0; }
+.web-settings-drawer-backdrop { position: fixed; z-index: 30; inset: 0; display: flex; align-items: stretch; background: rgba(36,34,48,.34); }
+.web-settings-drawer { display: flex; width: min(430px, 92vw); flex-direction: column; overflow: hidden; background: #fff; box-shadow: 14px 0 38px rgba(33,28,55,.18); }
+.web-settings-drawer-header { display: flex; min-height: 45px; align-items: center; justify-content: space-between; gap: 10px; padding: 0 12px; border-bottom: 1px solid var(--web-border); }
+.web-settings-drawer-header h2 { margin: 0; color: var(--web-text); font-size: 13px; font-weight: 750; }
+.web-settings-drawer-header > div { display: flex; align-items: center; gap: 8px; }
+.web-settings-drawer-header .web-button-primary { padding: 5px 9px; font-size: 11px; }
+.web-settings-drawer-cancel { border: 0; padding: 5px 3px; color: var(--web-muted); background: transparent; font-size: 11px; font-weight: 650; cursor: pointer; }
+.web-settings-drawer-cancel:hover { color: var(--web-text); }
+.web-settings-drawer-body { min-height: 0; flex: 1 1 auto; overflow-y: auto; padding: 12px; background: #fbfcff; }
+.web-settings-drawer-body .web-settings-detail { display: block; border: 0; border-radius: 0; box-shadow: none; }
+.web-settings-drawer-body .web-settings-detail-rail { position: static; min-height: 0; padding: 10px 0; border: 0; border-bottom: 1px solid var(--web-border); background: transparent; }
+.web-settings-drawer-body .web-settings-tabs { flex-direction: row; overflow-x: auto; }
+.web-settings-drawer-body .web-settings-tab { flex: 0 0 auto; }
+.web-settings-drawer-body .web-settings-detail-note, .web-settings-drawer-body .web-settings-save { display: none; }
+.web-settings-drawer-body .web-settings-detail-content { padding: 12px 0 0; }
 .web-login { display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; background: var(--web-canvas); color: var(--web-text); }
 .web-login-form { display: flex; width: 100%; max-width: 380px; flex-direction: column; gap: 20px; padding: 28px; border: 1px solid var(--web-border); border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgba(39,33,63,.06); }
 .web-login-label { display: flex; flex-direction: column; gap: 6px; color: var(--web-text); font-size: 12px; font-weight: 650; }
