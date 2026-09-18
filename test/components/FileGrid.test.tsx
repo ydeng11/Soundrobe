@@ -107,6 +107,22 @@ describe("FileGrid", () => {
     expect(screen.getByText("Available")).toBeTruthy();
   });
 
+  it("gives added browser fields enough initial width for their labels", () => {
+    render(
+      <FileGrid
+        web
+        webVisibleColumns={["filename", "albumArtist"]}
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    const albumArtistHeader = screen.getByRole("button", { name: /Album Artist/ });
+    expect(Number.parseInt(albumArtistHeader.style.width, 10)).toBeGreaterThan(80);
+  });
+
   it("uses the compact browser table hierarchy without the native context menu", () => {
     const onSelect = vi.fn();
     const showTrackContextMenu = vi.fn();

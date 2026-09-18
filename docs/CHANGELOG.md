@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser Workspace remains reachable with its editor draft after opening and
   closing the Change library picker, while compact navigation and workspace
   filtering remain accessible on narrow screens.
+- Browser Workspace preserves readable headers and working resize handles when
+  users add metadata fields to the file table.
 
 ### Added
 

@@ -56,6 +56,10 @@ const MIN_COL_WIDTH = 40;
 const HANDLE_WIDTH = 5;
 const EMPTY_SELECTED_TRACK_PATHS: string[] = [];
 
+function minimumColumnWidth(column: Column): number {
+  return Math.max(MIN_COL_WIDTH, column.label.length * 8 + 38);
+}
+
 const ALL_COLUMNS: Column[] = [
   { key: "filename", label: "Path", width: "flex-[3]", align: "left" },
   { key: "title", label: "Title", width: "flex-[2]", align: "left" },
@@ -146,6 +150,7 @@ export function FileGrid({
     () => (web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => activeVisibleColumns.has(c.key)),
     [activeVisibleColumns, web]
   );
+  const visibleColumnKey = COLUMNS.map((column) => column.key).join(",");
 
   // Derive multi-selected paths from props instead of mirroring in local state
   const multiSelected = useMemo(
@@ -164,10 +169,12 @@ export function FileGrid({
   // Draggable column widths (pixel values)
   const headerRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number> | null>(null);
+  const columnLayoutKeyRef = useRef<string | null>(null);
 
   // Compute initial pixel widths — always sum exactly to container width
   useLayoutEffect(() => {
-    if (columnWidths) return; // Already initialized
+    const layoutChanged = columnLayoutKeyRef.current !== visibleColumnKey;
+    if (columnWidths && !layoutChanged) return;
     const container = headerRef.current?.parentElement;
     if (!container) return;
     const availableColumns = web ? WEB_COLUMNS : ALL_COLUMNS;
@@ -186,7 +193,7 @@ export function FileGrid({
     // Proportional widths, clamped to minimum
     visKeys.forEach((c) => {
       widths[c.key] = Math.max(
-        MIN_COL_WIDTH,
+        minimumColumnWidth(c),
         Math.round(((COLUMN_FLEX[c.key] ?? 1) / totalFlex) * totalWidth)
       );
     });
@@ -200,7 +207,7 @@ export function FileGrid({
         if (sum < totalWidth) {
           widths[c.key]++;
           sum++;
-        } else if (widths[c.key] > MIN_COL_WIDTH) {
+        } else if (widths[c.key] > minimumColumnWidth(c)) {
           widths[c.key]--;
           sum--;
         }
@@ -208,8 +215,9 @@ export function FileGrid({
       iter++;
     }
 
+    columnLayoutKeyRef.current = visibleColumnKey;
     setColumnWidths(widths);
-  }, [activeVisibleColumns, columnWidths, web]);
+  }, [columnWidths, visibleColumnKey, web]);
 
   // Column resize drag state
   const dragRef = useRef<{
@@ -250,21 +258,21 @@ export function FileGrid({
         const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
         const availableForCols = container.clientWidth - 24 - handleTotal;
         const delta = ev.clientX - startX;
-        let newW = Math.max(MIN_COL_WIDTH, startW + delta);
-        let newNext = Math.max(MIN_COL_WIDTH, nextStartW - delta);
+        let newW = Math.max(minimumColumnWidth(curCol), startW + delta);
+        let newNext = Math.max(minimumColumnWidth(nextCol), nextStartW - delta);
 
         // Cap total width so columns don't overflow the container
         const otherSum = visKeys.reduce((sum, c) => {
           if (c.key === curCol.key || c.key === nextCol.key) return sum;
-          return sum + (columnWidths?.[c.key] ?? MIN_COL_WIDTH);
+          return sum + (columnWidths?.[c.key] ?? minimumColumnWidth(c));
         }, 0);
         const totalAllowed = newW + newNext + otherSum;
-        if (totalAllowed > availableForCols && newNext > MIN_COL_WIDTH) {
+        if (totalAllowed > availableForCols && newNext > minimumColumnWidth(nextCol)) {
           // Shrink next column to fit
-          newNext = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newW);
-        } else if (totalAllowed > availableForCols && newW > MIN_COL_WIDTH) {
+          newNext = Math.max(minimumColumnWidth(nextCol), availableForCols - otherSum - newW);
+        } else if (totalAllowed > availableForCols && newW > minimumColumnWidth(curCol)) {
           // Shrink current column to fit
-          newW = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newNext);
+          newW = Math.max(minimumColumnWidth(curCol), availableForCols - otherSum - newNext);
         }
 
         setColumnWidths((prev) => {
@@ -593,8 +601,8 @@ export function FileGrid({
                   : web ? "hover:bg-[#f3f1ef] hover:text-[#4b4641]" : "hover:bg-surface-hover hover:text-text-secondary"
               }`}
               style={{
-                width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-                minWidth: MIN_COL_WIDTH,
+                width: columnWidths?.[col.key] ?? minimumColumnWidth(col),
+                minWidth: minimumColumnWidth(col),
               }}
             >
               <span className="truncate">{col.label}</span>
@@ -860,8 +868,8 @@ const FileGridRow = memo(function FileGridRow({
                 : web ? "web-file-cell" : "text-text-secondary"
             }`}
             style={{
-              width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-              minWidth: MIN_COL_WIDTH,
+              width: columnWidths?.[col.key] ?? minimumColumnWidth(col),
+              minWidth: minimumColumnWidth(col),
             }}
           >
             {col.key === "filename" ? (
