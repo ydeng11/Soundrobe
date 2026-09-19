@@ -40,6 +40,25 @@ All media writes must go through the shared Rust `WriteQueue`; never create a pa
 
 The metadata pipeline remains: folder hints → exact provider IDs / artist release browsing → MusicBrainz → Discogs → conditional LLM fallback. Higher-confidence fields are not overwritten by lower-priority sources. Prefer explicit no-change or unsupported outcomes over a guessed write.
 
+## Frontend consistency
+
+The browser workspace under `src/web/` is a dense utility UI that must match the Music Tag Web V2 reference wherever the reference defines a value. Consistency is held by the token layer and by tests rather than by convention, so this section is short and strict.
+
+`src/web/tokens.css` is the only source of colour, type, and geometry; `src/web/web.css` consumes it. `src/web/columns.ts` is the only source of column widths.
+
+- Do not add a literal colour. The two tolerated literals are the shadow alphas. Prefer a token for any value that repeats or that the reference defines; one-off icon and utility widths are the existing exception.
+- Reference-derived values are measured from the reference DOM and kept in `oklch()` as read. Do not convert them to hex, and do not "improve" a value the reference defines. Roles marked *observed* in `tokens.css` are approximations and are the ones worth re-measuring.
+- A new state token must be derived from the existing palette or ported from the reference, and its comment must say which. The reference is the source of truth for hover, selected, and active values.
+- Every interactive element needs a hover that differs from the surface behind it, a selected treatment that differs from hover, a visible `:focus-visible` ring, and a disabled state. A state that resolves to the surface behind it is a defect, not a style choice.
+- Body text needs 4.5:1 against its own background; large text and icons need 3:1. Alpha text roles are the usual offenders. Compute this with a script — never judge it by eye.
+- Test the tokens, not just the rendering: a state token must exist and be referenced, and hover must not resolve to the surface token.
+
+Use the `prototype` skill (`.agents/skills/prototype/`) to answer *structural* questions before committing — which affordance signals selection, which layout wins. Run it as variants on the existing route behind `?variant=`. It is the wrong tool for a colour or font-size tweak, and its variants must differ structurally rather than in colour. Because the palette is parity-bound, hold the reference tokens fixed and vary treatment, density, and hierarchy instead.
+
+Use the `frontend-design` skill (`.agents/skills/frontend-design/`) for the detail pass — typography, aesthetic direction, and its stated quality floor: responsive to mobile, visible keyboard focus, reduced motion respected, visually accessible. It is written for work that needs a distinctive visual identity, and it says the brief's own words win. Here the brief is the reference, so the reference wins on every value it defines; apply the skill where the reference is silent, and do not spend its aesthetic-risk budget on new colours.
+
+Changing a reference-derived value is a deliberate divergence: record it in `docs/mtw-parity.md` with the measured before and after. Verify UI work in the browser at 1920×1080 and 390×844 and read the computed styles back; a stylesheet that looks right is not evidence.
+
 ## Commands
 
 From the repository root:
@@ -128,6 +147,7 @@ Use existing user data in place; do not reset or migrate formats silently:
 - `~/.soundrobe/cache.db`
 - `~/.soundrobe/dataset-index.sqlite`
 - `~/.soundrobe/artist-aliases.json`
+- `~/.soundrobe/background-tagging.json`
 - `~/.soundrobe/window-state.json`
 - `~/.soundrobe/auto-tagger.log`
 - `~/.soundrobe/auto-tag-debug-YYYY-MM-DD.log`
