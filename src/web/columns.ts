@@ -32,9 +32,6 @@ export const WEB_TABLE_COLUMNS: readonly WebTableColumn[] = [
 
 export type WebTableColumnKey = (typeof WEB_TABLE_COLUMNS)[number]["key"];
 
-/** Reference column labels, in reference order. */
-export const WEB_TABLE_COLUMN_LABELS: readonly string[] = WEB_TABLE_COLUMNS.map((c) => c.label);
-
 /** Total pixel width of the reference column set (970px against a 971px table). */
 export const WEB_TABLE_TOTAL_WIDTH: number = WEB_TABLE_COLUMNS.reduce((sum, c) => sum + c.width, 0);
 

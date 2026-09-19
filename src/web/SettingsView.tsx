@@ -25,6 +25,7 @@ import {
   setBackgroundSettings,
   type BackgroundTaggingSettings,
 } from "../shared/web-adapter";
+import { TechnicalRow } from "./TechnicalRow";
 import { describeCron } from "./monitoring";
 
 export interface SettingsViewProps {
@@ -885,20 +886,11 @@ export function SettingsView({
         </div>
 
         <div className="sr-technical" data-testid="settings-runtime">
-          <Row label="Version" value={appInfo?.version ?? "—"} />
-          <Row label="Runtime" value={appInfo?.runtime ?? "—"} />
-          <Row label="Identifier" value={appInfo?.identifier ?? "—"} />
+          <TechnicalRow label="Version" value={appInfo?.version ?? "—"} />
+          <TechnicalRow label="Runtime" value={appInfo?.runtime ?? "—"} />
+          <TechnicalRow label="Identifier" value={appInfo?.identifier ?? "—"} />
         </div>
       </section>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="sr-technical__row">
-      <span className="sr-technical__label">{label}</span>
-      <span>{value}</span>
     </div>
   );
 }

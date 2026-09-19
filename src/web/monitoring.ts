@@ -15,7 +15,6 @@
  */
 
 import type {
-  BackgroundRun,
   BackgroundRunStatus,
   BackgroundRunTrigger,
   MonitoredRelease,
@@ -66,7 +65,7 @@ export const TRIGGER_LABEL: Record<BackgroundRunTrigger, string> = {
  * The order facets are shown in: what needs attention first, then what is fine.
  * A facet list ordered by enum declaration would bury "Needs review".
  */
-export const RELEASE_FACET_ORDER: ReleaseHealthStatus[] = [
+const RELEASE_FACET_ORDER: ReleaseHealthStatus[] = [
   "needs_review",
   "failed",
   "unreadable",
@@ -109,10 +108,15 @@ export function relativeTime(value: string | null, now: Date = new Date()): stri
 /**
  * How long a run took, or how long it has been going.
  *
+ * Named for the run rather than the duration, because `TrackDetailEditor` also
+ * exports a `formatDuration`, which formats an audio length in seconds as
+ * `m:ss`. Two functions of one name with different meanings is a mistake waiting
+ * to be made.
+ *
  * `finishedAt` has been recorded since background tagging shipped and was never
- * shown; duration is the metric that tells you whether a run is stuck.
+ * shown; this is the metric that tells you whether a run is stuck.
  */
-export function formatDuration(
+export function formatRunDuration(
   startedAt: string,
   finishedAt: string | null,
   now: Date = new Date(),
@@ -166,13 +170,6 @@ export function filterReleases(
     if (needle === "") return true;
     return release.path.toLowerCase().includes(needle);
   });
-}
-
-/** The album's own name, which is the last path segment. */
-export function albumNameOf(path: string): string {
-  const trimmed = path.replace(/[\\/]+$/, "");
-  const index = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"));
-  return index === -1 ? trimmed : trimmed.slice(index + 1);
 }
 
 export type LogLevel = "error" | "warn" | "info" | "debug" | "unknown";
@@ -302,9 +299,4 @@ export function describeCron(expression: string): string | null {
   }
 
   return null;
-}
-
-/** The runs that ended badly, so Monitoring can point at what to retry. */
-export function failedRuns(runs: BackgroundRun[]): BackgroundRun[] {
-  return runs.filter((run) => run.status === "failed" && run.failed > 0);
 }

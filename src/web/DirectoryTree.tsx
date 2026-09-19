@@ -6,7 +6,6 @@
  * are separate concerns. Subdirectories are loaded on demand by the parent.
  */
 
-import React from "react";
 import type { DirEntry } from "../shared/desktop-api";
 import { isNeedsReview } from "./review";
 

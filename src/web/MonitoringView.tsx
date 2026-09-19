@@ -20,6 +20,8 @@
 
 import React from "react";
 import { OperationLogView } from "./OperationLogView";
+import { TechnicalRow } from "./TechnicalRow";
+import { albumNameOf } from "./review";
 import {
   LOG_LEVEL_LABEL,
   LOG_LEVEL_ORDER,
@@ -28,12 +30,11 @@ import {
   RUN_STATUS_CLASS,
   RUN_STATUS_LABEL,
   TRIGGER_LABEL,
-  albumNameOf,
   describeCron,
   facetCounts,
   filterLog,
   filterReleases,
-  formatDuration,
+  formatRunDuration,
   levelCounts,
   parseLog,
   relativeTime,
@@ -390,13 +391,13 @@ export function MonitoringView({
             {status ? (
               <>
                 <div className="sr-technical">
-                  <Row label="State" value={status.enabled ? "Enabled" : "Disabled"} />
-                  <Row label="Crontab" value={status.schedule} mono />
-                  <Row
+                  <TechnicalRow label="State" value={status.enabled ? "Enabled" : "Disabled"} />
+                  <TechnicalRow label="Crontab" value={status.schedule} mono />
+                  <TechnicalRow
                     label="Means"
                     value={scheduleWords ?? "Not a pattern this page can put into words"}
                   />
-                  <Row
+                  <TechnicalRow
                     label="Next run"
                     value={
                       status.nextRunAt
@@ -404,9 +405,9 @@ export function MonitoringView({
                         : "—"
                     }
                   />
-                  <Row label="Watch new files" value={status.watchEnabled ? "Yes" : "No"} />
-                  <Row label="Skip fully tagged" value={status.skipUnchanged ? "Yes" : "No"} />
-                  <Row
+                  <TechnicalRow label="Watch new files" value={status.watchEnabled ? "Yes" : "No"} />
+                  <TechnicalRow label="Skip fully tagged" value={status.skipUnchanged ? "Yes" : "No"} />
+                  <TechnicalRow
                     label="Coverage"
                     value={
                       status.effectiveDirectories.length > 0
@@ -491,7 +492,7 @@ export function MonitoringView({
                             {RUN_STATUS_LABEL[run.status] ?? run.status}
                           </span>
                         </td>
-                        <td>{formatDuration(run.startedAt, run.finishedAt, clock)}</td>
+                        <td>{formatRunDuration(run.startedAt, run.finishedAt, clock)}</td>
                         <td>{run.tagged}</td>
                         <td>{run.failed}</td>
                         <td className="sr-cell--muted">{run.message || "—"}</td>
@@ -852,14 +853,5 @@ function Progress({ task }: { task: WebTask }) {
         {task.progress} / {task.total}
       </span>
     </span>
-  );
-}
-
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="sr-technical__row">
-      <span className="sr-technical__label">{label}</span>
-      <span className={mono ? "sr-log-inline" : undefined}>{value}</span>
-    </div>
   );
 }

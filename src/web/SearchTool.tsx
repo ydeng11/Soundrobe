@@ -23,7 +23,7 @@ import type {
   TrackMappingRow,
 } from "../shared/desktop-api";
 import { ToolDrawer, useToolRun } from "./ToolDrawer";
-import { albumNameOf } from "./monitoring";
+import { albumNameOf } from "./review";
 
 type Provider = "musicbrainz" | "discogs";
 type Phase = "form" | "results" | "mapping";

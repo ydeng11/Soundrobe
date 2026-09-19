@@ -13,6 +13,7 @@
 import React from "react";
 import type { TrackData } from "../shared/desktop-api";
 import { parseDiscField } from "../shared/fields";
+import { TechnicalRow } from "./TechnicalRow";
 
 export interface TrackDetailEditorProps {
   track: TrackData | null;
@@ -387,15 +388,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="sr-field__label">{label}</span>
       {children}
     </div>
-  );
-}
-
-function TechnicalRow({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="sr-technical__row">
-      <span className="sr-technical__label">{label}</span>
-      <span>{value}</span>
-    </span>
   );
 }
 

@@ -8,15 +8,13 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { BackgroundRun, MonitoredRelease } from "../../src/shared/web-adapter";
+import type { MonitoredRelease } from "../../src/shared/web-adapter";
 import {
-  albumNameOf,
   describeCron,
   facetCounts,
-  failedRuns,
   filterLog,
   filterReleases,
-  formatDuration,
+  formatRunDuration,
   levelCounts,
   levelOf,
   parseLog,
@@ -26,19 +24,6 @@ import {
 const release = (path: string, status: MonitoredRelease["status"]): MonitoredRelease => ({
   path,
   status,
-});
-
-const run = (over: Partial<BackgroundRun>): BackgroundRun => ({
-  id: "r1",
-  trigger: "schedule",
-  startedAt: "2026-09-19T10:00:00.000Z",
-  finishedAt: null,
-  status: "completed",
-  tagged: 0,
-  failed: 0,
-  message: "",
-  taskId: null,
-  ...over,
 });
 
 describe("relativeTime", () => {
@@ -61,18 +46,18 @@ describe("relativeTime", () => {
   });
 });
 
-describe("formatDuration", () => {
+describe("formatRunDuration", () => {
   it("measures a finished run from its own start and end", () => {
-    expect(formatDuration("2026-09-19T10:00:00.000Z", "2026-09-19T10:01:20.000Z")).toBe("1m 20s");
+    expect(formatRunDuration("2026-09-19T10:00:00.000Z", "2026-09-19T10:01:20.000Z")).toBe("1m 20s");
   });
 
   it("measures a run that has not finished against now, so a stuck run is visible", () => {
     const now = new Date("2026-09-19T10:05:00.000Z");
-    expect(formatDuration("2026-09-19T10:00:00.000Z", null, now)).toBe("5m");
+    expect(formatRunDuration("2026-09-19T10:00:00.000Z", null, now)).toBe("5m");
   });
 
   it("does not print a negative duration when clocks disagree", () => {
-    expect(formatDuration("2026-09-19T10:00:00.000Z", "2026-09-19T09:59:00.000Z")).toBe("—");
+    expect(formatRunDuration("2026-09-19T10:00:00.000Z", "2026-09-19T09:59:00.000Z")).toBe("—");
   });
 });
 
@@ -120,22 +105,6 @@ describe("filterReleases", () => {
 
   it("treats whitespace as no query rather than matching nothing", () => {
     expect(filterReleases(all, "all", "   ")).toHaveLength(3);
-  });
-});
-
-describe("albumNameOf", () => {
-  it("names the album, not the whole path", () => {
-    expect(albumNameOf("/music/Radiohead/Kid A")).toBe("Kid A");
-    expect(albumNameOf("/music/Radiohead/Kid A/")).toBe("Kid A");
-  });
-});
-
-describe("failedRuns", () => {
-  it("counts a run that failed only when it actually failed something", () => {
-    // A cancelled run reports status "failed" with no failures; offering to
-    // retry its zero albums would be noise.
-    expect(failedRuns([run({ status: "failed", failed: 0 }), run({ status: "failed", failed: 3 })])).toHaveLength(1);
-    expect(failedRuns([run({ status: "completed", failed: 0 })])).toHaveLength(0);
   });
 });
 

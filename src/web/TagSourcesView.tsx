@@ -23,7 +23,7 @@ export interface ProviderDefinition {
 }
 
 /** AI providers that can serve the metadata fallback. */
-export const AI_PROVIDERS: Record<string, ProviderDefinition> = {
+const AI_PROVIDERS: Record<string, ProviderDefinition> = {
   openai: {
     label: "OpenAI",
     baseUrl: "https://api.openai.com/v1",
