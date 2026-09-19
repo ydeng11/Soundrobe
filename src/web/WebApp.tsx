@@ -28,6 +28,8 @@ export interface WebAppProps {
 export function WebApp({ api = window.api }: WebAppProps) {
   const [authState, setAuthState] = React.useState<AuthState>("checking");
   const [view, setView] = React.useState<WebView>("workspace");
+  /** Set when Monitoring sends the reader to the album it flagged. */
+  const [pendingAlbum, setPendingAlbum] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -77,12 +79,23 @@ export function WebApp({ api = window.api }: WebAppProps) {
 
   return (
     <WebShell activeView={view} onViewChange={setView} onSignOut={() => void handleSignOut()}>
-      {view === "workspace" && <WorkspaceView api={api} />}
+      {view === "workspace" && (
+        <WorkspaceView
+          api={api}
+          openAlbumPath={pendingAlbum}
+          onAlbumOpened={() => setPendingAlbum(null)}
+        />
+      )}
       {view === "sources" && <TagSourcesView api={api} />}
       {view === "monitoring" && (
         <MonitoringView
           loadTasks={() => import("../shared/web-adapter").then((m) => m.listWebTasks())}
           cancelTask={(taskId) => api.cancelTask(taskId)}
+          onOpenAlbum={(path) => {
+            setPendingAlbum(path);
+            setView("workspace");
+          }}
+          onOpenSettings={() => setView("settings")}
         />
       )}
       {view === "settings" && <SettingsView />}

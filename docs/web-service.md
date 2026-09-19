@@ -149,11 +149,24 @@ untagged, and it is never tagged twice.
 
 `~/.soundrobe/background-tagging.json` holds both the settings and the last 50
 runs, and is the authoritative record of what happened. **Monitoring** is the single
-page for all of it, in one pass down the screen: the schedule that will fire, any run
-in progress, the operations you started from the workspace, the recent background
-runs, the releases the last survey classified, and the service log. There is no
-separate Operation log destination — the log answers the same question Monitoring
-does, so it is a section here rather than a peer competing with it in the navigation.
+page for all of it: a strip of counts that stays visible, over four tabs — Overview,
+Releases, Operations and Logs. There is no separate Operation log destination, because
+the log answers the same question Monitoring does.
+
+The strip is the overview and every count in it is a way in: clicking *Needs review 5*
+opens the Releases tab filtered to those five albums, and each row has an **Open**
+button that loads that album into the Workspace. Monitoring reports the problem and
+takes you to where it is fixed.
+
+The **Releases** tab filters by tagging state and searches by path, and pages in 50 at
+a time so a library of thousands does not have to render at once. The **Logs** tab
+follows the selected file while you watch it, filters by level with counts, and
+searches lines.
+
+Times are shown in the browser's timezone and labelled as such; the schedule itself
+runs in the service's local time. The run history is the last 50 runs, which the page
+says rather than leaving you to discover it.
+
 Its log source selector covers two files in the service data directory:
 
 | Source | File | Contents |
@@ -165,6 +178,22 @@ A source with no file yet reports that plainly instead of showing an empty log.
 Background tagging is on by default because the service already swept mounted
 libraries at startup before it was configurable; turning it off is one switch in
 Settings.
+
+### Changing settings
+
+Settings is grouped by the question you arrive with — Metadata sources, Tag writing,
+Lyrics, Automation, Assistant, System — with navigation between the groups.
+
+A toggle or a dropdown applies immediately and confirms itself next to the field;
+that confirmation expires, so it can never be read as confirming a value that has
+since changed. A free-text value — the lyrics service URL, a custom crontab — is held
+as a draft with **Save** and **Cancel** and an unsaved-changes warning, because a
+half-typed value is not yet a decision.
+
+Anything the service refuses is reported at the field that caused it, which is marked
+invalid and focused. Covered folders are checked against the served libraries before
+they are accepted: a folder outside every library root could never be read, so it is
+refused with the reason instead of being stored and silently never tagged.
 
 ### Reviewing what tagging could not place
 

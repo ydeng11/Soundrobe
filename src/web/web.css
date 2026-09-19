@@ -113,6 +113,11 @@
 
 .sr-nav__item:focus-visible,
 .sr-btn:focus-visible,
+/* Added with the monitoring tabs, facets and count tiles: a control that
+   cannot show focus is a control a keyboard user cannot find. */
+.sr-tab:focus-visible,
+.sr-facet:focus-visible,
+.sr-summary__card--action:focus-visible,
 .sr-input:focus-visible,
 .sr-textarea:focus-visible,
 .sr-tree__node:focus-visible,
@@ -688,6 +693,176 @@
   padding: 12px;
   border-bottom: 1px solid var(--sr-border);
   flex: none;
+}
+
+/* A count that opens the list it counts. */
+.sr-cell--primary {
+  font-weight: var(--sr-fw-medium);
+  cursor: pointer;
+}
+
+.sr-cell--primary:focus-visible {
+  outline: 2px solid var(--sr-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--sr-radius-xs);
+}
+
+.sr-summary__card--action {
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.sr-summary__card--action:hover {
+  border-color: var(--sr-border-strong);
+  background: var(--sr-surface-strong);
+}
+
+.sr-summary__card--action.is-active {
+  border-color: var(--sr-primary);
+  background: var(--sr-primary-soft);
+}
+
+.sr-summary__card--action.is-active .sr-summary__label {
+  color: var(--sr-primary-text);
+}
+
+/* Peer tabs: one question each, over a permanent overview strip. */
+.sr-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px 0;
+  border-bottom: 1px solid var(--sr-border);
+  flex: none;
+}
+
+.sr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  border-radius: var(--sr-radius-pill);
+  background: transparent;
+  color: var(--sr-text-muted);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-medium);
+  cursor: pointer;
+}
+
+.sr-tab:hover {
+  background: var(--sr-surface-strong);
+  color: var(--sr-text);
+}
+
+.sr-tab.is-active {
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary-text);
+}
+
+.sr-tab__count {
+  padding: 0 6px;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-surface-strong);
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-2xs);
+  line-height: var(--sr-lh-tight);
+}
+
+/* Filter row: facets on the left, search on the right. */
+.sr-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.sr-facets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sr-facet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-surface);
+  color: var(--sr-text-muted);
+  font: inherit;
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  cursor: pointer;
+}
+
+.sr-facet:hover {
+  border-color: var(--sr-border-strong);
+  color: var(--sr-text);
+}
+
+.sr-facet.is-active {
+  border-color: var(--sr-primary);
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary-text);
+}
+
+.sr-facet__count {
+  color: var(--sr-text-muted);
+  font-weight: var(--sr-fw-semibold);
+}
+
+.sr-facet.is-active .sr-facet__count {
+  color: var(--sr-primary-text);
+}
+
+/* A proportion, not two numbers to divide. */
+.sr-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sr-progress__track {
+  display: block;
+  width: 96px;
+  height: 6px;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-surface-strong);
+  overflow: hidden;
+}
+
+.sr-progress__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-primary);
+}
+
+.sr-progress__value {
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A confirmation, at the field that changed and only while it is news. */
+.sr-ok {
+  color: var(--sr-success-text);
+}
+
+.sr-freshness {
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
 }
 
 .sr-summary__card {

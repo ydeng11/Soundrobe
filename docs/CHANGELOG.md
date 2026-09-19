@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The browser service's **Monitoring** page is now four tabs — Overview, Releases,
+  Operations, Logs — under a strip of counts that stays visible. Every count that has
+  a list behind it is a button: "Needs review 5" is how you get to those five albums.
+  The Releases tab filters by state and searches by path, and each row opens the album
+  in the Workspace, so a problem reported here can be fixed from here. The previous
+  version stacked six sections on one page and every count was inert.
+- Monitoring now shows how long each run took, how long ago it started, and how long
+  until the next run, instead of only absolute timestamps. The record has always
+  carried this.
+- Monitoring's log viewer is live: it follows the log while you watch it, filters by
+  level (error, warning, info, debug) with counts, and searches lines. It previously
+  loaded once and never changed — precisely when a run in progress made you want it.
+- Monitoring says which clock its times are shown in, and that the schedule runs in
+  the service's local time. A schedule's timezone was previously left to be guessed.
+- The browser **Settings** page is grouped into six named sections — Metadata sources,
+  Tag writing, Lyrics, Automation, Assistant, System — with navigation between them and
+  a description under every setting.
+- Settings now explains a crontab expression in words ("Every day at 00:00"), and says
+  so plainly when it cannot be sure rather than guessing at a schedule's meaning.
+- Browser-workspace polling now pauses while the tab is not visible.
+
 - The browser service's Operation log is now a section of the Monitoring page rather
   than a destination of its own. Both answer the same question — what has the
   background tagger been doing — so the navigation now has four entries instead of
@@ -37,6 +58,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background tagging is now configurable and observable instead of an unconditional sweep on every service start. It still runs once at startup, and every run is recorded with its trigger, outcome and counts. The schedule and run history live in `~/.soundrobe/background-tagging.json`.
 
 ### Fixed
+
+- Browser Settings could confirm a change that was no longer true: the "saved"
+  message was cleared only by the *next* save, so it stayed on screen indefinitely.
+  Confirmations now belong to the field that changed and expire on their own.
+- Browser Monitoring showed a release list of unbounded length; a library of thousands
+  of albums rendered thousands of rows. The list is now bounded and pages in.
+- Browser Settings accepted a covered folder that no library could read — outside every
+  served directory, or not a directory at all — which would have been configured and
+  then silently never tagged. It is now checked and refused with the reason.
+- Browser Settings reported an unusable crontab in a page-level banner at the top, far
+  from the field that caused it. The reason now appears at the field, which is marked
+  invalid and focused.
+- Saving one setting in the browser Settings page disabled every other control until it
+  finished. Only the field being saved is now busy.
+- The browser service's log viewer never refreshed after the page loaded.
 
 - Browser-workspace badges and chips were hard to read: the brand badge, the header
   mark, the status chips and the informational badge all painted the accent colour on
@@ -82,6 +118,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cleared, and sorts the browser Format column by codec.
 
 ### Added
+
+- Browser Settings takes a free-text value — the lyrics service URL, a custom crontab —
+  as a draft with Save and Cancel and an "unsaved changes" warning, rather than saving
+  whatever was typed so far or losing it on navigation.
 
 - The browser Workspace now shows which albums background tagging left needing
   review: they are named above the file table and marked in the folder tree, so

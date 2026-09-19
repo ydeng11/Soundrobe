@@ -896,3 +896,59 @@ answer they wanted.
 `docs/web-service.md` describes the merged page. The nav tests now assert four
 destinations and that `Operation log` is absent, and a test asserts the section renders
 inside Monitoring with its table, so the merge cannot silently regress.
+
+## 23. Monitoring and Settings: decisions and what shipped (2026-09-19)
+
+The audit lives in `.planning/plans/monitoring-settings-ux-plan.md`. Four decisions
+were the agent's to make, and are recorded here because each constrains future work:
+
+1. **Save model: hybrid.** Instant apply for toggles and selects with a per-field
+   confirmation; explicit `Save` / `Cancel` with an unsaved-changes guard for free-text
+   values. Published practice draws the line there, and a single page-level save bar
+   would turn an instantly reversible toggle into two steps while hiding which field
+   failed.
+2. **Tabs, not stacked sections.** Four peer tabs over a permanent count strip. This is
+   the reference's own structure for the same material (`操作日志` / `运行日志` over a
+   faceted list) and it corrects an earlier merge of ours that left six sections on one
+   page.
+3. **State the timezone.** Times render in the browser's zone, labelled, with the
+   schedule stated to run in the service's local time. A wrong guess about which clock a
+   schedule uses fails silently.
+4. **Retention stays at 50 runs, and the UI says `last 50`.** A trend view needs more
+   history, and raising the cap is a persistence decision about real run records — not a
+   side effect of a UI pass. Revisit as its own change.
+
+### Measured before and after
+
+| | Before | After |
+| --- | --- | --- |
+| Counts | Four inert tiles | Every count with a list behind it is a button |
+| Release list | Unbounded `map` | Filtered, searched, paged in 50s (`Showing 50 of 120`) |
+| Row action | Path text | Opens the album in the Workspace |
+| Log | Snapshot from page load | Follows live, filters by level with counts, searches |
+| Run time | Absolute start only | Relative start, duration, countdown to next |
+| Settings groups | 3 flat sections | 6 named groups with navigation and 15 help texts |
+| Confirmation | Never cleared | Per field, expires on its own |
+| Validation | Page-level banner | At the field, `aria-invalid`, focused |
+| Covered folder | Accepted unchecked | Refused when outside every served root or unreadable |
+| Busy state | Whole page locked | Only the field being saved |
+
+Verified on the running service at 1440×900: the tiles report
+`On · in 6h 56m · 6 Needs review`, `Means: Every day at 00:00`, a runs table whose first
+row reads `just now · Manual · Completed · 23s`, the count click landing on
+`Showing 6 of 6 matching`, the log reporting `showing 76 of 76 lines · live` with level
+facets `All 76 / Info 26 / Debug 50`, and the drill-in loading
+`Artist Alpha/Reference Album One` with three tracks.
+
+The log level classifier was checked against the real file rather than assumed: the log
+holds exactly 50 `DEBUG` and 26 `INFO` lines, and the classifier agrees line for line
+with **zero** `unknown`, so the absent error facet is an honest "no errors" rather than
+a hidden one.
+
+The rendered sweep reports **0 focusables without a ring and 0 contrast failures** on
+all five views. It also caught a regression from this pass: the new tabs, facets and
+count tiles had no focus ring, so they were added to the ring group. De-emphasised text
+in the new rules uses `--sr-text-muted` (4.64:1), not `--sr-text-soft` (4.24:1), which
+the state-token contract test enforces; and every new font size is paired with a
+leading, which the type-scale contract test enforces. Both tests failed on the first
+attempt and were the reason those rules are correct.

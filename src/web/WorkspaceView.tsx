@@ -55,6 +55,13 @@ export interface WorkspaceViewProps {
   api?: Window["api"];
   /** Albums background tagging classified; injected for tests. */
   loadReleases?: () => Promise<{ releases: MonitoredRelease[] }>;
+  /**
+   * An album to open on arrival, set when Monitoring sends the reader to the
+   * album it just reported a problem with.
+   */
+  openAlbumPath?: string | null;
+  /** Called once `openAlbumPath` has been loaded, so the caller can clear it. */
+  onAlbumOpened?: () => void;
 }
 
 interface DirectoryView {
@@ -69,6 +76,8 @@ interface DirectoryView {
 export function WorkspaceView({
   api = window.api,
   loadReleases = listMonitoringReleases,
+  openAlbumPath = null,
+  onAlbumOpened,
 }: WorkspaceViewProps) {
   const [roots, setRoots] = React.useState<LibraryRoot[]>([]);
   const [rootIndex, setRootIndex] = React.useState(0);
@@ -171,6 +180,26 @@ export function WorkspaceView({
       active = false;
     };
   }, [api, loadDirectory]);
+
+  /**
+   * Open the album Monitoring pointed at, once it is known where the album sits.
+   *
+   * The root list has to resolve first: a drilled-in path is absolute, and the
+   * library selector and tree both read from `roots`. The callback clears the
+   * request so a later re-render does not drag the reader back.
+   */
+  const drillInRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!openAlbumPath || roots.length === 0) return;
+    if (drillInRef.current === openAlbumPath) return;
+    drillInRef.current = openAlbumPath;
+    const match = roots.findIndex((entry) => {
+      const prefix = entry.path.endsWith("/") ? entry.path : `${entry.path}/`;
+      return openAlbumPath === entry.path || openAlbumPath.startsWith(prefix);
+    });
+    if (match > 0) setRootIndex(match);
+    void loadDirectory(openAlbumPath).then(() => onAlbumOpened?.());
+  }, [openAlbumPath, onAlbumOpened, roots, loadDirectory]);
 
   const handleToggle = React.useCallback(
     (path: string) => {
