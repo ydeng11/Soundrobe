@@ -23,6 +23,7 @@ import type {
   TrackMappingRow,
 } from "../shared/desktop-api";
 import { ToolDrawer, useToolRun } from "./ToolDrawer";
+import { albumNameOf } from "./monitoring";
 
 type Provider = "musicbrainz" | "discogs";
 type Phase = "form" | "results" | "mapping";
@@ -115,6 +116,8 @@ export function SearchTool({
     null,
   );
   const [countError, setCountError] = React.useState<string | null>(null);
+  const [counting, setCounting] = React.useState(false);
+  const [countMessage, setCountMessage] = React.useState<string | null>(null);
   const countGeneration = React.useRef(0);
 
   const [resultFilter, setResultFilter] = React.useState("");
@@ -122,17 +125,55 @@ export function SearchTool({
   const [resultTrackCount, setResultTrackCount] = React.useState("");
   const [resultCountry, setResultCountry] = React.useState("");
   const [resultFormat, setResultFormat] = React.useState("");
-  const [sameTrackCount, setSameTrackCount] = React.useState(false);
   const [resultSort, setResultSort] = React.useState<ResultSort>("relevance");
+  /** Once the reader picks an order, stop choosing one for them. */
+  const [sortTouched, setSortTouched] = React.useState(false);
   const [resultPage, setResultPage] = React.useState(1);
 
   const [release, setRelease] = React.useState<ProviderAlbum | null>(null);
   const [mapping, setMapping] = React.useState<MappingRow[]>([]);
   const [candidate, setCandidate] = React.useState<AlbumCandidate | null>(null);
   const [localTrackCount, setLocalTrackCount] = React.useState<number | null>(null);
+  /** Which release is being fetched, so the wait is attributed to a row. */
+  const [resolvingId, setResolvingId] = React.useState<string | null>(null);
 
   const { busy, error, failures, message, run } = useToolRun();
   const canSearch = artist.trim().length > 0 || album.trim().length > 0;
+  const albumLabel = React.useMemo(() => albumNameOf(albumPath), [albumPath]);
+
+  /**
+   * Any narrowing change returns to the first page.
+   *
+   * Without this, filtering while on page 3 of a list that now has five matches
+   * slices from index 20 and shows nothing at all, with no way back — the pager
+   * hides itself because the filtered list is shorter than a page.
+   */
+  const resetPage = React.useCallback(() => setResultPage(1), []);
+
+  /*
+   * Prefer the edition closest to this album, until the reader orders it
+   * themselves.
+   *
+   * The provider's own order is not the album in hand: searching for a 10-track
+   * album returned a 26-track edition first, which mapped none of its ten files,
+   * while the 10-track edition mapped all ten. Deliberately different from the
+   * desktop, which always starts on provider relevance.
+   */
+  React.useEffect(() => {
+    if (!sortTouched && localTrackCount !== null && localTrackCount > 0) {
+      setResultSort("closest");
+    }
+  }, [localTrackCount, sortTouched]);
+
+  /**
+   * Derived, never stored separately.
+   *
+   * As its own flag it could disagree with the Tracks field: tick the box, then
+   * edit the number, and the box would still claim the album's own count. One
+   * value, one truth.
+   */
+  const sameTrackCount =
+    localTrackCount !== null && resultTrackCount === String(localTrackCount);
 
   React.useEffect(() => {
     let active = true;
@@ -151,10 +192,14 @@ export function SearchTool({
     };
   }, [api, albumPath, tracks.length]);
 
-  const trackCountOf = (result: ReleaseSearchResult): number | undefined => {
-    const loaded = counts[resultKey(result)];
-    return loaded === null ? undefined : (loaded ?? result.trackCount);
-  };
+  /**
+   * The count to compare against: the loaded one when there is one.
+   *
+   * A loaded `null` is meaningful - the provider reports no track count for that
+   * release - and falls back to whatever the search result already carried.
+   */
+  const trackCountOf = (result: ReleaseSearchResult): number | undefined =>
+    counts[resultKey(result)] ?? result.trackCount;
 
   const search = (nextPage = 1) =>
     run(async () => {
@@ -187,29 +232,41 @@ export function SearchTool({
     });
 
   /** Track counts cost a provider request each, so they load on request. */
-  const loadCounts = () =>
-    run(async () => {
-      if (!page) throw new Error("run a search first");
-      const generation = (countGeneration.current += 1);
-      const pending = page.results;
-      setCountError(null);
-      setCountProgress({ loaded: 0, total: pending.length });
-      let loaded = 0;
-      for (const result of pending) {
-        if (countGeneration.current !== generation) return { message: "Counting cancelled." };
-        try {
-          const count = await api.releaseTrackCount(result.provider, result.id, result.kind);
-          setCounts((current) => ({ ...current, [resultKey(result)]: count }));
-        } catch (reason) {
-          if (countGeneration.current !== generation) return { message: "Counting cancelled." };
-          setCountError(reason instanceof Error ? reason.message : String(reason));
-        }
-        loaded += 1;
-        setCountProgress({ loaded, total: pending.length });
+  const loadCounts = React.useCallback(async () => {
+    if (!page) return;
+    const generation = (countGeneration.current += 1);
+    const pending = page.results;
+    setCountError(null);
+    setCountMessage(null);
+    setCounting(true);
+    setCountProgress({ loaded: 0, total: pending.length });
+    let loaded = 0;
+    for (const result of pending) {
+      if (countGeneration.current !== generation) {
+        setCounting(false);
+        setCountProgress(null);
+        setCountMessage("Counting cancelled.");
+        return;
       }
-      setCountProgress(null);
-      return { message: `Loaded ${loaded} track counts.` };
-    });
+      try {
+        const count = await api.releaseTrackCount(result.provider, result.id, result.kind);
+        setCounts((current) => ({ ...current, [resultKey(result)]: count }));
+      } catch (reason) {
+        if (countGeneration.current !== generation) {
+          setCounting(false);
+          setCountProgress(null);
+          setCountMessage("Counting cancelled.");
+          return;
+        }
+        setCountError(reason instanceof Error ? reason.message : String(reason));
+      }
+      loaded += 1;
+      setCountProgress({ loaded, total: pending.length });
+    }
+    setCounting(false);
+    setCountProgress(null);
+    setCountMessage(`Loaded ${loaded} track count${loaded === 1 ? "" : "s"}.`);
+  }, [api, page]);
 
   const editionResults = React.useMemo(() => {
     if (!page) return [];
@@ -301,7 +358,9 @@ export function SearchTool({
   /** Resolve the release, then map its tracks onto the local files. */
   const choose = (result: ReleaseSearchResult) =>
     run(async () => {
-      const detail = await api.resolveRelease(result.provider, result.id, result.kind);
+      setResolvingId(resultKey(result));
+      try {
+        const detail = await api.resolveRelease(result.provider, result.id, result.kind);
       const preview = await api.previewReleaseMatch({
         albumPath,
         release: detail,
@@ -309,9 +368,12 @@ export function SearchTool({
       });
       setRelease(preview.release);
       setCandidate(preview.albumCandidate);
-      setMapping(rowsFrom(preview.candidates, preview.release.tracks));
-      setPhase("mapping");
-      return null;
+        setMapping(rowsFrom(preview.candidates, preview.release.tracks));
+        setPhase("mapping");
+        return null;
+      } finally {
+        setResolvingId(null);
+      }
     });
 
   const setRemote = (localIndex: number, raw: string) => {
@@ -364,6 +426,26 @@ export function SearchTool({
     return release.tracks.map((_, index) => index).filter((index) => !used.has(index));
   }, [release, mappedRows]);
 
+  /** Arrow keys move between result rows, as a list of choices should. */
+  const resultRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const handleResultsKeys = (event: React.KeyboardEvent<HTMLUListElement>) => {
+    if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+    const buttons = resultRefs.current.filter((entry): entry is HTMLButtonElement => entry !== null);
+    if (buttons.length === 0) return;
+    const current = buttons.findIndex((entry) => entry === document.activeElement);
+    if (current === -1) return;
+    event.preventDefault();
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? buttons.length - 1
+          : event.key === "ArrowDown"
+            ? Math.min(buttons.length - 1, current + 1)
+            : Math.max(0, current - 1);
+    buttons[next]?.focus();
+  };
+
   const apply = () =>
     run(async () => {
       if (!candidate || !release) throw new Error("choose a release first");
@@ -402,15 +484,34 @@ export function SearchTool({
 
   return (
     <ToolDrawer
-      title="Search releases"
+      title={`Search releases — ${albumLabel}`}
       busy={busy}
       error={error}
       errors={failures}
       onClose={onClose}
       testId="search-drawer"
     >
+      {/*
+        Announced and read first: an outcome reported below ten results is an
+        outcome nobody sees.
+      */}
+      {message && (
+        <p
+          className="sr-banner sr-banner--notice"
+          role="status"
+          aria-live="polite"
+          data-testid="search-result"
+        >
+          {message}
+        </p>
+      )}
+
       <section className="sr-section">
         <h3 className="sr-section__title">Query</h3>
+        <p className="sr-field__static" data-testid="search-target">
+          Searching for a release for {albumLabel}
+          {localTrackCount !== null ? ` (${localTrackCount} local file${localTrackCount === 1 ? "" : "s"})` : ""}.
+        </p>
         <div className="sr-field">
           <label className="sr-field__label" htmlFor="search-provider">
             Provider
@@ -451,6 +552,14 @@ export function SearchTool({
               data-testid={id}
               value={value}
               onChange={(event) => setter(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter is how a form is submitted; a search field that ignores
+                // it makes the keyboard user reach for the mouse.
+                if (event.key === "Enter" && canSearch && !busy) {
+                  event.preventDefault();
+                  void search(1);
+                }
+              }}
             />
             {hint && <p className="sr-field__static">{hint}</p>}
           </div>
@@ -469,18 +578,27 @@ export function SearchTool({
 
       {phase !== "form" && page && (
         <section className="sr-section">
-          <h3 className="sr-section__title">Releases ({filteredResults.length})</h3>
+          <h3 className="sr-section__title">Releases</h3>
+          <p className="sr-field__static" data-testid="search-results-count" aria-live="polite">
+            Showing {visibleResults.length} of {filteredResults.length} matching
+            {page.results.length > 0 ? ` — ${page.results.length} from ${provider}` : ""}
+            {page.hasNext ? ", more available" : ""}.
+          </p>
 
           <div className="sr-field">
             <label className="sr-field__label" htmlFor="search-filter">
-              Filter results
+              Filter these results
             </label>
             <input
               id="search-filter"
               className="sr-input"
               data-testid="search-filter"
+              placeholder="Title, artist, catalog number or barcode"
               value={resultFilter}
-              onChange={(event) => setResultFilter(event.target.value)}
+              onChange={(event) => {
+                setResultFilter(event.target.value);
+                resetPage();
+              }}
             />
           </div>
 
@@ -493,7 +611,7 @@ export function SearchTool({
               className="sr-input"
               data-testid="search-sort"
               value={resultSort}
-              onChange={(event) => setResultSort(event.target.value as ResultSort)}
+              onChange={(event) => { setResultSort(event.target.value as ResultSort); setSortTouched(true); resetPage(); }}
             >
               {localTrackCount !== null && <option value="closest">{SORT_LABELS.closest}</option>}
               {(Object.keys(SORT_LABELS) as ResultSort[])
@@ -508,14 +626,14 @@ export function SearchTool({
 
           <div className="sr-chips">
             <label className="sr-field__label" htmlFor="search-count-filter">
-              Tracks
+              Tracks (exact)
             </label>
             <input
               id="search-count-filter"
               className="sr-input"
               data-testid="search-count-filter"
               value={resultTrackCount}
-              onChange={(event) => setResultTrackCount(event.target.value)}
+              onChange={(event) => { setResultTrackCount(event.target.value); resetPage(); }}
             />
             {pageYears.length > 0 && (
               <select
@@ -523,7 +641,7 @@ export function SearchTool({
                 aria-label="Filter year"
                 data-testid="search-year-filter"
                 value={resultYear}
-                onChange={(event) => setResultYear(event.target.value)}
+                onChange={(event) => { setResultYear(event.target.value); resetPage(); }}
               >
                 <option value="">Any year</option>
                 {pageYears.map((value) => (
@@ -539,7 +657,7 @@ export function SearchTool({
                 aria-label="Filter country"
                 data-testid="search-country-filter"
                 value={resultCountry}
-                onChange={(event) => setResultCountry(event.target.value)}
+                onChange={(event) => { setResultCountry(event.target.value); resetPage(); }}
               >
                 <option value="">Any country</option>
                 {pageCountries.map((value) => (
@@ -555,7 +673,7 @@ export function SearchTool({
                 aria-label="Filter format"
                 data-testid="search-format-filter"
                 value={resultFormat}
-                onChange={(event) => setResultFormat(event.target.value)}
+                onChange={(event) => { setResultFormat(event.target.value); resetPage(); }}
               >
                 <option value="">Any format</option>
                 {pageFormats.map((value) => (
@@ -572,10 +690,10 @@ export function SearchTool({
                 checked={sameTrackCount}
                 disabled={localTrackCount === null || localTrackCount === 0}
                 onChange={(event) => {
-                  setSameTrackCount(event.target.checked);
                   setResultTrackCount(
                     event.target.checked && localTrackCount ? String(localTrackCount) : "",
                   );
+                  resetPage();
                 }}
               />{" "}
               Same track count as this album
@@ -591,7 +709,7 @@ export function SearchTool({
                   setResultCountry("");
                   setResultFormat("");
                   setResultTrackCount("");
-                  setSameTrackCount(false);
+                  resetPage();
                 }}
               >
                 Clear filters
@@ -599,59 +717,99 @@ export function SearchTool({
             )}
           </div>
 
-          {countProgress ? (
-            <p className="sr-field__static" data-testid="search-count-progress">
-              Counting tracks: {countProgress.loaded}/{countProgress.total}{" "}
+          {counting && countProgress ? (
+            <p className="sr-field__static" data-testid="search-count-progress" role="status">
+              Counting tracks: {countProgress.loaded} of {countProgress.total}{" "}
               <button
                 type="button"
                 className="sr-btn"
                 data-testid="search-count-cancel"
                 onClick={() => {
                   countGeneration.current += 1;
+                  setCounting(false);
                   setCountProgress(null);
+                  setCountMessage("Counting cancelled.");
                 }}
               >
                 Cancel
               </button>
             </p>
           ) : (
+            /*
+              Counts cost one provider request each, and there can be a hundred
+              of them. Running them through the shared busy flag disabled every
+              "Use release" button for the duration, so a reader could not pick a
+              release while the counts loaded.
+            */
             <button
               type="button"
               className="sr-btn"
               data-testid="search-load-counts"
-              disabled={busy}
+              disabled={counting}
               onClick={() => void loadCounts()}
             >
               Load track counts
             </button>
           )}
+          {countMessage && (
+            <p className="sr-field__static" data-testid="search-count-message" role="status">
+              {countMessage}
+            </p>
+          )}
           {countError && (
-            <p className="sr-field__static" data-testid="search-count-error">
+            <p className="sr-field__static" data-testid="search-count-error" role="alert">
               {countError}
             </p>
           )}
 
-          <ul className="sr-chips" data-testid="search-results">
-            {visibleResults.map((result) => (
-              <li key={resultKey(result)} className="sr-chip">
-                {result.title}
-                {result.artist ? ` — ${result.artist}` : ""}
-                {result.year ? ` (${result.year})` : ""}
-                {trackCountOf(result) !== undefined ? ` · ${trackCountOf(result)} tracks` : ""}
-                {result.country ? ` · ${result.country}` : ""}
-                {result.formats.length > 0 ? ` · ${result.formats.join("/")}` : ""}
-                <button
-                  type="button"
-                  className="sr-btn"
-                  data-testid={`search-choose-${result.id}`}
-                  disabled={busy}
-                  onClick={() => void choose(result)}
-                >
-                  Use release
-                </button>
-              </li>
-            ))}
+          {/*
+            The list container is always present, so "no matches" is an empty
+            list plus an explanation rather than a missing region.
+          */}
+          <ul className="sr-results" data-testid="search-results" onKeyDown={handleResultsKeys}>
+              {visibleResults.map((result, index) => {
+                const key = resultKey(result);
+                const resolving = resolvingId === key;
+                return (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      ref={(element) => {
+                        resultRefs.current[index] = element;
+                      }}
+                      className="sr-result"
+                      data-testid={`search-choose-${result.id}`}
+                      disabled={busy}
+                      aria-busy={resolving}
+                      onClick={() => void choose(result)}
+                    >
+                      <span className="sr-result__main">
+                        <span className="sr-result__title">{result.title || "Untitled release"}</span>
+                        {result.artist && (
+                          <span className="sr-result__artist">{result.artist}</span>
+                        )}
+                      </span>
+                      <span className="sr-result__facts">
+                        <Fact label="Year" value={result.year} />
+                        <Fact label="Tracks" value={trackCountOf(result)} />
+                        <Fact label="Country" value={result.country} />
+                        <Fact label="Format" value={result.formats.join("/")} />
+                        <Fact label="Catalog" value={result.catalogNumber} />
+                      </span>
+                      <span className="sr-result__action">
+                        {resolving ? "Resolving…" : "Use release"}
+                      </span>
+                    </button>
+                  </li>
+              );
+            })}
           </ul>
+          {filteredResults.length === 0 && (
+            <p className="sr-empty__body" data-testid="search-results-empty">
+              No release in these results matches the filters above. Clear a filter, or search
+              again with different terms.
+            </p>
+          )}
 
           {filteredResults.length > RESULT_PAGE_SIZE && (
             <div className="sr-chips">
@@ -706,12 +864,13 @@ export function SearchTool({
           <table className="sr-table" data-testid="search-mapping">
             <thead>
               <tr>
-                <th>Local file</th>
-                <th>Provider track</th>
-                <th>Title</th>
-                <th>Artist</th>
-                <th>Track</th>
-                <th>Disc</th>
+                <th scope="col">Local file</th>
+                <th scope="col">Provider track</th>
+                <th scope="col">Title</th>
+                <th scope="col">Artist</th>
+                <th scope="col">Track</th>
+                <th scope="col">Total</th>
+                <th scope="col">Disc</th>
               </tr>
             </thead>
             <tbody>
@@ -776,6 +935,22 @@ export function SearchTool({
                     />
                   </td>
                   <td>
+                    {/*
+                      The total is written from the provider track, so it has to be
+                      visible: a value that is applied but not shown cannot be
+                      corrected.
+                    */}
+                    <input
+                      className="sr-input"
+                      aria-label={`Track total for ${row.localTitle || row.localIndex + 1}`}
+                      data-testid={`search-map-total-${row.localIndex}`}
+                      value={row.editedTrackTotal}
+                      onChange={(event) =>
+                        editRow(row.localIndex, "editedTrackTotal", event.target.value)
+                      }
+                    />
+                  </td>
+                  <td>
                     <input
                       className="sr-input"
                       aria-label={`Disc number for ${row.localTitle || row.localIndex + 1}`}
@@ -811,12 +986,18 @@ export function SearchTool({
         </section>
       )}
 
-      {message && (
-        <p className="sr-banner sr-banner--notice" data-testid="search-result">
-          {message}
-        </p>
-      )}
     </ToolDrawer>
+  );
+}
+
+/** One labelled fact about a release. An empty fact renders nothing. */
+function Fact({ label, value }: { label: string; value: string | number | undefined | null }) {
+  if (value === undefined || value === null || value === "") return null;
+  return (
+    <span className="sr-result__fact">
+      <span className="sr-result__fact-label">{label}</span>
+      <span className="sr-result__fact-value">{value}</span>
+    </span>
   );
 }
 

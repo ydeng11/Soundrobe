@@ -952,3 +952,74 @@ in the new rules uses `--sr-text-muted` (4.64:1), not `--sr-text-soft` (4.24:1),
 the state-token contract test enforces; and every new font size is paired with a
 leading, which the type-scale contract test enforces. Both tests failed on the first
 attempt and were the reason those rules are correct.
+
+## 24. The Search dialogue: audit and the one deliberate divergence (2026-09-19)
+
+Audited against the desktop `SearchDialog` (924 lines) and the shared
+`album:search-apply-candidate` write path. Two of the findings were **parity
+regressions in the web port** — the desktop already had the fix:
+
+| | Desktop | Web before | Web now |
+| --- | --- | --- | --- |
+| Filtering resets the results page | `setResultPage(1)` in 12 places | Never | On every narrowing change |
+| Enter runs the search | `onKeyDown` on Agent/Album | Nothing | On every query field |
+
+The page-reset gap was a real dead end, not a cosmetic one: filtering while on page 3
+of a list that now held five matches sliced from index 20 and rendered nothing, and the
+pager hid itself because fewer than a page remained — so nothing on screen could bring
+the list back.
+
+The rest were web-only:
+
+- **Counts locked the dialog.** `loadCounts` ran through the shared busy flag, so a
+  hundred sequential provider requests disabled every "Use release" button. Counting now
+  has its own flag, and counting is the only thing it disables.
+- **Two values for one filter.** `sameTrackCount` was stored separately from the Tracks
+  field it stood for, so ticking the box and then editing the number left the box ticked
+  while filtering by something else. It is now derived and cannot disagree.
+- **A written value that was invisible.** The provider's track total was applied with no
+  field to see or correct it. The mapping table gained a Total column.
+- **A modal that never took focus.** `ToolDrawer` had `role="dialog"` and `aria-modal`
+  but nothing focused it, so a keyboard user stayed behind the backdrop. It now focuses
+  the first control, traps Tab at both ends, restores focus on close, and is named by its
+  heading via `aria-labelledby`. This affects all three tool drawers.
+- **A run-on result line.** Results rendered as chips in a `<ul>`, with title, artist,
+  year, count, country and format concatenated into one string and no way to compare
+  them. They are now rows with a fact per column, the whole row as the target, and
+  arrow-key navigation.
+- **An outcome below its own results**, and never announced. It now reads first with
+  `role="status"`.
+- **A dialog that never named the album**, now `Search releases — <album>`.
+
+### The deliberate divergence
+
+The web version now prefers the sort **"Tracks closest to local album"** once the
+album's own file count is known; the desktop always starts on provider relevance. This
+is recorded as a divergence rather than blended.
+
+The evidence, measured on the running service against a real ten-track album:
+
+| Result | Tracks | Files mapped |
+| --- | --- | --- |
+| First provider-relevance hit (2009 CD/DVD edition) | 26 | **0 of 10** |
+| Ten-track edition | 10 | **10 of 10** |
+
+The provider's own order is not the album in hand, and the default is what a reader acts
+on before they know to change it. The choice is only an initial value: once the reader
+picks an order, the page stops choosing for them, which is what the second test asserts.
+
+### Verified on the running service
+
+The drawer opens titled `Search releases — Kid A` with focus inside it, seeded to
+`Kid A` / `Radiohead`, reporting `Searching for a release for Kid A (10 local files)`.
+A search returned `37 releases found` and `Showing 10 of 37 matching — 37 from
+musicbrainz`, with rows carrying `Year 2009 · Tracks 26 · Country US · Format CD/CD/DVD-Video`.
+Filtering while on page 2 showed the match and the page-1 content rather than an empty
+list. Filtering to nothing showed `No release in these results matches the filters above`
+with the pager's own `Showing 0 of 0 matching`. Arrow keys moved `0 → 1 → 2 → 9 → 0`
+across `ArrowDown`, `ArrowDown`, `End`, `Home`. The mapping table reported headers
+`Local file · Provider track · Title · Artist · Track · Total · Disc` with `scope="col"` on
+all seven.
+
+Both parity regressions were re-checked by reintroducing them, and the two tests failed
+as they should before the fixes were restored.

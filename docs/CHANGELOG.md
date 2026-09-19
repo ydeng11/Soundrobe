@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Browser Search results are rows you compare rather than one run-on line: year, track
+  count, country and format each get their own place, the whole row is the target, and
+  arrow keys move between rows.
+- Browser Search now leads with the release closest to the album's own track count
+  instead of the provider's own order. Measured: the first provider result for a
+  ten-track album was a twenty-six-track edition that matched none of its ten files,
+  while the ten-track edition matched all ten. Choosing an order yourself stops the page
+  choosing one for you.
+
 - The browser service's **Monitoring** page is now four tabs — Overview, Releases,
   Operations, Logs — under a strip of counts that stays visible. Every count that has
   a list behind it is a button: "Needs review 5" is how you get to those five albums.
@@ -58,6 +67,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Background tagging is now configurable and observable instead of an unconditional sweep on every service start. It still runs once at startup, and every run is recorded with its trigger, outcome and counts. The schedule and run history live in `~/.soundrobe/background-tagging.json`.
 
 ### Fixed
+
+- Browser Search lost your place when you filtered the results: narrowing while on a
+  later page showed an empty list with the pager hidden and no way back. It now returns
+  to the first page, which is what the desktop app already did.
+- Pressing Enter in a Browser Search field did nothing. It now runs the search, as the
+  desktop app does.
+- "Same track count as this album" could claim a filter it was not applying: ticking the
+  box and then editing the Tracks field left it ticked while filtering by a different
+  number. The box now reflects the value it stands for.
+- Browser Search wrote a track total taken from the provider with no field to see or
+  correct it. The mapping table now shows it.
+- The browser's tool dialogs never took focus, so a keyboard user stayed outside the
+  dialog they had just opened and focus was not returned on close.
+- Loading track counts disabled every "Use release" button for as long as it ran, which
+  can be a hundred provider requests — a release already on screen could not be chosen.
+- The Search dialog's outcome line appeared below the entire result list, and was not
+  announced to screen readers. It now reads first and is announced.
+- The Search dialog never named the album it was searching for.
 
 - Browser Settings could confirm a change that was no longer true: the "saved"
   message was cleared only by the *next* save, so it stayed on screen indefinitely.

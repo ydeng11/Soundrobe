@@ -440,6 +440,50 @@ describe("Convert", () => {
 });
 
 describe("tool drawers", () => {
+  it("moves focus into the dialog and gives it back on close", async () => {
+    // A modal that never takes focus leaves a keyboard user outside it, tabbing
+    // through the page hidden behind the backdrop.
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+
+    const opener = screen.getByTestId("tools-search");
+    opener.focus();
+    fireEvent.click(opener);
+
+    const dialog = await screen.findByTestId("search-drawer");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(document.body);
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    // And it hands focus back, so the reader resumes where they were.
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
+
+  it("keeps Tab inside the dialog by wrapping at both ends", async () => {
+    // Tabbing past the last control would move focus behind the backdrop, which
+    // is invisible and unreachable. Asserting only that focus is still "inside"
+    // would pass without a trap at all, so this asserts the wrap itself.
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+
+    const dialog = await screen.findByTestId("search-drawer");
+    const close = within(dialog).getByRole("button", { name: "Close" });
+    const last = within(dialog).getByTestId("search-run");
+
+    // Forward from the last control lands on the first.
+    last.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+
+    // And backward from the first lands on the last.
+    close.focus();
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
   it("nests the dialog inside its backdrop so the backdrop cannot cover it", async () => {
     // The backdrop is fixed and z-indexed, so a *sibling* dialog paints under it
     // and every control inside becomes unclickable while looking correct.
@@ -478,6 +522,207 @@ describe("tool drawers", () => {
 });
 
 describe("Search", () => {
+  it("leads with the edition closest to this album, not the provider's order", async () => {
+    // Measured on a real album: the top provider hit was a 26-track edition that
+    // mapped none of the ten local files, while the ten-track edition mapped all
+    // ten. The provider's own order is not the album in hand.
+    const api = fakeApi({
+      searchResults: [
+        { provider: "musicbrainz" as const, id: "big", title: "Deluxe Edition",
+          artist: "Artist Alpha", year: "2009", trackCount: 26, country: "US", formats: ["CD"] },
+        { provider: "musicbrainz" as const, id: "match", title: "Original Album",
+          artist: "Artist Alpha", year: "2019", trackCount: 3, country: "GB", formats: ["CD"] },
+      ],
+    });
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+
+    await screen.findByTestId("search-results");
+    // The album has three files, so the three-track edition leads.
+    const order = screen.getAllByTestId(/^search-choose-/).map((row) => row.textContent);
+    expect(order[0]).toContain("Original Album");
+    expect((screen.getByTestId("search-sort") as HTMLSelectElement).value).toBe("closest");
+  });
+
+  it("stops reordering once the reader chooses an order for themselves", async () => {
+    const api = fakeApi({
+      searchResults: [
+        { provider: "musicbrainz" as const, id: "big", title: "Deluxe Edition",
+          artist: "Artist Alpha", year: "2009", trackCount: 26, country: "US", formats: ["CD"] },
+        { provider: "musicbrainz" as const, id: "match", title: "Original Album",
+          artist: "Artist Alpha", year: "2019", trackCount: 3, country: "GB", formats: ["CD"] },
+      ],
+    });
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+    await screen.findByTestId("search-results");
+
+    fireEvent.change(screen.getByTestId("search-sort"), { target: { value: "title-asc" } });
+    // A chosen order is a decision, and the page must not quietly undo it.
+    expect((screen.getByTestId("search-sort") as HTMLSelectElement).value).toBe("title-asc");
+    const order = screen.getAllByTestId(/^search-choose-/).map((row) => row.textContent);
+    expect(order[0]).toContain("Deluxe Edition");
+  });
+
+  it("returns to the first page when a filter narrows the list", async () => {
+    // Filtering while on a later page used to slice from an index the shorter
+    // list no longer had, so the reader saw nothing at all and the pager hid
+    // itself because fewer than a page remained. Nothing could bring it back.
+    const many = Array.from({ length: 24 }, (_, index) => ({
+      provider: "musicbrainz" as const,
+      id: `release-${index}`,
+      title: `Album ${String(index).padStart(2, "0")}`,
+      artist: "Artist Alpha",
+      year: "2019",
+      trackCount: 3,
+      country: "GB",
+      formats: ["CD"],
+    }));
+    const api = fakeApi({ searchResults: many });
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+
+    fireEvent.click(await screen.findByTestId("search-page-next"));
+    expect(screen.getByTestId("search-results").textContent).toContain("Album 10");
+
+    // Narrowing to one match must show that match, not an empty page.
+    fireEvent.change(screen.getByTestId("search-filter"), { target: { value: "Album 03" } });
+    expect(screen.getByTestId("search-results").textContent).toContain("Album 03");
+    expect(screen.queryByTestId("search-results-empty")).toBeNull();
+  });
+
+  it("runs the search when Enter is pressed in a query field", async () => {
+    // A search field that ignores Enter forces a keyboard user to the mouse.
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+
+    fireEvent.change(await screen.findByTestId("search-album"), { target: { value: "Kid A" } });
+    fireEvent.keyDown(screen.getByTestId("search-album"), { key: "Enter" });
+
+    await waitFor(() => expect(api.searchReleases).toHaveBeenCalledTimes(1));
+  });
+
+  it("names the album it is searching for, so the target is never in doubt", async () => {
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+
+    expect((await screen.findByTestId("search-drawer")).textContent).toContain(
+      "Search releases — Reference Album One",
+    );
+  });
+
+  it("says why the list is empty instead of showing nothing", async () => {
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+    await screen.findByTestId("search-results");
+
+    fireEvent.change(screen.getByTestId("search-filter"), { target: { value: "no such album" } });
+    const empty = await screen.findByTestId("search-results-empty");
+    expect(empty.textContent).toContain("matches the filters");
+    // And the way out is offered, not just described.
+    expect(screen.getByTestId("search-clear-filters")).toBeTruthy();
+  });
+
+  it("cannot claim a track count it is not filtering by", async () => {
+    // "Same track count" stored its own flag, so ticking it and then editing the
+    // Tracks field left the box ticked while filtering by something else.
+    const api = fakeApi({
+      searchResults: [
+        ...defaultSearchResults,
+        { provider: "musicbrainz" as const, id: "release-9", title: "Other Album",
+          artist: "Someone Else", year: "1999", trackCount: 9, country: "US", formats: ["CD"] },
+      ],
+    });
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+    await screen.findByTestId("search-results");
+
+    const box = screen.getByTestId("search-same-count") as HTMLInputElement;
+    fireEvent.click(box);
+    expect(box.checked).toBe(true);
+
+    // Edit the number it stands for, and it must stop claiming to be true.
+    fireEvent.change(screen.getByTestId("search-count-filter"), { target: { value: "9" } });
+    expect((screen.getByTestId("search-same-count") as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByTestId("search-results").textContent).toContain("Other Album");
+  });
+
+  it("lets a release be chosen while track counts are still loading", async () => {
+    // Counts cost one provider request each and there can be a hundred; locking
+    // the whole dialog for that long stopped the reader picking what they could
+    // already see.
+    let releaseResolver: (value: number | null) => void = () => {};
+    const api = fakeApi();
+    api.releaseTrackCount = vi.fn(
+      () => new Promise<number | null>((resolve) => { releaseResolver = resolve; }),
+    ) as unknown as typeof api.releaseTrackCount;
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+    await screen.findByTestId("search-results");
+
+    fireEvent.click(screen.getByTestId("search-load-counts"));
+    await screen.findByTestId("search-count-progress");
+
+    const choose = screen.getAllByTestId(/^search-choose-/)[0] as HTMLButtonElement;
+    expect(choose.disabled).toBe(false);
+    releaseResolver(3);
+  });
+
+  it("shows the release rows as comparable facts, not a run-on line", async () => {
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+
+    const row = await screen.findByTestId("search-choose-release-1");
+    // Year, track count, country and format are what a reader compares.
+    for (const fact of ["Year", "Tracks", "Country", "Format"]) {
+      expect(row.textContent).toContain(fact);
+    }
+    expect(row.textContent).toContain("2019");
+    expect(row.textContent).toContain("GB");
+  });
+
+  it("shows the track total it will write, so it can be corrected", async () => {
+    // The total was written from the provider track with no field to see or fix
+    // it, which makes a wrong total impossible to notice.
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+    fireEvent.click(await screen.findByTestId("search-choose-release-1"));
+
+    const total = (await screen.findByTestId("search-map-total-0")) as HTMLInputElement;
+    expect(total.value).toBe("3");
+    fireEvent.change(total, { target: { value: "11" } });
+    fireEvent.click(screen.getByTestId("search-apply"));
+
+    await waitFor(() => expect(api.searchApplyCandidate).toHaveBeenCalledTimes(1));
+    const candidate = api.searchApplyCandidate.mock.calls[0][1] as {
+      tracks: Array<{ track_total?: number }>;
+    };
+    expect(candidate.tracks[0].track_total).toBe(11);
+  });
+
   it("seeds the query from the album already loaded", async () => {
     const api = fakeApi();
     renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);

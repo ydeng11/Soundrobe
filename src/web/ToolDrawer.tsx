@@ -27,6 +27,54 @@ export function ToolDrawer({
   children: React.ReactNode;
   testId: string;
 }) {
+  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+  const titleId = `${testId}-title`;
+
+  /**
+   * A modal that never takes focus is a modal a keyboard user is outside of.
+   *
+   * Focus moves to the first control when the drawer opens and returns to
+   * whatever opened it when the drawer closes, so a keyboard user ends up where
+   * they were rather than at the top of the document.
+   */
+  React.useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    const first = dialog?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])',
+    );
+    (first ?? dialog)?.focus();
+    return () => {
+      previous?.focus?.();
+    };
+  }, []);
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      onClose();
+      return;
+    }
+    if (event.key !== "Tab") return;
+    // Tab stays inside: the backdrop hides the page, so tabbing past the last
+    // control would move focus to something the reader cannot see.
+    const items = Array.from(
+      dialogRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? [],
+    );
+    if (items.length === 0) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    } else if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    }
+  };
+
   return (
     // The backdrop is the positioning container and the drawer is its child,
     // matching WorkspaceSettingsDrawer: a sibling drawer would sit under the
@@ -39,19 +87,20 @@ export function ToolDrawer({
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-labelledby={titleId}
         aria-busy={busy}
         data-testid={testId}
         tabIndex={-1}
         className="sr-drawer"
-        onKeyDown={(event) => {
-          if (event.key === "Escape") onClose();
-        }}
+        onKeyDown={handleKeyDown}
       >
         <header className="sr-toolbar">
-          <h2 className="sr-section__title">{title}</h2>
+          <h2 className="sr-section__title" id={titleId}>
+            {title}
+          </h2>
           <div className="sr-header__spacer" />
           <button type="button" className="sr-btn" onClick={onClose}>
             Close

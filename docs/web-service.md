@@ -195,6 +195,23 @@ invalid and focused. Covered folders are checked against the served libraries be
 they are accepted: a folder outside every library root could never be read, so it is
 refused with the reason instead of being stored and silently never tagged.
 
+### Searching for a release
+
+Search opens for the album in the Workspace and names it. It leads with the release
+closest to that album's own track count rather than the provider's order, because the
+provider's order is not the album in hand: for a ten-track album the first result was a
+twenty-six-track edition that matched none of the ten files, while the ten-track edition
+matched all ten. Choosing an order yourself stops the page choosing for you.
+
+Results are rows you compare — year, track count, country and format each have a place —
+the whole row is the target, and arrow keys move between rows. Filtering or sorting
+returns to the first page, so narrowing a long list cannot leave you looking at nothing.
+
+Nothing is written until you confirm the mapping, and the mapping shows the track total
+it will write so a wrong one is visible before it lands.
+
+`Enter` in a query field runs the search.
+
 ### Reviewing what tagging could not place
 
 A run that cannot apply an authoritative match leaves the album flagged rather
@@ -217,7 +234,7 @@ not a reduced version:
 
 | Tool | Scope | What it does | What it will not do |
 | --- | --- | --- | --- |
-| Search | The open album | Narrows a query by artist, album, year, country, format, catalog number and barcode; filters, sorts and pages the results; loads per-release track counts on request; then maps each local file to a provider track. | Write before the mapping step is confirmed, or write a file left unmapped. |
+| Search | The open album | Narrows a query by artist, album, year, country, format, catalog number and barcode; filters, sorts and pages the results; loads per-release track counts on request; then maps each local file to a provider track, including its track total. | Write before the mapping step is confirmed, or write a file left unmapped. |
 | Number | Every track in the open album | Writes sequential track numbers and a track total using the desktop's eight ordering rules. | Touch files outside the album. |
 | Convert | The selection, or the whole album when nothing is selected | Rewrites tags from file names, one tag from another, or file names from tags, using the desktop's presets. | Run a pattern whose result equals the value already stored, or rename onto a file that already exists. |
 
