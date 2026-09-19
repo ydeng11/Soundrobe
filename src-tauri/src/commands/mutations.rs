@@ -781,31 +781,57 @@ pub(crate) async fn write_track_queued(
 ) -> Result<(), ApiError> {
     validated_track_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
-    queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
-                let write_start = std::time::Instant::now();
-                let result = write_track_dispatch(&path, &patch);
-                let elapsed = write_start.elapsed();
-                match &result {
-                    Ok(_) => tracing::debug!(
-                        path = %display_path,
-                        elapsed_us = elapsed.as_micros(),
-                        "track write done"
-                    ),
-                    Err(e) => tracing::warn!(
-                        path = %display_path,
-                        elapsed_us = elapsed.as_micros(),
-                        error = %e,
-                        "track write failed"
-                    ),
+    // A queued write made while an album review is active must be journaled.
+    // Without this the review reports itself as non-revertible while holding
+    // changes the user cannot undo, and the recovery backup is never taken.
+    // `ReviewJournal::mutate` requires the queue's exclusive coordination
+    // guard, so journaled writes take the exclusive path; unrelated writes keep
+    // the shared path so they can still run concurrently.
+    let review = super::auto_tag_review::active_review();
+    let journaled = review.is_some();
+
+    let operation = async move {
+        tokio::task::spawn_blocking(move || {
+            let write_start = std::time::Instant::now();
+            let write = || write_track_dispatch(&path, &patch);
+            let result = match review {
+                Some(journal) => {
+                    let outcome = journal.mutate(&path, write);
+                    if let Err(error) = &outcome {
+                        journal.report_error(format!(
+                            "Track write failed: {}: {error}",
+                            path.display()
+                        ));
+                    }
+                    outcome
                 }
-                result
-            })
-            .await
-            .map_err(|error| ApiError::WriteTask(error.to_string()))?
+                None => write(),
+            };
+            let elapsed = write_start.elapsed();
+            match &result {
+                Ok(_) => tracing::debug!(
+                    path = %display_path,
+                    elapsed_us = elapsed.as_micros(),
+                    "track write done"
+                ),
+                Err(e) => tracing::warn!(
+                    path = %display_path,
+                    elapsed_us = elapsed.as_micros(),
+                    error = %e,
+                    "track write failed"
+                ),
+            }
+            result
         })
-        .await?;
+        .await
+        .map_err(|error| ApiError::WriteTask(error.to_string()))?
+    };
+
+    if journaled {
+        queue.run_exclusive(operation).await?;
+    } else {
+        queue.run(operation).await?;
+    }
     Ok(())
 }
 

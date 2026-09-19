@@ -98,3 +98,104 @@ docker compose --env-file .env.web -f docker-compose.yml ps
 A healthy container proves only that the process answers `/healthz`. It does
 not prove NAS bind-mount permissions, DNS, reverse-proxy routing, HTTPS, or
 public reachability. Verify those separately after each deployment.
+
+## Background tagging
+
+The service tags unattended as well as on demand. An operator configures it from
+**Settings → Background tagging** and watches the result on **Monitoring**; both
+are ordinary browser pages, so nothing here needs shell access.
+
+### Schedule
+
+Runs are driven by a five-field crontab (`minute hour day month weekday`)
+evaluated in the container's local time, so `0 0 * * *` means local midnight and
+not midnight UTC. The usual forms are supported: `*`, `*/n` steps, ranges
+(`9-17`), lists (`15,45`), and both `0` and `7` for Sunday. When both day fields
+are restricted, a date matches if *either* matches, which is standard cron
+behaviour.
+
+The preset list is the reference product's own: every 1, 3 and 10 minutes,
+hourly, every 2 hours, daily at midnight, plus a custom expression. An expression that
+cannot be parsed is refused with the reason and the stored schedule is left
+alone, so a typo can never leave background tagging unable to run.
+
+The scheduler evaluates every 20 seconds and fires each slot once. A slot whose
+minute has already passed still runs late rather than being dropped, but only
+one missed slot is caught up per evaluation, so a service that was stopped for a
+week does not start a week of backlog. A due slot is retired as it is reported:
+if another operation holds the tagging lock the occurrence is skipped and
+logged, never queued behind it.
+
+### What gets tagged
+
+By default every mounted library is covered. Adding folder paths scopes runs to
+those folders, and a configured folder that no longer exists is dropped rather
+than failing the run. "Only tag releases with incomplete tags" (on by default)
+skips a release whose tracks all carry a title, artist and album **and** a
+provider identifier, which is the same test the startup sweep always used.
+
+Enabling "Tag music as it appears in the covered folders" makes the service tag
+newly added music. Detection uses each release folder's change time, so a
+watched folder does not cause a full library rescan on every tick, and a run
+started this way covers only the arrivals, not the library.
+
+Turning watching on takes a baseline first: everything already present is
+recorded as known, so switching the setting on does not queue the whole library.
+Consequently a release that appears in the same moment watching is enabled is
+treated as pre-existing; the next scheduled run still covers it because it is
+untagged, and it is never tagged twice.
+
+### Observing it
+
+`~/.soundrobe/background-tagging.json` holds both the settings and the last 50
+runs, and is the authoritative record of what happened. Monitoring renders it
+alongside the live task queue. Its log source selector covers two files in the
+service data directory:
+
+| Source | File | Contents |
+| --- | --- | --- |
+| Application log | `auto-tagger.log` | What the service process did, including each scheduled start. |
+| Auto-tag trace | `auto-tag-debug-YYYY-MM-DD.log` | Verbose per-release tracing, written only while debug logging is on. |
+
+A source with no file yet reports that plainly instead of showing an empty log.
+Background tagging is on by default because the service already swept mounted
+libraries at startup before it was configurable; turning it off is one switch in
+Settings.
+
+### Reviewing what tagging could not place
+
+A run that cannot apply an authoritative match leaves the album flagged rather
+than guessing, and the Workspace is where those albums are meant to be fixed.
+It names them above the file table and marks them `Review` in the folder tree,
+both keyed by the service's own per-release classification, so the list is
+whatever the last run or startup survey actually decided — the browser infers
+nothing from tag contents.
+
+The flag reflects that classification, not a promise that the album is still
+broken: an album repaired by hand keeps its flag until the service classifies it
+again, and a restart re-derives the list from a fresh startup survey. The
+Monitoring page shows every classification, including the failures that the
+review list deliberately leaves out, because a failed release is a problem to
+retry rather than a tagging decision for a person.
+
+Three tools act on whichever album is open, and all of them write through the
+same Rust writer as the rest of the app. They are the desktop app's own tools,
+not a reduced version:
+
+| Tool | Scope | What it does | What it will not do |
+| --- | --- | --- | --- |
+| Search | The open album | Narrows a query by artist, album, year, country, format, catalog number and barcode; filters, sorts and pages the results; loads per-release track counts on request; then maps each local file to a provider track. | Write before the mapping step is confirmed, or write a file left unmapped. |
+| Number | Every track in the open album | Writes sequential track numbers and a track total using the desktop's eight ordering rules. | Touch files outside the album. |
+| Convert | The selection, or the whole album when nothing is selected | Rewrites tags from file names, one tag from another, or file names from tags, using the desktop's presets. | Run a pattern whose result equals the value already stored, or rename onto a file that already exists. |
+
+Two details are worth knowing because they are the difference between a tool
+that is safe to point at a library and one that is not:
+
+- **Per-file failures are reported, not summarised away.** The writers return
+  successes and failures together, so a partly completed run says which files it
+  did not change instead of reporting success for the batch.
+- **The mapping step is editable.** Each row pairs one local file with one
+  provider track, and either side can be changed: re-point a file, edit the
+  title, artist, track or disc number that will be written, or set the file to
+  "Do not update" to leave it alone. Only the mapped files are written, and
+  pointing two files at the same provider track is flagged before you apply.

@@ -189,6 +189,31 @@ impl DebugState {
     }
 }
 
+/// Initialise structured logging to stderr while appending the same records to
+/// `auto-tagger.log` in `data_dir`.
+///
+/// Shared by both runtimes: the desktop app and the self-hosted server. The
+/// server needs it so its Monitoring view can show the service's own log
+/// instead of an always-empty file, and so an operator has one place to read
+/// what the running process did. `SOUNDROBE_LOG` controls the filter without
+/// changing the persisted path.
+pub fn init_tracing(data_dir: Option<&std::path::Path>) {
+    use tracing_subscriber::fmt::writer::MakeWriterExt;
+
+    let filter = tracing_subscriber::EnvFilter::try_from_env("SOUNDROBE_LOG")
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("soundrobe=debug,info"));
+    let builder = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .with_ansi(false);
+    if let Some((_, writer)) = data_dir.and_then(|directory| general_log_writer_in(directory).ok())
+    {
+        let _ = builder.with_writer(writer.and(std::io::stderr)).try_init();
+    } else {
+        let _ = builder.with_writer(std::io::stderr).try_init();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

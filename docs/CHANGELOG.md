@@ -9,29 +9,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Redesigned the browser Workspace around a compact header, utility breadcrumb, album rail, and focused file-details canvas while preserving Soundrobe's existing tag editing flow.
-- Browser Workspace now keeps its real file ordering in a compact toolbar and presents browser Settings in a detail-pane hierarchy without adding unsupported storage controls.
-- Browser Workspace now offers a visibly labelled settings drawer that controls its details pane and visible file-table columns, including supported track fields such as album, lyrics, disc, composer, and cover status, while omitting WebDAV.
+- Browser-workspace text now carries a line height paired to its size, taken from the
+  reference, whose own text sets a leading on every size. Text blocks read slightly
+  looser than before; the file table's row, header and column geometry is unchanged.
+- Browser-workspace status colours (success, warning, danger) now come from the
+  reference's measured theme values instead of approximations read off screenshots,
+  so success, warning and danger read slightly differently. The secondary accent was
+  corrected the same way. Its value was wrong in a way that mattered: it was a
+  different hue and chroma, not a rounding difference.
+- Browser-workspace interactive states are now driven by tokens ported from the
+  reference's own theme rather than by values invented per rule: hover uses the
+  reference's base-300 surface, and the selected row, the active navigation item
+  and the active folder-tree row share the reference's neutral fill with its
+  neutral-content text, so a selected row is now unmistakable and legible rather
+  than a 10% accent tint.
+- The browser runtime now mounts its own application instead of reusing the standalone app's composition. It shares the Rust backend, the `DesktopAPI` contract and the state helpers, but not the desktop window chrome or layout.
+- The browser Workspace now follows Music Tag Web V2's tagging layout: a floating header, a folder tree beside a track detail editor, and a ten-column file table (Cover, File Name, Title, Artists, Albums, Album Artist, Lyrics, LRC, Year, Genres) sized to the reference's measured column widths and row density.
+- The browser file table now fills the width of its pane while keeping the reference's column proportions, instead of holding a fixed width. Hiding columns re-splits the pane between the columns that remain, and the table never narrows past the reference column widths, so a narrower pane scrolls rather than compressing text.
+- The browser file details editor no longer lists the file name. It is not editable, and the file table already shows it as its own column.
+- The browser track detail editor is grouped into Basic, Media, Lyric, Category, Metadata and Technical Information sections, and reports read-only duration, bitrate, sample rate, format and file size.
+- The browser service now reports tagging operations in an Operation log with status, progress, outcome counts and cancellation.
+- Browser navigation covers the tagging surfaces: Workspace, Monitoring, Operation log, Tag sources and Settings. The previous library, home and activity browser views are replaced by these tagging-focused destinations.
+- Background tagging is now configurable and observable instead of an unconditional sweep on every service start. It still runs once at startup, and every run is recorded with its trigger, outcome and counts. The schedule and run history live in `~/.soundrobe/background-tagging.json`.
 
 ### Fixed
 
+- The browser workspace's primary button was hard to read: its white label sat at
+  2.72:1 on the reference's primary fill, and hovering it emptied the button into a
+  pale tint at 2.49:1. The label is now a dark colour on the same fill - 5.39:1, and
+  5.82:1 when hovered - and the hover lightens rather than darkens, so the label
+  never loses contrast at the moment it is pressed.
+- De-emphasised browser-workspace text was too faint to read comfortably. The muted
+  role sat at 2.33:1 against the page while carrying labels, table headers, notes
+  and technical readouts; it now meets the 4.5:1 floor. Status badge and banner
+  labels were worse: warning on its own tint was 1.90:1, and the notice and error
+  banners were 2.66:1 and 2.56:1, so status text now uses a darkened step of each
+  status hue while the status colour itself remains for fills and borders. The
+  status tints are now built the way the reference builds them, as the status colour
+  at its own alpha, instead of values sampled from screenshots.
+- Hovering a browser-workspace control gave no visible feedback: hover painted the
+  same colour as the page background, so navigation items, folder-tree rows and
+  buttons looked identical hovered and idle. They now use a colour taken from the
+  reference's own theme.
+- Eleven focusable browser-workspace controls - the ten file-name cells and the
+  breadcrumb buttons - had no visible focus ring of their own and fell back to the
+  browser default. They now use the same focus ring as every other control.
+- The self-hosted service can read a release's provider track count. The command
+  existed for the desktop app only, so the browser search could neither show nor
+  filter on provider track counts.
+- Browser Number and Convert report the files a writer refused instead of
+  reporting success for a partly completed run.
+- Auto-tag reviews now journal queued track writes, so a review that changed a
+  file is revertible again. Queued writes previously bypassed the recovery
+  journal, which left the review reporting that it had nothing to undo while
+  holding changes the user could not revert, and skipped the full-file recovery
+  backup.
 - Local browser-service sign-in accepts both standard loopback addresses.
 - Switching mounted browser-service roots clears the previous library while the
   replacement scan is in progress or reports an error.
 - Browser Settings now keeps saving unavailable until configuration loads
   successfully, tests protected provider credentials after a masked key is
   cleared, and sorts the browser Format column by codec.
-- Browser Workspace remains reachable with its editor draft after opening and
-  closing the Change library picker, while compact navigation and workspace
-  filtering remain accessible on narrow screens.
-- Browser Workspace preserves readable headers and working resize handles when
-  users add metadata fields to the file table.
 
 ### Added
 
+- The browser Workspace now shows which albums background tagging left needing
+  review: they are named above the file table and marked in the folder tree, so
+  a flagged album can be opened where it is listed instead of only being found
+  by running a scan again.
+- The browser Workspace gained Search, Number and Convert for the album being
+  viewed, with the desktop app's behaviour rather than a reduced version of it.
+  Search narrows a provider query by artist, album, year, country, format,
+  catalog number and barcode, filters, sorts and pages the results, loads
+  per-release track counts on request, and finishes in a mapping step where each
+  local file can be re-pointed at a different provider track, hand-edited, or
+  left out of the write. Number writes sequential track numbers across the whole
+  open album using the desktop's ordering rules. Convert rewrites tags from file
+  names, one tag from another, or file names from tags, using the desktop's
+  presets, and refuses a run whose result would be identical to what is already
+  there.
 - Soundrobe can now run as a self-hosted web service: a password-protected
   browser dashboard manages mounted music libraries through the existing Rust
   metadata pipeline.
+- Background tagging can be scheduled. The service evaluates a crontab in the
+  operator's local time and starts unattended tagging runs on it, with the
+  reference product's quick presets (every minute through daily at midnight)
+  plus a custom expression. An unusable expression is refused rather than
+  stored, so a schedule can never be saved in a state where it silently never
+  fires. A report is visible under Monitoring.
+- Covered folders can be watched, so music added to them is tagged
+  automatically. Detection uses the folder's change time, so a watched folder
+  does not trigger a full library rescan, and a run started this way covers only
+  the new arrivals.
+- A Monitoring page shows whether background tagging is on, the crontab and its
+  next run, which folders are actually covered, in-progress runs with their
+  live step, the outcome of recent runs, the tagging state of each release the
+  service surveyed, and the service's own log.
+- A Settings page exposes the background-tagging controls (enable, schedule,
+  covered folders, watching, and whether to skip already-complete releases)
+  beside the application settings (online lookups, Discogs, lyrics download and
+  lyrics service URL, Chinese script conversion, assistant autonomy and debug
+  logging) and the running version.
+- A Workspace settings drawer controls whether the file-details editor is shown
+  and which metadata columns the file table displays. These are per-browser
+  preferences that survive a reload, and the file-name column cannot be hidden
+  because it identifies the rows.
+- The service writes its own log to `auto-tagger.log`, so Monitoring shows what
+  the running service did without attaching to its stdout.
 - The service scans mounted libraries, maintains a health index for releases
   already tagged, automatically processes only releases that need tagging,
   and leaves failed or ambiguous releases in the review queue for user input.
@@ -40,22 +124,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `just web-local <libraries-root>` now builds and starts the browser service
   on loopback for local development, using the standalone app's settings by
   default while still allowing an isolated data directory override.
-
-### Changed
-
-- The self-hosted dashboard now opens a navigable library picker before
-  scanning a selected mounted root. Web users can switch between Library,
-  Activity, and Settings while automatic tagging outcomes remain available
-  through the on-demand Activity diagnostics portal.
-- The browser service now has a compact Soundrobe shell with Home, Workspace,
-  Library, Activity, and Settings views, a lilac active navigation treatment,
-  and a focused workspace search that filters loaded files only.
-- Browser Settings now uses horizontal in-page sections with thin grouped
-  cards while preserving protected credentials, provider checks, and service-
-  only diagnostics; native update controls remain desktop-only.
-- The browser library editor now uses a pale canvas, fixed folder rail, dense
-  file table, and uncarded metadata workspace while preserving selection,
-  audit, draft, and apply behavior. Desktop composition remains unchanged.
+- The browser service now supports the `directory:read` command, returning a
+  folder's subdirectories and parsed tracks in one round trip so the workspace
+  can browse and list a folder without a request per file.
 
 ## [0.1.11] - 2026-09-16
 

@@ -505,6 +505,12 @@ impl ConfigState {
         self.data_dir.join(file_name)
     }
 
+    /// The directory that holds every persistent data file, for callers that
+    /// need to enumerate it rather than name one file.
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
     /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
     /// lock (a prior panic while holding it), the live config cannot be updated
     /// — std::sync `Mutex` poison cannot be cleared by `into_inner` (the next

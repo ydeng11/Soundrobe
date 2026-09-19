@@ -35,8 +35,8 @@ use uuid::Uuid;
 
 use crate::commands::album_search::{
     album_preview_release_match, apply_search_candidate, discogs_token, normalise_page,
-    normalise_page_size, resolve_release_inner, search_releases_inner, ApplyCandidateRequest,
-    PreviewMatchRequest, ResolveReleaseRequest, SearchReleasesRequest,
+    normalise_page_size, release_track_count_inner, resolve_release_inner, search_releases_inner,
+    ApplyCandidateRequest, PreviewMatchRequest, ResolveReleaseRequest, SearchReleasesRequest,
 };
 use crate::commands::covers::{
     download_album_artwork_at, download_artist_artwork_at, remote_client, ArtistArtResult,
@@ -60,19 +60,23 @@ use crate::commands::mutations::{
 use crate::commands::lyrics::{
     download_album_lyrics_at, fetch_lyrics_at, resolve_lyrics_base_url,
 };
-use crate::commands::tracks::{read_album, read_extra_tags};
+use crate::commands::tracks::{
+    read_album, read_extra_tags, read_track_metadata, unreadable_track_data, TrackData,
+};
 use crate::state::{
     album::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
         MAX_COVER_UPLOAD_BYTES,
     },
+    background::{local_now, wall_clock, BackgroundState, RunStatus, RunTrigger},
     config::{ConfigSetError, ConfigState},
     conversation::ConversationState,
     audit::AuditState,
     events::{EventBus, EventEnvelope},
     library::{
-        discover_library_roots, list_directory_entries, scan_directory_with_cancellation,
-        ConfinedPath, LibraryRoots, PathSecurityError,
+        discover_library_roots, is_audio_file, list_directory_entries,
+        scan_directory_with_cancellation, ConfinedPath, DirectoryEntry, LibraryRoots,
+        PathSecurityError,
     },
     operation::{OperationCoordinator, OperationKind},
     paths::AppDataPaths,
@@ -263,6 +267,7 @@ struct ServerState {
     tasks: Arc<TaskRegistry>,
     health: Arc<RwLock<HashMap<String, ReleaseHealth>>>,
     conversations: Arc<ConversationState>,
+    background: BackgroundState,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -290,69 +295,380 @@ fn release_is_healthy(path: &Path) -> Result<bool, String> {
         }))
 }
 
+// ---------------------------------------------------------------------------
+// Background tagging: configurable, scheduled, and observable
+// ---------------------------------------------------------------------------
+
+/// How often the scheduler evaluates its crontab and the watched directories.
+/// Short enough that a `*/1 * * * *` schedule lands inside its own minute.
+const BACKGROUND_POLL: Duration = Duration::from_secs(20);
+
+/// Directories a background run covers: the configured ones, or every mounted
+/// library root when none are configured. A configured directory that has gone
+/// missing is dropped rather than failing the whole run.
+fn background_directories(state: &ServerState) -> Vec<PathBuf> {
+    let configured = state.background.settings().directories;
+    if !configured.is_empty() {
+        return configured
+            .into_iter()
+            .map(PathBuf::from)
+            .filter(|path| path.is_dir())
+            .collect();
+    }
+    match &state.libraries {
+        Ok(roots) => roots
+            .roots()
+            .into_iter()
+            .map(|root| PathBuf::from(root.path))
+            .collect(),
+        Err(error) => {
+            tracing::error!(
+                %error,
+                "mounted library discovery failed; background tagging has no directories"
+            );
+            Vec::new()
+        }
+    }
+}
+
+/// Albums under `directories`, optionally narrowed to the ones whose core tags
+/// are incomplete — the same judgement the startup sweep always made.
+fn background_albums(directories: &[PathBuf], skip_unchanged: bool) -> Vec<PathBuf> {
+    let mut albums = directories
+        .iter()
+        .flat_map(|directory| crate::state::library::scan_directory(directory))
+        .map(|album| PathBuf::from(album.path))
+        .collect::<Vec<_>>();
+    albums.sort();
+    albums.dedup();
+    if skip_unchanged {
+        albums.retain(|album| matches!(release_is_healthy(album), Ok(false)));
+    }
+    albums
+}
+
+/// Start one background tagging run over the covered directories.
+fn start_background_run(state: &ServerState, trigger: RunTrigger) -> Result<String, String> {
+    let settings = state.background.settings();
+    if !settings.enabled {
+        return Err("background tagging is disabled".to_string());
+    }
+    let directories = background_directories(state);
+    if directories.is_empty() {
+        return Err("no directories are available for background tagging".to_string());
+    }
+    let albums = background_albums(&directories, settings.skip_unchanged);
+    start_background_run_for(state, trigger, albums)
+}
+
+/// Start one background tagging run over `albums` and return its task id.
+///
+/// Exactly one run holds the [`OperationKind::AutoTag`] lock, so a scheduled run
+/// can never interleave with an interactive auto-tag. When the lock is held the
+/// caller is told why rather than queueing an unbounded backlog.
+fn start_background_run_for(
+    state: &ServerState,
+    trigger: RunTrigger,
+    albums: Vec<PathBuf>,
+) -> Result<String, String> {
+    if albums.is_empty() {
+        let run = state.background.record_run(trigger, None);
+        state.background.finish_run(
+            &run.id,
+            RunStatus::Completed,
+            0,
+            0,
+            "every album already has complete tags",
+        );
+        return Err("every album already has complete tags".to_string());
+    }
+
+    let token = state
+        .operations
+        .try_start(OperationKind::AutoTag)
+        .map_err(|error| error.to_string())?;
+
+    let total = albums.len() as u64;
+    let task_id = state
+        .tasks
+        .create("background-auto-tag", total, "Starting background tagging...");
+    let run = state.background.record_run(trigger, Some(task_id.clone()));
+    let run_id = run.id.clone();
+
+    let tasks = state.tasks.clone();
+    let events = state.events.clone();
+    let background = state.background.clone();
+    let operations = state.operations.clone();
+    let providers = state.providers.clone();
+    let cache = state.cache.clone();
+    let queue = state.write_queue.clone();
+    let config = state.config.clone();
+    let health = state.health.clone();
+    let task_id_for_work = task_id.clone();
+
+    tokio::spawn(async move {
+        let Some(cancelled) = tasks.cancellation(&task_id_for_work) else {
+            operations.finish(token);
+            background.finish_run(
+                &run_id,
+                RunStatus::Skipped,
+                0,
+                0,
+                "the run was replaced before it started",
+            );
+            return;
+        };
+
+        let config_values = config.raw();
+        let alias_file = config.alias_file_path();
+        let mut tagged = 0u64;
+        let mut failed = 0u64;
+        let mut needing_review = 0u64;
+        let mut last_message = String::new();
+
+        for (index, album) in albums.iter().enumerate() {
+            if cancelled.load(Ordering::Acquire) {
+                break;
+            }
+            let key = album.to_string_lossy().into_owned();
+            let name = album
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let message = format!("Tagging {name} ({}/{total})", index + 1);
+            tasks.update(&task_id_for_work, index as u64, &message);
+            health.write().await.insert(key.clone(), ReleaseHealth::Tagging);
+            let _ = events.publish(
+                "background:event",
+                &serde_json::json!({
+                    "taskId": task_id_for_work,
+                    "kind": "progress",
+                    "message": message,
+                    "progress": index,
+                    "total": total,
+                }),
+            );
+
+            let progress_tasks = tasks.clone();
+            let progress_task_id = task_id_for_work.clone();
+            let result = resolve_and_apply_album(
+                album,
+                &config_values,
+                AutoTagServices {
+                    providers: providers.as_ref(),
+                    cache: cache.as_ref(),
+                    queue: &queue,
+                    alias_file: &alias_file,
+                },
+                &cancelled,
+                move |_step, message| {
+                    progress_tasks.update(&progress_task_id, index as u64, message);
+                },
+                |_kind, _message, _data| {},
+            )
+            .await;
+
+            let release_health = match &result {
+                Ok(result) if result.outcome == AutoTagOutcome::Applied => {
+                    tagged += 1;
+                    ReleaseHealth::Healthy
+                }
+                Ok(result) => {
+                    needing_review += 1;
+                    last_message = result
+                        .reason_code
+                        .clone()
+                        .unwrap_or_else(|| "needs review".to_string());
+                    ReleaseHealth::NeedsReview
+                }
+                Err(error) => {
+                    failed += 1;
+                    last_message = error.to_string();
+                    ReleaseHealth::Failed
+                }
+            };
+            health.write().await.insert(key, release_health);
+        }
+
+        let (status, message) = if cancelled.load(Ordering::Acquire) {
+            (RunStatus::Cancelled, "Cancelled".to_string())
+        } else if failed > 0 {
+            (
+                RunStatus::Failed,
+                format!(
+                    "Tagged {tagged}, {needing_review} need review, {failed} failed: {last_message}"
+                ),
+            )
+        } else if needing_review > 0 {
+            (
+                RunStatus::Completed,
+                format!("Tagged {tagged}, {needing_review} need review"),
+            )
+        } else {
+            (RunStatus::Completed, format!("Tagged {tagged} of {total}"))
+        };
+
+        let task_status = match status {
+            RunStatus::Cancelled => TaskStatus::Cancelled,
+            RunStatus::Failed => TaskStatus::Failed,
+            _ if needing_review > 0 => TaskStatus::NeedsReview,
+            _ => TaskStatus::Completed,
+        };
+        tasks.finish(
+            &task_id_for_work,
+            task_status,
+            &message,
+            serde_json::json!({
+                "tagged": tagged,
+                "failed": failed,
+                "needsReview": needing_review,
+            }),
+        );
+        background.finish_run(&run_id, status, tagged, failed, &message);
+        let _ = events.publish(
+            "background:event",
+            &serde_json::json!({
+                "taskId": task_id_for_work,
+                "kind": "finished",
+                "message": message,
+                "progress": total,
+                "total": total,
+            }),
+        );
+        operations.finish(token);
+    });
+
+    Ok(task_id)
+}
+
+/// Which albums are new or changed compared with the previous poll.
+///
+/// The first poll after watching starts records only what already exists. That
+/// baseline matters: without it every album in the library would look new and
+/// the whole library would be re-tagged. After the baseline, an album that has
+/// not been seen before *is* new, which is how music added while the service is
+/// running gets noticed, as is an album whose folder changed.
+fn changed_albums(
+    scanned: Vec<(PathBuf, std::time::SystemTime)>,
+    seen: &mut HashMap<PathBuf, std::time::SystemTime>,
+    baseline: bool,
+) -> Vec<PathBuf> {
+    let mut changed = Vec::new();
+    for (path, modified) in scanned {
+        let is_new = match seen.get(&path) {
+            Some(previous) => modified > *previous,
+            None => !baseline,
+        };
+        seen.insert(path.clone(), modified);
+        if is_new {
+            changed.push(path);
+        }
+    }
+    changed
+}
+
+/// Albums whose folder changed since the last poll, so newly added music is
+/// picked up without re-tagging the whole library on every tick.
+fn watched_albums(
+    state: &ServerState,
+    seen: &mut HashMap<PathBuf, std::time::SystemTime>,
+    baseline: bool,
+) -> Vec<PathBuf> {
+    let directories = background_directories(state);
+    let mut scanned = Vec::new();
+    for directory in directories {
+        for album in crate::state::library::scan_directory(&directory) {
+            let path = PathBuf::from(&album.path);
+            if let Ok(modified) = fs::metadata(&path).and_then(|metadata| metadata.modified()) {
+                scanned.push((path, modified));
+            }
+        }
+    }
+    changed_albums(scanned, seen, baseline)
+}
+
+/// Keep background tagging running: one sweep at startup (the behaviour that
+/// predates any settings), then every due schedule slot, plus watched
+/// directories when that is enabled.
 fn start_background_library_tagging(state: ServerState) {
     if tokio::runtime::Handle::try_current().is_err() {
         return;
     }
     tokio::spawn(async move {
-        let roots = match &state.libraries {
-            Ok(roots) => roots.roots(),
-            Err(error) => {
-                tracing::error!(%error, "mounted library discovery failed; automatic tagging is unavailable");
-                return;
-            }
-        };
-        let health = state.health.clone();
-        let albums = tokio::task::spawn_blocking(move || {
-            roots
-                .into_iter()
-                .flat_map(|root| crate::state::library::scan_directory(Path::new(&root.path)))
-                .map(|album| PathBuf::from(album.path))
+        // Record what every covered release looks like before touching
+        // anything, so Monitoring can show which ones need tagging even when a
+        // run has nothing to do.
+        let directories = background_directories(&state);
+        let surveyed = tokio::task::spawn_blocking(move || {
+            directories
+                .iter()
+                .flat_map(|directory| crate::state::library::scan_directory(directory))
+                .map(|album| {
+                    let path = PathBuf::from(&album.path);
+                    let status = match release_is_healthy(&path) {
+                        Ok(true) => ReleaseHealth::Healthy,
+                        Ok(false) => ReleaseHealth::NeedsTagging,
+                        Err(_) => ReleaseHealth::Unreadable,
+                    };
+                    (path.to_string_lossy().into_owned(), status)
+                })
                 .collect::<Vec<_>>()
         })
         .await
         .unwrap_or_default();
-
-        for album in albums {
-            let key = album.to_string_lossy().into_owned();
-            let status = match release_is_healthy(&album) {
-                Ok(true) => ReleaseHealth::Healthy,
-                Ok(false) => ReleaseHealth::NeedsTagging,
-                Err(_) => ReleaseHealth::Unreadable,
-            };
-            health.write().await.insert(key, status);
+        for (path, status) in surveyed {
+            state.health.write().await.insert(path, status);
         }
 
-        let pending = health
-            .read()
-            .await
-            .iter()
-            .filter_map(|(path, status)| matches!(status, ReleaseHealth::NeedsTagging).then_some(PathBuf::from(path)))
-            .collect::<Vec<_>>();
-        for album in pending {
-            let key = album.to_string_lossy().into_owned();
-            health.write().await.insert(key.clone(), ReleaseHealth::Tagging);
-            let _ = start_auto_tag_task(&state, album);
-            let Some(task) = state.tasks.latest_with_prefix("auto-tag-") else {
-                health.write().await.insert(key, ReleaseHealth::Failed);
-                continue;
-            };
-            loop {
-                match state.tasks.get(&task.task_id).map(|progress| progress.status) {
-                    Some(TaskStatus::Running) => tokio::time::sleep(Duration::from_millis(250)).await,
-                    Some(TaskStatus::Completed) => {
-                        health.write().await.insert(key, ReleaseHealth::Healthy);
-                        break;
+        if !state.background.settings().enabled {
+            tracing::info!("background tagging is disabled by configuration");
+        } else {
+            match start_background_run(&state, RunTrigger::Manual) {
+                Ok(task_id) => tracing::info!(%task_id, "startup background tagging started"),
+                Err(error) => {
+                    tracing::debug!(%error, "startup background tagging did not start")
+                }
+            }
+        }
+
+        let mut seen = HashMap::new();
+        let mut watch_baseline = true;
+        loop {
+            tokio::time::sleep(BACKGROUND_POLL).await;
+            let now = wall_clock(local_now());
+
+            if let Some(slot) = state.background.due(now) {
+                tracing::info!(?slot, "background tagging schedule came due");
+                match start_background_run(&state, RunTrigger::Schedule) {
+                    Ok(task_id) => {
+                        tracing::info!(%task_id, "scheduled background tagging started")
                     }
-                    Some(TaskStatus::NeedsReview) => {
-                        health.write().await.insert(key, ReleaseHealth::NeedsReview);
-                        break;
-                    }
-                    _ => {
-                        health.write().await.insert(key, ReleaseHealth::Failed);
-                        break;
+                    // `due` already retired the slot, so a busy lock skips this
+                    // occurrence instead of retrying it forever.
+                    Err(error) => {
+                        tracing::warn!(%error, "scheduled background tagging did not start")
                     }
                 }
+            }
+
+            if state.background.settings().watch_enabled {
+                for album in watched_albums(&state, &mut seen, watch_baseline) {
+                    tracing::info!(album = %album.display(), "watched directory gained an album");
+                    match start_background_run_for(&state, RunTrigger::Watch, vec![album]) {
+                        Ok(task_id) => {
+                            tracing::info!(%task_id, "watch background tagging started")
+                        }
+                        Err(error) => {
+                            tracing::debug!(%error, "watch background tagging did not start")
+                        }
+                    }
+                }
+                watch_baseline = false;
+            } else {
+                // Re-arm while watching is off, so switching it back on takes a
+                // fresh baseline instead of treating the whole library as new.
+                seen.clear();
+                watch_baseline = true;
             }
         }
     });
@@ -922,15 +1238,202 @@ async fn next_event(
     }
 }
 
+/// `directory:read` response. Field names match the desktop command so the
+/// browser adapter can use one payload shape across both runtimes.
+#[derive(Debug, Clone, Serialize)]
+struct DirectoryReadResponse {
+    path: String,
+    name: String,
+    subdirs: Vec<DirectoryEntry>,
+    tracks: Vec<TrackData>,
+    #[serde(rename = "audioCount")]
+    audio_count: usize,
+}
+
+/// Read direct audio children plus subdirectories for the browser workspace.
+///
+/// The browser workspace browses folders from a tree and lists only the files
+/// of the selected directory, so it needs subdirectories and parsed tracks in
+/// one round trip. This mirrors `commands::directories::read_directory`, which
+/// is gated behind the desktop feature; keep the two in step, because the
+/// payload shape is part of the `DesktopAPI` contract both runtimes share.
+///
+/// Missing or unreadable directories yield empty subdirs/tracks rather than
+/// rejecting, matching the desktop boundary so an unreadable folder cannot
+/// blank the folder tree.
+fn read_directory_for_web(dir_path: &Path) -> DirectoryReadResponse {
+    let subdirs = list_directory_entries(dir_path);
+    let mut audio_files: Vec<PathBuf> = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir_path) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            if name.to_string_lossy().starts_with('.') {
+                continue;
+            }
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            let full_path = entry.path();
+            if file_type.is_file() && is_audio_file(&full_path) {
+                audio_files.push(full_path);
+            }
+        }
+    }
+    audio_files.sort();
+
+    // Read errors stay per-file: one unreadable track must not blank the rest.
+    let tracks = audio_files
+        .into_iter()
+        .map(|path| match read_track_metadata(&path) {
+            Ok(mut track) => {
+                if track.codec == "unknown" && track.title.is_none() {
+                    track.title = path
+                        .file_name()
+                        .map(|name| name.to_string_lossy().into_owned());
+                }
+                track
+            }
+            Err(error) => {
+                tracing::warn!("failed to read directory track {}: {error}", path.display());
+                let size = fs::metadata(&path).map(|stat| stat.len()).unwrap_or(0);
+                let title = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                unreadable_track_data(&path, size, title)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let name = dir_path
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    DirectoryReadResponse {
+        path: dir_path.to_string_lossy().into_owned(),
+        name,
+        subdirs,
+        audio_count: tracks.len(),
+        tracks,
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BackgroundSettingsPatch {
+    enabled: Option<bool>,
+    schedule: Option<String>,
+    directories: Option<Vec<String>>,
+    watch_enabled: Option<bool>,
+    skip_unchanged: Option<bool>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct MonitoringLogsRequest {
+    source: Option<String>,
+    lines: Option<usize>,
+}
+
+/// Largest log slice Monitoring will return, so a huge debug file cannot be
+/// turned into an equally huge response.
+const MAX_LOG_LINES: usize = 2000;
+
+/// Settings, schedule state, and recent runs in one payload — what the
+/// Monitoring and Settings views both need to render.
+async fn background_status(state: &ServerState) -> serde_json::Value {
+    let settings = state.background.settings();
+    let now = wall_clock(local_now());
+    serde_json::json!({
+        "enabled": settings.enabled,
+        "schedule": settings.schedule,
+        "directories": settings.directories,
+        "watchEnabled": settings.watch_enabled,
+        "skipUnchanged": settings.skip_unchanged,
+        "nextRunAt": state.background.peek_next(now).map(|slot| slot.to_string()),
+        "effectiveDirectories": background_directories(state)
+            .iter()
+            .map(|path| path.to_string_lossy().into_owned())
+            .collect::<Vec<_>>(),
+        "running": state
+            .tasks
+            .list()
+            .into_iter()
+            .filter(|task| task.status == TaskStatus::Running)
+            .collect::<Vec<_>>(),
+        "recentRuns": state.background.runs(),
+    })
+}
+
+/// Per-release tagging state, newest survey plus whatever the last run wrote.
+async fn monitoring_releases(state: &ServerState) -> serde_json::Value {
+    let health = state.health.read().await;
+    let mut releases = health
+        .iter()
+        .map(|(path, status)| {
+            serde_json::json!({
+                "path": path,
+                "status": status,
+            })
+        })
+        .collect::<Vec<_>>();
+    releases.sort_by(|left, right| left["path"].as_str().cmp(&right["path"].as_str()));
+    serde_json::json!({ "releases": releases })
+}
+
+/// The newest `auto-tag-debug-*.log`, which is the file the desktop and server
+/// share for verbose auto-tag tracing.
+fn newest_debug_log(data_dir: &Path) -> Option<PathBuf> {
+    let mut candidates = fs::read_dir(data_dir)
+        .ok()?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("auto-tag-debug-") && name.ends_with(".log"))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort();
+    candidates.pop()
+}
+
+/// The last `lines` lines of a log source, mirroring the reference product's
+/// source-selectable service log viewer using the logs this app actually writes.
+fn read_log_tail(path: &Path, lines: usize) -> Result<serde_json::Value, String> {
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+        Err(error) => return Err(format!("could not read {}: {error}", path.display())),
+    };
+    let lines = lines.clamp(1, MAX_LOG_LINES);
+    let all: Vec<&str> = text.lines().collect();
+    let start = all.len().saturating_sub(lines);
+    Ok(serde_json::json!({
+        "path": path.to_string_lossy().into_owned(),
+        "totalLines": all.len(),
+        "lines": &all[start..],
+    }))
+}
+
 fn supported_web_command(command: &str) -> bool {
     matches!(
         command,
         "app:info"
+            | "background:get-settings"
+            | "background:set-settings"
+            | "background:list-runs"
+            | "background:run-now"
+            | "monitoring:status"
+            | "monitoring:releases"
+            | "monitoring:logs"
             | "library:list-roots"
             | "library:scan"
             | "album:read"
             | "album:search-releases"
             | "album:resolve-release"
+            | "album:release-track-count"
             | "album:preview-release-match"
             | "album:search-apply-candidate"
             | "files:sort-by-album"
@@ -962,6 +1465,7 @@ fn supported_web_command(command: &str) -> bool {
             | "cover:download"
             | "cover:download-artist-art"
             | "directory:list"
+            | "directory:read"
             | "file:exists"
             | "config:get"
             | "config:set"
@@ -1281,6 +1785,33 @@ async fn command(
             })
             .into_response()
         }
+        "directory:read" => {
+            let request = match decode_command_payload::<DirectoryListCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let roots = match &state.libraries {
+                Ok(roots) => roots,
+                Err(_) => return error_response(StatusCode::INTERNAL_SERVER_ERROR, "library roots unavailable"),
+            };
+            let resolved = match roots.resolve_path(Path::new(&request.dir_path)) {
+                Ok(path) => path,
+                Err(error) => return scan_path_error(error),
+            };
+            // Reading a directory parses tags for every audio child, so it runs
+            // on the blocking pool like the other tag-reading commands.
+            let directory = match tokio::task::spawn_blocking(move || {
+                read_directory_for_web(&resolved.path)
+            })
+            .await
+            {
+                Ok(directory) => directory,
+                Err(_) => {
+                    return error_response(StatusCode::INTERNAL_SERVER_ERROR, "directory read failed")
+                }
+            };
+            Json(directory).into_response()
+        }
         "file:exists" => {
             let request = match decode_command_payload::<FileExistsCommandRequest>(payload) {
                 Ok(request) => request,
@@ -1414,6 +1945,20 @@ async fn command(
                 };
             match resolve_release_inner(&request, state.providers.as_ref(), &state.config).await {
                 Ok(result) => Json(result).into_response(),
+                Err(error) => provider_error_response(error),
+            }
+        }
+        "album:release-track-count" => {
+            let WrappedCommandRequest { request } =
+                match decode_command_payload::<WrappedCommandRequest<ResolveReleaseRequest>>(payload)
+                {
+                    Ok(request) => request,
+                    Err(_) => {
+                        return error_response(StatusCode::BAD_REQUEST, "invalid command request")
+                    }
+                };
+            match release_track_count_inner(&request, state.providers.as_ref(), &state.config).await {
+                Ok(count) => Json(count).into_response(),
                 Err(error) => provider_error_response(error),
             }
         }
@@ -1843,6 +2388,56 @@ async fn command(
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
             start_auto_tag_task(&state, album)
+        }
+        "background:get-settings" => Json(state.background.settings()).into_response(),
+        "background:set-settings" => {
+            let patch = match decode_command_payload::<BackgroundSettingsPatch>(payload) {
+                Ok(patch) => patch,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let current = state.background.settings();
+            let updated = crate::state::background::BackgroundSettings {
+                enabled: patch.enabled.unwrap_or(current.enabled),
+                // An empty schedule would leave background tagging unable to
+                // ever run, so it is rejected rather than stored.
+                schedule: patch.schedule.unwrap_or(current.schedule),
+                directories: patch.directories.unwrap_or(current.directories),
+                watch_enabled: patch.watch_enabled.unwrap_or(current.watch_enabled),
+                skip_unchanged: patch.skip_unchanged.unwrap_or(current.skip_unchanged),
+            };
+            match state.background.set_settings(updated) {
+                Ok(()) => Json(state.background.settings()).into_response(),
+                Err(error) => error_response(StatusCode::BAD_REQUEST, &error),
+            }
+        }
+        "background:list-runs" => Json(state.background.runs()).into_response(),
+        "background:run-now" => match start_background_run(&state, RunTrigger::Manual) {
+            Ok(task_id) => Json(serde_json::json!({ "taskId": task_id })).into_response(),
+            Err(error) => error_response(StatusCode::CONFLICT, &error),
+        },
+        "monitoring:status" => Json(background_status(&state).await).into_response(),
+        "monitoring:releases" => Json(monitoring_releases(&state).await).into_response(),
+        "monitoring:logs" => {
+            let request = match decode_command_payload::<MonitoringLogsRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let data_dir = state.config.data_dir();
+            let path = match request.source.as_deref().unwrap_or("app") {
+                "app" => data_dir.join("auto-tagger.log"),
+                "auto-tag" => match newest_debug_log(data_dir) {
+                    Some(path) => path,
+                    None => return error_response(StatusCode::NOT_FOUND, "no auto-tag log yet"),
+                },
+                other => {
+                    let message = format!("unknown log source: {other}");
+                    return error_response(StatusCode::BAD_REQUEST, &message);
+                }
+            };
+            match read_log_tail(&path, request.lines.unwrap_or(400)) {
+                Ok(payload) => Json(payload).into_response(),
+                Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
+            }
         }
         "task:progress" => {
             let request = match decode_command_payload::<TaskProgressCommandRequest>(payload) {
@@ -2476,6 +3071,7 @@ fn router_with_runtime_and_events(
         tasks,
         health: Arc::new(RwLock::new(HashMap::new())),
         conversations,
+        background: BackgroundState::init_in(&config.data_dir),
     };
     start_background_library_tagging(state.clone());
     let login_route = Router::new()
@@ -2507,6 +3103,9 @@ fn router_with_runtime_and_events(
 pub async fn run() -> anyhow::Result<()> {
     let config = ServerConfig::from_env()?;
     AppDataPaths::server(config.data_dir.clone()).prepare()?;
+    // So the Monitoring view can show this process's own log, and an operator
+    // can read what the service did without attaching to stdout.
+    crate::infra::logging::init_tracing(Some(&config.data_dir));
 
     let listener = tokio::net::TcpListener::bind(config.listen_addr).await?;
     let lifecycle = ServerLifecycle::default();
@@ -3098,6 +3697,104 @@ mod tests {
         assert_eq!(detail["tracks"].as_array().unwrap().len(), 1);
         assert_eq!(detail["tracks"][0]["title"], "01.flac");
         std::fs::remove_dir_all(base).unwrap();
+    }
+
+    /// The browser workspace browses folders and lists the files of the
+    /// selected directory in one round trip, so `directory:read` must return
+    /// the same `{ path, name, subdirs, tracks, audioCount }` payload the
+    /// desktop command returns.
+    #[tokio::test]
+    async fn authenticated_directory_read_lists_confined_tracks_and_subdirs() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-directory-read-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("Artist Alpha/Reference Album One");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::create_dir_all(album.join("Extras")).unwrap();
+        std::fs::write(album.join("01.flac"), b"fixture").unwrap();
+        std::fs::write(album.join("01.lrc"), b"sidecar").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/directory%3Aread")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"dirPath":"{}"}}"#,
+                            album.canonicalize().unwrap().display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let directory: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(directory["name"], "Reference Album One");
+        assert_eq!(directory["tracks"].as_array().unwrap().len(), 1);
+        assert_eq!(directory["audioCount"], 1);
+        assert_eq!(directory["subdirs"].as_array().unwrap().len(), 1);
+        assert_eq!(directory["subdirs"][0]["name"], "Extras");
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn authenticated_directory_read_rejects_paths_outside_library_roots() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-web-directory-confined-{}",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&base).unwrap();
+        let outside = std::env::temp_dir().join(format!(
+            "soundrobe-web-directory-outside-{}",
+            Uuid::new_v4().simple()
+        ));
+        std::fs::create_dir_all(&outside).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        let app = router(config);
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/directory%3Aread")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(format!(
+                            r#"{{"dirPath":"{}"}}"#,
+                            outside.canonicalize().unwrap().display()
+                        )))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+
+        assert_json_error(
+            response,
+            StatusCode::FORBIDDEN,
+            r#"{"error":"path outside library roots"}"#,
+        )
+        .await;
+        std::fs::remove_dir_all(base).unwrap();
+        std::fs::remove_dir_all(outside).unwrap();
     }
 
     #[tokio::test]
@@ -4062,6 +4759,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn the_web_service_can_read_a_release_track_count() {
+        // The browser search loads per-release track counts on request and filters
+        // on them. Without this route the tool can only fall back to "unavailable",
+        // so the command being registered is the contract that matters here.
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .clone()
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Arelease-track-count")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(
+                        serde_json::to_vec(&json!({
+                            "request": { "provider": "unknown", "releaseId": "id" }
+                        }))
+                        .unwrap(),
+                    ))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+
+        // An unknown provider is a provider error, not a missing route.
+        assert_ne!(response.status(), StatusCode::NOT_FOUND);
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
     async fn provider_preview_and_apply_routes_keep_the_album_inside_a_mount() {
         let base = std::env::temp_dir().join(format!("soundrobe-web-provider-{}", Uuid::new_v4()));
         let album = base.join("album");
@@ -4414,6 +5144,7 @@ mod tests {
             cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
             tasks: Arc::new(TaskRegistry::default()),
             health: Arc::new(RwLock::new(HashMap::new())),
+            background: BackgroundState::init_in(&config.data_dir),
             conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
         };
         let _active = state
@@ -4980,6 +5711,7 @@ mod tests {
             cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
             tasks: Arc::new(TaskRegistry::default()),
             health: Arc::new(RwLock::new(HashMap::new())),
+            background: BackgroundState::init_in(&config.data_dir),
             conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
         };
         let app = Router::new()
@@ -4998,4 +5730,307 @@ mod tests {
         )
         .await;
     }
+
+    // -----------------------------------------------------------------------
+    // Background tagging: settings, schedule, monitoring
+    // -----------------------------------------------------------------------
+
+    /// Post a command the way the browser does, returning status and JSON body.
+    async fn post_command(
+        app: Router,
+        cookie: header::HeaderValue,
+        command: &str,
+        payload: serde_json::Value,
+    ) -> (StatusCode, serde_json::Value) {
+        let encoded = command.replace(':', "%3A");
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri(format!("/api/v1/commands/{encoded}"))
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let value = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
+        (status, value)
+    }
+
+    /// A throwaway data directory, because `test_config` shares one path across
+    /// every test and background settings are persisted.
+    fn isolated_config(tag: &str) -> ServerConfig {
+        let mut config = test_config();
+        config.data_dir = std::env::temp_dir().join(format!(
+            "soundrobe-bg-{tag}-{}",
+            Uuid::new_v4().simple()
+        ));
+        config
+    }
+
+    async fn signed_in(app: Router) -> header::HeaderValue {
+        login(app, "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone()
+    }
+
+    #[tokio::test]
+    async fn background_schedule_is_persisted_and_validated() {
+        let config = isolated_config("schedule");
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        // The default keeps the startup sweep that predates this setting.
+        let (status, value) =
+            post_command(app.clone(), cookie.clone(), "background:get-settings", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["enabled"], json!(true));
+        assert_eq!(value["schedule"], json!("0 0 * * *"));
+
+        // An unparseable crontab is refused with a reason...
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:set-settings",
+            json!({"schedule": "every midnight"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(
+            value["error"].as_str().unwrap().contains("5 fields"),
+            "unexpected error: {value}"
+        );
+
+        // ...and the stored schedule is untouched, so a typo cannot leave
+        // background tagging unable to ever run.
+        let (_, value) =
+            post_command(app.clone(), cookie.clone(), "background:get-settings", json!({})).await;
+        assert_eq!(value["schedule"], json!("0 0 * * *"));
+
+        // A valid patch merges rather than replacing the whole record.
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:set-settings",
+            json!({"schedule": "*/15 * * * *", "watchEnabled": true}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["schedule"], json!("*/15 * * * *"));
+        assert_eq!(value["watchEnabled"], json!(true));
+        assert_eq!(value["enabled"], json!(true), "unpatched field is preserved");
+        assert_eq!(value["skipUnchanged"], json!(true));
+
+        // It survives a restart of the state.
+        let (_, value) =
+            post_command(app, cookie, "background:get-settings", json!({})).await;
+        assert_eq!(value["schedule"], json!("*/15 * * * *"));
+    }
+
+    #[tokio::test]
+    async fn monitoring_status_reports_the_schedule_and_drops_missing_directories() {
+        let config = isolated_config("status");
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        let missing = std::env::temp_dir().join("soundrobe-does-not-exist-12345");
+        let (status, _) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:set-settings",
+            json!({"directories": [missing.to_string_lossy()]}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        let (status, value) =
+            post_command(app.clone(), cookie.clone(), "monitoring:status", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["enabled"], json!(true));
+        assert_eq!(value["schedule"], json!("0 0 * * *"));
+        // A configured directory that no longer exists must not be offered as
+        // coverage, or the run would fail on every tick.
+        assert_eq!(value["effectiveDirectories"], json!([]));
+        assert_eq!(value["recentRuns"], json!([]));
+        // Enabled + daily schedule means a next run is always known.
+        assert!(
+            value["nextRunAt"].is_string(),
+            "expected a next run, got {value}"
+        );
+    }
+
+    #[tokio::test]
+    async fn background_run_now_refuses_when_no_directory_can_be_covered() {
+        let config = isolated_config("runnow");
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        let (status, value) =
+            post_command(app.clone(), cookie.clone(), "background:run-now", json!({})).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(
+            value["error"]
+                .as_str()
+                .unwrap()
+                .contains("no directories are available"),
+            "unexpected error: {value}"
+        );
+
+        // A refused run must not be recorded as history, or Monitoring would
+        // show attempts that never did anything.
+        let (status, runs) = post_command(app, cookie, "background:list-runs", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(runs, json!([]));
+    }
+
+    #[tokio::test]
+    async fn background_run_now_is_refused_while_disabled() {
+        let config = isolated_config("disabled");
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        let (_, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:set-settings",
+            json!({"enabled": false}),
+        )
+        .await;
+        assert_eq!(value["enabled"], json!(false));
+
+        let (status, value) =
+            post_command(app.clone(), cookie, "background:run-now", json!({})).await;
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert!(value["error"].as_str().unwrap().contains("disabled"));
+    }
+
+    #[tokio::test]
+    async fn monitoring_logs_serve_the_app_log_and_reject_unknown_sources() {
+        let config = isolated_config("logs");
+        let library = config.data_dir.join("library");
+        std::fs::create_dir_all(&library).unwrap();
+        std::fs::write(
+            config.data_dir.join("auto-tagger.log"),
+            "first line\nsecond line\nthird line\n",
+        )
+        .unwrap();
+        let mut config = config;
+        config.library_root_dir = library;
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "monitoring:logs",
+            json!({"source": "app", "lines": 2}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["lines"], json!(["second line", "third line"]));
+        assert_eq!(value["totalLines"], json!(3));
+
+        // Verbose tracing has not run yet in a fresh install; that is a
+        // distinct, explainable state rather than an empty success.
+        let (status, _) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "monitoring:logs",
+            json!({"source": "auto-tag"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        let (status, value) = post_command(
+            app,
+            cookie,
+            "monitoring:logs",
+            json!({"source": "celery"}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(value["error"].as_str().unwrap().contains("unknown log source"));
+    }
+
+    #[tokio::test]
+    async fn monitoring_releases_start_empty_and_are_ordered() {
+        let config = isolated_config("releases");
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        let (status, value) =
+            post_command(app, cookie, "monitoring:releases", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["releases"], json!([]));
+    }
+
+
+    // -----------------------------------------------------------------------
+    // Watched folders
+    // -----------------------------------------------------------------------
+
+    fn stamp(seconds: u64) -> std::time::SystemTime {
+        std::time::UNIX_EPOCH + std::time::Duration::from_secs(seconds)
+    }
+
+    #[test]
+    fn a_watch_baseline_records_what_exists_without_tagging_any_of_it() {
+        let mut seen = HashMap::new();
+        let existing = vec![
+            (PathBuf::from("/music/A"), stamp(100)),
+            (PathBuf::from("/music/B"), stamp(100)),
+        ];
+
+        // Without a baseline pass, switching watching on would schedule the
+        // whole library for re-tagging.
+        assert!(changed_albums(existing, &mut seen, true).is_empty());
+        assert_eq!(seen.len(), 2);
+    }
+
+    #[test]
+    fn an_album_added_after_the_baseline_is_new() {
+        let mut seen = HashMap::new();
+        let _ = changed_albums(vec![(PathBuf::from("/music/A"), stamp(100))], &mut seen, true);
+
+        // This is the regression that motivated the baseline flag: a folder
+        // created while the service runs must not be treated as a first
+        // sighting and silently skipped.
+        let changed = changed_albums(
+            vec![
+                (PathBuf::from("/music/A"), stamp(100)),
+                (PathBuf::from("/music/NEW"), stamp(200)),
+            ],
+            &mut seen,
+            false,
+        );
+        assert_eq!(changed, vec![PathBuf::from("/music/NEW")]);
+    }
+
+    #[test]
+    fn a_folder_that_changes_again_is_reported_once_per_change() {
+        let mut seen = HashMap::new();
+        let _ = changed_albums(vec![(PathBuf::from("/music/A"), stamp(100))], &mut seen, true);
+
+        // Unchanged: an idle poll must not re-tag anything.
+        assert!(changed_albums(vec![(PathBuf::from("/music/A"), stamp(100))], &mut seen, false)
+            .is_empty());
+        // A newer folder mtime means music was added or replaced.
+        assert_eq!(
+            changed_albums(vec![(PathBuf::from("/music/A"), stamp(150))], &mut seen, false),
+            vec![PathBuf::from("/music/A")]
+        );
+        // ...and is not reported again while it stays put.
+        assert!(changed_albums(vec![(PathBuf::from("/music/A"), stamp(150))], &mut seen, false)
+            .is_empty());
+    }
+
 }

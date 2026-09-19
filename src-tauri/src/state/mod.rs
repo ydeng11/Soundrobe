@@ -14,10 +14,16 @@ pub mod assistant;
 pub mod assistant_task;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod audit;
+/// Background-tagging settings, schedule evaluation, and run history.
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod background;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod config;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod conversation;
+/// In-process crontab evaluation for the background-tagging schedule.
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod cron;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod library;
 #[cfg(feature = "server")]

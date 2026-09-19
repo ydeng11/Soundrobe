@@ -1,0 +1,856 @@
+/**
+ * Browser-runtime layout for the Soundrobe workspace, matching the measured
+ * geometry of Music Tag Web V2. Scoped under `.sr-web`; the desktop
+ * composition never imports this file.
+ */
+
+.sr-web *,
+.sr-web *::before,
+.sr-web *::after {
+  box-sizing: border-box;
+}
+
+.sr-app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--sr-surface-soft);
+  color: var(--sr-text);
+}
+
+/* ---------- Floating header ---------- */
+
+.sr-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: var(--sr-header-h);
+  margin: var(--sr-header-inset) var(--sr-header-inset) 0;
+  padding: 0 16px;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-md);
+  flex: none;
+}
+
+.sr-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sr-brand__mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--sr-radius-xs);
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary);
+}
+
+.sr-brand__mark svg {
+  width: 18px;
+  height: 18px;
+}
+
+.sr-brand__name {
+  font-size: var(--sr-fs-lg);
+  line-height: var(--sr-lh-relaxed);
+  font-weight: var(--sr-fw-heavy);
+  white-space: nowrap;
+}
+
+.sr-brand__badge {
+  padding: 2px 6px;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary);
+  font-size: var(--sr-fs-2xs);
+  line-height: var(--sr-lh-tight);
+  font-weight: var(--sr-fw-bold);
+  letter-spacing: 0.04em;
+}
+
+.sr-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sr-nav__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--sr-nav-h);
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--sr-radius);
+  background: transparent;
+  color: var(--sr-text-muted);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sr-nav__item:hover {
+  background: var(--sr-hover);
+  color: var(--sr-text);
+}
+
+.sr-nav__item.is-active {
+  background: var(--sr-selected);
+  color: var(--sr-selected-text);
+  font-weight: var(--sr-fw-bold);
+}
+
+.sr-nav__item:focus-visible,
+.sr-btn:focus-visible,
+.sr-input:focus-visible,
+.sr-textarea:focus-visible,
+.sr-tree__node:focus-visible,
+.sr-crumbs__item:focus-visible,
+.sr-table thead th button:focus-visible,
+.sr-table tbody tr:focus-visible,
+/* The file-name cell is a role="button" span with no class of its own. */
+.sr-cell--name span:focus-visible,
+.sr-web input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--sr-focus-ring);
+  outline-offset: 2px;
+}
+
+.sr-header__spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sr-header__utils {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.sr-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sr-fs-xs);
+  line-height: var(--sr-lh-tight);
+  color: var(--sr-text-muted);
+}
+
+.sr-session > span[aria-hidden] {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-success);
+}
+
+/* ---------- Buttons / inputs ---------- */
+
+.sr-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--sr-control-h);
+  padding: 0 12px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-xs);
+  background: var(--sr-surface);
+  color: var(--sr-text);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  cursor: pointer;
+}
+
+.sr-btn:hover:not(:disabled) {
+  background: var(--sr-hover);
+}
+
+.sr-btn:disabled,
+.sr-input:disabled,
+.sr-textarea:disabled,
+.sr-web input[type="checkbox"]:disabled {
+  opacity: var(--sr-disabled-opacity);
+  cursor: not-allowed;
+}
+
+.sr-btn--primary {
+  border-color: transparent;
+  background: var(--sr-primary);
+  /* The label is a dark colour, not --sr-text-on-accent. White on the reference's
+     primary measures 2.72:1, which fails the 4.5:1 floor for the app's primary
+     action; --sr-text reaches 5.39:1 and leaves the reference's fill untouched. */
+  color: var(--sr-text);
+  font-weight: var(--sr-fw-semibold);
+}
+
+.sr-btn--primary:hover:not(:disabled) {
+  background: var(--sr-primary-hover);
+  color: var(--sr-text);
+}
+
+.sr-input {
+  width: 100%;
+  height: var(--sr-input-h);
+  padding: 0 10px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-xs);
+  background: var(--sr-surface);
+  color: var(--sr-text);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+}
+
+.sr-input::placeholder {
+  color: var(--sr-text-muted);
+}
+
+/* ---------- Main region ---------- */
+
+.sr-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--sr-gutter);
+  overflow: hidden;
+}
+
+.sr-workspace {
+  display: grid;
+  grid-template-columns: var(--sr-side-w) minmax(0, 1fr);
+  gap: var(--sr-gutter);
+  height: 100%;
+  min-height: 0;
+}
+
+.sr-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius);
+  overflow-y: auto;
+}
+
+.sr-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius);
+  overflow: hidden;
+}
+
+/* ---------- Breadcrumb / toolbar ---------- */
+
+.sr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--sr-border);
+  flex: none;
+}
+
+.sr-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sr-crumbs__item {
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--sr-radius-xs);
+  background: transparent;
+  color: var(--sr-text-muted);
+  font: inherit;
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sr-crumbs__item:hover {
+  background: var(--sr-hover);
+  color: var(--sr-text);
+}
+
+.sr-crumbs__item[aria-current="page"] {
+  color: var(--sr-text);
+  font-weight: var(--sr-fw-semibold);
+}
+
+.sr-crumbs__sep {
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+}
+
+/* ---------- File table ---------- */
+
+.sr-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The table fills the pane it sits in and keeps the reference's column
+   proportions, so the width follows the pane and the visible columns rather
+   than a fixed pixel total. `min-width` is set from the visible columns' sum,
+   so shrinking the pane never compresses columns past their reference width;
+   the wrap scrolls instead. */
+.sr-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+}
+
+.sr-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: var(--sr-head-h);
+  padding: 0 8px;
+  background: var(--sr-surface-soft);
+  border-bottom: 1px solid var(--sr-border);
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-semibold);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sr-table thead th button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sr-table tbody tr {
+  height: var(--sr-row-h);
+  cursor: default;
+}
+
+.sr-table tbody tr + tr td {
+  border-top: 1px solid var(--sr-border);
+}
+
+.sr-table tbody tr.is-selected td {
+  background: var(--sr-selected);
+  color: var(--sr-selected-text);
+}
+
+.sr-table tbody td {
+  height: var(--sr-row-h);
+  padding: 0 8px;
+  color: var(--sr-text);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-table td.sr-cell--name {
+  cursor: pointer;
+  font-weight: var(--sr-fw-medium);
+}
+
+.sr-cell--muted {
+  color: var(--sr-text-muted);
+}
+
+.sr-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--sr-radius-xs);
+  background: var(--sr-neutral);
+  object-fit: cover;
+}
+
+/* ---------- Folder tree ---------- */
+
+.sr-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: none;
+  max-height: 40%;
+  overflow-y: auto;
+}
+
+.sr-tree__title {
+  margin: 0 0 6px;
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sr-tree__node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--sr-radius-xs);
+  background: transparent;
+  color: var(--sr-text);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sr-tree__node:hover {
+  background: var(--sr-hover);
+}
+
+.sr-tree__node.is-active {
+  background: var(--sr-selected);
+  color: var(--sr-selected-text);
+  font-weight: var(--sr-fw-semibold);
+}
+
+.sr-tree__twisty {
+  flex: none;
+  width: 12px;
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-3xs);
+  line-height: var(--sr-lh-glyph);
+  text-align: center;
+}
+
+.sr-tree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A flagged album is marked where the album lives, so the badge rides the row
+   rather than shortening the name it belongs to. */
+.sr-tree__node .sr-badge {
+  flex: none;
+  margin-left: auto;
+}
+
+/* Per-file failures sit beside the outcome line rather than replacing it, so a
+   partial write cannot read as a clean one. */
+.sr-failure-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.sr-field__static--error {
+  color: var(--sr-danger-text);
+}
+
+/* The review banner carries a sentence plus one button per flagged album. */
+.sr-banner--review {
+  flex-wrap: wrap;
+}
+
+/* ---------- Detail editor ---------- */
+
+.sr-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  flex: none;
+}
+
+.sr-editor__heading {
+  margin: 0;
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sr-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius);
+  background: var(--sr-surface);
+}
+
+.sr-section__title {
+  margin: 0;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-bold);
+}
+
+.sr-field {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+}
+
+.sr-field__label {
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-field--stacked {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.sr-field__static {
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  color: var(--sr-text);
+}
+
+.sr-textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 8px 10px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-xs);
+  background: var(--sr-surface);
+  color: var(--sr-text);
+  font: inherit;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  resize: vertical;
+}
+
+.sr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--sr-radius-pill);
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-medium);
+}
+
+.sr-technical {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+}
+
+.sr-technical__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sr-technical__label {
+  color: var(--sr-text-muted);
+}
+
+/* ---------- States ---------- */
+
+.sr-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 24px;
+  text-align: center;
+  color: var(--sr-text-muted);
+}
+
+.sr-empty__title {
+  margin: 0;
+  color: var(--sr-text);
+  font-size: var(--sr-fs-base);
+  line-height: var(--sr-lh-relaxed);
+  font-weight: var(--sr-fw-bold);
+}
+
+.sr-empty__body {
+  margin: 0;
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  max-width: 42ch;
+}
+
+.sr-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--sr-radius-xs);
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+}
+
+.sr-banner--error {
+  background: var(--sr-danger-soft);
+  color: var(--sr-danger-text);
+}
+
+.sr-banner--notice {
+  background: var(--sr-success-soft);
+  color: var(--sr-success-text);
+}
+
+.sr-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .sr-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: auto;
+  }
+
+  .sr-side {
+    max-height: 50vh;
+  }
+
+  .sr-nav__item span:not(.sr-sr-only) {
+    display: none;
+  }
+
+  .sr-nav__item {
+    padding: 0 10px;
+  }
+}
+
+/* ---------- Operation log ---------- */
+
+.sr-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--sr-border);
+  flex: none;
+}
+
+.sr-summary__card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius);
+  background: var(--sr-surface);
+}
+
+.sr-summary__value {
+  font-size: var(--sr-fs-title);
+  line-height: var(--sr-lh-display);
+  font-weight: var(--sr-fw-heavy);
+}
+
+.sr-summary__label {
+  font-size: var(--sr-fs-xs);
+  line-height: var(--sr-lh-tight);
+  color: var(--sr-text-muted);
+}
+
+.sr-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--sr-radius-pill);
+  font-size: var(--sr-fs-xs);
+  line-height: var(--sr-lh-tight);
+  font-weight: var(--sr-fw-semibold);
+}
+
+.sr-badge--info {
+  background: var(--sr-primary-soft);
+  color: var(--sr-primary);
+}
+
+.sr-badge--success {
+  background: var(--sr-success-soft);
+  color: var(--sr-success-text);
+}
+
+.sr-badge--warning {
+  background: var(--sr-warning-soft);
+  color: var(--sr-warning-text);
+}
+
+.sr-badge--danger {
+  background: var(--sr-danger-soft);
+  color: var(--sr-danger-text);
+}
+
+.sr-badge--muted {
+  background: var(--sr-surface-soft);
+  color: var(--sr-text-muted);
+}
+
+/* The reference operation-log table measures 41px headers and 53px rows. */
+.sr-table--log {
+  width: 100%;
+  table-layout: auto;
+}
+
+.sr-table--log thead th {
+  height: 41px;
+}
+
+.sr-table--log tbody tr,
+.sr-table--log tbody td {
+  height: 53px;
+}
+
+/* ---------- Tag sources ---------- */
+
+.sr-sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 16px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sr-source {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius);
+  background: var(--sr-surface);
+}
+
+.sr-source__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sr-source__name {
+  font-size: var(--sr-fs-body);
+  line-height: var(--sr-lh-base);
+  font-weight: var(--sr-fw-bold);
+}
+
+.sr-source__note {
+  margin: 0;
+  color: var(--sr-text-muted);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+}
+
+/* Service log viewer (Monitoring). Monospace and scrollable so a tail of the
+   application log stays readable without widening the page. */
+.sr-log {
+  margin: 0;
+  padding: 12px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--sr-surface-soft);
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-sm);
+  font-family: var(--sr-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--sr-fs-xs);
+  line-height: var(--sr-lh-tight);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Inline monospace for technical values such as a crontab expression. */
+.sr-log-inline {
+  font-family: var(--sr-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--sr-fs-sm);
+  line-height: var(--sr-lh-base);
+}
+
+/* Workspace settings drawer (browser-only presentation preferences). */
+.sr-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 64px 16px 16px;
+  background: rgb(0 0 0 / 0.32);
+}
+
+.sr-drawer {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--sr-surface);
+  border: 1px solid var(--sr-border);
+  border-radius: var(--sr-radius-lg);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.24);
+}
+
+.sr-drawer:focus-visible {
+  outline: 2px solid var(--sr-focus-ring);
+  outline-offset: 2px;
+}

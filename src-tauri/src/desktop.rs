@@ -27,8 +27,6 @@ use semver::Version;
 use tauri::webview::PageLoadEvent;
 use tauri::{Manager, PhysicalPosition, PhysicalSize, RunEvent, WindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
-use tracing_subscriber::fmt::writer::MakeWriterExt;
-use tracing_subscriber::EnvFilter;
 
 use crate::commands;
 use crate::commands::shell::ContextMenuState;
@@ -162,19 +160,7 @@ pub fn init_logging() {
 }
 
 pub fn init_logging_in(data_dir: Option<&std::path::Path>) {
-    let filter = EnvFilter::try_from_env("SOUNDROBE_LOG")
-        .unwrap_or_else(|_| EnvFilter::new("soundrobe=debug,info"));
-    let builder = tracing_subscriber::fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .with_ansi(false);
-    if let Some((_, writer)) =
-        data_dir.and_then(|directory| crate::infra::logging::general_log_writer_in(directory).ok())
-    {
-        let _ = builder.with_writer(writer.and(std::io::stderr)).try_init();
-    } else {
-        let _ = builder.with_writer(std::io::stderr).try_init();
-    }
+    crate::infra::logging::init_tracing(data_dir);
 }
 
 /// Build and launch the Tauri application. Stays the single entry point for

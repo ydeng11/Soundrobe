@@ -384,7 +384,8 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
 
     // Manual search
     searchReleases: (request) => command("album:search-releases", { request }),
-    releaseTrackCount: async () => unsupportedWebAction("releaseTrackCount"),
+    releaseTrackCount: (provider, releaseId, kind) =>
+      command("album:release-track-count", { request: { provider, releaseId, kind } }),
     resolveRelease: (provider, releaseId, kind) =>
       command("album:resolve-release", {
         request: { provider, releaseId, kind },
@@ -408,4 +409,152 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
       command("assistant:get-session", { sessionUuidOrNumber }),
     getCurrentSession: () => command("assistant:current-session"),
   };
+}
+
+/* ---------------------------------------------------------------------------
+ * Background tagging and monitoring
+ *
+ * These channels are served by the self-hosted server process, which owns the
+ * schedule and the run history. The desktop composition runs its own
+ * interactive auto-tag flow and has no scheduler, so — like `listWebTasks` —
+ * these helpers live in the web adapter rather than the shared `DesktopAPI`
+ * contract, and the views receive them as injected functions.
+ * ------------------------------------------------------------------------- */
+
+/** What the operator can configure about background tagging. */
+export interface BackgroundTaggingSettings {
+  enabled: boolean;
+  /** Crontab expression, `minute hour day month weekday`. */
+  schedule: string;
+  directories: string[];
+  watchEnabled: boolean;
+  skipUnchanged: boolean;
+}
+
+export type BackgroundRunTrigger = "schedule" | "manual" | "watch";
+export type BackgroundRunStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "skipped";
+
+export interface BackgroundRun {
+  id: string;
+  trigger: BackgroundRunTrigger;
+  startedAt: string;
+  finishedAt: string | null;
+  status: BackgroundRunStatus;
+  tagged: number;
+  failed: number;
+  message: string;
+  taskId: string | null;
+}
+
+export interface MonitoringStatus extends BackgroundTaggingSettings {
+  /** Local wall-clock time of the next scheduled run, or null when disabled. */
+  nextRunAt: string | null;
+  /** Configured directories that exist, or the mounted library roots. */
+  effectiveDirectories: string[];
+  running: WebTask[];
+  recentRuns: BackgroundRun[];
+}
+
+export type ReleaseHealthStatus =
+  | "healthy"
+  | "needs_tagging"
+  | "unreadable"
+  | "tagging"
+  | "needs_review"
+  | "failed";
+
+export interface MonitoredRelease {
+  path: string;
+  status: ReleaseHealthStatus;
+}
+
+export interface MonitoringLog {
+  path: string;
+  totalLines: number;
+  lines: string[];
+}
+
+/** Log sources this app actually writes, mirroring the reference's selector. */
+export type MonitoringLogSource = "app" | "auto-tag";
+
+export function getBackgroundSettings(
+  options: WebAuthOptions = {},
+): Promise<BackgroundTaggingSettings> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<BackgroundTaggingSettings>(
+    fetchImpl,
+    baseUrl,
+    "background:get-settings",
+  );
+}
+
+/**
+ * Save a partial change. The service merges it into the stored settings, so an
+ * omitted field keeps its current value, and an unparseable crontab is refused
+ * with an error instead of leaving background tagging unable to ever run.
+ */
+export function setBackgroundSettings(
+  patch: Partial<BackgroundTaggingSettings>,
+  options: WebAuthOptions = {},
+): Promise<BackgroundTaggingSettings> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<BackgroundTaggingSettings>(
+    fetchImpl,
+    baseUrl,
+    "background:set-settings",
+    patch as Record<string, unknown>,
+  );
+}
+
+export function listBackgroundRuns(
+  options: WebAuthOptions = {},
+): Promise<BackgroundRun[]> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<BackgroundRun[]>(fetchImpl, baseUrl, "background:list-runs");
+}
+
+/**
+ * Start a run now. Rejects with the service's reason when tagging is disabled,
+ * already busy, or has no directory to cover.
+ */
+export function runBackgroundTagging(
+  options: WebAuthOptions = {},
+): Promise<{ taskId: string }> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<{ taskId: string }>(fetchImpl, baseUrl, "background:run-now");
+}
+
+export function getMonitoringStatus(
+  options: WebAuthOptions = {},
+): Promise<MonitoringStatus> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<MonitoringStatus>(fetchImpl, baseUrl, "monitoring:status");
+}
+
+export function listMonitoringReleases(
+  options: WebAuthOptions = {},
+): Promise<{ releases: MonitoredRelease[] }> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<{ releases: MonitoredRelease[] }>(
+    fetchImpl,
+    baseUrl,
+    "monitoring:releases",
+  );
+}
+
+export function readMonitoringLog(
+  source: MonitoringLogSource,
+  lines = 400,
+  options: WebAuthOptions = {},
+): Promise<MonitoringLog> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<MonitoringLog>(fetchImpl, baseUrl, "monitoring:logs", {
+    source,
+    lines,
+  });
 }

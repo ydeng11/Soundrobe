@@ -23,7 +23,10 @@ pub mod artwork;
 pub mod encoding;
 pub mod fs;
 pub mod http;
-#[cfg(feature = "desktop")]
+/// Shared logging initialisation and debug-mode tracing. Used by both the
+/// desktop runtime and the self-hosted server so the service can expose its own
+/// log in Monitoring.
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod logging;
 pub mod openrouter;
 pub mod sqlite;

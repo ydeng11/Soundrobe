@@ -660,12 +660,10 @@ pub async fn album_search_releases(
 }
 
 /// Read only the provider track count; never run genre or candidate enrichment.
-#[cfg(feature = "desktop")]
-#[tauri::command]
-pub async fn album_release_track_count(
-    request: ResolveReleaseRequest,
-    providers: State<'_, ProviderState>,
-    config: State<'_, ConfigState>,
+pub(crate) async fn release_track_count_inner(
+    request: &ResolveReleaseRequest,
+    providers: &ProviderState,
+    config: &ConfigState,
 ) -> Result<Option<u32>, String> {
     use crate::state::providers::{ProviderRetryContext, ProviderRetryMetrics};
     let retry = ProviderRetryContext::new(
@@ -679,7 +677,7 @@ pub async fn album_release_track_count(
             .await,
         "discogs" => DiscogsClient::at(
             providers.http(),
-            discogs_token(&config),
+            discogs_token(config),
             providers.discogs_base(),
         )
         .with_retry_context(retry)
@@ -687,6 +685,17 @@ pub async fn album_release_track_count(
         .await,
         other => Err(format!("Unknown provider: {other}")),
     }
+}
+
+/// Read only the provider track count; never run genre or candidate enrichment.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn album_release_track_count(
+    request: ResolveReleaseRequest,
+    providers: State<'_, ProviderState>,
+    config: State<'_, ConfigState>,
+) -> Result<Option<u32>, String> {
+    release_track_count_inner(&request, &providers, &config).await
 }
 
 /// Resolve a single release by provider + ID, returning full `ProviderAlbum` with tracks.
