@@ -48,7 +48,7 @@
   height: 32px;
   border-radius: var(--sr-radius-xs);
   background: var(--sr-primary-soft);
-  color: var(--sr-primary);
+  color: var(--sr-primary-text);
 }
 
 .sr-brand__mark svg {
@@ -67,7 +67,7 @@
   padding: 2px 6px;
   border-radius: var(--sr-radius-pill);
   background: var(--sr-primary-soft);
-  color: var(--sr-primary);
+  color: var(--sr-primary-text);
   font-size: var(--sr-fs-2xs);
   line-height: var(--sr-lh-tight);
   font-weight: var(--sr-fw-bold);
@@ -441,6 +441,10 @@
   font-weight: var(--sr-fw-semibold);
 }
 
+.sr-tree__node.is-active .sr-tree__twisty {
+  color: var(--sr-selected-text);
+}
+
 .sr-tree__twisty {
   flex: none;
   width: 12px;
@@ -569,7 +573,7 @@
   padding: 3px 8px;
   border-radius: var(--sr-radius-pill);
   background: var(--sr-primary-soft);
-  color: var(--sr-primary);
+  color: var(--sr-primary-text);
   font-size: var(--sr-fs-sm);
   line-height: var(--sr-lh-base);
   font-weight: var(--sr-fw-medium);
@@ -721,7 +725,7 @@
 
 .sr-badge--info {
   background: var(--sr-primary-soft);
-  color: var(--sr-primary);
+  color: var(--sr-primary-text);
 }
 
 .sr-badge--success {

@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import { OperationLogView } from "./OperationLogView";
 import {
   getMonitoringStatus,
   listMonitoringReleases,
@@ -26,6 +27,7 @@ import {
   type MonitoringLogSource,
   type MonitoringStatus,
   type ReleaseHealthStatus,
+  type WebTask,
 } from "../shared/web-adapter";
 
 export interface MonitoringViewProps {
@@ -34,6 +36,9 @@ export interface MonitoringViewProps {
   loadReleases?: () => Promise<{ releases: MonitoredRelease[] }>;
   readLog?: (source: MonitoringLogSource, lines?: number) => Promise<MonitoringLog>;
   runNow?: () => Promise<{ taskId: string }>;
+  /** The operation log is a section of this view rather than a destination. */
+  loadTasks?: () => Promise<WebTask[]>;
+  cancelTask?: (taskId: string) => Promise<unknown>;
   /** Poll interval; 0 disables polling (used by tests). */
   refreshMs?: number;
 }
@@ -95,6 +100,8 @@ export function MonitoringView({
   loadReleases = listMonitoringReleases,
   readLog = readMonitoringLog,
   runNow = runBackgroundTagging,
+  loadTasks = () => import("../shared/web-adapter").then((m) => m.listWebTasks()),
+  cancelTask = (taskId: string) => window.api.cancelTask(taskId),
   refreshMs = 5000,
 }: MonitoringViewProps) {
   const [status, setStatus] = React.useState<MonitoringStatus | null>(null);
@@ -253,6 +260,8 @@ export function MonitoringView({
           </div>
         )}
       </section>
+
+      <OperationLogView loadTasks={loadTasks} cancelTask={cancelTask} />
 
       <section className="sr-section" data-testid="monitoring-runs">
         <h3 className="sr-section__title">Recent runs</h3>

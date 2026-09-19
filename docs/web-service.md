@@ -148,9 +148,13 @@ untagged, and it is never tagged twice.
 ### Observing it
 
 `~/.soundrobe/background-tagging.json` holds both the settings and the last 50
-runs, and is the authoritative record of what happened. Monitoring renders it
-alongside the live task queue. Its log source selector covers two files in the
-service data directory:
+runs, and is the authoritative record of what happened. **Monitoring** is the single
+page for all of it, in one pass down the screen: the schedule that will fire, any run
+in progress, the operations you started from the workspace, the recent background
+runs, the releases the last survey classified, and the service log. There is no
+separate Operation log destination — the log answers the same question Monitoring
+does, so it is a section here rather than a peer competing with it in the navigation.
+Its log source selector covers two files in the service data directory:
 
 | Source | File | Contents |
 | --- | --- | --- |

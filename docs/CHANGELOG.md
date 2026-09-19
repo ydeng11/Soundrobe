@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The browser service's Operation log is now a section of the Monitoring page rather
+  than a destination of its own. Both answer the same question — what has the
+  background tagger been doing — so the navigation now has four entries instead of
+  five, and everything about a tagging run is on one page.
 - Browser-workspace text now carries a line height paired to its size, taken from the
   reference, whose own text sets a leading on every size. Text blocks read slightly
   looser than before; the file table's row, header and column geometry is unchanged.
@@ -34,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Browser-workspace badges and chips were hard to read: the brand badge, the header
+  mark, the status chips and the informational badge all painted the accent colour on
+  its own 10% tint, which measures 2.49:1. They now use a darker step of the same hue
+  (4.60:1 on the tint, 5.02:1 on a card). The folder-tree expander was darker still —
+  1.59:1 — because it kept its own colour inside a selected row instead of following
+  the row's text, which is now fixed.
 - The browser workspace's primary button was hard to read: its white label sat at
   2.72:1 on the reference's primary fill, and hovering it emptied the button into a
   pale tint at 2.49:1. The label is now a dark colour on the same fill - 5.39:1, and

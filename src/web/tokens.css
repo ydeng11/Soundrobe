@@ -55,6 +55,12 @@
      now a dark colour (see web.css): darkening the fill would drop that label to
      3.94:1, below the floor, whereas this step raises it to 5.82:1. */
   --sr-primary-hover: oklch(0.73 0.159168 293.541);
+  /* Derived, NOT ported. Four rules paint --sr-primary as TEXT on --sr-primary-soft
+     (the brand mark, the brand badge, the chip and badge--info). That pair measures
+     2.49:1 - the same failing combination the primary button had. This darkens the
+     primary to 4.60:1 on that tint and 5.02:1 on a white card, mirroring the
+     --sr-<status>-text roles. Keep --sr-primary for fills and borders. */
+  --sr-primary-text: oklch(0.557 0.159168 293.541);
 
   /* ---- Text (DOM) ---- */
   --sr-text: oklch(0.278078 0.029596 256.848);

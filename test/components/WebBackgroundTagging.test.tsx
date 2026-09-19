@@ -48,6 +48,32 @@ function emptyLog(): MonitoringLog {
 }
 
 describe("Monitoring", () => {
+  it("carries the operation log as a section rather than a peer destination", async () => {
+    // The log answers the same question this view does - what has the background
+    // tagger been doing - so it lives here. If this section disappears, operations
+    // become unreachable, because they no longer have a navigation entry.
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+        loadTasks={async () => [
+          { taskId: "task-1", status: "running", progress: 3, total: 10, message: "Working", result: null },
+          { taskId: "task-2", status: "failed", progress: 0, total: 10, message: "Boom", result: null },
+        ]}
+        cancelTask={async () => ({ ok: true })}
+      />,
+    );
+
+    const section = await screen.findByTestId("operation-log");
+    // Rendered with the view's own section heading, not a second view heading.
+    expect(within(section).getByRole("heading", { name: "Operations" })).toBeTruthy();
+    const table = within(section).getByTestId("log-table");
+    expect(within(table).getByText("Running")).toBeTruthy();
+    expect(within(table).getByText("Failed")).toBeTruthy();
+  });
+
   it("reports the schedule that will actually fire and the coverage", async () => {
     render(
       <MonitoringView

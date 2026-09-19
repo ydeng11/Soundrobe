@@ -10,7 +10,6 @@
 import React from "react";
 import { WebLoginScreen } from "../components/WebLoginScreen";
 import { getWebSession, loginWebSession, logoutWebSession } from "../shared/web-adapter";
-import { OperationLogView } from "./OperationLogView";
 import { MonitoringView } from "./MonitoringView";
 import { SettingsView } from "./SettingsView";
 import { TagSourcesView } from "./TagSourcesView";
@@ -79,14 +78,13 @@ export function WebApp({ api = window.api }: WebAppProps) {
   return (
     <WebShell activeView={view} onViewChange={setView} onSignOut={() => void handleSignOut()}>
       {view === "workspace" && <WorkspaceView api={api} />}
-      {view === "log" && (
-        <OperationLogView
+      {view === "sources" && <TagSourcesView api={api} />}
+      {view === "monitoring" && (
+        <MonitoringView
           loadTasks={() => import("../shared/web-adapter").then((m) => m.listWebTasks())}
           cancelTask={(taskId) => api.cancelTask(taskId)}
         />
       )}
-      {view === "sources" && <TagSourcesView api={api} />}
-      {view === "monitoring" && <MonitoringView />}
       {view === "settings" && <SettingsView />}
     </WebShell>
   );

@@ -64,9 +64,9 @@ export function OperationLogView({
   const failed = tasks.filter((task) => task.status === "failed").length;
 
   return (
-    <div className="sr-pane" data-testid="operation-log">
+    <section className="sr-section" data-testid="operation-log">
       <div className="sr-toolbar">
-        <h2 className="sr-section__title">Operation log</h2>
+        <h3 className="sr-section__title">Operations</h3>
         <div className="sr-header__spacer" />
         <button type="button" className="sr-btn" onClick={() => void refresh()}>
           Refresh
@@ -143,7 +143,7 @@ export function OperationLogView({
           </table>
         </div>
       )}
-    </div>
+    </section>
   );
 }
 

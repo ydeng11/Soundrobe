@@ -844,3 +844,55 @@ distinguishable from hover without adding a new structural affordance.
 Reconsider only if the table gains a second selection mode (for example a "current" row
 distinct from a multi-selected set), at which point a structural indicator becomes
 necessary anyway.
+
+## 22. Surface audit: drawers, views and the merged Monitoring page (2026-09-19)
+
+The state/contrast/type audit was extended from the workspace to every other surface —
+the Search, Number and Convert drawers, the workspace settings drawer, and the Tag
+sources, Settings and Monitoring pages — by walking each one and measuring every
+focusable element and every rendered text/background pair in the browser.
+
+### Result
+
+| Surface | Focusables | Without a token ring | Contrast failures |
+| --- | --- | --- | --- |
+| Workspace | 44 | 0 | 0 |
+| Number drawer | 47 | 0 | 0 |
+| Convert drawer | 54 | 0 | 0 |
+| Search drawer | 54 | 0 | 0 |
+| Workspace settings drawer | 67 | 0 | 0 |
+| Monitoring | 10 | 0 | 0 |
+| Tag sources | 13 | 0 | 0 |
+| Settings | 19 | 0 | 0 |
+
+### Two defects the sweep found, and the fix
+
+1. **The accent-as-text trap, in four more places.** The brand mark, the brand badge
+   (`WEB`), the status chips (`Running`, `Tagging`) and `.sr-badge--info` all painted
+   `--sr-primary` on `--sr-primary-soft` — **2.49:1**, the same failing combination the
+   primary button had. They now use a new derived token:
+
+   `--sr-primary-text: oklch(0.557 0.159168 293.541)` — same hue and chroma as
+   `--sr-primary`, darkened to **4.60:1** on the tint and **5.02:1** on a card. This
+   mirrors the `--sr-<status>-text` roles; `--sr-primary` stays for fills and borders.
+
+2. **The tree expander was invisible on a selected row.** `.sr-tree__twisty` declared
+   its own `--sr-text-muted`, so inside `.sr-tree__node.is-active` it was dark text on
+   the solid neutral fill: **1.59:1**. It now follows the node with
+   `.sr-tree__node.is-active .sr-tree__twisty { color: var(--sr-selected-text) }`,
+   which is the same `--nc` on `--n` pairing at 6.93:1.
+
+Both are the same class of defect as the original hover bug: a state that resolves to
+something it cannot be distinguished from.
+
+### The consolidation
+
+The Operation log is no longer a destination. It renders as a section of Monitoring, so
+the navigation has four entries. The two surfaces were answering the same question from
+different angles — Monitoring showed the schedule, the runs and the service log, while
+the Operation log showed the task queue — and a reader had to know which one held the
+answer they wanted.
+
+`docs/web-service.md` describes the merged page. The nav tests now assert four
+destinations and that `Operation log` is absent, and a test asserts the section renders
+inside Monitoring with its table, so the merge cannot silently regress.

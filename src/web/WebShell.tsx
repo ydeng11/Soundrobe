@@ -14,7 +14,7 @@ import "./tokens.css";
 import "./web.css";
 
 /** In-scope browser destinations. Library/player surfaces are out of scope. */
-export type WebView = "workspace" | "log" | "sources" | "monitoring" | "settings";
+export type WebView = "workspace" | "sources" | "monitoring" | "settings";
 
 export interface WebShellProps {
   activeView?: WebView;
@@ -26,7 +26,6 @@ export interface WebShellProps {
 const NAVIGATION: Array<{ view: WebView; label: string; icon: React.ReactNode }> = [
   { view: "workspace", label: "Workspace", icon: <WorkspaceIcon /> },
   { view: "monitoring", label: "Monitoring", icon: <MonitoringIcon /> },
-  { view: "log", label: "Operation log", icon: <LogIcon /> },
   { view: "sources", label: "Tag sources", icon: <SourcesIcon /> },
   { view: "settings", label: "Settings", icon: <SettingsIcon /> },
 ];
@@ -87,15 +86,6 @@ function WorkspaceIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M3 9h18M9 9v11" />
-    </svg>
-  );
-}
-
-function LogIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 19V5M4 19h16" />
-      <path d="m7 15 3-4 3 2 5-6" />
     </svg>
   );
 }

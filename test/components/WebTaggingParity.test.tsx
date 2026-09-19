@@ -407,10 +407,19 @@ describe("browser shell", () => {
     render(<WebShell activeView="workspace" onViewChange={onViewChange}><p>body</p></WebShell>);
 
     expect(screen.getByRole("button", { name: "Workspace" }).getAttribute("aria-current")).toBe("page");
-    expect(screen.getByRole("button", { name: "Operation log" }).getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("button", { name: "Monitoring" }).getAttribute("aria-current")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Operation log" }));
-    expect(onViewChange).toHaveBeenCalledWith("log");
+    fireEvent.click(screen.getByRole("button", { name: "Monitoring" }));
+    expect(onViewChange).toHaveBeenCalledWith("monitoring");
+  });
+
+  it("keeps the operation log inside Monitoring rather than as its own destination", () => {
+    // The operation log answers the same question Monitoring does - what has the
+    // background tagger been doing - so it is a section of that view, not a peer
+    // destination competing with it in the navigation.
+    render(<WebShell><p>body</p></WebShell>);
+    expect(screen.queryByRole("button", { name: "Operation log" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Log" })).toBeNull();
   });
 
   it("offers no library or player destinations", () => {
@@ -425,7 +434,6 @@ describe("browser shell", () => {
     for (const label of [
       "Workspace",
       "Monitoring",
-      "Operation log",
       "Tag sources",
       "Settings",
     ]) {
