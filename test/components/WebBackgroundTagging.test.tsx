@@ -412,6 +412,35 @@ describe("Monitoring", () => {
 });
 
 describe("Settings", () => {
+  it("gives every checkbox setting the whole row for its name", async () => {
+    // A checkbox field's label *is* its control, and these labels are sentences:
+    // inside the label gutter "Let the assistant apply its own actions without
+    // confirmation" was ellipsised to "Let the assistant apply its own ac…".
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({})}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+
+    await screen.findByTestId("settings");
+    for (const id of [
+      "setting-remote-lookup",
+      "setting-discogs",
+      "setting-lyrics",
+      "setting-background-enabled",
+      "setting-watch",
+      "setting-skip-unchanged",
+      "setting-assistant",
+      "setting-debug",
+    ]) {
+      const box = document.getElementById(id) as HTMLInputElement;
+      expect(box, id).toBeTruthy();
+      expect(box.closest(".sr-field")?.className, id).toContain("sr-field--stacked");
+    }
+  });
+
   it("loads the stored schedule and marks a matching preset", async () => {
     render(
       <SettingsView

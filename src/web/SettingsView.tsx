@@ -472,7 +472,7 @@ export function SettingsView({
         <h3 className="sr-section__title">Metadata sources</h3>
         <p className="sr-field__static">Where Soundrobe may look for metadata it cannot read from the files.</p>
 
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-remote-lookup">
             <input
               id="setting-remote-lookup"
@@ -498,7 +498,7 @@ export function SettingsView({
           {fieldError("remoteLookupEnabled")}
         </div>
 
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-discogs">
             <input
               id="setting-discogs"
@@ -558,7 +558,7 @@ export function SettingsView({
 
       <section className="sr-section" id="settings-group-lyrics" data-testid="settings-lyrics">
         <h3 className="sr-section__title">Lyrics</h3>
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-lyrics">
             <input
               id="setting-lyrics"
@@ -632,7 +632,7 @@ export function SettingsView({
           under Monitoring.
         </p>
 
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-background-enabled">
             <input
               id="setting-background-enabled"
@@ -734,7 +734,7 @@ export function SettingsView({
           </div>
         )}
 
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-watch">
             <input
               id="setting-watch"
@@ -758,7 +758,7 @@ export function SettingsView({
           </p>
         </div>
 
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-skip-unchanged">
             <input
               id="setting-skip-unchanged"
@@ -835,7 +835,7 @@ export function SettingsView({
 
       <section className="sr-section" id="settings-group-assistant" data-testid="settings-assistant">
         <h3 className="sr-section__title">Assistant</h3>
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-assistant">
             <input
               id="setting-assistant"
@@ -864,7 +864,7 @@ export function SettingsView({
 
       <section className="sr-section" id="settings-group-system" data-testid="settings-system">
         <h3 className="sr-section__title">System</h3>
-        <div className="sr-field">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-debug">
             <input
               id="setting-debug"

@@ -1023,3 +1023,64 @@ all seven.
 
 Both parity regressions were re-checked by reintroducing them, and the two tests failed
 as they should before the fixes were restored.
+
+## 25. Field layout: one rule set, three defects (2026-09-19)
+
+Reported as "the info or warning like *Required, unless an album is given* is too
+crowded and squeezed together". The cause was a single grid rule, and measuring it
+found two further defects of the same origin.
+
+|  | Before | After |
+| --- | --- | --- |
+| Search hint width | **104px** | **354px** |
+| Search hint lines | **3** | **1** |
+| Settings hint width | 104px | **1074–1220px** |
+| Settings hint lines (worst) | **7** | **1** |
+| Settings labels truncated | **9 of 12** | **0 of 12** |
+| Checkbox label width | 104px, ellipsised | **1220px** |
+| Hint type | 14px, `--sr-text` (14:1) | 12.5px, `--sr-text-muted` (4.64:1) |
+| `.sr-field` gaps | 14px / 14px | **4px** row / 14px column |
+
+### The defects
+
+1. **A hinted field has three children but the grid had two columns.**
+   `grid-template-columns: 104px minmax(0, 1fr)`, and the hint auto-placed into
+   row 2 column 1 — the *label* column. Measured: the hint's left edge at 390px while
+   its control's sat at 508px, wrapping to three lines in a 104px gutter with 382px of
+   empty space beside it. In Settings the Chinese-script note wrapped to seven lines.
+   The fix is one declaration, `grid-column: 2` on a direct-child static, scoped to
+   `:not(.sr-field--stacked)` because a stacked field has one column and naming a
+   second would create an implicit one.
+
+2. **`white-space: nowrap` plus the 104px column ellipsised the labels themselves.**
+   Nine of twelve settings had names longer than their gutter: "Let the assistant apply
+   its own actions without confirmation" needs 399px, "Download remote lyrics when no
+   local lyrics exist" 333px, "Tag music as it appears in the covered folders" 312px.
+   Each rendered as a truncated fragment. Labels now wrap; the gutter is 132px, which
+   holds "Lyrics service URL" (119px) on one line. There is no `text-overflow` left on
+   `.sr-field__label`.
+
+3. **The gaps did not distinguish a control from its hint.** Row and column gaps were
+   both 14px while the section's own gap is 10px, so a hint sat closer to nothing in
+   particular and read as belonging to the field beneath it. The row gap is now 4px.
+
+A fourth change follows from the second: a checkbox field's label *is* its control, and
+eight of them put the box and a sentence inside the gutter. They now carry
+`sr-field--stacked`, which the codebase already used elsewhere for exactly this.
+
+Stated precisely: `underControl` measured false for the two fields whose control sits
+inside a `.sr-toolbar`. That was a flaw in the measuring proxy, not the layout — their
+hint width is 1074px, which is exactly the control column (1220 field − 132 gutter −
+14 gap), so placement is correct there too.
+
+### Why it is a test contract
+
+None of this is visible to a unit test; it only appears as a cramped screen. So
+`test/components/WebFieldLayout.test.ts` asserts the five properties as CSS contracts —
+hint column, no truncation, hint tone, row gap below both 10px and the column gap, and a
+gutter of at least 120px — and the Settings suite asserts every checkbox field is
+stacked. Reintroducing all three defects fails three of the five, which was checked.
+
+The rendered sweep reports 0 focusables without a ring and 0 contrast failures on both
+Settings and the Search form; the tightest text on either page remains the brand badge
+at 4.60:1, so the new muted hints are not the constraint.

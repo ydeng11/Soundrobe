@@ -68,6 +68,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Field hints in the browser workspace were laid out in the label gutter instead of
+  under the control they describe, so "Required, unless an album is given" was squeezed
+  into a 104-pixel column and wrapped to three lines in Search, and the Chinese-script
+  note to seven lines in Settings, while the space beside them sat empty. Hints now sit
+  under their control at full width, one step smaller and quieter than the value.
+- Setting names on the browser Settings page were cut off: nine of twelve had to fit a
+  104-pixel label gutter, and "Let the assistant apply its own actions without
+  confirmation" read as "Let the assistant apply its own ac…". Labels now wrap, in a
+  gutter wide enough for a real field name.
+- A checkbox setting's name sat inside the label gutter alongside its box, cramping both
+  into one narrow column. Those fields now use the whole row.
+- A field's hint sat the same distance below its control as fields sit from each other,
+  so it read as belonging to the field below it.
+
 - Browser Search lost your place when you filtered the results: narrowing while on a
   later page showed an empty list with the pager hidden and no way back. It now returns
   to the first page, which is what the desktop app already did.

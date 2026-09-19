@@ -527,18 +527,24 @@
 
 .sr-field {
   display: grid;
-  grid-template-columns: 104px minmax(0, 1fr);
+  /* Wide enough for a real field name. At 104px the sentence-like labels these
+     fields carry ("Let the assistant apply its own actions without confirmation")
+     were cut off with an ellipsis: nine of twelve on Settings. */
+  grid-template-columns: 132px minmax(0, 1fr);
   align-items: center;
-  gap: 14px;
+  /* Row gap is only the step from a control to its own hint; the space between
+     fields is the section's own gap, so these must not be equal or a hint reads
+     as belonging to the next field. */
+  gap: 4px 14px;
 }
 
 .sr-field__label {
   color: var(--sr-text-muted);
   font-size: var(--sr-fs-body);
   line-height: var(--sr-lh-base);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* It wraps rather than truncates. A field name cut off mid-word is not a
+     compact layout, it is a missing label. */
+  min-width: 0;
 }
 
 .sr-field--stacked {
@@ -550,6 +556,30 @@
   font-size: var(--sr-fs-body);
   line-height: var(--sr-lh-base);
   color: var(--sr-text);
+}
+
+/* A hint is an aside, so it is one step down and muted; at full body weight it
+   competed with the value it was describing. */
+.sr-field > .sr-field__static {
+  font-size: var(--sr-fs-xs);
+  line-height: var(--sr-lh-base);
+  color: var(--sr-text-muted);
+}
+
+/*
+ * A hint belongs to the control above it.
+ *
+ * As a third grid child it auto-placed into the 104px *label* column, where
+ * "Required, unless an album is given" wrapped to three lines in Search and the
+ * Chinese-script note to seven in Settings, while the control column sat empty
+ * beside it. Placing it in the control's column lets a sentence read at full
+ * width.
+ *
+ * Stacked fields already give their content the whole row, so they are excluded:
+ * a second column exists there only implicitly, and naming it would create one.
+ */
+.sr-field:not(.sr-field--stacked) > .sr-field__static {
+  grid-column: 2;
 }
 
 .sr-textarea {
