@@ -207,6 +207,47 @@ describe("package scripts", () => {
     expect(scripts["test:native-node"]).toBeUndefined();
   });
 
+  it("gates the headless server runtime, not only the desktop feature", () => {
+    // The server runtime is behind a mutually exclusive feature, so the desktop
+    // gate never compiles it: 466 tests lived outside every check. A guardrail
+    // is only real if both configurations run and report independently, because
+    // a suite that is skipped when its sibling fails cannot fail loudly.
+    const { scripts } = readPackageJson();
+    const justfile = readFileSync(resolve(__dirname, "../Justfile"), "utf8");
+    const workflow = readFileSync(
+      resolve(__dirname, "../.github/workflows/tests.yml"),
+      "utf8",
+    );
+
+    expect(scripts["test:rust:server"]).toBe(
+      "cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features server",
+    );
+
+    // The local gate names each suite so every one runs and reports; `npm test`
+    // chains with `&&`, which is what let a failing suite hide the rest.
+    const testRecipe = justfile.slice(justfile.indexOf("test: _deps-check"));
+    expect(testRecipe).toContain("status=0");
+    for (const suite of [
+      "test:web",
+      "test:rust",
+      "test:mock-provider",
+      "test:review-eval",
+      "test:rust:server",
+    ]) {
+      expect(testRecipe).toContain(`npm run ${suite} || status=1`);
+    }
+
+    // CI reports each configuration as its own leg, and runs the one check that
+    // follows a provider answer through a real write into the run ledger.
+    expect(workflow).toContain("fail-fast: false");
+    expect(workflow).toContain("args: --no-default-features --features server");
+    expect(workflow).toContain("server::tests::background_smoke");
+    expect(workflow).toContain("--ignored --nocapture");
+    // The smoke generates its own media, so the runner needs ffmpeg or the step
+    // fails for a reason that has nothing to do with the code.
+    expect(workflow).toContain("ffmpeg");
+  });
+
   it("loads the local dotenv file for the credentialed OpenRouter release gate", () => {
     const justfile = readFileSync(resolve(__dirname, "../Justfile"), "utf8");
 

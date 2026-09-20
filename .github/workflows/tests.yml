@@ -51,8 +51,19 @@ jobs:
         run: npm run typecheck
 
   rust-tests:
-    name: Rust tests
+    name: Rust tests (${{ matrix.features }})
     runs-on: ubuntu-22.04
+    strategy:
+      # desktop and server are mutually exclusive features, so each is its own
+      # leg, and neither may cancel the other: a check that is skipped because a
+      # sibling failed cannot fail loudly.
+      fail-fast: false
+      matrix:
+        include:
+          - features: desktop
+            args: ""
+          - features: server
+            args: --no-default-features --features server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -60,9 +71,16 @@ jobs:
           node-version: 22
       - uses: dtolnay/rust-toolchain@stable
       - name: Install Linux dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+        # ffmpeg is for the synthetic-media smoke below.
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf ffmpeg
       - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+        run: cargo test --manifest-path src-tauri/Cargo.toml ${{ matrix.args }}
+      # The only check that follows a release from a provider answer through a
+      # real write and into the run ledger. It is offline and deterministic, so
+      # it is an explicit step rather than an ignored test nobody runs.
+      - name: Run the offline background-tagging smoke
+        if: matrix.features == 'server'
+        run: cargo test --manifest-path src-tauri/Cargo.toml ${{ matrix.args }} --lib server::tests::background_smoke -- --ignored --nocapture
 
   desktop:
     name: Desktop (${{ matrix.platform }})

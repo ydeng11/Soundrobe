@@ -20,6 +20,7 @@
     "test": "npm run test:web && npm run test:rust && npm run test:mock-provider && npm run test:review-eval",
     "test:web": "vitest run test/components test/state test/shared test/utils test/e2e-fixtures.test.ts test/package-scripts.test.ts test/repository-layout.test.ts",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "test:rust:server": "cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features server",
     "test:mock-provider": "vitest run test/scripts/mock-provider-service.test.ts",
     "test:review-eval": "vitest run test/scripts/review-auto-tag-subset.test.ts",
     "test:e2e": "npm run build:e2e && wdio run wdio.conf.ts",
