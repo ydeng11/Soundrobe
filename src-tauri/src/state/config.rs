@@ -14,6 +14,8 @@
 
 use serde_json::{json, Value};
 use std::collections::HashMap;
+
+use crate::infra::tag_catalog::canonicalize_clear_tags;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -38,6 +40,8 @@ pub struct AutoTagConfig {
     pub lyrics_api_url: Option<String>,
     pub theaudiodb_api_key: Option<String>,
     pub chinese_script: Option<String>,
+    pub clear_tags_enabled: Option<bool>,
+    pub clear_tags: Option<Vec<String>>,
     /// Maximum concurrent folder workers during batch track writes.
     /// Higher values (e.g. 8) may speed up local SSD/NVMe writes;
     /// lower values can avoid I/O thrashing on external/spinning volumes.
@@ -183,6 +187,11 @@ fn parse_string_or_null(v: &str) -> Option<String> {
     (!v.is_empty() && v != "null").then(|| v.to_string())
 }
 
+fn parse_clear_tags(v: &str) -> Option<Vec<String>> {
+    let values = serde_json::from_str::<Vec<String>>(v).ok()?;
+    canonicalize_clear_tags(&values).ok()
+}
+
 fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
     match key {
         "llm_api_key" => config.llm_api_key = parse_string_or_null(value),
@@ -229,6 +238,18 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
                 );
             }
         }
+        "clear_tags_enabled" => {
+            if let Some(b) = parse_bool_or_null(value) {
+                config.clear_tags_enabled = Some(b);
+            }
+        }
+        "clear_tags" => {
+            if let Some(tags) = parse_clear_tags(value) {
+                config.clear_tags = Some(tags);
+            } else {
+                tracing::warn!("ignored unsupported clear_tags config value");
+            }
+        }
         "write_concurrency" => {
             if let Ok(n) = value.parse::<usize>() {
                 config.write_concurrency = Some(n);
@@ -254,6 +275,8 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
         "lyricsApiUrl" => Some("lyrics_api_url"),
         "theAudioDbApiKey" => Some("theaudiodb_api_key"),
         "chineseScript" => Some("chinese_script"),
+        "clearTagsEnabled" => Some("clear_tags_enabled"),
+        "clearTags" => Some("clear_tags"),
         "writeConcurrency" => Some("write_concurrency"),
         _ => None,
     }
@@ -388,6 +411,8 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
         "lyricsApiUrl": config.lyrics_api_url.clone().map(Value::String).unwrap_or(Value::Null),
         "theAudioDbApiKey": mask(&config.theaudiodb_api_key),
         "chineseScript": config.chinese_script.clone().map(Value::String).unwrap_or(Value::Null),
+        "clearTagsEnabled": config.clear_tags_enabled.unwrap_or(false),
+        "clearTags": config.clear_tags.clone().unwrap_or_default(),
         "writeConcurrency": config.write_concurrency.map(Value::from).unwrap_or(Value::Null),
     })
 }
@@ -429,6 +454,7 @@ pub struct ConfigState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ConfigSetError {
     UnsupportedKey(String),
+    InvalidValue(String),
     Persistence,
 }
 
@@ -436,6 +462,7 @@ impl std::fmt::Display for ConfigSetError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::UnsupportedKey(key) => write!(formatter, "unsupported config key: {key}"),
+            Self::InvalidValue(message) => formatter.write_str(message),
             Self::Persistence => formatter.write_str("config persistence failed"),
         }
     }
@@ -547,6 +574,37 @@ impl ConfigState {
     pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), ConfigSetError> {
         yaml_key_for(camel_key)
             .ok_or_else(|| ConfigSetError::UnsupportedKey(camel_key.to_string()))?;
+        let value = match camel_key {
+            "clearTagsEnabled" if !value.is_boolean() => {
+                return Err(ConfigSetError::InvalidValue(
+                    "clearTagsEnabled must be a boolean".to_string(),
+                ));
+            }
+            "clearTags" => {
+                let values = match value {
+                    Value::Null => Vec::new(),
+                    Value::Array(values) => values
+                        .iter()
+                        .map(|value| {
+                            value.as_str().map(str::to_string).ok_or_else(|| {
+                                ConfigSetError::InvalidValue(
+                                    "clearTags must contain only tag names".to_string(),
+                                )
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                    _ => {
+                        return Err(ConfigSetError::InvalidValue(
+                            "clearTags must be an array of tag names".to_string(),
+                        ));
+                    }
+                };
+                let canonical = canonicalize_clear_tags(&values)
+                    .map_err(ConfigSetError::InvalidValue)?;
+                Value::Array(canonical.into_iter().map(Value::String).collect())
+            }
+            _ => value.clone(),
+        };
         let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
             Ok(g) => g,
             Err(error) => {
@@ -554,7 +612,7 @@ impl ConfigState {
                 return Err(ConfigSetError::Persistence);
             }
         };
-        if let Err(error) = save_config_in(&self.data_dir, camel_key, value) {
+        if let Err(error) = save_config_in(&self.data_dir, camel_key, &value) {
             tracing::warn!(%error, key = camel_key, "failed to save config");
             return Err(ConfigSetError::Persistence);
         }
@@ -809,6 +867,24 @@ mod tests {
         assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
     }
 
+    /// Intent: cleanup settings persist only canonical catalog IDs, so aliases
+    /// entered by the renderer cannot cause an unsupported tag write later.
+    #[test]
+    fn clear_tags_round_trip_and_validation() {
+        let parsed = load_from(
+            "clear_tags_enabled: true\nclear_tags: [\"COMM\",\"Description\"]\n",
+            &EnvMap::new(),
+        );
+        assert_eq!(parsed.clear_tags_enabled, Some(true));
+        assert_eq!(parsed.clear_tags, Some(vec!["comment".to_string(), "description".to_string()]));
+
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home, Arc::new(EnvMap::new()));
+        state.try_set("clearTags", &json!(["COMM", "description", "COMM"])).unwrap();
+        assert_eq!(state.raw().clear_tags, Some(vec!["comment".to_string(), "description".to_string()]));
+        assert!(state.try_set("clearTags", &json!(["unsupported"])).is_err());
+    }
+
     #[test]
     fn config_state_try_set_rejects_unknown_keys_before_writing() {
         let home = cfg_home();
@@ -975,6 +1051,8 @@ mod tests {
             "lyricsApiUrl": "https://lr.example/api",
             "theAudioDbApiKey": null,
             "chineseScript": "traditional",
+            "clearTagsEnabled": false,
+            "clearTags": [],
             "writeConcurrency": null
         });
         assert_eq!(state.redacted(), expected);

@@ -23,6 +23,7 @@ use crate::{
     infra::{
         aliases::save_alias,
         openrouter::{ChatMessage, OpenRouterClient, OpenRouterError},
+        tag_catalog::kept_tag_labels,
     },
     state::{
         config::AutoTagConfig,
@@ -1942,6 +1943,10 @@ pub struct AutoTagRunResult {
     pub ai_confidence: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ai_threshold: Option<f64>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cleared_tags: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kept_tags: Vec<String>,
 }
 
 impl Default for AutoTagRunResult {
@@ -1957,6 +1962,8 @@ impl Default for AutoTagRunResult {
             ai_status: None,
             ai_confidence: None,
             ai_threshold: None,
+            cleared_tags: Vec::new(),
+            kept_tags: Vec::new(),
         }
     }
 }
@@ -2900,6 +2907,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             ai_status,
             ai_confidence,
             ai_threshold: Some(AI_TAG_CONFIDENCE_THRESHOLD),
+            cleared_tags: configured_clear_tag_labels(config),
+            kept_tags: configured_kept_tag_labels(config),
         });
     };
 
@@ -3022,6 +3031,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         services.queue,
         CandidateApplyScope::AllTracks,
         fetched_lyrics.into_iter().collect::<HashMap<_, _>>(),
+        &configured_clear_tag_ids(config),
         |path| {
             let path = Path::new(path);
             report(
@@ -3091,6 +3101,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         ai_status,
         ai_confidence,
         ai_threshold,
+        cleared_tags: configured_clear_tag_labels(config),
+        kept_tags: configured_kept_tag_labels(config),
     })
 }
 
@@ -3281,6 +3293,7 @@ pub async fn apply_candidate_tags(
         queue,
         CandidateApplyScope::AllTracks,
         HashMap::new(),
+        &[],
         |_| {},
     )
     .await
@@ -3305,6 +3318,7 @@ pub async fn apply_selected_candidate_tags(
         queue,
         CandidateApplyScope::SelectedTracks(&selected_track_indices),
         HashMap::new(),
+        &[],
         |_| {},
     )
     .await
@@ -3342,6 +3356,7 @@ async fn apply_candidate_tags_reported(
     queue: &WriteQueue,
     scope: CandidateApplyScope<'_>,
     lyrics_map: HashMap<PathBuf, LyricsDocument>,
+    clear_tags: &[String],
     mut report_write: impl FnMut(&str),
 ) -> Result<usize, ApiError> {
     let fallback_artist = album_path
@@ -3423,6 +3438,7 @@ async fn apply_candidate_tags_reported(
             // Only omit if no lyrics at all; preserve any existing lyrics field
             // by not inserting a lyrics key (serde default = Patch::Omitted).
         }
+        apply_clear_tag_fields(&mut fields, clear_tags);
         let patch: TrackPatch = serde_json::from_value(fields.into())
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
         match write_track_queued(queue, file_path.clone().into(), patch).await {
@@ -3462,6 +3478,49 @@ fn insert_number(
 ) {
     if let Some(value) = value {
         fields.insert(name.to_string(), value.into());
+    }
+}
+
+fn configured_clear_tag_ids(config: &AutoTagConfig) -> Vec<String> {
+    if config.clear_tags_enabled == Some(true) {
+        config.clear_tags.clone().unwrap_or_default()
+    } else {
+        Vec::new()
+    }
+}
+
+fn configured_clear_tag_labels(config: &AutoTagConfig) -> Vec<String> {
+    configured_clear_tag_ids(config)
+        .into_iter()
+        .map(|id| {
+            crate::infra::tag_catalog::suggestions(&id)
+                .into_iter()
+                .find(|suggestion| suggestion.id == id)
+                .map(|suggestion| suggestion.label)
+                .unwrap_or(id)
+        })
+        .collect()
+}
+
+fn configured_kept_tag_labels(config: &AutoTagConfig) -> Vec<String> {
+    kept_tag_labels(&configured_clear_tag_ids(config))
+}
+
+fn apply_clear_tag_fields(
+    fields: &mut serde_json::Map<String, serde_json::Value>,
+    clear_tags: &[String],
+) {
+    for tag in clear_tags {
+        match tag.as_str() {
+            "title" | "artist" | "artists" | "album" | "albumArtist" | "albumArtists"
+            | "year" | "genre" | "composer" | "comment" | "description" | "lyrics"
+            | "compilation" | "trackNumber" | "trackTotal" | "discNumber" | "discTotal"
+            | "musicbrainzTrackId" | "musicbrainzAlbumId" | "musicbrainzArtistId"
+            | "discogsArtistId" | "discogsReleaseId" => {
+                fields.insert(tag.clone(), serde_json::Value::Null);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -3534,6 +3593,24 @@ mod tests {
             artists: vec![artist.into()],
             ..TrackCandidate::default()
         }
+    }
+
+    /// Intent: cleanup is applied in the same atomic TrackPatch as metadata
+    /// writes, so selected tags are removed even when a candidate row is empty.
+    #[test]
+    fn clear_tag_selection_emits_null_patch_fields() {
+        let mut fields = serde_json::Map::from_iter([
+            ("comment".to_string(), serde_json::json!("old comment")),
+            ("description".to_string(), serde_json::json!("old description")),
+            ("title".to_string(), serde_json::json!("new title")),
+        ]);
+        apply_clear_tag_fields(
+            &mut fields,
+            &["comment".to_string(), "description".to_string()],
+        );
+        assert_eq!(fields["comment"], serde_json::Value::Null);
+        assert_eq!(fields["description"], serde_json::Value::Null);
+        assert_eq!(fields["title"], serde_json::json!("new title"));
     }
 
     fn apply_verified_for_test(

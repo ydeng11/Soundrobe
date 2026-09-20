@@ -63,6 +63,7 @@ use crate::commands::lyrics::{
 use crate::commands::tracks::{
     read_album, read_extra_tags, read_track_metadata, unreadable_track_data, TrackData,
 };
+use crate::infra::tag_catalog::suggestions as suggest_tags;
 use crate::state::{
     album::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
@@ -960,6 +961,13 @@ struct ConfigSetCommandRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct TagSuggestionsCommandRequest {
+    #[serde(default)]
+    query: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct TestLlmConnectionCommandRequest {
     #[serde(rename = "apiKey", default)]
     api_key: String,
@@ -1560,6 +1568,7 @@ fn supported_web_command(command: &str) -> bool {
             | "file:exists"
             | "config:get"
             | "config:set"
+            | "tags:suggest"
             | "test-llm-connection"
             | "debug:set-mode"
     )
@@ -1924,6 +1933,13 @@ async fn command(
             }
             Json(state.config.redacted()).into_response()
         }
+        "tags:suggest" => {
+            let request = match decode_command_payload::<TagSuggestionsCommandRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            Json(suggest_tags(&request.query)).into_response()
+        }
         "config:set" => {
             let request = match decode_command_payload::<ConfigSetCommandRequest>(payload) {
                 Ok(request) => request,
@@ -1935,6 +1951,9 @@ async fn command(
                     StatusCode::BAD_REQUEST,
                     format!("unsupported config key: {key}"),
                 ),
+                Err(ConfigSetError::InvalidValue(message)) => {
+                    error_response(StatusCode::BAD_REQUEST, message)
+                }
                 Err(ConfigSetError::Persistence) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
@@ -1989,7 +2008,8 @@ async fn command(
                 Err(ConfigSetError::Persistence) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
-                Err(ConfigSetError::UnsupportedKey(_)) => {
+                Err(ConfigSetError::UnsupportedKey(_))
+                | Err(ConfigSetError::InvalidValue(_)) => {
                     error_response(StatusCode::INTERNAL_SERVER_ERROR, "config persistence failed")
                 }
             }
@@ -5238,6 +5258,33 @@ mod tests {
     #[test]
     fn web_command_allowlist_includes_dataset_status() {
         assert!(supported_web_command("dataset:status"));
+    }
+
+    #[tokio::test]
+    async fn authenticated_tag_suggestions_use_the_supported_catalog() {
+        let app = router(test_config());
+        let login_response = login(app.clone(), "correct horse battery staple").await;
+        let cookie = login_response.headers()[header::SET_COOKIE].clone();
+
+        let response = app
+            .oneshot(
+                origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/tags%3Asuggest")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(r#"{"query":"desc"}"#))
+                        .unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let suggestions: Vec<serde_json::Value> = serde_json::from_slice(&body).unwrap();
+        assert_eq!(suggestions[0]["id"], "description");
+        assert_eq!(suggestions[0]["source"], "ID3 / Navidrome");
     }
 
     #[tokio::test]

@@ -19,7 +19,7 @@
  */
 
 import React from "react";
-import type { AppInfo } from "../shared/desktop-api";
+import type { AppInfo, TagSuggestion } from "../shared/desktop-api";
 import {
   getBackgroundSettings,
   setBackgroundSettings,
@@ -38,6 +38,7 @@ export interface SettingsViewProps {
   saveConfig?: (key: string, value: unknown) => Promise<void>;
   loadAppInfo?: () => Promise<AppInfo>;
   setDebugMode?: (enabled: boolean) => Promise<void>;
+  suggestTags?: (query: string) => Promise<TagSuggestion[]>;
   /** Used to tell whether a covered folder can be read at all. */
   loadRoots?: () => Promise<Array<{ name: string; path: string }>>;
   checkDirectory?: (path: string) => Promise<unknown>;
@@ -119,6 +120,8 @@ const defaultLoadConfig = () => window.api.getConfig();
 const defaultSaveConfig = (key: string, value: unknown) => window.api.setConfig(key, value);
 const defaultLoadAppInfo = () => window.api.appInfo();
 const defaultSetDebugMode = (enabled: boolean) => window.api.setDebugMode(enabled);
+const defaultSuggestTags = (query: string) =>
+  window.api?.suggestTagNames?.(query) ?? Promise.resolve([]);
 const defaultLoadRoots = () => window.api.listLibraryRoots();
 const defaultCheckDirectory = (path: string) => window.api.listDirectory(path);
 
@@ -129,6 +132,7 @@ export function SettingsView({
   saveConfig = defaultSaveConfig,
   loadAppInfo = defaultLoadAppInfo,
   setDebugMode = defaultSetDebugMode,
+  suggestTags = defaultSuggestTags,
   loadRoots = defaultLoadRoots,
   checkDirectory = defaultCheckDirectory,
   confirmMs = DEFAULT_CONFIRM_MS,
@@ -139,6 +143,9 @@ export function SettingsView({
   const [directoryDraft, setDirectoryDraft] = React.useState("");
   const [lyricsUrlDraft, setLyricsUrlDraft] = React.useState("");
   const [storedLyricsUrl, setStoredLyricsUrl] = React.useState("");
+  const [clearTagDraft, setClearTagDraft] = React.useState("");
+  const [tagSuggestions, setTagSuggestions] = React.useState<TagSuggestion[]>([]);
+  const [supportedTags, setSupportedTags] = React.useState<TagSuggestion[]>([]);
   const [config, setConfig] = React.useState<Record<string, unknown>>({});
   const [appInfo, setAppInfo] = React.useState<AppInfo | null>(null);
   const [roots, setRoots] = React.useState<Array<{ name: string; path: string }>>([]);
@@ -199,6 +206,40 @@ export function SettingsView({
   const crontabRef = React.useRef<HTMLInputElement | null>(null);
   const lyricsUrlRef = React.useRef<HTMLInputElement | null>(null);
   const directoryRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    void suggestTags("")
+      .then((tags) => {
+        if (active) setSupportedTags(tags);
+      })
+      .catch(() => {
+        // Autocomplete is additive; a service that predates this command can
+        // still render and save the rest of Settings.
+      });
+    return () => {
+      active = false;
+    };
+  }, [suggestTags]);
+
+  React.useEffect(() => {
+    const query = clearTagDraft.trim();
+    if (!query) {
+      setTagSuggestions([]);
+      return undefined;
+    }
+    let active = true;
+    void suggestTags(query)
+      .then((tags) => {
+        if (active) setTagSuggestions(tags);
+      })
+      .catch(() => {
+        if (active) setTagSuggestions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [clearTagDraft, suggestTags]);
 
   React.useEffect(() => {
     let active = true;
@@ -315,6 +356,58 @@ export function SettingsView({
       }
     },
     [beginField, confirmField, endField, failField, saveConfig],
+  );
+
+  const selectedClearTags = React.useMemo(() => {
+    const value = config.clearTags;
+    return Array.isArray(value) && value.every((tag): tag is string => typeof tag === "string")
+      ? value
+      : [];
+  }, [config.clearTags]);
+
+  const addClearTag = React.useCallback(
+    (suggestion: TagSuggestion) => {
+      if (selectedClearTags.includes(suggestion.id)) {
+        setClearTagDraft("");
+        return;
+      }
+      void persistConfig(
+        "clearTags",
+        [...selectedClearTags, suggestion.id],
+        `${suggestion.label} will be cleared`,
+      );
+      setClearTagDraft("");
+    },
+    [persistConfig, selectedClearTags],
+  );
+
+  const removeClearTag = React.useCallback(
+    (tagId: string) => {
+      const suggestion = supportedTags.find((tag) => tag.id === tagId);
+      void persistConfig(
+        "clearTags",
+        selectedClearTags.filter((tag) => tag !== tagId),
+        `${suggestion?.label ?? tagId} will be kept`,
+      );
+    },
+    [persistConfig, selectedClearTags, supportedTags],
+  );
+
+  const addTypedClearTag = React.useCallback(() => {
+    const query = clearTagDraft.trim().toLowerCase();
+    const exact = tagSuggestions.find(
+      (tag) => tag.id.toLowerCase() === query || tag.label.toLowerCase() === query,
+    );
+    if (exact) {
+      addClearTag(exact);
+    } else if (query) {
+      failField("clearTags", "Choose a tag from the supported ID3 / Navidrome suggestions.");
+    }
+  }, [addClearTag, clearTagDraft, failField, tagSuggestions]);
+
+  const keptTagLabels = React.useMemo(
+    () => supportedTags.filter((tag) => !selectedClearTags.includes(tag.id)).map((tag) => tag.label),
+    [selectedClearTags, supportedTags],
   );
 
   const addDirectory = React.useCallback(async () => {
@@ -555,6 +648,111 @@ export function SettingsView({
           {fieldSaved("chineseScript")}
           {fieldError("chineseScript")}
         </div>
+
+        <div className="sr-field sr-field--stacked">
+          <label className="sr-field__label" htmlFor="setting-clear-tags-enabled">
+            <input
+              id="setting-clear-tags-enabled"
+              type="checkbox"
+              checked={configBool(config, "clearTagsEnabled")}
+              disabled={pending.clearTagsEnabled}
+              aria-describedby="setting-clear-tags-hint"
+              onChange={(event) =>
+                void persistConfig(
+                  "clearTagsEnabled",
+                  event.target.checked,
+                  event.target.checked ? "Tag cleanup enabled" : "Tag cleanup disabled",
+                )
+              }
+            />{" "}
+            Clear selected tags before writing metadata
+          </label>
+          <p className="sr-field__static" id="setting-clear-tags-hint">
+            Only the supported ID3 / Navidrome tag catalog can be selected. The cleanup is applied
+            in the same write as the new metadata.
+          </p>
+          {fieldSaved("clearTagsEnabled")}
+          {fieldError("clearTagsEnabled")}
+        </div>
+
+        {configBool(config, "clearTagsEnabled") && (
+          <div className="sr-field sr-field--stacked" data-testid="settings-clear-tags">
+            <label className="sr-field__label" htmlFor="setting-clear-tag">
+              Tags to clear
+            </label>
+            <div className="sr-toolbar">
+              <input
+                id="setting-clear-tag"
+                className="sr-input"
+                value={clearTagDraft}
+                placeholder="Type Comment or Description"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="setting-clear-tag-suggestions"
+                onChange={(event) => setClearTagDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addTypedClearTag();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="sr-btn"
+                disabled={pending.clearTags || clearTagDraft.trim() === ""}
+                onClick={addTypedClearTag}
+              >
+                Add tag
+              </button>
+            </div>
+            {tagSuggestions.length > 0 && (
+              <div id="setting-clear-tag-suggestions" role="listbox" className="sr-chips">
+                {tagSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    role="option"
+                    aria-selected={selectedClearTags.includes(suggestion.id)}
+                    className="sr-chip sr-btn"
+                    disabled={selectedClearTags.includes(suggestion.id) || pending.clearTags}
+                    onClick={() => addClearTag(suggestion)}
+                    title={`${suggestion.frame} · ${suggestion.source}`}
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedClearTags.length > 0 && (
+              <ul className="sr-chips" data-testid="settings-clear-tag-list">
+                {selectedClearTags.map((tagId) => {
+                  const suggestion = supportedTags.find((tag) => tag.id === tagId);
+                  return (
+                    <li key={tagId} className="sr-chip">
+                      {suggestion?.label ?? tagId}
+                      <button
+                        type="button"
+                        className="sr-btn"
+                        aria-label={`Keep ${suggestion?.label ?? tagId}`}
+                        disabled={pending.clearTags}
+                        onClick={() => removeClearTag(tagId)}
+                      >
+                        Keep
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <p className="sr-field__static" data-testid="settings-kept-tags">
+              Tags kept during tagging: {keptTagLabels.length > 0 ? keptTagLabels.join(", ") : "none"}.
+              Monitoring shows this list again when each run finishes.
+            </p>
+            {fieldSaved("clearTags")}
+            {fieldError("clearTags")}
+          </div>
+        )}
       </section>
 
       <section className="sr-section" id="settings-group-lyrics" data-testid="settings-lyrics">

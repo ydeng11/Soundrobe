@@ -277,6 +277,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::meta::app_info,
             commands::configuration::config_get,
+            commands::configuration::tag_suggestions,
             commands::configuration::config_set,
             commands::configuration::test_llm_connection,
             commands::shell::dialog_open_folder,

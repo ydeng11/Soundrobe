@@ -121,7 +121,10 @@ export function OperationLogView({
                   <td>
                     {task.total > 0 ? `${task.progress} / ${task.total}` : "—"}
                   </td>
-                  <td className="sr-cell--muted">{task.message || "—"}</td>
+                  <td className="sr-cell--muted">
+                    <div>{task.message || "—"}</div>
+                    <TagCleanupSummary result={task.result} />
+                  </td>
                   <td>
                     {task.status === "running" && cancelTask ? (
                       <button
@@ -153,5 +156,23 @@ function Summary({ label, value }: { label: string; value: number }) {
       <span className="sr-summary__value">{value}</span>
       <span className="sr-summary__label">{label}</span>
     </span>
+  );
+}
+
+function TagCleanupSummary({ result }: { result: unknown }) {
+  if (!result || typeof result !== "object") return null;
+  const value = result as { keptTags?: unknown; clearedTags?: unknown };
+  const keptTags = Array.isArray(value.keptTags)
+    ? value.keptTags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+  const clearedTags = Array.isArray(value.clearedTags)
+    ? value.clearedTags.filter((tag): tag is string => typeof tag === "string")
+    : [];
+  if (keptTags.length === 0 && clearedTags.length === 0) return null;
+  return (
+    <div data-testid="operation-tag-summary" className="sr-field__static">
+      <div>Tags kept: {keptTags.length > 0 ? keptTags.join(", ") : "none"}</div>
+      {clearedTags.length > 0 && <div>Tags cleared: {clearedTags.join(", ")}</div>}
+    </div>
   );
 }

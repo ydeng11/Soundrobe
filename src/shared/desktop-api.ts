@@ -21,6 +21,13 @@ export interface AppInfo {
   dev: boolean;
 }
 
+export interface TagSuggestion {
+  id: string;
+  label: string;
+  frame: string;
+  source: string;
+}
+
 export interface LibraryRoot {
   id: string;
   name: string;
@@ -660,6 +667,7 @@ export interface DesktopAPI {
   // Config
   getConfig: () => Promise<Record<string, unknown>>;
   setConfig: (key: string, value: unknown) => Promise<void>;
+  suggestTagNames: (query: string) => Promise<TagSuggestion[]>;
 
   // Debug
   subscribeDebugLogs: () => Promise<void>;

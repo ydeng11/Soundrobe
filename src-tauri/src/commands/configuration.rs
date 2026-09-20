@@ -23,6 +23,8 @@ use crate::error::ApiError;
 use crate::infra::is_not_redacted;
 use crate::infra::openrouter::{LlmEndpoint, OpenRouterClient};
 #[cfg(feature = "desktop")]
+use crate::infra::tag_catalog::{suggestions, TagSuggestion};
+#[cfg(feature = "desktop")]
 use crate::state::assistant::AssistantServicesState;
 use crate::state::config::ConfigState;
 
@@ -33,6 +35,14 @@ use crate::state::config::ConfigState;
 #[tauri::command]
 pub fn config_get(state: State<'_, ConfigState>) -> Value {
     state.redacted()
+}
+
+/// Return supported tag names for the Settings autocomplete. The catalog is
+/// deterministic and local; it never asks the LLM to invent tag keys.
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub fn tag_suggestions(query: String) -> Vec<TagSuggestion> {
+    suggestions(&query)
 }
 
 /// `setConfig(key, value)` — persist a renderer camelCase key and refresh.

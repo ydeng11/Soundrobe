@@ -78,6 +78,32 @@ describe("Monitoring", () => {
     expect(within(table).getByText("Failed")).toBeTruthy();
   });
 
+  it("shows kept and cleared tags when a tagging operation finishes", async () => {
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+        loadTasks={async () => [
+          {
+            taskId: "task-complete",
+            status: "completed",
+            progress: 9,
+            total: 9,
+            message: "Tagged 3 files",
+            result: { keptTags: ["Title", "Album"], clearedTags: ["Comment", "Description"] },
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-tab-operations"));
+    const summary = await screen.findByTestId("operation-tag-summary");
+    expect(summary.textContent).toContain("Tags kept: Title, Album");
+    expect(summary.textContent).toContain("Tags cleared: Comment, Description");
+  });
+
   it("answers one question per tab instead of stacking every section", async () => {
     // Six stacked sections made the reader scroll past four irrelevant ones to
     // reach the one they wanted; each tab now owns exactly one question.
@@ -575,6 +601,41 @@ describe("Settings", () => {
       expect(box, id).toBeTruthy();
       expect(box.closest(".sr-field")?.className, id).toContain("sr-field--stacked");
     }
+  });
+
+  it("suggests supported cleanup tags and shows the tags that will remain", async () => {
+    const saveConfig = vi.fn(async () => undefined);
+    const suggestTags = vi.fn(async (query: string) => {
+      if (query.toLowerCase().includes("desc")) {
+        return [{ id: "description", label: "Description", frame: "TXXX:DESCRIPTION", source: "ID3 / Navidrome" }];
+      }
+      return [
+        { id: "comment", label: "Comment", frame: "COMM", source: "ID3 / Navidrome" },
+        { id: "description", label: "Description", frame: "TXXX:DESCRIPTION", source: "ID3 / Navidrome" },
+        { id: "title", label: "Title", frame: "TIT2", source: "ID3 / Navidrome" },
+      ];
+    });
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({ clearTagsEnabled: true, clearTags: ["comment"] })}
+        saveConfig={saveConfig}
+        suggestTags={suggestTags}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+
+    const input = await screen.findByRole("combobox", { name: "Tags to clear" });
+    expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
+    fireEvent.change(input, { target: { value: "desc" } });
+    const suggestion = await screen.findByRole("option", { name: "Description" });
+    fireEvent.click(suggestion);
+
+    await waitFor(() =>
+      expect(saveConfig).toHaveBeenCalledWith("clearTags", ["comment", "description"]),
+    );
+    expect(screen.getByTestId("settings-clear-tag-list").textContent).toContain("Description");
+    expect(suggestTags).toHaveBeenCalledWith("desc");
   });
 
   it("loads the stored schedule and marks a matching preset", async () => {

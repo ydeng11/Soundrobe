@@ -872,6 +872,8 @@ fn enya_classification_prioritizes_safety_and_provider_state() {
         ai_status: None,
         ai_confidence: None,
         ai_threshold: None,
+        cleared_tags: Vec::new(),
+        kept_tags: Vec::new(),
     };
     assert_eq!(
         classify_invocation(Some(&result), false, false, false, true),

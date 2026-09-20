@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Tagging cleanup can now clear a validated set of ID3/Navidrome-supported tags (including Comment and Description) in the same write as new metadata. Settings autocompletes only supported tags, rejects unknown names, and Monitoring reports the tags kept and cleared when a run finishes.
 - Browser Workspace now shows all loaded tracks in the selected artist folder when no specific album is open; selecting an album still narrows the table to that album.
 - Browser Search results are rows you compare rather than one run-on line: year, track
   count, country and format each get their own place, the whole row is the target, and

@@ -2422,6 +2422,8 @@ fn native_outcome_classification_keeps_safety_and_provider_failures_distinct() {
         ai_status: None,
         ai_confidence: None,
         ai_threshold: None,
+        cleared_tags: Vec::new(),
+        kept_tags: Vec::new(),
     };
     assert_eq!(
         native_classification(case, Some(&needs_review), false, false, true),

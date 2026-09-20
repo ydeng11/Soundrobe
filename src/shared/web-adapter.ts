@@ -320,6 +320,7 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
     // Config
     getConfig: () => command("config:get"),
     setConfig: (key, value) => command("config:set", { key, value }),
+    suggestTagNames: (query) => command("tags:suggest", { query }),
 
     // Auto-tag
     autoTagAlbum: (albumPath) => command("album:auto-tag", { albumPath }),
