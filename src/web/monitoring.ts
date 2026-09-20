@@ -15,6 +15,8 @@
  */
 
 import type {
+  BackgroundRun,
+  BackgroundRunItem,
   BackgroundRunStatus,
   BackgroundRunTrigger,
   MonitoredRelease,
@@ -60,6 +62,46 @@ export const TRIGGER_LABEL: Record<BackgroundRunTrigger, string> = {
   manual: "Manual",
   watch: "Watched folder",
 };
+
+/**
+ * The releases of a run an operator can still do something about.
+ *
+ * This is the complement of "it worked", and it is deliberately what the retry
+ * action sends: re-tagging a release whose tags were already written would make
+ * "retry the failures" mean "tag the library again".
+ */
+export function itemsNeedingAction(run: BackgroundRun): BackgroundRunItem[] {
+  return run.items.filter(
+    (item) => item.status !== "healthy" && item.status !== "tagging",
+  );
+}
+
+/**
+ * How a run's ledger reads in one line.
+ *
+ * `itemsTruncated` means the run covered more releases than the ledger stores,
+ * which the reader has to know before treating the list as complete. The wording
+ * claims an *order*, not a guarantee: when a run leaves more releases needing
+ * action than the ledger holds, even some of those are dropped, and saying
+ * "all failures kept" would be a promise the page cannot keep.
+ */
+export function describeRunItems(run: BackgroundRun): string {
+  const kept = `${run.items.length} release${run.items.length === 1 ? "" : "s"} recorded`;
+  return run.itemsTruncated
+    ? `${kept} — failures and reviews first, later successes dropped`
+    : kept;
+}
+
+/**
+ * Why a release ended up the way it did: the reason code, the source that
+ * supplied the tags, or both. Absent for a release that simply worked.
+ */
+export function describeRunItemReason(item: BackgroundRunItem): string {
+  const parts = [item.reason, item.authority ? `via ${item.authority}` : null].filter(
+    (part): part is string => Boolean(part),
+  );
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
 
 /**
  * The order facets are shown in: what needs attention first, then what is fine.

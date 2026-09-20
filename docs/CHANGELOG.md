@@ -65,9 +65,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The browser service now reports tagging operations in an Operation log with status, progress, outcome counts and cancellation.
 - Browser navigation covers the tagging surfaces: Workspace, Monitoring, Operation log, Tag sources and Settings. The previous library, home and activity browser views are replaced by these tagging-focused destinations.
 - Background tagging is now configurable and observable instead of an unconditional sweep on every service start. It still runs once at startup, and every run is recorded with its trigger, outcome and counts. The schedule and run history live in `~/.soundrobe/background-tagging.json`.
+- Background runs now record what they did release by release: each run keeps the release path, its outcome, the reason it needs attention, and which source supplied the tags, and Monitoring shows that list per run. The ledger keeps failures and reviews and drops later successes when a run covers more releases than it stores, and says when it did.
+- Monitoring can re-run the releases a background run left needing action. Only those releases are tagged; releases the run already tagged, and paths that no longer exist, are left alone. A retry with no run named retries the most recent run that finished, so asking while another run is in progress reports the run that is actually happening instead of "nothing left to retry".
 
 ### Fixed
 
+- Background tagging no longer loses music added while a run is in progress. A watched album that could not start because another tagging operation held the lock is queued and retried on the next poll, instead of being remembered as seen and never tagged until its folder changed again.
 - Field hints in the browser workspace were laid out in the label gutter instead of
   under the control they describe, so "Required, unless an album is given" was squeezed
   into a 104-pixel column and wrapped to three lines in Search, and the Chinese-script

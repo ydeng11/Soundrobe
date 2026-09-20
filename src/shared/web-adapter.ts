@@ -439,6 +439,22 @@ export type BackgroundRunStatus =
   | "cancelled"
   | "skipped";
 
+/**
+ * A release's outcome in one run, in the same vocabulary as the survey.
+ *
+ * The reference product keeps this per file in a database row; here it rides
+ * the run history, which is what makes "which release failed, and why"
+ * answerable after the run has finished.
+ */
+export interface BackgroundRunItem {
+  path: string;
+  status: ReleaseHealthStatus;
+  /** The reason code for a review, or the error for a failure. */
+  reason?: string;
+  /** Which source supplied the tags, when one did. */
+  authority?: string;
+}
+
 export interface BackgroundRun {
   id: string;
   trigger: BackgroundRunTrigger;
@@ -449,6 +465,10 @@ export interface BackgroundRun {
   failed: number;
   message: string;
   taskId: string | null;
+  /** Per-release outcomes, oldest first. */
+  items: BackgroundRunItem[];
+  /** Whether `items` is a subset of what the run actually covered. */
+  itemsTruncated: boolean;
 }
 
 export interface MonitoringStatus extends BackgroundTaggingSettings {
@@ -527,6 +547,25 @@ export function runBackgroundTagging(
 ): Promise<{ taskId: string }> {
   const { fetchImpl, baseUrl } = webAuthOptions(options);
   return requestCommand<{ taskId: string }>(fetchImpl, baseUrl, "background:run-now");
+}
+
+/**
+ * Re-run the releases a finished run left needing action.
+ *
+ * Rejects when the named run is unknown, or when it has nothing left to retry -
+ * a healthy release is deliberately not re-tagged.
+ */
+export function retryFailedBackgroundTagging(
+  runId?: string,
+  options: WebAuthOptions = {},
+): Promise<{ taskId: string }> {
+  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  return requestCommand<{ taskId: string }>(
+    fetchImpl,
+    baseUrl,
+    "background:retry-failed",
+    runId ? { runId } : {},
+  );
 }
 
 export function getMonitoringStatus(

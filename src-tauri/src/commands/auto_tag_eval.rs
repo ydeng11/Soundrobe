@@ -3056,7 +3056,7 @@ async fn live_auto_tag_eval() {
     fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
 }
 
-fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
+pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
     let url = reqwest::Url::parse(base).map_err(|error| error.to_string())?;
     if url.scheme() != "http"
         || url.host_str() != Some("127.0.0.1")

@@ -467,8 +467,9 @@ then confirmed against the running container.
 | 配置扫描周期 (crontab) | `scrapeSchedule {crontab, last_run_at}` + 7 presets (`*/1`, `*/3`, `*/10`, `0 * * * *`, `0 */2 * * *`, `0 0 * * *`, custom) | Same preset set and a custom expression, evaluated in-process |
 | 后台任务 | Settings submenu `system.menu.tasks` | Monitoring → Running now / Recent runs |
 | Monitoring (service logs) | Log source selector with `gunicorn` [Web], `worker` [Async], `beat` [Scheduler], `redis` [Cache], `xiaoai` [Device] | Monitoring → Service logs, sources `app` and `auto-tag` |
-| Background scrape endpoints | `/apimt/celery_task/get_schedule`, `/update_schedule`, `/apimt/sys/background_scrape_configs`, `/apimt/batch_background_scrape` | `background:get-settings`, `background:set-settings`, `background:run-now`, `background:list-runs`, `monitoring:status`, `monitoring:releases`, `monitoring:logs` |
-| Celery + Beat + Redis | Bundled log descriptions (`worker` = Celery async tasks, `beat` = scheduler) | In-process `tokio` scheduler. No broker, no Celery, no Redis: a desktop-class app has one process and no message queue. |
+| Background scrape endpoints | `/apimt/celery_task/get_schedule`, `/update_schedule`, `/apimt/sys/background_scrape_configs`, `/apimt/batch_background_scrape` | `background:get-settings`, `background:set-settings`, `background:run-now`, `background:retry-failed`, `background:list-runs`, `monitoring:status`, `monitoring:releases`, `monitoring:logs` |
+| Per-file scrape state | `applications/task/models.py`: `TaskRecord` (batch queue rows) + `Task` (last state per `full_path`) | Each run carries a bounded `items` ledger: release path, state, reason, and the source that supplied the tags |
+| Celery + Beat + Redis | Bundled log descriptions (`worker` = Celery async tasks, `beat` = scheduler) | In-process `tokio` scheduler. No broker, no Celery, no Redis: a desktop-class app has one process and no message queue. A watched album that cannot start is queued and retried rather than dropped, which is the part of the broker the tagging flow actually needed. |
 
 The reference's `redis` and `xiaoai` sources have no counterpart, and its
 `gunicorn`/`worker`/`beat` split collapses into this app's two real logs, so the
@@ -491,6 +492,8 @@ Verified in a browser against the rebuilt service, not by unit test alone:
 | Workspace columns | Hiding Genres + Year left 8 headers summing to exactly 100% of the pane, against a floor of **836px** = 970 − 78 − 56 |
 | Workspace details | Turning off "Show file details" removed the whole details pane, and `localStorage` recorded `details: "false"` |
 | Watched folders | With watching on and a baseline taken, an album created afterwards was logged as `watched directory gained an album` 9 seconds later on the next poll, and its run covered **one** album (`Tagged 0, 1 need review`), not the library |
+| Per-release ledger | The offline smoke (`just smoke-background`) runs a real resolver over generated FLACs for the reviewed synthetic album and records one row per release: `Healthy` via `discogs` with the release ID actually written to the files, `NeedsReview` with its reason code, and `Failed` for a path deleted before the run |
+| Retry | `background:retry-failed` on that run covers exactly the release needing action: the healthy one is not re-tagged and the deleted path is dropped |
 
 ### Duplicate web UI: which one is live
 

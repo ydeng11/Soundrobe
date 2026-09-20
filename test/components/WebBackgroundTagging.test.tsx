@@ -174,6 +174,8 @@ describe("Monitoring", () => {
                 failed: 0,
                 message: "Tagged 7 of 9",
                 taskId: "background-auto-tag-1",
+                items: [],
+                itemsTruncated: false,
               },
             ],
           })
@@ -188,6 +190,138 @@ describe("Monitoring", () => {
     // The trigger is labelled per row, so a scheduled run is distinguishable
     // from a manual or watched one.
     expect(within(screen.getByTestId("monitoring-runs-table")).getByText("Schedule")).toBeTruthy();
+  });
+
+  it("shows which release a run failed on and why, which the counters cannot say", async () => {
+    // "Tagged 1, 1 failed" tells an operator that something went wrong and
+    // nothing about what. Without the per-release ledger they would be reading
+    // the log file to find out.
+    const retryFailed = vi.fn(async () => ({ taskId: "background-auto-tag-9" }));
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () =>
+          status({
+            recentRuns: [
+              {
+                id: "bg-run-1",
+                trigger: "schedule",
+                startedAt: "2026-09-19T00:00:00.000Z",
+                finishedAt: "2026-09-19T00:04:00.000Z",
+                status: "failed",
+                tagged: 1,
+                failed: 1,
+                message: "Tagged 1, 1 failed: permission denied",
+                taskId: null,
+                items: [
+                  { path: "/library/Album One", status: "healthy", authority: "discogs" },
+                  {
+                    path: "/library/Album Two",
+                    status: "failed",
+                    reason: "permission denied",
+                  },
+                ],
+                itemsTruncated: false,
+              },
+            ],
+          })
+        }
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+        retryFailed={retryFailed}
+      />,
+    );
+
+    // The ledger is not in the way until it is asked for: the table stays a
+    // one-line-per-run summary.
+    await screen.findByTestId("monitoring-runs-table");
+    expect(screen.queryByTestId("monitoring-run-detail-bg-run-1")).toBeNull();
+    fireEvent.click(screen.getByTestId("monitoring-run-items-bg-run-1"));
+
+    const detail = await screen.findByTestId("monitoring-run-detail-bg-run-1");
+    expect(within(detail).getByText("Album Two")).toBeTruthy();
+    expect(within(detail).getByText("permission denied")).toBeTruthy();
+    // The source that supplied the tags is part of the answer to "what happened".
+    expect(within(detail).getByText("via discogs")).toBeTruthy();
+    // Only the release that needs action is retryable, so the button cannot send
+    // the healthy one back through the tagger.
+    expect(within(detail).getByText("Retry 1 release")).toBeTruthy();
+  });
+
+  it("retries the failed releases of the run it was opened from", async () => {
+    const retryFailed = vi.fn(async () => ({ taskId: "background-auto-tag-9" }));
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () =>
+          status({
+            recentRuns: [
+              {
+                id: "bg-run-1",
+                trigger: "schedule",
+                startedAt: "2026-09-19T00:00:00.000Z",
+                finishedAt: "2026-09-19T00:04:00.000Z",
+                status: "failed",
+                tagged: 0,
+                failed: 2,
+                message: "Tagged 0, 2 failed",
+                taskId: null,
+                items: [
+                  { path: "/library/Album One", status: "failed", reason: "permission denied" },
+                  { path: "/library/Album Two", status: "unreadable" },
+                ],
+                itemsTruncated: false,
+              },
+            ],
+          })
+        }
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+        retryFailed={retryFailed}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-run-items-bg-run-1"));
+    fireEvent.click(await screen.findByTestId("monitoring-run-retry-bg-run-1"));
+
+    // The run id is what scopes the retry; without it the service would fall
+    // back to the newest run and could retry something else entirely.
+    await waitFor(() => expect(retryFailed).toHaveBeenCalledWith("bg-run-1"));
+    // A refusal from the service has to reach the reader, not vanish.
+    expect(await screen.findByText(/Retrying the releases that failed/)).toBeTruthy();
+  });
+
+  it("says when the ledger dropped releases rather than reading as complete", async () => {
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () =>
+          status({
+            recentRuns: [
+              {
+                id: "bg-run-1",
+                trigger: "manual",
+                startedAt: "2026-09-19T00:00:00.000Z",
+                finishedAt: "2026-09-19T00:04:00.000Z",
+                status: "completed",
+                tagged: 400,
+                failed: 0,
+                message: "Tagged 400 of 400",
+                taskId: null,
+                items: [{ path: "/library/Album One", status: "healthy" }],
+                itemsTruncated: true,
+              },
+            ],
+          })
+        }
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-run-items-bg-run-1"));
+    const summary = await screen.findByTestId("monitoring-run-items-summary");
+    expect(summary.textContent).toContain("dropped");
   });
 
   it("says so when no run has happened rather than showing an empty table", async () => {
@@ -382,6 +516,8 @@ describe("Monitoring", () => {
               failed: 0,
               message: "done",
               taskId: null,
+              items: [],
+              itemsTruncated: false,
             },
           ],
         })}

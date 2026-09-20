@@ -12,6 +12,12 @@
 //! Times are evaluated in the user's local wall clock, because "00:00 daily"
 //! in a schedule means local midnight, not UTC midnight. The schedule itself
 //! is parsed by [`super::cron`]; this module never invents a matching rule.
+//!
+//! Each run also carries a bounded ledger of what it did per release. The
+//! reference product gets that from one database row per file; without a
+//! database the run history is the durable place for it, and the bounded part
+//! is what keeps "which release failed, and why" answerable after a restart
+//! without letting a library-sized run grow the settings file.
 
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -27,6 +33,11 @@ pub const SETTINGS_FILE: &str = "background-tagging.json";
 
 /// Recent runs are kept for the Monitoring view; older ones are dropped.
 const MAX_RUNS: usize = 50;
+
+/// Per-release rows kept for one run. A run over a large library covers far
+/// more releases than an operator will read, so the ledger keeps the ones that
+/// need attention ahead of the rest and says that it dropped some.
+const MAX_RUN_ITEMS: usize = 200;
 
 fn default_schedule() -> String {
     "0 0 * * *".to_string()
@@ -85,6 +96,51 @@ impl Default for BackgroundSettings {
     }
 }
 
+/// How a release stands after the last survey or run that touched it.
+///
+/// One vocabulary for both the live survey map and the durable run ledger, so a
+/// release cannot be described two ways depending on which surface read it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReleaseHealth {
+    /// Core tags and a provider id are present.
+    Healthy,
+    /// Surveyed and incomplete; a run would pick it up.
+    NeedsTagging,
+    /// The tags could not be read.
+    Unreadable,
+    /// A run holds it right now.
+    Tagging,
+    /// A run read it but found no authoritative match.
+    NeedsReview,
+    /// A run failed on it.
+    Failed,
+}
+
+impl ReleaseHealth {
+    /// Whether attempting the release again is worth an operator's click.
+    ///
+    /// A healthy release is deliberately excluded: a retry that included it
+    /// would re-tag the whole library instead of the part that failed.
+    pub fn is_retryable(self) -> bool {
+        !matches!(self, Self::Healthy | Self::Tagging)
+    }
+}
+
+/// One release's outcome in a run, in the same vocabulary as the survey.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReleaseOutcome {
+    pub path: String,
+    pub status: ReleaseHealth,
+    /// The reason code for a review, or the error for a failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// Which source supplied the tags, when one did.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority: Option<String>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundRun {
@@ -98,6 +154,13 @@ pub struct BackgroundRun {
     pub message: String,
     /// The task registry id, so Monitoring can follow live progress.
     pub task_id: Option<String>,
+    /// Per-release outcomes, oldest first. Empty for a run that covered
+    /// nothing, and for history written before the ledger existed.
+    #[serde(default)]
+    pub items: Vec<ReleaseOutcome>,
+    /// Whether `items` is a subset of what the run actually covered.
+    #[serde(default)]
+    pub items_truncated: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -199,6 +262,8 @@ impl BackgroundState {
             failed: 0,
             message: String::new(),
             task_id,
+            items: Vec::new(),
+            items_truncated: false,
         };
         inner.runs.insert(0, run.clone());
         inner.runs.truncate(MAX_RUNS);
@@ -216,7 +281,9 @@ impl BackgroundState {
         tagged: u64,
         failed: u64,
         message: impl Into<String>,
+        items: Vec<ReleaseOutcome>,
     ) {
+        let (items, items_truncated) = bound_items(items);
         {
             let mut inner = self.lock();
             let Some(run) = inner.runs.iter_mut().find(|run| run.id == run_id) else {
@@ -230,6 +297,8 @@ impl BackgroundState {
             run.failed = failed;
             run.message = message.into();
             run.finished_at = Some(timestamp(local_now()));
+            run.items = items;
+            run.items_truncated = items_truncated;
         }
         let _ = self.persist();
     }
@@ -305,6 +374,21 @@ impl BackgroundState {
             poisoned.into_inner()
         })
     }
+}
+
+/// Cap a run's ledger, keeping what an operator has to act on.
+///
+/// Successes are already counted by the run totals, so when a run covered more
+/// releases than the ledger stores it is the failures and the reviews whose
+/// path and reason must survive. The stable partition keeps each group in
+/// encounter order, so the result is the same on every run.
+fn bound_items(mut items: Vec<ReleaseOutcome>) -> (Vec<ReleaseOutcome>, bool) {
+    if items.len() <= MAX_RUN_ITEMS {
+        return (items, false);
+    }
+    items.sort_by_key(|item| !item.status.is_retryable());
+    items.truncate(MAX_RUN_ITEMS);
+    (items, true)
 }
 
 /// Local wall-clock now, falling back to UTC when the offset is unavailable.
@@ -494,7 +578,7 @@ mod tests {
         assert_eq!(runs[0].status, RunStatus::Running);
         assert_eq!(runs[1].id, first.id);
 
-        state.finish_run(&first.id, RunStatus::Completed, 4, 1, "tagged 4");
+        state.finish_run(&first.id, RunStatus::Completed, 4, 1, "tagged 4", Vec::new());
 
         let runs = state.runs();
         let closed = runs.iter().find(|run| run.id == first.id).unwrap();
@@ -506,15 +590,125 @@ mod tests {
         assert!(runs[0].finished_at.is_none(), "the running run stays open");
 
         // A late completion must not rewrite history, and history survives reload.
-        state.finish_run(&first.id, RunStatus::Failed, 0, 0, "late");
+        state.finish_run(&first.id, RunStatus::Failed, 0, 0, "late", Vec::new());
         assert_eq!(
             state.runs().iter().find(|run| run.id == first.id).unwrap().status,
             RunStatus::Completed
         );
-        state.finish_run("missing-run", RunStatus::Failed, 0, 0, "unknown");
+        state.finish_run("missing-run", RunStatus::Failed, 0, 0, "unknown", Vec::new());
         let reloaded = BackgroundState::init_in(&data);
         assert_eq!(reloaded.runs().len(), 2);
         assert_eq!(reloaded.runs()[0].id, second.id);
+    }
+
+    #[test]
+    fn a_run_records_which_release_each_outcome_came_from() {
+        // The reference product answers "which file failed, and why" from a row
+        // per file. Without a database the run history has to hold it, and it
+        // has to survive a restart - that durability is the whole point.
+        let data = dir("ledger");
+        let state = BackgroundState::init_in(&data);
+        let run = state.record_run(RunTrigger::Manual, Some("background-auto-tag-1".to_string()));
+        state.finish_run(
+            &run.id,
+            RunStatus::Completed,
+            1,
+            1,
+            "Tagged 1, 1 failed",
+            vec![
+                ReleaseOutcome {
+                    path: "/music/Album A".to_string(),
+                    status: ReleaseHealth::Healthy,
+                    reason: None,
+                    authority: Some("discogs".to_string()),
+                },
+                ReleaseOutcome {
+                    path: "/music/Album B".to_string(),
+                    status: ReleaseHealth::Failed,
+                    reason: Some("permission denied".to_string()),
+                    authority: None,
+                },
+            ],
+        );
+
+        let reloaded = BackgroundState::init_in(&data);
+        let run = &reloaded.runs()[0];
+        assert_eq!(run.items.len(), 2);
+        assert_eq!(run.items[0].path, "/music/Album A");
+        assert_eq!(run.items[0].status, ReleaseHealth::Healthy);
+        assert_eq!(run.items[0].authority.as_deref(), Some("discogs"));
+        assert_eq!(run.items[1].status, ReleaseHealth::Failed);
+        assert_eq!(run.items[1].reason.as_deref(), Some("permission denied"));
+        assert!(!run.items_truncated);
+    }
+
+    #[test]
+    fn a_large_run_keeps_the_releases_that_need_attention() {
+        let state = BackgroundState::init_in(&dir("bounded-items"));
+        let run = state.record_run(RunTrigger::Schedule, None);
+        let mut items = (0..MAX_RUN_ITEMS)
+            .map(|index| ReleaseOutcome {
+                path: format!("/music/ok-{index}"),
+                status: ReleaseHealth::Healthy,
+                reason: None,
+                authority: None,
+            })
+            .collect::<Vec<_>>();
+        items.push(ReleaseOutcome {
+            path: "/music/broken".to_string(),
+            status: ReleaseHealth::Failed,
+            reason: Some("boom".to_string()),
+            authority: None,
+        });
+        state.finish_run(
+            &run.id,
+            RunStatus::Failed,
+            MAX_RUN_ITEMS as u64,
+            1,
+            "one failed",
+            items,
+        );
+
+        let stored = &state.runs()[0];
+        assert_eq!(stored.items.len(), MAX_RUN_ITEMS);
+        assert!(stored.items_truncated);
+        // The failure is the row an operator has to act on, so it is what
+        // survives the cap; the dropped rows are successes, which the run
+        // totals already account for.
+        assert_eq!(stored.items[0].path, "/music/broken");
+        assert!(
+            !stored.items.iter().any(|item| item.path == "/music/ok-199"),
+            "the ledger must drop successes, not failures"
+        );
+    }
+
+    #[test]
+    fn run_history_written_before_the_ledger_still_loads() {
+        // An existing install has run history and no `items`. Failing to read it
+        // would silently discard the operator's history on upgrade.
+        let data = dir("legacy-runs");
+        fs::write(
+            data.join(SETTINGS_FILE),
+            r#"{"settings":{"enabled":true,"schedule":"0 0 * * *","directories":[],"watchEnabled":false,"skipUnchanged":true},"runs":[{"id":"bg-run-1-0","trigger":"manual","startedAt":"2026-09-19T00:00:00Z","finishedAt":"2026-09-19T00:01:00Z","status":"completed","tagged":2,"failed":0,"message":"Tagged 2","taskId":null}]}"#,
+        )
+        .unwrap();
+
+        let state = BackgroundState::init_in(&data);
+        assert_eq!(state.runs().len(), 1);
+        assert!(state.runs()[0].items.is_empty());
+        assert!(!state.runs()[0].items_truncated);
+    }
+
+    #[test]
+    fn only_outcomes_worth_repeating_are_retryable() {
+        // A retry that included healthy releases would re-tag the whole library
+        // instead of the part that failed.
+        assert!(ReleaseHealth::Failed.is_retryable());
+        assert!(ReleaseHealth::Unreadable.is_retryable());
+        assert!(ReleaseHealth::NeedsReview.is_retryable());
+        assert!(ReleaseHealth::NeedsTagging.is_retryable());
+        assert!(!ReleaseHealth::Healthy.is_retryable());
+        assert!(!ReleaseHealth::Tagging.is_retryable());
     }
 
     #[test]

@@ -49,7 +49,7 @@ use crate::commands::audit::{
 use crate::commands::dataset::dataset_status_at;
 use crate::commands::auto_tag::{
     auto_tag_completion_message, auto_tag_event, resolve_and_apply_album, AutoTagOutcome,
-    AutoTagServices,
+    AutoTagServices, LookupSource,
 };
 use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::mutations::{
@@ -68,7 +68,10 @@ use crate::state::{
         cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
         MAX_COVER_UPLOAD_BYTES,
     },
-    background::{local_now, wall_clock, BackgroundState, RunStatus, RunTrigger},
+    background::{
+        local_now, wall_clock, BackgroundRun, BackgroundState, ReleaseHealth, ReleaseOutcome,
+        RunStatus, RunTrigger,
+    },
     config::{ConfigSetError, ConfigState},
     conversation::ConversationState,
     audit::AuditState,
@@ -270,17 +273,6 @@ struct ServerState {
     background: BackgroundState,
 }
 
-#[derive(Clone, Debug, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum ReleaseHealth {
-    Healthy,
-    NeedsTagging,
-    Unreadable,
-    Tagging,
-    NeedsReview,
-    Failed,
-}
-
 fn release_is_healthy(path: &Path) -> Result<bool, String> {
     let album = read_album(path).map_err(|error| error.to_string())?;
     let tracks = album.tracks;
@@ -302,6 +294,12 @@ fn release_is_healthy(path: &Path) -> Result<bool, String> {
 /// How often the scheduler evaluates its crontab and the watched directories.
 /// Short enough that a `*/1 * * * *` schedule lands inside its own minute.
 const BACKGROUND_POLL: Duration = Duration::from_secs(20);
+
+/// The stored name of a tag source, taken from its serialized form so the
+/// ledger, the events and the API cannot drift apart.
+fn lookup_source_name(source: LookupSource) -> Option<String> {
+    serde_json::to_value(source).ok()?.as_str().map(str::to_string)
+}
 
 /// Directories a background run covers: the configured ones, or every mounted
 /// library root when none are configured. A configured directory that has gone
@@ -347,6 +345,18 @@ fn background_albums(directories: &[PathBuf], skip_unchanged: bool) -> Vec<PathB
     albums
 }
 
+/// Albums a retry should cover: the ones the run left needing action and that
+/// are still on disk. A release that has since been deleted or moved is not a
+/// retry, it is noise.
+fn retryable_albums(run: &BackgroundRun) -> Vec<PathBuf> {
+    run.items
+        .iter()
+        .filter(|item| item.status.is_retryable())
+        .map(|item| PathBuf::from(&item.path))
+        .filter(|path| path.is_dir())
+        .collect()
+}
+
 /// Start one background tagging run over the covered directories.
 fn start_background_run(state: &ServerState, trigger: RunTrigger) -> Result<String, String> {
     let settings = state.background.settings();
@@ -379,6 +389,7 @@ fn start_background_run_for(
             0,
             0,
             "every album already has complete tags",
+            Vec::new(),
         );
         return Err("every album already has complete tags".to_string());
     }
@@ -415,6 +426,7 @@ fn start_background_run_for(
                 0,
                 0,
                 "the run was replaced before it started",
+                Vec::new(),
             );
             return;
         };
@@ -425,6 +437,10 @@ fn start_background_run_for(
         let mut failed = 0u64;
         let mut needing_review = 0u64;
         let mut last_message = String::new();
+        // What this run did per release. The reference product keeps this in a
+        // database row per file so an operator can see which file failed and
+        // why after the fact; the run history is where that lives here.
+        let mut items = Vec::new();
 
         for (index, album) in albums.iter().enumerate() {
             if cancelled.load(Ordering::Acquire) {
@@ -487,6 +503,19 @@ fn start_background_run_for(
                     ReleaseHealth::Failed
                 }
             };
+            items.push(ReleaseOutcome {
+                path: key.clone(),
+                status: release_health,
+                reason: match &result {
+                    Ok(result) => result.reason_code.clone(),
+                    Err(error) => Some(error.to_string()),
+                },
+                authority: result
+                    .as_ref()
+                    .ok()
+                    .and_then(|result| result.authority)
+                    .and_then(lookup_source_name),
+            });
             health.write().await.insert(key, release_health);
         }
 
@@ -524,7 +553,7 @@ fn start_background_run_for(
                 "needsReview": needing_review,
             }),
         );
-        background.finish_run(&run_id, status, tagged, failed, &message);
+        background.finish_run(&run_id, status, tagged, failed, &message, items);
         let _ = events.publish(
             "background:event",
             &serde_json::json!({
@@ -587,6 +616,54 @@ fn watched_albums(
     changed_albums(scanned, seen, baseline)
 }
 
+/// Albums the watcher has discovered but has not started a run for yet.
+///
+/// The reference product hands a newly found file to a broker queue, so a file
+/// that arrives while a run is already in progress waits its turn. This is the
+/// same guarantee without a broker: an album discovered by the watcher stays
+/// here until a run actually starts for it, so a busy tag lock delays the album
+/// instead of forgetting it until its folder is touched again.
+#[derive(Debug, Default)]
+struct WatchQueue {
+    pending: Vec<PathBuf>,
+}
+
+impl WatchQueue {
+    /// Bound on the backlog. A library growing faster than it can be tagged is
+    /// a real problem, but it is not this queue's job to page someone about it;
+    /// the scheduled sweep covers everything that is dropped from here.
+    const LIMIT: usize = 500;
+
+    /// Queue newly discovered albums, oldest first, without duplicates.
+    fn enqueue(&mut self, discovered: impl IntoIterator<Item = PathBuf>) {
+        for album in discovered {
+            if self.pending.len() >= Self::LIMIT {
+                tracing::warn!(
+                    album = %album.display(),
+                    limit = Self::LIMIT,
+                    "watched album backlog is full; leaving it to the next scheduled run"
+                );
+                continue;
+            }
+            if !self.pending.contains(&album) {
+                self.pending.push(album);
+            }
+        }
+    }
+
+    /// Take everything to attempt now. Whatever fails to start is put back.
+    fn take(&mut self) -> Vec<PathBuf> {
+        std::mem::take(&mut self.pending)
+    }
+
+    /// Put an album back at the front, so the next poll tries it first.
+    fn requeue(&mut self, album: PathBuf) {
+        if !self.pending.contains(&album) {
+            self.pending.insert(0, album);
+        }
+    }
+}
+
 /// Keep background tagging running: one sweep at startup (the behaviour that
 /// predates any settings), then every due schedule slot, plus watched
 /// directories when that is enabled.
@@ -633,6 +710,7 @@ fn start_background_library_tagging(state: ServerState) {
 
         let mut seen = HashMap::new();
         let mut watch_baseline = true;
+        let mut watch_queue = WatchQueue::default();
         loop {
             tokio::time::sleep(BACKGROUND_POLL).await;
             let now = wall_clock(local_now());
@@ -644,7 +722,8 @@ fn start_background_library_tagging(state: ServerState) {
                         tracing::info!(%task_id, "scheduled background tagging started")
                     }
                     // `due` already retired the slot, so a busy lock skips this
-                    // occurrence instead of retrying it forever.
+                    // occurrence instead of retrying it forever. A watched
+                    // album is not rediscoverable, so it is retried instead.
                     Err(error) => {
                         tracing::warn!(%error, "scheduled background tagging did not start")
                     }
@@ -652,23 +731,25 @@ fn start_background_library_tagging(state: ServerState) {
             }
 
             if state.background.settings().watch_enabled {
-                for album in watched_albums(&state, &mut seen, watch_baseline) {
-                    tracing::info!(album = %album.display(), "watched directory gained an album");
-                    match start_background_run_for(&state, RunTrigger::Watch, vec![album]) {
+                watch_queue.enqueue(watched_albums(&state, &mut seen, watch_baseline));
+                watch_baseline = false;
+                for album in watch_queue.take() {
+                    match start_background_run_for(&state, RunTrigger::Watch, vec![album.clone()]) {
                         Ok(task_id) => {
-                            tracing::info!(%task_id, "watch background tagging started")
+                            tracing::info!(%task_id, album = %album.display(), "watch background tagging started")
                         }
                         Err(error) => {
-                            tracing::debug!(%error, "watch background tagging did not start")
+                            tracing::debug!(%error, album = %album.display(), "watch background tagging did not start");
+                            watch_queue.requeue(album);
                         }
                     }
                 }
-                watch_baseline = false;
             } else {
                 // Re-arm while watching is off, so switching it back on takes a
                 // fresh baseline instead of treating the whole library as new.
                 seen.clear();
                 watch_baseline = true;
+                watch_queue = WatchQueue::default();
             }
         }
     });
@@ -1331,6 +1412,15 @@ struct BackgroundSettingsPatch {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct BackgroundRetryRequest {
+    /// Which run's releases to retry. Omitted means the newest run that has
+    /// finished.
+    #[serde(default)]
+    run_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct MonitoringLogsRequest {
     source: Option<String>,
     lines: Option<usize>,
@@ -1425,6 +1515,7 @@ fn supported_web_command(command: &str) -> bool {
             | "background:set-settings"
             | "background:list-runs"
             | "background:run-now"
+            | "background:retry-failed"
             | "monitoring:status"
             | "monitoring:releases"
             | "monitoring:logs"
@@ -2415,6 +2506,38 @@ async fn command(
             Ok(task_id) => Json(serde_json::json!({ "taskId": task_id })).into_response(),
             Err(error) => error_response(StatusCode::CONFLICT, &error),
         },
+        "background:retry-failed" => {
+            let request = match decode_command_payload::<BackgroundRetryRequest>(payload) {
+                Ok(request) => request,
+                Err(_) => return error_response(StatusCode::BAD_REQUEST, "invalid command request"),
+            };
+            let runs = state.background.runs();
+            let run = match request.run_id.as_deref() {
+                Some(run_id) => runs.iter().find(|run| run.id == run_id),
+                // A run that is still going is not a retry subject: it has no
+                // settled outcome to retry, and while it holds the tag lock a
+                // retry would be refused anyway. Retrying is about a run that
+                // finished and left releases behind, so answering "nothing left
+                // to retry" while a run is plainly in progress is wrong.
+                None => runs.iter().find(|run| run.status != RunStatus::Running),
+            };
+            let Some(run) = run else {
+                return error_response(StatusCode::NOT_FOUND, "no background run to retry");
+            };
+            let albums = retryable_albums(run);
+            if albums.is_empty() {
+                return error_response(
+                    StatusCode::BAD_REQUEST,
+                    "that run has no release left to retry",
+                );
+            }
+            match start_background_run_for(&state, RunTrigger::Manual, albums) {
+                Ok(task_id) => {
+                    Json(serde_json::json!({ "taskId": task_id })).into_response()
+                }
+                Err(error) => error_response(StatusCode::CONFLICT, &error),
+            }
+        }
         "monitoring:status" => Json(background_status(&state).await).into_response(),
         "monitoring:releases" => Json(monitoring_releases(&state).await).into_response(),
         "monitoring:logs" => {
@@ -3158,6 +3281,8 @@ mod tests {
     use axum::body::Body;
     use axum::http::{header, Request, StatusCode};
     use futures_util::StreamExt;
+    use crate::commands::auto_tag::LookupRequest;
+    use crate::state::config::{EnvMap, ProcessEnv};
     use serde_json::json;
     use std::time::Duration;
     use tokio::sync::{Barrier, Notify};
@@ -3165,6 +3290,36 @@ mod tests {
 
     fn test_config() -> ServerConfig {
         ServerConfig::for_tests("correct horse battery staple", "https://soundrobe.test")
+    }
+
+    /// A `ServerState` for tests: no library roots, an injected configuration
+    /// environment, and an injected provider service.
+    ///
+    /// Three tests need the same fifteen fields. A state missing one of them
+    /// fails in a way that reads like the code under test rather than like the
+    /// fixture, so the construction lives in one place.
+    fn test_server_state(
+        config: &ServerConfig,
+        env: Arc<dyn crate::state::config::Env>,
+        providers: Arc<crate::state::providers::ProviderState>,
+    ) -> ServerState {
+        ServerState {
+            auth: AuthService::new(config),
+            config: ConfigState::init_in_with_env(config.data_dir.clone(), env),
+            providers,
+            libraries: Ok(LibraryRoots::default()),
+            events: EventBus::default(),
+            operations: OperationCoordinator::default(),
+            lifecycle: ServerLifecycle::default(),
+            debug: WebDebugState::default(),
+            write_queue: WriteQueue::default(),
+            audit: Arc::new(AuditState::default()),
+            cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
+            tasks: Arc::new(TaskRegistry::default()),
+            health: Arc::new(RwLock::new(HashMap::new())),
+            background: BackgroundState::init_in(&config.data_dir),
+            conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
+        }
     }
 
     fn origin_request(request: Request<Body>) -> Request<Body> {
@@ -5130,23 +5285,11 @@ mod tests {
     #[tokio::test]
     async fn an_active_command_operation_returns_conflict() {
         let config = test_config();
-        let state = ServerState {
-            auth: AuthService::new(&config),
-            config: ConfigState::init_in(config.data_dir.clone()),
-            providers: Arc::new(crate::state::providers::ProviderState::default()),
-            libraries: Ok(LibraryRoots::default()),
-            events: EventBus::default(),
-            operations: OperationCoordinator::default(),
-            lifecycle: ServerLifecycle::default(),
-            debug: WebDebugState::default(),
-            write_queue: WriteQueue::default(),
-            audit: Arc::new(AuditState::default()),
-            cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
-            tasks: Arc::new(TaskRegistry::default()),
-            health: Arc::new(RwLock::new(HashMap::new())),
-            background: BackgroundState::init_in(&config.data_dir),
-            conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
-        };
+        let state = test_server_state(
+            &config,
+            Arc::new(ProcessEnv),
+            Arc::new(crate::state::providers::ProviderState::default()),
+        );
         let _active = state
             .operations
             .try_acquire(OperationKind::AutoTag)
@@ -5697,23 +5840,11 @@ mod tests {
     #[tokio::test]
     async fn internal_failures_use_the_stable_json_error_contract() {
         let config = test_config();
-        let state = ServerState {
-            auth: AuthService::new(&config),
-            config: ConfigState::init_in(config.data_dir.clone()),
-            providers: Arc::new(crate::state::providers::ProviderState::default()),
-            libraries: Ok(LibraryRoots::default()),
-            events: EventBus::default(),
-            operations: OperationCoordinator::default(),
-            lifecycle: ServerLifecycle::default(),
-            debug: WebDebugState::default(),
-            write_queue: WriteQueue::default(),
-            audit: Arc::new(AuditState::default()),
-            cache: Arc::new(CacheState::new_in(config.data_dir.clone())),
-            tasks: Arc::new(TaskRegistry::default()),
-            health: Arc::new(RwLock::new(HashMap::new())),
-            background: BackgroundState::init_in(&config.data_dir),
-            conversations: Arc::new(ConversationState::new_in(config.data_dir.clone())),
-        };
+        let state = test_server_state(
+            &config,
+            Arc::new(ProcessEnv),
+            Arc::new(crate::state::providers::ProviderState::default()),
+        );
         let app = Router::new()
             .route("/boom", get(|| async { StatusCode::INTERNAL_SERVER_ERROR }))
             .with_state(state.clone())
@@ -5834,6 +5965,572 @@ mod tests {
         let (_, value) =
             post_command(app, cookie, "background:get-settings", json!({})).await;
         assert_eq!(value["schedule"], json!("*/15 * * * *"));
+    }
+
+    #[tokio::test]
+    async fn a_retry_defaults_to_the_newest_run_that_finished() {
+        // The newest run is usually the retry that is already going. "Retry the
+        // newest run" would then mean retrying a run that has no settled outcome
+        // yet, and answering "nothing left to retry" while a run is plainly in
+        // progress is the wrong thing to tell an operator.
+        let config = isolated_config("retry-default");
+        fs::create_dir_all(&config.data_dir).unwrap();
+        let album = config.data_dir.join("Album A");
+        fs::create_dir_all(&album).unwrap();
+        let runs = json!([
+            {
+                "id": "bg-run-2-0",
+                "trigger": "manual",
+                "startedAt": "2026-09-19T03:00:00Z",
+                "finishedAt": null,
+                "status": "running",
+                "tagged": 0,
+                "failed": 0,
+                "message": "",
+                "taskId": "background-auto-tag-9",
+                "items": [],
+                "itemsTruncated": false,
+            },
+            {
+                "id": "bg-run-1-0",
+                "trigger": "schedule",
+                "startedAt": "2026-09-19T00:00:00Z",
+                "finishedAt": "2026-09-19T00:01:00Z",
+                "status": "failed",
+                "tagged": 0,
+                "failed": 1,
+                "message": "Tagged 0, 1 failed",
+                "taskId": null,
+                "items": [
+                    {
+                        "path": album.to_string_lossy(),
+                        "status": "failed",
+                        "reason": "permission denied",
+                    },
+                ],
+                "itemsTruncated": false,
+            }
+        ]);
+        fs::write(
+            config.data_dir.join("background-tagging.json"),
+            serde_json::to_vec(&json!({
+                "settings": {
+                    "enabled": true,
+                    "schedule": "0 0 * * *",
+                    "directories": [config.data_dir.to_string_lossy()],
+                    "watchEnabled": false,
+                    "skipUnchanged": true,
+                },
+                "runs": runs,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:retry-failed",
+            json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "expected a retry, got {value}");
+        let task_id = value["taskId"].as_str().unwrap().to_string();
+        let (_, progress) = post_command(
+            app,
+            cookie,
+            "task:progress",
+            json!({ "taskId": task_id }),
+        )
+        .await;
+        // The finished run covered exactly one release, so the retry covers one.
+        assert_eq!(progress["total"], json!(1));
+    }
+
+    #[tokio::test]
+    async fn background_retry_failed_reruns_only_the_releases_that_need_action() {
+        // A run that failed on two of three releases has to be actionable after
+        // the fact: the ledger says which releases, and the retry covers those
+        // and only those. Retrying a healthy release or a deleted path would
+        // either re-tag working music or chase a path that no longer exists.
+        let config = isolated_config("retry-failed");
+        fs::create_dir_all(&config.data_dir).unwrap();
+        let album = config.data_dir.join("Album A");
+        fs::create_dir_all(&album).unwrap();
+        let gone = config.data_dir.join("Album Gone");
+        let album_path = album.to_string_lossy().into_owned();
+        let runs = json!([
+            {
+                "id": "bg-run-2-0",
+                "trigger": "manual",
+                "startedAt": "2026-09-19T02:00:00Z",
+                "finishedAt": "2026-09-19T02:00:20Z",
+                "status": "completed",
+                "tagged": 1,
+                "failed": 0,
+                "message": "Tagged 1 of 1",
+                "taskId": null,
+                "items": [
+                    {
+                        "path": album_path,
+                        "status": "healthy",
+                        "authority": "discogs",
+                    },
+                ],
+                "itemsTruncated": false,
+            },
+            {
+                "id": "bg-run-1-0",
+                "trigger": "schedule",
+                "startedAt": "2026-09-19T00:00:00Z",
+                "finishedAt": "2026-09-19T00:01:00Z",
+                "status": "failed",
+                "tagged": 1,
+                "failed": 2,
+                "message": "Tagged 1, 2 failed",
+                "taskId": null,
+                "items": [
+                    {
+                        "path": album_path,
+                        "status": "failed",
+                        "reason": "permission denied",
+                    },
+                    {
+                        "path": gone.to_string_lossy(),
+                        "status": "failed",
+                        "reason": "permission denied",
+                    },
+                ],
+                "itemsTruncated": false,
+            }
+        ]);
+        fs::write(
+            config.data_dir.join("background-tagging.json"),
+            serde_json::to_vec(&json!({
+                "settings": {
+                    "enabled": true,
+                    "schedule": "0 0 * * *",
+                    "directories": [config.data_dir.to_string_lossy()],
+                    "watchEnabled": false,
+                    "skipUnchanged": true,
+                },
+                "runs": runs,
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+
+        // The ledger is part of what the API reports, not just what is on disk.
+        let (status, runs) =
+            post_command(app.clone(), cookie.clone(), "background:list-runs", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(runs[0]["items"][0]["status"], json!("healthy"));
+        assert_eq!(runs[1]["items"][0]["reason"], json!("permission denied"));
+
+        // The newest run has nothing left to retry, and saying so is better
+        // than starting an empty run that looks like work.
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:retry-failed",
+            json!({}),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(
+            value["error"].as_str().unwrap().contains("no release"),
+            "unexpected error: {value}"
+        );
+
+        // An unknown run is a 404 rather than a silent retry of something else.
+        let (status, _) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:retry-failed",
+            json!({ "runId": "bg-run-404-0" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+
+        // Retrying the failed run covers its one surviving release: the deleted
+        // path is skipped and the healthy release is not repeated.
+        let (status, value) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "background:retry-failed",
+            json!({ "runId": "bg-run-1-0" }),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let task_id = value["taskId"].as_str().unwrap().to_string();
+        let (_, progress) = post_command(
+            app.clone(),
+            cookie.clone(),
+            "task:progress",
+            json!({ "taskId": task_id }),
+        )
+        .await;
+        assert_eq!(progress["total"], json!(1));
+
+        let (_, runs) =
+            post_command(app, cookie, "background:list-runs", json!({})).await;
+        assert_eq!(runs[0]["trigger"], json!("manual"));
+        assert_eq!(runs[0]["status"], json!("running"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Background tagging smoke over the reviewed synthetic album
+    // -----------------------------------------------------------------------
+
+    /// An HTTP provider stub that serves the reviewed Discogs answers for one
+    /// synthetic album and empty MusicBrainz answers, so a background run can
+    /// resolve end to end with no network and no credentials.
+    ///
+    /// It stops on a flag rather than a fixed request count, because how many
+    /// provider round trips a run makes is the resolver's business, not
+    /// something a test should pin.
+    struct StubProvider {
+        base: String,
+        shutdown: Arc<AtomicBool>,
+        handle: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl StubProvider {
+        fn start() -> Self {
+            use std::io::{Read, Write};
+            use std::net::TcpListener;
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let shutdown = Arc::new(AtomicBool::new(false));
+            let flag = Arc::clone(&shutdown);
+            let handle = std::thread::spawn(move || {
+                while !flag.load(Ordering::Acquire) {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            let mut buffer = [0; 8192];
+                            let size = stream.read(&mut buffer).unwrap_or(0);
+                            let request = String::from_utf8_lossy(&buffer[..size]).into_owned();
+                            let target = request.split_whitespace().nth(1).unwrap_or("/");
+                            let body = stub_provider_body(target);
+                            let _ = write!(
+                                stream,
+                                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{}",
+                                body.len(),
+                                body
+                            );
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+            Self {
+                base,
+                shutdown,
+                handle: Some(handle),
+            }
+        }
+    }
+
+    impl Drop for StubProvider {
+        fn drop(&mut self) {
+            self.shutdown.store(true, Ordering::Release);
+            if let Some(handle) = self.handle.take() {
+                let _ = handle.join();
+            }
+        }
+    }
+
+    /// The path of a request target. The offline client proxies every request,
+    /// so an HTTP request arrives in absolute form (`GET http://host/discogs/...`)
+    /// rather than as an origin-form path.
+    fn request_path(target: &str) -> &str {
+        match target.split_once("://") {
+            Some((_, rest)) => match rest.find('/') {
+                Some(index) => &rest[index..],
+                None => "/",
+            },
+            None => target,
+        }
+    }
+
+    /// The reviewed Discogs answers for `Relapse (Deluxe)`, plus empty
+    /// MusicBrainz answers so the resolver falls through to Discogs.
+    fn stub_provider_body(target: &str) -> String {
+        let path = request_path(target);
+        if path.starts_with("/musicbrainz/") {
+            return json!({"count": 0, "releases": [], "artists": [], "recordings": []})
+                .to_string();
+        }
+        if path.starts_with("/discogs/database/search") {
+            let query = path.split_once('?').map(|(_, query)| query).unwrap_or("");
+            if query.contains("type=master") {
+                return json!({
+                    "pagination": {"items": 1, "pages": 1},
+                    "results": [{"id": 100118, "type": "master", "title": "Eminem - Relapse"}]
+                })
+                .to_string();
+            }
+            if query.contains("type=artist") {
+                return json!({"pagination": {"items": 0, "pages": 1}, "results": []}).to_string();
+            }
+            return json!({
+                "pagination": {"items": 1, "pages": 1},
+                "results": [{
+                    "id": 36441795,
+                    "type": "release",
+                    "title": "Eminem - Relapse (Deluxe)",
+                    "year": 2009,
+                    "country": "US",
+                    "format": ["CD"],
+                    "catno": "",
+                    "barcode": [],
+                }]
+            })
+            .to_string();
+        }
+        if path.starts_with("/discogs/masters/") && path.contains("/versions") {
+            return json!({
+                "pagination": {"pages": 1},
+                "versions": [
+                    {"id": 36441795, "title": "Relapse (Deluxe)", "country": "US", "released": "2009"}
+                ]
+            })
+            .to_string();
+        }
+        if path.starts_with("/discogs/releases/") {
+            return include_str!("../../test/fixtures/tauri/relapse-deluxe/release-36441795.json")
+                .to_string();
+        }
+        json!({"error": "not_found", "path": path}).to_string()
+    }
+
+    #[test]
+    fn a_proxied_request_target_still_resolves_to_its_path() {
+        // Requests from the offline client arrive proxied, so the stub has to
+        // see through the absolute form or every provider call misses and the
+        // smoke would report a provider outage instead of a match.
+        assert_eq!(
+            request_path("http://127.0.0.1:9/discogs/releases/36441795?x=1"),
+            "/discogs/releases/36441795?x=1"
+        );
+        assert_eq!(request_path("/discogs/releases/1"), "/discogs/releases/1");
+        assert_eq!(request_path("http://127.0.0.1:9"), "/");
+        assert_eq!(request_path("unreachable.invalid:443"), "unreachable.invalid:443");
+    }
+
+    /// Write one silent FLAC per reviewed fixture track, tagged exactly as the
+    /// reviewed album is, and return the album folder. The media is generated so
+    /// the smoke never touches real music; the metadata comes from
+    /// `test/fixtures/tauri/relapse-deluxe/local.json`.
+    async fn materialize_synthetic_album(root: &Path, request: &LookupRequest) -> PathBuf {
+        use crate::commands::mutations::{write_track_queued, Patch, StringList, TrackPatch};
+        let album = root.join("Eminem/2009 - Relapse (Deluxe)");
+        fs::create_dir_all(&album).unwrap();
+        let queue = WriteQueue::default();
+        for track in &request.tracks {
+            let stem = track.filename.clone().expect("fixture tracks carry filenames");
+            let duration = track.length.expect("fixture tracks carry lengths");
+            let path = album.join(format!("{stem}.flac"));
+            let generated = std::process::Command::new("ffmpeg")
+                .args([
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-nostdin",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "anullsrc=r=44100:cl=mono",
+                    "-t",
+                    &format!("{duration:.6}"),
+                ])
+                .arg(&path)
+                .status()
+                .expect("ffmpeg available for synthetic media");
+            assert!(generated.success(), "ffmpeg failed for {}", path.display());
+
+            let mut patch = TrackPatch::default();
+            if let Some(title) = track.title.clone() {
+                patch.title = Patch::Value(title);
+            }
+            if let Some(artist) = track.artist.clone() {
+                patch.artist = Patch::Value(artist);
+            }
+            if !track.artists.is_empty() {
+                patch.artists = Patch::Value(StringList::Many(track.artists.clone()));
+            }
+            if let Some(album_hint) = request.album_hint.clone() {
+                patch.album = Patch::Value(album_hint);
+            }
+            if let Some(artist_hint) = request.artist_hint.clone() {
+                patch.album_artist = Patch::Value(artist_hint);
+            }
+            if let Some(year) = request.year_hint.clone() {
+                patch.year = Patch::Value(year);
+            }
+            patch.track_number = Patch::Value(track.track_number.unwrap_or(1));
+            if let Some(total) = track.track_total {
+                patch.track_total = Patch::Value(total);
+            }
+            if let Some(disc) = track.disc_number {
+                patch.disc_number = Patch::Value(disc);
+            }
+            if let Some(total) = track.disc_total {
+                patch.disc_total = Patch::Value(total);
+            }
+            write_track_queued(&queue, path, patch).await.unwrap();
+        }
+        album
+    }
+
+    /// The state a background run needs, wired to the offline provider service
+    /// and to a data directory nothing else uses.
+    fn smoke_state(root: &Path, base: &str) -> ServerState {
+        let mut config = test_config();
+        config.data_dir = root.join("data");
+        fs::create_dir_all(&config.data_dir).unwrap();
+        let state = test_server_state(
+            &config,
+            Arc::new(EnvMap::new()),
+            Arc::new(
+                crate::commands::auto_tag::eval_tests::offline_eval_providers(base)
+                    .expect("offline provider service"),
+            ),
+        );
+        assert!(state.cache.initialize(None));
+        state
+    }
+
+    /// Wait for a background run's task to reach a terminal state.
+    ///
+    /// The budget is generous because the whole suite runs in parallel and this
+    /// task does real file and HTTP work: a two-minute ceiling still fails a
+    /// genuine hang, and it fails loudly rather than reporting a slow machine as
+    /// a broken run.
+    async fn await_task(state: &ServerState, task_id: &str) {
+        let started = std::time::Instant::now();
+        while started.elapsed() < Duration::from_secs(120) {
+            match state.tasks.get(task_id) {
+                Some(progress) if progress.status != TaskStatus::Running => return,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        }
+        let last = state
+            .tasks
+            .get(task_id)
+            .map(|progress| format!("{:?} at {}/{}", progress.status, progress.progress, progress.total))
+            .unwrap_or_else(|| "unregistered".to_string());
+        panic!("background task {task_id} never finished; still {last}");
+    }
+
+    #[tokio::test]
+    #[ignore = "end-to-end smoke; run with `just smoke-background`"]
+    async fn background_smoke_over_the_synthetic_album_records_every_release() {
+        // The end-to-end version of the run ledger: a real resolver over
+        // generated media, a real write, and a real failure. The unit tests
+        // prove the ledger stores what it is handed; this proves the run hands
+        // it the right things - the source that supplied the tags for a release
+        // that worked, and a reason for one that did not.
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-bg-smoke-{}",
+            Uuid::new_v4().simple()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let request: LookupRequest = serde_json::from_str(include_str!(
+            "../../test/fixtures/tauri/relapse-deluxe/local.json"
+        ))
+        .unwrap();
+        let stub = StubProvider::start();
+        let state = smoke_state(&root, &stub.base);
+        let album = materialize_synthetic_album(&root, &request).await;
+
+        // A release the resolver cannot place at all. It has to come back as an
+        // outcome with a reason: a run that reports only successes cannot be
+        // acted on.
+        let unmatched = root.join("Eminem/2019 - Not In Any Provider");
+        fs::create_dir_all(&unmatched).unwrap();
+        fs::write(unmatched.join("01 Untitled.flac"), b"this is not a flac").unwrap();
+
+        // A release that vanished between the survey and the run. It is the one
+        // outcome a retry must *not* pick up: there is nothing left to tag.
+        let vanished = root.join("Eminem/1999 - Deleted Since The Survey");
+
+        let task_id = start_background_run_for(
+            &state,
+            RunTrigger::Manual,
+            vec![album.clone(), unmatched.clone(), vanished.clone()],
+        )
+        .expect("background run starts");
+        await_task(&state, &task_id).await;
+
+        let runs = state.background.runs();
+        let run = runs.first().expect("the run was recorded");
+        assert_eq!(
+            run.status,
+            RunStatus::Failed,
+            "one release failed, so the run needs attention: {}",
+            run.message
+        );
+        assert_eq!(run.items.len(), 3, "one row per release: {:?}", run.items);
+        let item = |path: &Path| {
+            run.items
+                .iter()
+                .find(|item| item.path == path.to_string_lossy())
+                .unwrap_or_else(|| panic!("{} is missing from the ledger", path.display()))
+        };
+
+        let tagged = item(&album);
+        assert_eq!(tagged.status, ReleaseHealth::Healthy, "{}", run.message);
+        assert_eq!(tagged.authority.as_deref(), Some("discogs"));
+
+        let reviewed = item(&unmatched);
+        assert_eq!(reviewed.status, ReleaseHealth::NeedsReview);
+        assert!(
+            reviewed.reason.as_deref().is_some_and(|reason| !reason.is_empty()),
+            "a release needing review without a reason cannot be acted on: {reviewed:?}"
+        );
+
+        let missing = item(&vanished);
+        assert_eq!(missing.status, ReleaseHealth::Failed);
+        assert!(
+            missing.reason.as_deref().is_some_and(|reason| !reason.is_empty()),
+            "a failed release without a reason cannot be acted on: {missing:?}"
+        );
+
+        // The ledger has to describe a write that actually happened, not just a
+        // provider match.
+        let written = read_track_metadata(&album.join("01 Dr. West.flac"))
+            .expect("synthetic track readable");
+        assert_eq!(written.discogs_release_id.as_deref(), Some("36441795"));
+
+        // A retry re-runs what still needs action and drops the stale path.
+        assert_eq!(retryable_albums(run), vec![unmatched.clone()]);
+
+        // A smoke whose evidence nobody sees is a test that happens to pass.
+        println!(
+            "background smoke: {} -> {:?} via {}\n                {} -> {:?} ({})\n                {} -> {:?} (stale path)\n                retry covers: {}",
+            album.display(),
+            tagged.status,
+            tagged.authority.as_deref().unwrap_or("unknown"),
+            unmatched.display(),
+            reviewed.status,
+            reviewed.reason.as_deref().unwrap_or("no reason"),
+            vanished.display(),
+            missing.status,
+            unmatched.display(),
+        );
+
+        fs::remove_dir_all(&root).unwrap();
     }
 
     #[tokio::test]
@@ -6031,6 +6728,107 @@ mod tests {
         // ...and is not reported again while it stays put.
         assert!(changed_albums(vec![(PathBuf::from("/music/A"), stamp(150))], &mut seen, false)
             .is_empty());
+    }
+
+    #[test]
+    fn a_watched_album_is_retried_instead_of_being_dropped_when_the_tag_lock_is_busy() {
+        // Discovery is one shot: once an album is marked seen, only another
+        // folder mtime change brings it back. If a scheduled or manual run holds
+        // the tag lock at that moment, dropping the album loses it silently - the
+        // reference product cannot lose it because the broker queue already owns
+        // it. So a start that fails has to put the album back.
+        let mut queue = WatchQueue::default();
+        let album = PathBuf::from("/music/NEW");
+        queue.enqueue(vec![album.clone()]);
+
+        let attempted = queue.take();
+        assert_eq!(attempted, vec![album.clone()]);
+        // The run was refused ("another auto-tag operation is already running").
+        queue.requeue(attempted[0].clone());
+
+        assert_eq!(queue.take(), vec![album]);
+    }
+
+    #[test]
+    fn a_watched_album_is_not_queued_or_retried_twice() {
+        let mut queue = WatchQueue::default();
+        let album = PathBuf::from("/music/A");
+
+        // A folder whose mtime keeps moving is still one album.
+        queue.enqueue(vec![album.clone()]);
+        queue.enqueue(vec![album.clone()]);
+        assert_eq!(queue.take(), vec![album.clone()]);
+
+        // A requeue after a successful start would tag the album twice.
+        queue.requeue(album.clone());
+        queue.requeue(album.clone());
+        assert_eq!(queue.take(), vec![album]);
+    }
+
+    #[test]
+    fn the_watch_backlog_is_bounded() {
+        // A library that grows faster than it can be tagged is not a reason to
+        // hold unbounded work in memory; the scheduled sweep still covers
+        // everything the backlog refuses.
+        let mut queue = WatchQueue::default();
+        queue.enqueue((0..WatchQueue::LIMIT + 10).map(|index| PathBuf::from(format!("/music/{index}"))));
+        assert_eq!(queue.take().len(), WatchQueue::LIMIT);
+        assert!(queue.take().is_empty());
+    }
+
+    #[test]
+    fn a_retry_covers_only_the_releases_that_still_need_action() {
+        let root = std::env::temp_dir().join(format!("soundrobe-retry-{}", Uuid::new_v4().simple()));
+        let present = root.join("Album A");
+        fs::create_dir_all(&present).unwrap();
+        let gone = root.join("Album B");
+        let review = root.join("Album C");
+        fs::create_dir_all(&review).unwrap();
+        let run = BackgroundRun {
+            id: "bg-run-1-0".to_string(),
+            trigger: RunTrigger::Manual,
+            started_at: String::new(),
+            finished_at: None,
+            status: RunStatus::Failed,
+            tagged: 1,
+            failed: 1,
+            message: String::new(),
+            task_id: None,
+            items: vec![
+                ReleaseOutcome {
+                    path: present.to_string_lossy().into_owned(),
+                    status: ReleaseHealth::Failed,
+                    reason: Some("permission denied".to_string()),
+                    authority: None,
+                },
+                ReleaseOutcome {
+                    path: gone.to_string_lossy().into_owned(),
+                    status: ReleaseHealth::Failed,
+                    reason: Some("permission denied".to_string()),
+                    authority: None,
+                },
+                ReleaseOutcome {
+                    path: review.to_string_lossy().into_owned(),
+                    status: ReleaseHealth::NeedsReview,
+                    reason: Some("no_authoritative_match".to_string()),
+                    authority: None,
+                },
+                ReleaseOutcome {
+                    path: root.join("Album D").to_string_lossy().into_owned(),
+                    status: ReleaseHealth::Healthy,
+                    reason: None,
+                    authority: Some("discogs".to_string()),
+                },
+            ],
+            items_truncated: false,
+        };
+
+        let albums = retryable_albums(&run);
+        // The healthy release is excluded, or a retry would re-tag what already
+        // worked; the deleted one is excluded because it is not a retry, it is a
+        // stale path.
+        assert_eq!(albums, vec![present, review]);
+        fs::remove_dir_all(&root).unwrap();
     }
 
 }

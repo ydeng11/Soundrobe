@@ -31,10 +31,13 @@ import {
   RUN_STATUS_LABEL,
   TRIGGER_LABEL,
   describeCron,
+  describeRunItemReason,
+  describeRunItems,
   facetCounts,
   filterLog,
   filterReleases,
   formatRunDuration,
+  itemsNeedingAction,
   levelCounts,
   parseLog,
   relativeTime,
@@ -44,7 +47,9 @@ import {
   getMonitoringStatus,
   listMonitoringReleases,
   readMonitoringLog,
+  retryFailedBackgroundTagging,
   runBackgroundTagging,
+  type BackgroundRun,
   type BackgroundRunTrigger,
   type MonitoredRelease,
   type MonitoringLogSource,
@@ -60,6 +65,11 @@ export interface MonitoringViewProps {
   loadReleases?: () => Promise<{ releases: MonitoredRelease[] }>;
   readLog?: (source: MonitoringLogSource, lines?: number) => Promise<MonitoringLog>;
   runNow?: () => Promise<{ taskId: string }>;
+  /**
+   * Re-run the releases a finished run left needing action. Monitoring is where
+   * the failures are visible, so it is where they can be acted on.
+   */
+  retryFailed?: (runId: string) => Promise<{ taskId: string }>;
   /** The operation log is a tab of this view rather than a destination. */
   loadTasks?: () => Promise<WebTask[]>;
   cancelTask?: (taskId: string) => Promise<unknown>;
@@ -124,6 +134,7 @@ const defaultLoadStatus = () => getMonitoringStatus();
 const defaultLoadReleases = () => listMonitoringReleases();
 const defaultReadLog = (source: MonitoringLogSource, lines?: number) => readMonitoringLog(source, lines);
 const defaultRunNow = () => runBackgroundTagging();
+const defaultRetryFailed = (runId: string) => retryFailedBackgroundTagging(runId);
 const defaultLoadTasks = () => import("../shared/web-adapter").then((m) => m.listWebTasks());
 const defaultCancelTask = (taskId: string) => window.api.cancelTask(taskId);
 
@@ -132,6 +143,7 @@ export function MonitoringView({
   loadReleases = defaultLoadReleases,
   readLog = defaultReadLog,
   runNow = defaultRunNow,
+  retryFailed = defaultRetryFailed,
   loadTasks = defaultLoadTasks,
   cancelTask = defaultCancelTask,
   onOpenAlbum,
@@ -150,6 +162,7 @@ export function MonitoringView({
   const [releaseFilter, setReleaseFilter] = React.useState<ReleaseHealthStatus | "all">("all");
   const [releaseQuery, setReleaseQuery] = React.useState("");
   const [releaseLimit, setReleaseLimit] = React.useState(RELEASE_PAGE);
+  const [expandedRun, setExpandedRun] = React.useState<string | null>(null);
   const [logLevel, setLogLevel] = React.useState<LogLevel | "all">("all");
   const [logQuery, setLogQuery] = React.useState("");
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
@@ -244,6 +257,23 @@ export function MonitoringView({
       setBusy(false);
     }
   }, [refresh, runNow]);
+
+  const handleRetryFailed = React.useCallback(
+    async (runId: string) => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        const { taskId } = await retryFailed(runId);
+        setNotice(`Retrying the releases that failed (${taskId}).`);
+        await refresh();
+      } catch (reason) {
+        setNotice(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh, retryFailed],
+  );
 
   const runs = status?.recentRuns ?? [];
   const running = status?.running ?? [];
@@ -477,26 +507,59 @@ export function MonitoringView({
                       <th scope="col">Took</th>
                       <th scope="col">Tagged</th>
                       <th scope="col">Failed</th>
+                      <th scope="col">Releases</th>
                       <th scope="col">Summary</th>
                     </tr>
                   </thead>
                   <tbody>
                     {runs.map((run) => (
-                      <tr key={run.id}>
-                        <td title={formatStamp(run.startedAt)}>
-                          {relativeTime(run.startedAt, clock)}
-                        </td>
-                        <td>{TRIGGER_LABEL[run.trigger] ?? run.trigger}</td>
-                        <td>
-                          <span className={`sr-badge ${RUN_STATUS_CLASS[run.status]}`}>
-                            {RUN_STATUS_LABEL[run.status] ?? run.status}
-                          </span>
-                        </td>
-                        <td>{formatRunDuration(run.startedAt, run.finishedAt, clock)}</td>
-                        <td>{run.tagged}</td>
-                        <td>{run.failed}</td>
-                        <td className="sr-cell--muted">{run.message || "—"}</td>
-                      </tr>
+                      <React.Fragment key={run.id}>
+                        <tr>
+                          <td title={formatStamp(run.startedAt)}>
+                            {relativeTime(run.startedAt, clock)}
+                          </td>
+                          <td>{TRIGGER_LABEL[run.trigger] ?? run.trigger}</td>
+                          <td>
+                            <span className={`sr-badge ${RUN_STATUS_CLASS[run.status]}`}>
+                              {RUN_STATUS_LABEL[run.status] ?? run.status}
+                            </span>
+                          </td>
+                          <td>{formatRunDuration(run.startedAt, run.finishedAt, clock)}</td>
+                          <td>{run.tagged}</td>
+                          <td>{run.failed}</td>
+                          <td>
+                            {run.items.length === 0 ? (
+                              <span className="sr-cell--muted">—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="sr-btn"
+                                aria-expanded={expandedRun === run.id}
+                                aria-label={`Show the ${run.items.length} releases this run recorded`}
+                                data-testid={`monitoring-run-items-${run.id}`}
+                                onClick={() =>
+                                  setExpandedRun(expandedRun === run.id ? null : run.id)
+                                }
+                              >
+                                {run.items.length}
+                              </button>
+                            )}
+                          </td>
+                          <td className="sr-cell--muted">{run.message || "—"}</td>
+                        </tr>
+                        {expandedRun === run.id && (
+                          <tr data-testid={`monitoring-run-detail-${run.id}`}>
+                            <td colSpan={8}>
+                              <RunLedger
+                                run={run}
+                                busy={busy}
+                                onRetry={handleRetryFailed}
+                                onOpenAlbum={onOpenAlbum}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -824,6 +887,86 @@ function Tile({
     >
       {body}
     </button>
+  );
+}
+
+/**
+ * What one run did, release by release.
+ *
+ * The counts above say a run failed; this says which releases it failed on and
+ * why, and offers the one action that follows from knowing: run those again.
+ */
+function RunLedger({
+  run,
+  busy,
+  onRetry,
+  onOpenAlbum,
+}: {
+  run: BackgroundRun;
+  busy: boolean;
+  onRetry: (runId: string) => void;
+  onOpenAlbum?: (path: string) => void;
+}) {
+  const actionable = itemsNeedingAction(run);
+  return (
+    <div className="sr-section">
+      <div className="sr-toolbar">
+        <span className="sr-freshness" data-testid="monitoring-run-items-summary">
+          {describeRunItems(run)}
+        </span>
+        <div className="sr-header__spacer" />
+        {actionable.length > 0 && (
+          <button
+            type="button"
+            className="sr-btn"
+            disabled={busy}
+            // The healthy releases of the run are deliberately not included, so
+            // the label says how many releases this will actually tag.
+            title="Tags the releases this run left needing action, and skips the rest"
+            data-testid={`monitoring-run-retry-${run.id}`}
+            onClick={() => onRetry(run.id)}
+          >
+            Retry {actionable.length} release{actionable.length === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
+      <table className="sr-table sr-table--log">
+        <thead>
+          <tr>
+            <th scope="col">Release</th>
+            <th scope="col">Outcome</th>
+            <th scope="col">Reason</th>
+            {onOpenAlbum && <th scope="col">Actions</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {run.items.map((item) => (
+            <tr key={item.path}>
+              <td className="sr-cell--muted" title={item.path}>
+                {albumNameOf(item.path)}
+              </td>
+              <td>
+                <span className={`sr-badge ${RELEASE_CLASS[item.status]}`}>
+                  {RELEASE_LABEL[item.status] ?? item.status}
+                </span>
+              </td>
+              <td className="sr-cell--muted">{describeRunItemReason(item)}</td>
+              {onOpenAlbum && (
+                <td>
+                  <button
+                    type="button"
+                    className="sr-btn"
+                    onClick={() => onOpenAlbum(item.path)}
+                  >
+                    Open
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

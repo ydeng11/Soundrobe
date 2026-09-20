@@ -8,9 +8,12 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { MonitoredRelease } from "../../src/shared/web-adapter";
+import type { BackgroundRun, MonitoredRelease } from "../../src/shared/web-adapter";
 import {
   describeCron,
+  describeRunItemReason,
+  describeRunItems,
+  itemsNeedingAction,
   facetCounts,
   filterLog,
   filterReleases,
@@ -181,5 +184,60 @@ describe("describeCron", () => {
     expect(describeCron("0 0 * *")).toBeNull();
     expect(describeCron("0 0 * * * *")).toBeNull();
     expect(describeCron("")).toBeNull();
+  });
+});
+
+const runWith = (items: BackgroundRun["items"], itemsTruncated = false): BackgroundRun => ({
+  id: "bg-run-1-0",
+  trigger: "manual",
+  startedAt: "2026-09-19T10:00:00.000Z",
+  finishedAt: "2026-09-19T10:01:00.000Z",
+  status: "failed",
+  tagged: 1,
+  failed: 1,
+  message: "Tagged 1, 1 failed",
+  taskId: null,
+  items,
+  itemsTruncated,
+});
+
+describe("run ledger", () => {
+  it("keeps only the releases a retry should cover, because retrying a healthy one re-tags the library", () => {
+    const run = runWith([
+      { path: "/music/A", status: "healthy", authority: "discogs" },
+      { path: "/music/B", status: "failed", reason: "permission denied" },
+      { path: "/music/C", status: "needs_review", reason: "no_authoritative_match" },
+      { path: "/music/D", status: "tagging" },
+    ]);
+
+    expect(itemsNeedingAction(run).map((item) => item.path)).toEqual(["/music/B", "/music/C"]);
+  });
+
+  it("says what happened to a release from the reason, the source, or both", () => {
+    // "Which source tagged this" and "why did it not" are different questions,
+    // and a line that answers the wrong one is worse than a blank.
+    expect(describeRunItemReason({ path: "/music/A", status: "healthy", authority: "discogs" }))
+      .toBe("via discogs");
+    expect(describeRunItemReason({ path: "/music/B", status: "failed", reason: "permission denied" }))
+      .toBe("permission denied");
+    expect(
+      describeRunItemReason({
+        path: "/music/C",
+        status: "needs_review",
+        reason: "no_authoritative_match",
+        authority: "musicbrainz",
+      }),
+    ).toBe("no_authoritative_match · via musicbrainz");
+    expect(describeRunItemReason({ path: "/music/D", status: "healthy" })).toBe("—");
+  });
+
+  it("admits when the ledger dropped releases instead of reading as a complete list", () => {
+    // A capped ledger that reads as complete is how a failure gets missed.
+    expect(describeRunItems(runWith([{ path: "/music/A", status: "healthy" }]))).toBe(
+      "1 release recorded",
+    );
+    expect(
+      describeRunItems(runWith([{ path: "/music/A", status: "healthy" }], true)),
+    ).toContain("dropped");
   });
 });

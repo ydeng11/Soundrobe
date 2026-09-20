@@ -3477,9 +3477,12 @@ mod edition_tests;
 #[path = "auto_tag_enya_smoke_tests.rs"]
 mod enya_smoke_tests;
 
+/// The synthetic-corpus harness. Reachable from other test modules because the
+/// background-tagging smoke resolves the same synthetic media through the same
+/// offline provider service, and forking that setup would let them drift.
 #[cfg(test)]
 #[path = "auto_tag_eval.rs"]
-mod eval_tests;
+pub(crate) mod eval_tests;
 
 #[cfg(test)]
 mod tests {
