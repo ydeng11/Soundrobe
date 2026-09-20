@@ -1,9 +1,10 @@
 /**
  * Folder tree for the browser workspace.
  *
- * The reference workspace browses folders from a tree and lists only the files
- * of the selected directory in the file table, so navigation and file listing
- * are separate concerns. Subdirectories are loaded on demand by the parent.
+ * The reference workspace browses folders from a tree and lists the files of the
+ * selected album in the file table. An artist root is the no-album view, so its
+ * loaded child-album tracks are listed together. Directory metadata remains lazy
+ * outside that root-level track aggregation.
  */
 
 import type { DirEntry } from "../shared/desktop-api";

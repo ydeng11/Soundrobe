@@ -50,6 +50,23 @@ function loadDetailsVisible(): boolean {
   }
 }
 
+async function readDirectoryDescendants(
+  api: Window["api"],
+  entries: readonly DirEntry[],
+): Promise<DirectoryData[]> {
+  const groups = await Promise.all(
+    entries.map(async (entry) => {
+      try {
+        const data = await api.readDirectory(entry.path);
+        return [data, ...(await readDirectoryDescendants(api, data.subdirs ?? []))];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  return groups.flat();
+}
+
 export interface WorkspaceViewProps {
   /** Injected for tests; defaults to the installed `window.api` facade. */
   api?: Window["api"];
@@ -131,7 +148,7 @@ export function WorkspaceView({
   }, [refreshReviewPaths]);
 
   const loadDirectory = React.useCallback(
-    async (path: string) => {
+    async (path: string, includeChildTracks = false) => {
       setLoading(true);
       setError(null);
       try {
@@ -139,17 +156,29 @@ export function WorkspaceView({
           api.readDirectory(path),
           api.listDirectory(path),
         ]);
+        // A mounted root is an artist folder; its child folders are albums.
+        const childDirectories = includeChildTracks
+          ? await readDirectoryDescendants(api, data.subdirs ?? [])
+          : [];
+        const tracks = [
+          ...(data.tracks ?? []),
+          ...childDirectories.flatMap((child) => child.tracks ?? []),
+        ];
         const cover = await api.getCoverDataUrl(path, undefined).catch(() => null);
         setDirectory({
           path,
-          tracks: data.tracks ?? [],
+          tracks,
           subdirs: data.subdirs ?? [],
           names: new Set(
             entries.filter((entry) => !entry.isDirectory).map((entry) => entry.name.toLowerCase()),
           ),
           coverDataUrl: cover,
         });
-        setChildrenByPath((current) => ({ ...current, [path]: data.subdirs ?? [] }));
+        setChildrenByPath((current) => ({
+          ...current,
+          [path]: data.subdirs ?? [],
+          ...Object.fromEntries(childDirectories.map((child) => [child.path, child.subdirs ?? []])),
+        }));
         setSelectedPaths([]);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : String(reason));
@@ -168,7 +197,7 @@ export function WorkspaceView({
         const list = await api.listLibraryRoots();
         if (!active) return;
         setRoots(list);
-        if (list.length > 0) await loadDirectory(list[0].path);
+        if (list.length > 0) await loadDirectory(list[0].path, true);
         else setLoading(false);
       } catch (reason) {
         if (!active) return;
@@ -275,7 +304,7 @@ export function WorkspaceView({
       setError(null);
       try {
         await api.writeTrack(selectedTrackPath, fields);
-        await loadDirectory(directory.path);
+        await loadDirectory(directory.path, directory.path === root.path);
         setSelectedPaths([selectedTrackPath]);
       } catch (reason) {
         setError(reason instanceof Error ? reason.message : String(reason));
@@ -319,7 +348,7 @@ export function WorkspaceView({
                 const index = Number(event.target.value);
                 setRootIndex(index);
                 const nextRoot = roots[index];
-                if (nextRoot) void loadDirectory(nextRoot.path);
+                if (nextRoot) void loadDirectory(nextRoot.path, true);
               }}
             >
               {roots.map((entry, index) => (
@@ -340,8 +369,9 @@ export function WorkspaceView({
           childrenByPath={childrenByPath}
           onToggle={handleToggle}
           onNavigate={(path) => {
-            if (path !== directory?.path) void loadDirectory(path);
-            if (!childrenByPath[path]) void loadDirectory(path);
+            if (path !== directory?.path || !childrenByPath[path]) {
+              void loadDirectory(path, path === root.path);
+            }
           }}
         />
 
@@ -369,7 +399,7 @@ export function WorkspaceView({
               type="button"
               className="sr-crumbs__item"
               aria-current={directory?.path === root.path ? "page" : undefined}
-              onClick={() => void loadDirectory(root.path)}
+              onClick={() => void loadDirectory(root.path, true)}
             >
               {root.name}
             </button>
@@ -395,7 +425,7 @@ export function WorkspaceView({
             selectedPaths={selectedPaths}
             api={api}
             onApplied={async () => {
-              if (directory) await loadDirectory(directory.path);
+              if (directory) await loadDirectory(directory.path, directory.path === root.path);
               await refreshReviewPaths();
             }}
           />
@@ -413,7 +443,7 @@ export function WorkspaceView({
             type="button"
             className="sr-btn"
             onClick={() => {
-              if (directory) void loadDirectory(directory.path);
+              if (directory) void loadDirectory(directory.path, directory.path === root.path);
             }}
           >
             Refresh

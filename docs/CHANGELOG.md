@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Browser Workspace now shows all loaded tracks in the selected artist folder when no specific album is open; selecting an album still narrows the table to that album.
 - Browser Search results are rows you compare rather than one run-on line: year, track
   count, country and format each get their own place, the whole row is the target, and
   arrow keys move between rows.
