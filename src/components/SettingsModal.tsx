@@ -419,7 +419,7 @@ export function SettingsModal({
                   {settings.clearTagsEnabled && (
                     <div className="flex flex-col gap-2" data-testid="settings-clear-tags">
                       <label className="text-[11px] font-medium text-text-primary" htmlFor="setting-clear-tag">
-                        Tags to clear
+                        Selected tags will be cleared
                       </label>
                       <div className="flex gap-1.5">
                         <input
@@ -460,16 +460,19 @@ export function SettingsModal({
                                 {suggestion?.label ?? tagId}
                                 <button
                                   type="button"
-                                  aria-label={`Keep ${suggestion?.label ?? tagId}`}
+                                  aria-label={`Remove ${suggestion?.label ?? tagId} from clear list`}
+                                  title="Remove from clear list"
                                   onClick={() =>
                                     setSettings({
                                       ...settings,
                                       clearTags: settings.clearTags.filter((tag) => tag !== tagId),
                                     })
                                   }
-                                  className="text-accent hover:text-text-primary"
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded text-text-muted hover:text-text-primary"
                                 >
-                                  Keep
+                                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M6 6 18 18M18 6 6 18" />
+                                  </svg>
                                 </button>
                               </li>
                             );

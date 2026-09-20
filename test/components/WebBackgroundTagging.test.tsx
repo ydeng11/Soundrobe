@@ -625,7 +625,8 @@ describe("Settings", () => {
       />,
     );
 
-    const input = await screen.findByRole("combobox", { name: "Tags to clear" });
+    const input = await screen.findByRole("combobox", { name: "Selected tags will be cleared" });
+    expect(screen.getByText("Selected tags will be cleared")).toBeTruthy();
     expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
     fireEvent.change(input, { target: { value: "desc" } });
     const suggestion = await screen.findByRole("option", { name: "Description" });
@@ -635,6 +636,9 @@ describe("Settings", () => {
       expect(saveConfig).toHaveBeenCalledWith("clearTags", ["comment", "description"]),
     );
     expect(screen.getByTestId("settings-clear-tag-list").textContent).toContain("Description");
+    expect(
+      screen.getByRole("button", { name: "Remove Description from clear list" }),
+    ).toBeTruthy();
     expect(suggestTags).toHaveBeenCalledWith("desc");
   });
 

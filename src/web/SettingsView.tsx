@@ -678,7 +678,7 @@ export function SettingsView({
         {configBool(config, "clearTagsEnabled") && (
           <div className="sr-field sr-field--stacked" data-testid="settings-clear-tags">
             <label className="sr-field__label" htmlFor="setting-clear-tag">
-              Tags to clear
+              Selected tags will be cleared
             </label>
             <div className="sr-toolbar">
               <input
@@ -733,12 +733,15 @@ export function SettingsView({
                       {suggestion?.label ?? tagId}
                       <button
                         type="button"
-                        className="sr-btn"
-                        aria-label={`Keep ${suggestion?.label ?? tagId}`}
+                        className="sr-btn sr-chip__remove"
+                        aria-label={`Remove ${suggestion?.label ?? tagId} from clear list`}
+                        title="Remove from clear list"
                         disabled={pending.clearTags}
                         onClick={() => removeClearTag(tagId)}
                       >
-                        Keep
+                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6 6 18 18M18 6 6 18" />
+                        </svg>
                       </button>
                     </li>
                   );

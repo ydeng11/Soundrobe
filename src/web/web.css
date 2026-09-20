@@ -615,6 +615,19 @@
   font-weight: var(--sr-fw-medium);
 }
 
+.sr-chip__remove {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.sr-chip__remove:hover:not(:disabled) {
+  background: var(--sr-hover);
+}
+
 .sr-technical {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

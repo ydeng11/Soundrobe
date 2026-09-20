@@ -247,12 +247,16 @@ describe("SettingsModal", () => {
     await screen.findByDisplayValue("model");
     clickTab("Metadata");
 
+    expect(screen.getByText("Selected tags will be cleared")).toBeTruthy();
     expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
     const input = screen.getByPlaceholderText("Type Comment or Description");
     fireEvent.change(input, { target: { value: "desc" } });
     fireEvent.click(await screen.findByRole("option", { name: "Description" }));
 
     expect(screen.getByTestId("settings-clear-tag-list").textContent).toContain("Description");
+    expect(
+      screen.getByRole("button", { name: "Remove Description from clear list" }),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(setConfig).toHaveBeenCalledWith("clearTags", ["comment", "description"]),
