@@ -522,6 +522,46 @@ describe("tool drawers", () => {
 });
 
 describe("Search", () => {
+  it("shows one clear decision at a time through the three-step flow", async () => {
+    const api = fakeApi();
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+
+    expect(screen.getByTestId("search-drawer").className).toContain("sr-drawer--wide");
+    expect(screen.getByTestId("search-flow").textContent).toContain("Step 1 of 3");
+    expect(screen.getByRole("heading", { name: "Search providers" })).toBeTruthy();
+    expect(screen.queryByTestId("search-results")).toBeNull();
+    expect(screen.queryByTestId("search-mapping")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("search-run"));
+    await screen.findByTestId("search-results");
+    expect(screen.getByTestId("search-flow").textContent).toContain("Step 2 of 3");
+    expect(screen.getByRole("heading", { name: "Select a release" })).toBeTruthy();
+    expect(screen.getByTestId("search-edit")).toBeTruthy();
+    expect(screen.queryByTestId("search-album")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("search-choose-release-1"));
+    await screen.findByTestId("search-mapping");
+    expect(screen.getByTestId("search-flow").textContent).toContain("Step 3 of 3");
+    expect(screen.getByRole("heading", { name: "Match tracks before writing" })).toBeTruthy();
+    expect(screen.getByTestId("search-mapping").textContent).toContain("Local file");
+    expect(screen.getByTestId("search-mapping").textContent).toContain("Remote track");
+    expect(screen.queryByTestId("search-results")).toBeNull();
+  });
+
+  it("distinguishes an empty provider search from an empty local filter", async () => {
+    const api = fakeApi({ searchResults: [] });
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(screen.getByTestId("tools-search"));
+    fireEvent.click(await screen.findByTestId("search-run"));
+
+    const empty = await screen.findByTestId("search-results-empty");
+    expect(empty.textContent).toContain("No releases matched this search");
+    expect((screen.getByTestId("search-load-counts") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("leads with the edition closest to this album, not the provider's order", async () => {
     // Measured on a real album: the top provider hit was a 26-track edition that
     // mapped none of the ten local files, while the ten-track edition mapped all

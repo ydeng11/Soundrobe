@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ten-track album was a twenty-six-track edition that matched none of its ten files,
   while the ten-track edition matched all ten. Choosing an order yourself stops the page
   choosing one for you.
+- Browser Search now moves through Search, Select release, and Match tracks as three
+  visible steps. It shows one step at a time, keeps the album context visible, gives
+  release candidates a clearer match summary, and presents each local file beside the
+  remote track and values that will be written. The wide comparison drawer remains
+  usable on a phone, with actions kept in view.
 
 - The browser service's **Monitoring** page is now four tabs — Overview, Releases,
   Operations, Logs — under a strip of counts that stays visible. Every count that has

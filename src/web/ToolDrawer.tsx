@@ -17,6 +17,7 @@ export function ToolDrawer({
   onClose,
   children,
   testId,
+  wide = false,
 }: {
   title: string;
   busy: boolean;
@@ -26,6 +27,8 @@ export function ToolDrawer({
   onClose: () => void;
   children: React.ReactNode;
   testId: string;
+  /** Search needs room to compare local and remote tracks side by side. */
+  wide?: boolean;
 }) {
   const dialogRef = React.useRef<HTMLDivElement | null>(null);
   const titleId = `${testId}-title`;
@@ -94,7 +97,7 @@ export function ToolDrawer({
         aria-busy={busy}
         data-testid={testId}
         tabIndex={-1}
-        className="sr-drawer"
+        className={`sr-drawer${wide ? " sr-drawer--wide" : ""}`}
         onKeyDown={handleKeyDown}
       >
         <header className="sr-toolbar">

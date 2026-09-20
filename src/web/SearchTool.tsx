@@ -217,15 +217,22 @@ export function SearchTool({
       });
       countGeneration.current += 1;
       setCounts({});
+      setCounting(false);
       setCountProgress(null);
       setCountError(null);
+      setCountMessage(null);
       setPage(pageResult);
       setProviderPage(nextPage);
       setResultPage(1);
       setRelease(null);
       setMapping([]);
       setCandidate(null);
-      setPhase(pageResult.results.length > 0 ? "results" : "form");
+      setResultFilter("");
+      setResultYear("");
+      setResultTrackCount("");
+      setResultCountry("");
+      setResultFormat("");
+      setPhase("results");
       return pageResult.results.length > 0
         ? `${pageResult.results.length} releases found.`
         : "No releases matched.";
@@ -361,13 +368,13 @@ export function SearchTool({
       setResolvingId(resultKey(result));
       try {
         const detail = await api.resolveRelease(result.provider, result.id, result.kind);
-      const preview = await api.previewReleaseMatch({
-        albumPath,
-        release: detail,
-        provider: result.provider,
-      });
-      setRelease(preview.release);
-      setCandidate(preview.albumCandidate);
+        const preview = await api.previewReleaseMatch({
+          albumPath,
+          release: detail,
+          provider: result.provider,
+        });
+        setRelease(preview.release);
+        setCandidate(preview.albumCandidate);
         setMapping(rowsFrom(preview.candidates, preview.release.tracks));
         setPhase("mapping");
         return null;
@@ -482,6 +489,9 @@ export function SearchTool({
         : `Wrote ${written} track(s) from ${release.title ?? "the chosen release"}.`;
     });
 
+  const phaseIndex = phase === "form" ? 1 : phase === "results" ? 2 : 3;
+  const phaseLabels = ["Search", "Select release", "Match tracks"];
+
   return (
     <ToolDrawer
       title={`Search releases — ${albumLabel}`}
@@ -490,6 +500,7 @@ export function SearchTool({
       errors={failures}
       onClose={onClose}
       testId="search-drawer"
+      wide
     >
       {/*
         Announced and read first: an outcome reported below ten results is an
@@ -506,13 +517,45 @@ export function SearchTool({
         </p>
       )}
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Query</h3>
+      <div className="sr-search-flow" data-testid="search-flow">
+        <div className="sr-search-flow__context">
+          <div>
+            <span className="sr-search-flow__label">Current album</span>
+            <strong>{albumLabel}</strong>
+            <span className="sr-search-flow__meta">
+              {localTrackCount === null
+                ? "Reading local tracks…"
+                : `${localTrackCount} local track${localTrackCount === 1 ? "" : "s"}`}
+            </span>
+          </div>
+          <span className="sr-search-flow__count">Step {phaseIndex} of 3</span>
+        </div>
+        <ol className="sr-search-flow__steps" aria-label="Search flow">
+          {phaseLabels.map((label, index) => {
+            const step = index + 1;
+            return (
+              <li
+                key={label}
+                className={`sr-search-flow__step${step === phaseIndex ? " is-active" : ""}${step < phaseIndex ? " is-complete" : ""}`}
+                aria-current={step === phaseIndex ? "step" : undefined}
+              >
+                <span className="sr-search-flow__number">{step}</span>
+                <span>{label}</span>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+
+      {phase === "form" && (
+        <section className="sr-section sr-search-step" aria-labelledby="search-query-title">
+        <h3 className="sr-section__title" id="search-query-title">Search providers</h3>
         <p className="sr-field__static" data-testid="search-target">
           Searching for a release for {albumLabel}
           {localTrackCount !== null ? ` (${localTrackCount} local file${localTrackCount === 1 ? "" : "s"})` : ""}.
         </p>
-        <div className="sr-field">
+        <div className="sr-search-form-grid">
+        <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="search-provider">
             Provider
           </label>
@@ -542,7 +585,7 @@ export function SearchTool({
             ["search-barcode", "Barcode", barcode, setBarcode, ""],
           ] as const
         ).map(([id, label, value, setter, hint]) => (
-          <div className="sr-field" key={id}>
+          <div className="sr-field sr-field--stacked" key={id}>
             <label className="sr-field__label" htmlFor={id}>
               {label}
             </label>
@@ -564,24 +607,42 @@ export function SearchTool({
             {hint && <p className="sr-field__static">{hint}</p>}
           </div>
         ))}
+        </div>
 
-        <button
-          type="button"
-          className="sr-btn sr-btn--primary"
-          data-testid="search-run"
-          disabled={busy || !canSearch}
-          onClick={() => void search(1)}
-        >
-          {busy ? "Searching…" : "Search"}
-        </button>
-      </section>
+        <div className="sr-tool-actions">
+          <span className="sr-field__static">
+            {canSearch ? "Ready to search" : "Enter an artist or album to search"}
+          </span>
+          <button
+            type="button"
+            className="sr-btn sr-btn--primary"
+            data-testid="search-run"
+            disabled={busy || !canSearch}
+            onClick={() => void search(1)}
+          >
+            {busy ? "Searching…" : "Search releases"}
+          </button>
+        </div>
+        </section>
+      )}
 
-      {phase !== "form" && page && (
-        <section className="sr-section">
-          <h3 className="sr-section__title">Releases</h3>
-          <p className="sr-field__static" data-testid="search-results-count" aria-live="polite">
+      {phase === "results" && page && (
+        <section className="sr-section sr-search-step" aria-labelledby="search-results-title">
+          <div className="sr-search-step__heading">
+            <div>
+              <p className="sr-search-step__kicker">Step 2</p>
+              <h3 className="sr-section__title" id="search-results-title">Select a release</h3>
+              <p className="sr-field__static" data-testid="search-target">
+                Compare editions against {albumLabel} before opening track matching.
+              </p>
+            </div>
+            <button type="button" className="sr-btn" data-testid="search-edit" onClick={() => setPhase("form")}>
+              Edit search
+            </button>
+          </div>
+          <p className="sr-search-results-summary" data-testid="search-results-count" aria-live="polite">
             Showing {visibleResults.length} of {filteredResults.length} matching
-            {page.results.length > 0 ? ` — ${page.results.length} from ${provider}` : ""}
+            {page.results.length > 0 ? ` from ${provider}` : " — try broader search details"}
             {page.hasNext ? ", more available" : ""}.
           </p>
 
@@ -745,7 +806,7 @@ export function SearchTool({
               type="button"
               className="sr-btn"
               data-testid="search-load-counts"
-              disabled={counting}
+              disabled={counting || page.results.length === 0}
               onClick={() => void loadCounts()}
             >
               Load track counts
@@ -788,6 +849,9 @@ export function SearchTool({
                         {result.artist && (
                           <span className="sr-result__artist">{result.artist}</span>
                         )}
+                        <span className="sr-result__match">
+                          {trackMatchSummary(trackCountOf(result), localTrackCount)}
+                        </span>
                       </span>
                       <span className="sr-result__facts">
                         <Fact label="Year" value={result.year} />
@@ -797,7 +861,7 @@ export function SearchTool({
                         <Fact label="Catalog" value={result.catalogNumber} />
                       </span>
                       <span className="sr-result__action">
-                        {resolving ? "Resolving…" : "Use release"}
+                        {resolving ? "Opening…" : "Select release"}
                       </span>
                     </button>
                   </li>
@@ -805,10 +869,17 @@ export function SearchTool({
             })}
           </ul>
           {filteredResults.length === 0 && (
-            <p className="sr-empty__body" data-testid="search-results-empty">
-              No release in these results matches the filters above. Clear a filter, or search
-              again with different terms.
-            </p>
+            <div className="sr-empty sr-search-empty" data-testid="search-results-empty">
+              <h4 className="sr-empty__title">
+                {page.results.length === 0 ? "No releases matched this search" : "No release matches the filters above"}
+              </h4>
+              <p className="sr-empty__body">
+                {page.results.length === 0
+                  ? "Edit the search details to try a broader query."
+                  : "Clear a filter or edit the search details to try a broader query."}
+              </p>
+
+            </div>
           )}
 
           {filteredResults.length > RESULT_PAGE_SIZE && (
@@ -852,142 +923,115 @@ export function SearchTool({
       )}
 
       {phase === "mapping" && release && (
-        <section className="sr-section">
-          <h3 className="sr-section__title">Apply {release.title ?? "release"}</h3>
-          <p className="sr-field__static">
-            {mappedRows.length} of {mapping.length} local file(s) mapped.
-            {unusedRemote.length > 0
-              ? ` ${unusedRemote.length} provider track(s) unused.`
-              : ""}
-          </p>
+        <section className="sr-section sr-search-step" aria-labelledby="search-mapping-title">
+          <div className="sr-search-step__heading">
+            <div>
+              <p className="sr-search-step__kicker">Step 3</p>
+              <h3 className="sr-section__title" id="search-mapping-title">Match tracks before writing</h3>
+              <p className="sr-field__static">Choose the remote track for each local file. The fields below are the values that will be written.</p>
+            </div>
+            <button type="button" className="sr-btn" data-testid="search-back-top" onClick={() => setPhase("results")}>Back to releases</button>
+          </div>
 
-          <table className="sr-table" data-testid="search-mapping">
-            <thead>
-              <tr>
-                <th scope="col">Local file</th>
-                <th scope="col">Provider track</th>
-                <th scope="col">Title</th>
-                <th scope="col">Artist</th>
-                <th scope="col">Track</th>
-                <th scope="col">Total</th>
-                <th scope="col">Disc</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mapping.map((row) => (
-                <tr key={row.localIndex} data-testid={`search-mapping-row-${row.localIndex}`}>
-                  <td>{row.localTitle || `Track ${row.localIndex + 1}`}</td>
-                  <td>
-                    <select
-                      className="sr-input"
-                      aria-label={`Provider track for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-remote-${row.localIndex}`}
-                      value={row.selectedRemoteIndex === null ? "" : String(row.selectedRemoteIndex)}
-                      onChange={(event) => setRemote(row.localIndex, event.target.value)}
-                    >
-                      <option value="">Do not update</option>
-                      {release.tracks.map((remote, index) => (
-                        <option key={index} value={index}>
-                          {`${index + 1}. ${remote.title ?? "Untitled"}${
-                            remote.artist ? ` — ${remote.artist}` : ""
-                          }`}
-                        </option>
-                      ))}
-                    </select>
-                    {row.selectedRemoteIndex !== null &&
-                      duplicateRemotes.has(row.selectedRemoteIndex) && (
-                        <span className="sr-badge sr-badge--warning">
-                          Also mapped to another file
-                        </span>
-                      )}
-                  </td>
-                  <td>
-                    <input
-                      className="sr-input"
-                      aria-label={`Title for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-title-${row.localIndex}`}
-                      value={row.editedTitle}
-                      onChange={(event) =>
-                        editRow(row.localIndex, "editedTitle", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sr-input"
-                      aria-label={`Artist for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-artist-${row.localIndex}`}
-                      value={row.editedArtist}
-                      onChange={(event) =>
-                        editRow(row.localIndex, "editedArtist", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sr-input"
-                      aria-label={`Track number for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-track-${row.localIndex}`}
-                      value={row.editedTrackNumber}
-                      onChange={(event) =>
-                        editRow(row.localIndex, "editedTrackNumber", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    {/*
-                      The total is written from the provider track, so it has to be
-                      visible: a value that is applied but not shown cannot be
-                      corrected.
-                    */}
-                    <input
-                      className="sr-input"
-                      aria-label={`Track total for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-total-${row.localIndex}`}
-                      value={row.editedTrackTotal}
-                      onChange={(event) =>
-                        editRow(row.localIndex, "editedTrackTotal", event.target.value)
-                      }
-                    />
-                  </td>
-                  <td>
-                    <input
-                      className="sr-input"
-                      aria-label={`Disc number for ${row.localTitle || row.localIndex + 1}`}
-                      data-testid={`search-map-disc-${row.localIndex}`}
-                      value={row.editedDiscNumber}
-                      onChange={(event) =>
-                        editRow(row.localIndex, "editedDiscNumber", event.target.value)
-                      }
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="sr-mapping-summary">
+            <div>
+              <strong>{release.title ?? "Selected release"}</strong>
+              <span>{release.artist ?? release.artists.join(", ")}</span>
+            </div>
+            <div className="sr-mapping-summary__stats">
+              <strong>{mappedRows.length} of {mapping.length}</strong>
+              <span>local tracks matched</span>
+              {unusedRemote.length > 0 && <span>{unusedRemote.length} remote track{unusedRemote.length === 1 ? "" : "s"} unused</span>}
+            </div>
+          </div>
 
-          <button
-            type="button"
-            className="sr-btn"
-            data-testid="search-back"
-            onClick={() => setPhase("results")}
-          >
-            Back to results
-          </button>
-          <button
-            type="button"
-            className="sr-btn sr-btn--primary"
-            data-testid="search-apply"
-            disabled={busy || mappedRows.length === 0}
-            onClick={() => void apply()}
-          >
-            {busy ? "Writing…" : `Write ${mappedRows.length} track(s)`}
-          </button>
+          <div className="sr-mapping-list" data-testid="search-mapping">
+            <div className="sr-mapping-list__head" aria-hidden="true">
+              <span>Local file</span>
+              <span>Remote track and write values</span>
+            </div>
+            {mapping.map((row) => {
+              const localLabel = row.localTitle || `Track ${row.localIndex + 1}`;
+              const mapped = row.selectedRemoteIndex !== null;
+              return (
+                <article className={`sr-mapping-row${mapped ? " is-mapped" : " is-skipped"}`} key={row.localIndex} data-testid={`search-mapping-row-${row.localIndex}`}>
+                  <div className="sr-mapping-local">
+                    <span className="sr-mapping-side-label">Local file</span>
+                    <strong>{localLabel}</strong>
+                    {row.localArtist && <span>{row.localArtist}</span>}
+                    <span className="sr-mapping-file-number">Track {row.localIndex + 1}</span>
+                  </div>
+                  <div className="sr-mapping-arrow" aria-hidden="true">→</div>
+                  <div className="sr-mapping-remote">
+                    <div className="sr-mapping-remote__select">
+                      <label className="sr-field__label" htmlFor={`search-map-remote-${row.localIndex}`}>Remote track</label>
+                      <select
+                        id={`search-map-remote-${row.localIndex}`}
+                        className="sr-input"
+                        aria-label={`Provider track for ${row.localTitle || row.localIndex + 1}`}
+                        data-testid={`search-map-remote-${row.localIndex}`}
+                        value={row.selectedRemoteIndex === null ? "" : String(row.selectedRemoteIndex)}
+                        onChange={(event) => setRemote(row.localIndex, event.target.value)}
+                      >
+                        <option value="">Skip this file</option>
+                        {release.tracks.map((remote, index) => (
+                          <option key={index} value={index}>{`${index + 1}. ${remote.title ?? "Untitled"}${remote.artist ? ` — ${remote.artist}` : ""}`}</option>
+                        ))}
+                      </select>
+                      {row.selectedRemoteIndex !== null && duplicateRemotes.has(row.selectedRemoteIndex) && <span className="sr-badge sr-badge--warning">Also mapped to another file</span>}
+                    </div>
+                    {mapped ? (
+                      <div className="sr-mapping-fields">
+                        <div className="sr-mapping-field">
+                          <label htmlFor={`search-map-title-${row.localIndex}`}>Title</label>
+                          <input id={`search-map-title-${row.localIndex}`} className="sr-input" aria-label={`Title for ${row.localTitle || row.localIndex + 1}`} data-testid={`search-map-title-${row.localIndex}`} value={row.editedTitle} onChange={(event) => editRow(row.localIndex, "editedTitle", event.target.value)} />
+                        </div>
+                        <div className="sr-mapping-field">
+                          <label htmlFor={`search-map-artist-${row.localIndex}`}>Artist</label>
+                          <input id={`search-map-artist-${row.localIndex}`} className="sr-input" aria-label={`Artist for ${row.localTitle || row.localIndex + 1}`} data-testid={`search-map-artist-${row.localIndex}`} value={row.editedArtist} onChange={(event) => editRow(row.localIndex, "editedArtist", event.target.value)} />
+                        </div>
+                        <div className="sr-mapping-field sr-mapping-field--small">
+                          <label htmlFor={`search-map-track-${row.localIndex}`}>Track</label>
+                          <input id={`search-map-track-${row.localIndex}`} className="sr-input" aria-label={`Track number for ${row.localTitle || row.localIndex + 1}`} data-testid={`search-map-track-${row.localIndex}`} inputMode="numeric" value={row.editedTrackNumber} onChange={(event) => editRow(row.localIndex, "editedTrackNumber", event.target.value)} />
+                        </div>
+                        <div className="sr-mapping-field sr-mapping-field--small">
+                          <label htmlFor={`search-map-total-${row.localIndex}`}>Total</label>
+                          <input id={`search-map-total-${row.localIndex}`} className="sr-input" aria-label={`Track total for ${row.localTitle || row.localIndex + 1}`} data-testid={`search-map-total-${row.localIndex}`} inputMode="numeric" value={row.editedTrackTotal} onChange={(event) => editRow(row.localIndex, "editedTrackTotal", event.target.value)} />
+                        </div>
+                        <div className="sr-mapping-field sr-mapping-field--small">
+                          <label htmlFor={`search-map-disc-${row.localIndex}`}>Disc</label>
+                          <input id={`search-map-disc-${row.localIndex}`} className="sr-input" aria-label={`Disc number for ${row.localTitle || row.localIndex + 1}`} data-testid={`search-map-disc-${row.localIndex}`} inputMode="numeric" value={row.editedDiscNumber} onChange={(event) => editRow(row.localIndex, "editedDiscNumber", event.target.value)} />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="sr-mapping-skip">This file will stay unchanged.</p>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="sr-tool-actions">
+            <button type="button" className="sr-btn" data-testid="search-back" onClick={() => setPhase("results")}>Back to releases</button>
+            <button type="button" className="sr-btn sr-btn--primary" data-testid="search-apply" disabled={busy || mappedRows.length === 0} onClick={() => void apply()}>
+              {busy ? "Writing…" : `Write ${mappedRows.length} track${mappedRows.length === 1 ? "" : "s"}`}
+            </button>
+          </div>
         </section>
       )}
 
     </ToolDrawer>
   );
+}
+
+/** Explain how a provider edition compares to the album already open. */
+function trackMatchSummary(trackCount: number | undefined, localTrackCount: number | null): string {
+  if (trackCount === undefined) return "Track count not available yet";
+  if (localTrackCount === null) return `${trackCount} provider tracks`;
+  const difference = trackCount - localTrackCount;
+  if (difference === 0) return "Same track count as this album";
+  return `${Math.abs(difference)} ${difference > 0 ? "more" : "fewer"} tracks than this album`;
 }
 
 /** One labelled fact about a release. An empty fact renders nothing. */
