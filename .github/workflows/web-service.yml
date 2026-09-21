@@ -68,7 +68,6 @@ jobs:
             --publish 18080:8080 \
             --env SOUNDROBE_LISTEN_ADDR=0.0.0.0:8080 \
             --env SOUNDROBE_PUBLIC_URL=http://127.0.0.1:18080 \
-            --env SOUNDROBE_AUTH_PASSWORD=ci-smoke-password \
             --env SOUNDROBE_DATA_DIR=/config \
             --env SOUNDROBE_LIBRARY_ROOT_DIR=/libraries \
             --volume "$RUNNER_TEMP/soundrobe-config:/config" \
@@ -83,13 +82,6 @@ jobs:
             sleep 1
           done
           curl --fail --silent --show-error \
-            --cookie-jar "$RUNNER_TEMP/soundrobe-cookie" \
-            --header 'Content-Type: application/json' \
-            --header 'Origin: http://127.0.0.1:18080' \
-            --data '{"password":"ci-smoke-password"}' \
-            http://127.0.0.1:18080/api/v1/auth/login
-          curl --fail --silent --show-error \
-            --cookie "$RUNNER_TEMP/soundrobe-cookie" \
             http://127.0.0.1:18080/api/v1/libraries
 
       - name: Log in to GHCR

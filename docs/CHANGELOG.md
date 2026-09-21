@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The browser service no longer prompts for a password or maintains a login session; access is controlled by the deployment boundary instead.
 - Tagging cleanup can now clear a validated set of ID3/Navidrome-supported tags (including Comment and Description) in the same write as new metadata. Desktop and web Settings autocomplete only supported tags, explicitly label selected tags as cleared, and use an × control to remove them; Monitoring reports the tags kept and cleared when a run finishes.
 - Browser Workspace now shows all loaded tracks in the selected artist folder when no specific album is open; selecting an album still narrows the table to that album.
 - Browser Search results are rows you compare rather than one run-on line: year, track
@@ -42,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The browser **Settings** page is grouped into six named sections — Metadata sources,
   Tag writing, Lyrics, Automation, Assistant, System — with navigation between them and
   a description under every setting.
+- Desktop Settings now highlights each editable option and puts its longer explanation in an
+  accessible tooltip.
+- Browser Settings now keeps its section navigation visible while scrolling, moves keyboard
+  focus to the selected section, exposes the current location, and stacks fields and actions
+  cleanly on narrow screens.
 - Settings now explains a crontab expression in words ("Every day at 00:00"), and says
   so plainly when it cannot be sure rather than guessing at a schedule's meaning.
 - Browser-workspace polling now pauses while the tab is not visible.
@@ -77,6 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Browser Settings section links no longer trap the page at the selected section. The main pane remains scrollable, and the sticky navigation can focus another section.
 - Background tagging no longer loses music added while a run is in progress. A watched album that could not start because another tagging operation held the lock is queued and retried on the next poll, instead of being remembered as seen and never tagged until its folder changed again.
 - Field hints in the browser workspace were laid out in the label gutter instead of
   under the control they describe, so "Required, unless an album is given" was squeezed

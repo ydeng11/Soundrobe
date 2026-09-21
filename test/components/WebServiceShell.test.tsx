@@ -34,18 +34,16 @@ describe("WebServiceShell", () => {
     expect(screen.getByText("Landing")).toBeTruthy();
   });
 
-  it("keeps service status and session controls in the compact browser header", () => {
-    const onLogout = vi.fn();
+  it("does not expose login or session controls in the browser header", () => {
     render(
-      <WebServiceShell activeView="library" onLogout={onLogout}>
+      <WebServiceShell activeView="library">
         <p>Library content</p>
       </WebServiceShell>,
     );
 
-    expect(screen.getByText("Session active")).toBeTruthy();
+    expect(screen.queryByText("Session active")).toBeNull();
     expect(screen.queryByText("Service online")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(onLogout).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
   });
 
   it("constrains the shell to the viewport and leaves the content region scrollable", () => {

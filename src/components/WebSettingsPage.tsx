@@ -301,12 +301,11 @@ export function WebSettingsPage({
 
         <div className="web-settings-detail-content">
           <section id="general" className="web-settings-card">
-            <CardHeading title="General" description="Service information for this browser session." />
+            <CardHeading title="General" description="Service information for this browser runtime." />
             <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
               <InfoRow label="Runtime" value="Browser service" />
               <InfoRow label="Version" value={appVersion ? `Version ${appVersion}` : "Version unavailable"} />
               <InfoRow label="Credentials" value={hasConfiguredKey ? "Protected values configured" : "No provider key configured"} />
-              <InfoRow label="Session" value="Authenticated service session" />
             </div>
           </section>
 

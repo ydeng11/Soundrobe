@@ -6,7 +6,6 @@ interface WebLibraryPickerProps {
   loading?: boolean;
   error?: string | null;
   onSelect: (path: string) => void;
-  onLogout?: () => void;
 }
 
 export function WebLibraryPicker({
@@ -14,7 +13,6 @@ export function WebLibraryPicker({
   loading = false,
   error = null,
   onSelect,
-  onLogout,
 }: WebLibraryPickerProps) {
   return (
     <section aria-labelledby="web-library-picker-title" className="web-library">
@@ -26,15 +24,6 @@ export function WebLibraryPicker({
           </h1>
           <p className="web-page-description">Select a mounted root to open the Soundrobe workspace.</p>
         </div>
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="web-button-secondary"
-          >
-            Sign out
-          </button>
-        )}
       </div>
       {loading && (
         <p className="web-library-empty" role="status" aria-live="polite">

@@ -2,7 +2,7 @@
  * Fetch-backed adapter for the renderer-neutral `DesktopAPI` contract.
  *
  * The browser keeps the same method names and payloads as the Tauri adapter;
- * only the transport changes from `invoke` to authenticated JSON POSTs. Native
+ * only the transport changes from `invoke` to JSON POSTs. Native
  * dialogs, menus, and self-updates are intentionally explicit web-runtime
  * errors because those affordances belong to the browser or the container.
  */
@@ -15,13 +15,9 @@ export interface WebDesktopApiOptions {
   eventSource?: (url: string) => WebEventSource;
 }
 
-export interface WebAuthOptions {
+export interface WebRequestOptions {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
-}
-
-export interface WebSession {
-  authenticated: boolean;
 }
 
 export type WebTaskStatus =
@@ -141,10 +137,6 @@ function commandUrl(baseUrl: string, channel: string): string {
   return `${baseUrl}/api/v1/commands/${encodeURIComponent(channel)}`;
 }
 
-function authUrl(baseUrl: string, action: "login" | "logout" | "session"): string {
-  return `${baseUrl}/api/v1/auth/${action}`;
-}
-
 async function requestJson<T>(
   fetchImpl: typeof globalThis.fetch,
   url: string,
@@ -190,7 +182,7 @@ async function requestCommand<T>(
   });
 }
 
-function webAuthOptions(options: WebAuthOptions): {
+function webRequestOptions(options: WebRequestOptions): {
   fetchImpl: typeof globalThis.fetch;
   baseUrl: string;
 } {
@@ -200,37 +192,8 @@ function webAuthOptions(options: WebAuthOptions): {
   };
 }
 
-export function getWebSession(options: WebAuthOptions = {}): Promise<WebSession> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
-  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "session"), {
-    method: "GET",
-    credentials: "same-origin",
-  });
-}
-
-export function loginWebSession(
-  password: string,
-  options: WebAuthOptions = {},
-): Promise<WebSession> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
-  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "login"), {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ password }),
-  });
-}
-
-export function logoutWebSession(options: WebAuthOptions = {}): Promise<WebSession> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
-  return requestJson<WebSession>(fetchImpl, authUrl(baseUrl, "logout"), {
-    method: "POST",
-    credentials: "same-origin",
-  });
-}
-
-export function listWebTasks(options: WebAuthOptions = {}): Promise<WebTask[]> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+export function listWebTasks(options: WebRequestOptions = {}): Promise<WebTask[]> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestJson<WebTask[]>(fetchImpl, `${baseUrl}/api/v1/tasks`, {
     method: "GET",
     credentials: "same-origin",
@@ -240,9 +203,9 @@ export function listWebTasks(options: WebAuthOptions = {}): Promise<WebTask[]> {
 export function uploadWebCover(
   albumPath: string,
   file: Blob,
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<string | null> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   const query = new URLSearchParams({ albumPath });
   return requestJson<string | null>(fetchImpl, `${baseUrl}/api/v1/covers?${query}`, {
     method: "POST",
@@ -504,9 +467,9 @@ export interface MonitoringLog {
 export type MonitoringLogSource = "app" | "auto-tag";
 
 export function getBackgroundSettings(
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<BackgroundTaggingSettings> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<BackgroundTaggingSettings>(
     fetchImpl,
     baseUrl,
@@ -521,9 +484,9 @@ export function getBackgroundSettings(
  */
 export function setBackgroundSettings(
   patch: Partial<BackgroundTaggingSettings>,
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<BackgroundTaggingSettings> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<BackgroundTaggingSettings>(
     fetchImpl,
     baseUrl,
@@ -533,9 +496,9 @@ export function setBackgroundSettings(
 }
 
 export function listBackgroundRuns(
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<BackgroundRun[]> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<BackgroundRun[]>(fetchImpl, baseUrl, "background:list-runs");
 }
 
@@ -544,9 +507,9 @@ export function listBackgroundRuns(
  * already busy, or has no directory to cover.
  */
 export function runBackgroundTagging(
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<{ taskId: string }> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<{ taskId: string }>(fetchImpl, baseUrl, "background:run-now");
 }
 
@@ -558,9 +521,9 @@ export function runBackgroundTagging(
  */
 export function retryFailedBackgroundTagging(
   runId?: string,
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<{ taskId: string }> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<{ taskId: string }>(
     fetchImpl,
     baseUrl,
@@ -570,16 +533,16 @@ export function retryFailedBackgroundTagging(
 }
 
 export function getMonitoringStatus(
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<MonitoringStatus> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<MonitoringStatus>(fetchImpl, baseUrl, "monitoring:status");
 }
 
 export function listMonitoringReleases(
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<{ releases: MonitoredRelease[] }> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<{ releases: MonitoredRelease[] }>(
     fetchImpl,
     baseUrl,
@@ -590,9 +553,9 @@ export function listMonitoringReleases(
 export function readMonitoringLog(
   source: MonitoringLogSource,
   lines = 400,
-  options: WebAuthOptions = {},
+  options: WebRequestOptions = {},
 ): Promise<MonitoringLog> {
-  const { fetchImpl, baseUrl } = webAuthOptions(options);
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
   return requestCommand<MonitoringLog>(fetchImpl, baseUrl, "monitoring:logs", {
     source,
     lines,

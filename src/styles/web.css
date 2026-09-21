@@ -79,11 +79,6 @@
 .web-search input::placeholder { color: var(--web-subtle); }
 .web-search kbd { white-space: nowrap; color: var(--web-subtle); font-size: 10px; }
 
-.web-session { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; color: var(--web-muted); font-size: 11px; }
-.web-session span { width: 6px; height: 6px; border-radius: 50%; background: var(--web-success); }
-.web-account { border: 0; border-radius: 8px; padding: 7px 9px; color: var(--web-muted); background: transparent; font-size: 12px; cursor: pointer; }
-.web-account:hover { color: var(--web-text); background: var(--web-surface-soft); }
-
 .web-body { display: flex; min-height: 0; flex: 1 1 auto; padding: 5px 6px 6px; }
 .web-rail {
   display: flex; flex: 0 0 230px; flex-direction: column; min-height: 0;
@@ -277,14 +272,9 @@
 .web-settings-drawer-body .web-settings-tab { flex: 0 0 auto; }
 .web-settings-drawer-body .web-settings-detail-note, .web-settings-drawer-body .web-settings-save { display: none; }
 .web-settings-drawer-body .web-settings-detail-content { padding: 12px 0 0; }
-.web-login { display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 24px; background: var(--web-canvas); color: var(--web-text); }
-.web-login-form { display: flex; width: 100%; max-width: 380px; flex-direction: column; gap: 20px; padding: 28px; border: 1px solid var(--web-border); border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgba(39,33,63,.06); }
-.web-login-label { display: flex; flex-direction: column; gap: 6px; color: var(--web-text); font-size: 12px; font-weight: 650; }
-.web-login-error { margin: 0; color: #a24557; font-size: 12px; }
-
 @media (max-width: 900px) {
   .web-brand { min-width: auto; }
-  .web-brand-badge, .web-session { display: none; }
+  .web-brand-badge { display: none; }
   .web-header-nav-item { padding: 0 7px; }
   .web-header-nav-item > span:last-child { display: none; }
   .web-folder-pane { flex-basis: 190px; }

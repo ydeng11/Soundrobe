@@ -2,8 +2,8 @@
  * Browser-runtime shell for the Soundrobe tagging workspace.
  *
  * Layout follows the measured Music Tag Web V2 chrome: a floating rounded
- * header inset from the viewport edge, brand block on the left, primary
- * navigation beside it, and session utilities on the right.
+ * header inset from the viewport edge, brand block on the left, and primary
+ * navigation beside it.
  *
  * This component belongs to the browser-only UI. The desktop composition keeps
  * using its own window chrome.
@@ -19,7 +19,6 @@ export type WebView = "workspace" | "sources" | "monitoring" | "settings";
 export interface WebShellProps {
   activeView?: WebView;
   onViewChange?: (view: WebView) => void;
-  onSignOut?: () => void;
   children?: React.ReactNode;
 }
 
@@ -30,7 +29,7 @@ const NAVIGATION: Array<{ view: WebView; label: string; icon: React.ReactNode }>
   { view: "settings", label: "Settings", icon: <SettingsIcon /> },
 ];
 
-export function WebShell({ activeView = "workspace", onViewChange, onSignOut, children }: WebShellProps) {
+export function WebShell({ activeView = "workspace", onViewChange, children }: WebShellProps) {
   return (
     <div data-testid="web-shell" className="sr-web sr-app">
       <header className="sr-header">
@@ -62,18 +61,6 @@ export function WebShell({ activeView = "workspace", onViewChange, onSignOut, ch
         </nav>
 
         <div className="sr-header__spacer" />
-
-        <div className="sr-header__utils">
-          <span className="sr-session" title="Session active">
-            <span aria-hidden="true" />
-            Session active
-          </span>
-          {onSignOut && (
-            <button type="button" className="sr-btn" onClick={onSignOut} aria-label="Sign out">
-              Sign out
-            </button>
-          )}
-        </div>
       </header>
 
       <main className="sr-main">{children}</main>

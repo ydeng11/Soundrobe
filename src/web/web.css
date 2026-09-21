@@ -137,29 +137,6 @@
   min-width: 0;
 }
 
-.sr-header__utils {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: none;
-}
-
-.sr-session {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--sr-fs-xs);
-  line-height: var(--sr-lh-tight);
-  color: var(--sr-text-muted);
-}
-
-.sr-session > span[aria-hidden] {
-  width: 8px;
-  height: 8px;
-  border-radius: var(--sr-radius-pill);
-  background: var(--sr-success);
-}
-
 /* ---------- Buttons / inputs ---------- */
 
 .sr-btn {

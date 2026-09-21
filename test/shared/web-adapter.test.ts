@@ -3,10 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 import {
   createWebDesktopApi,
-  getWebSession,
   listWebTasks,
-  loginWebSession,
-  logoutWebSession,
   uploadWebCover,
   type WebEventSource,
 } from "../../src/shared/web-adapter";
@@ -241,41 +238,6 @@ describe("web-adapter command transport", () => {
     );
 
     await expect(api.listLibraryRoots()).rejects.toThrow("authentication required");
-  });
-
-  it("uses the auth endpoints without exposing passwords to command payloads", async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ authenticated: false }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ authenticated: true }), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ authenticated: false }), { status: 200 }),
-      );
-
-    await expect(getWebSession({ fetch: fetchMock })).resolves.toEqual({
-      authenticated: false,
-    });
-    await expect(
-      loginWebSession("correct horse battery staple", { fetch: fetchMock }),
-    ).resolves.toEqual({ authenticated: true });
-    await expect(logoutWebSession({ fetch: fetchMock })).resolves.toEqual({
-      authenticated: false,
-    });
-
-    expect(fetchMock.mock.calls).toEqual([
-      ["/api/v1/auth/session", expect.objectContaining({ method: "GET" })],
-      [
-        "/api/v1/auth/login",
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify({ password: "correct horse battery staple" }),
-        }),
-      ],
-      ["/api/v1/auth/logout", expect.objectContaining({ method: "POST" })],
-    ]);
   });
 
   it("uploads a browser-selected cover through the dedicated cover endpoint", async () => {

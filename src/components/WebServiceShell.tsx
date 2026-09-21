@@ -6,7 +6,6 @@ export type WebServiceView = "home" | "workspace" | "library" | "activity" | "se
 export interface WebServiceShellProps {
   activeView?: WebServiceView;
   onViewChange?: (view: WebServiceView) => void;
-  onLogout?: () => void;
   children?: React.ReactNode;
 }
 
@@ -21,7 +20,6 @@ const navigation: Array<{ view: WebServiceView; label: string; icon: React.React
 export function WebServiceShell({
   activeView = "library",
   onViewChange,
-  onLogout,
   children,
 }: WebServiceShellProps) {
   return (
@@ -51,8 +49,6 @@ export function WebServiceShell({
           })}
         </nav>
         <div className="web-header-spacer" />
-        <span className="web-session" title="Session active"><span aria-hidden="true" />Session active</span>
-        {onLogout && <button type="button" className="web-account" onClick={onLogout} aria-label="Sign out">Sign out</button>}
       </header>
 
       <div className="web-body">

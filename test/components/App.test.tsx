@@ -376,7 +376,7 @@ describe("App — batch save progress", () => {
     fetchMock.mockRestore();
   });
 
-  it("clears the web workspace when the user signs out", async () => {
+  it("keeps the web workspace available without login or sign-out controls", async () => {
     window.__SOUNDROBE_RUNTIME__ = "web";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
@@ -385,11 +385,8 @@ describe("App — batch save progress", () => {
     render(<App />);
     fireEvent.click(await screen.findByRole("button", { name: /music/ }));
     expect(await screen.findAllByTestId(/^file-row-/)).toHaveLength(2);
-
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(await screen.findByRole("heading", { name: "Sign in to Soundrobe" })).toBeTruthy();
-    expect(screen.queryByTestId("web-service-shell")).toBeNull();
-    expect(screen.queryByText("Test Album")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/auth/"))).toBe(false);
 
     fetchMock.mockRestore();
   });
@@ -446,7 +443,6 @@ describe("App — batch save progress", () => {
     window.__SOUNDROBE_RUNTIME__ = "web";
     const fetchMock = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: true })))
       .mockResolvedValueOnce(
         new Response(JSON.stringify("data:image/jpeg;base64,uploaded")),
       );
@@ -466,7 +462,7 @@ describe("App — batch save progress", () => {
       );
     });
     expect(window.api.setCover).not.toHaveBeenCalled();
-    expect(fetchMock.mock.calls[1][0]).toContain("/api/v1/covers?albumPath=");
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/covers?albumPath=");
 
     fetchMock.mockRestore();
   });

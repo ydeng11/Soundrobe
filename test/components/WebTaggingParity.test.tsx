@@ -441,14 +441,10 @@ describe("browser shell", () => {
     }
   });
 
-  it("exposes a sign-out control only when one is supplied", () => {
-    const onSignOut = vi.fn();
-    const { rerender } = render(<WebShell onSignOut={onSignOut}><p>b</p></WebShell>);
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-    expect(onSignOut).toHaveBeenCalled();
-
-    rerender(<WebShell><p>b</p></WebShell>);
+  it("does not expose sign-out controls because the web service is open", () => {
+    render(<WebShell><p>b</p></WebShell>);
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(screen.queryByText("Session active")).toBeNull();
   });
 });
 

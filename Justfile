@@ -65,7 +65,6 @@ dev: _deps-check
 web-local library_root: _deps-check
     #!/usr/bin/env bash
     set -euo pipefail
-    : "${SOUNDROBE_AUTH_PASSWORD:?SOUNDROBE_AUTH_PASSWORD missing — set a local browser password in .env.local or the environment}"
     library_root={{quote(library_root)}}
     if [ ! -d "$library_root" ]; then
         echo "Library root does not exist: $library_root" >&2

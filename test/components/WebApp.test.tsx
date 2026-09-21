@@ -1,47 +1,28 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { WebLoginScreen } from "../../src/components/WebLoginScreen";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { WebApp } from "../../src/web/WebApp";
 import { WebLibraryPicker } from "../../src/components/WebLibraryPicker";
 
 afterEach(cleanup);
 
-describe("WebLoginScreen", () => {
-  it("submits the password and surfaces authentication failures", async () => {
-    const onLogin = vi
-      .fn<(password: string) => Promise<void>>()
-      .mockRejectedValue(new Error("invalid credentials"));
-
-    render(<WebLoginScreen onLogin={onLogin} />);
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "secret" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
-
-    await waitFor(() => expect(onLogin).toHaveBeenCalledWith("secret"));
-    expect(await screen.findByText("invalid credentials")).toBeTruthy();
-  });
-
-  it("disables the form while a login request is pending", async () => {
-    let resolveLogin!: () => void;
-    const onLogin = vi.fn(
-      () => new Promise<void>((resolve) => {
-        resolveLogin = resolve;
-      }),
+describe("WebApp", () => {
+  it("opens the browser workspace without a login request or sign-in screen", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ releases: [] }), { status: 200 }),
     );
+    const api = {
+      listLibraryRoots: vi.fn().mockResolvedValue([]),
+    } as unknown as Window["api"];
 
-    render(<WebLoginScreen onLogin={onLogin} />);
-    fireEvent.change(screen.getByLabelText("Password"), {
-      target: { value: "secret" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    render(<WebApp api={api} />);
 
-    await waitFor(() => {
-      const button = screen.getByRole("button", { name: "Signing in…" }) as HTMLButtonElement;
-      expect(button.disabled).toBe(true);
-    });
-    resolveLogin();
+    expect(await screen.findByTestId("workspace-no-root")).toBeTruthy();
+    expect(screen.queryByText(/Sign in to Soundrobe/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/auth/"))).toBe(false);
+    fetchMock.mockRestore();
   });
 });
 

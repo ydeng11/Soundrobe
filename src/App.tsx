@@ -66,7 +66,6 @@ import {
   type OrderingRule,
 } from "./shared/track-numbering";
 import { useAppUpdater } from "./state/useAppUpdater";
-import { WebLoginScreen } from "./components/WebLoginScreen";
 import { WebLibraryPicker } from "./components/WebLibraryPicker";
 import { WebServiceShell, type WebServiceView } from "./components/WebServiceShell";
 import { WebTaggingDebugPortal } from "./components/WebTaggingDebugPortal";
@@ -74,9 +73,6 @@ import { WebSettingsPage } from "./components/WebSettingsPage";
 import { WebWorkspaceSettingsDrawer } from "./components/WebWorkspaceSettingsDrawer";
 import { WebHomeView } from "./components/WebHomeView";
 import {
-  getWebSession,
-  loginWebSession,
-  logoutWebSession,
   uploadWebCover,
 } from "./shared/web-adapter";
 import { isWebRuntime } from "./shared/install-desktop-api";
@@ -112,9 +108,6 @@ function mapAuditResultForState(r: {
 export default function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const webRuntime = isWebRuntime();
-  const [webAuthState, setWebAuthState] = React.useState<
-    "desktop" | "checking" | "login" | "authenticated"
-  >(webRuntime ? "checking" : "desktop");
   const [webView, setWebView] = React.useState<WebServiceView>("library");
   const [webSort, setWebSort] = React.useState<WebSort>({ key: "track", ascending: true });
   const [webRoots, setWebRoots] = React.useState<LibraryRoot[]>([]);
@@ -348,30 +341,6 @@ export default function App() {
       });
     }
   }, [loadLibrary]);
-
-  const handleWebLogin = useCallback(async (password: string) => {
-    const session = await loginWebSession(password);
-    if (!session.authenticated) {
-      throw new Error("Sign in failed");
-    }
-    setWebAuthState("authenticated");
-  }, []);
-
-  const handleWebLogout = useCallback(async () => {
-    libraryLoadIdRef.current += 1;
-    try {
-      await logoutWebSession();
-    } finally {
-      dispatch({ type: "CLEAR_ALL" });
-      setWebRoots([]);
-      setWebRootsLoading(false);
-      setWebRootsError(null);
-      setWebLibraryPickerOpen(true);
-      setWebWorkspaceSettingsOpen(false);
-      setWebView("library");
-      setWebAuthState("login");
-    }
-  }, []);
 
   const handleSelectWebRoot = useCallback(
     (path: string) => {
@@ -2150,22 +2119,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!webRuntime) return;
-    let active = true;
-    void getWebSession()
-      .then((session) => {
-        if (active) setWebAuthState(session.authenticated ? "authenticated" : "login");
-      })
-      .catch(() => {
-        if (active) setWebAuthState("login");
-      });
-    return () => {
-      active = false;
-    };
-  }, [webRuntime]);
-
-  useEffect(() => {
-    if (!webRuntime || webAuthState !== "authenticated") {
+    if (!webRuntime) {
       return;
     }
 
@@ -2187,7 +2141,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [webAuthState, webRuntime]);
+  }, [webRuntime]);
 
   // Filter tracks by active album — in-memory filter, no disk reads
   const filteredTracks = useMemo(() => {
@@ -2614,16 +2568,6 @@ export default function App() {
 
   const mutationBusy = state.saving || state.reverting || assistantApplying;
 
-  if (webAuthState === "checking") {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-surface text-sm text-text-muted">
-        Loading Soundrobe…
-      </main>
-    );
-  }
-  if (webAuthState === "login") {
-    return <WebLoginScreen onLogin={handleWebLogin} />;
-  }
   const desktopWorkspace = (
     <div className="flex flex-col h-screen bg-surface text-text-primary overflow-hidden">
       <TitleBar
@@ -2658,7 +2602,6 @@ export default function App() {
         onNoticeDismiss={() => dispatch({ type: "SET_NOTICE", notice: null })}
         onUndoLatest={() => handleRevert()}
         onUndoThrough={handleRevert}
-        onLogout={webRuntime ? handleWebLogout : undefined}
         webService={webRuntime}
       />
 
@@ -2989,7 +2932,6 @@ export default function App() {
       <WebServiceShell
         activeView={webView}
         onViewChange={handleWebViewChange}
-        onLogout={handleWebLogout}
       >
         {webView === "home" && (
           <WebHomeView

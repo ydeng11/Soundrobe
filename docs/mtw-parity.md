@@ -194,7 +194,7 @@ natural counterpart.
 | --- | --- | --- |
 | Operation history `/log` | VISION + DOM | `table log-table`, 8 columns: ID 66px, 用户 74, 操作 109, 等级 96, 状态 73, 详情摘要 414, 时间 192, 操作 79. Row 53px, header 41px, 223 records, 50/page. Status/success/warning badge colours observed. |
 | Plugin management `/mod` | VISION | `标签源插件` (tag-source plugins): 20 installed, 20 running, category split `标签源 / 操作台`, 5-column card grid ~266px wide, ~12px gaps. |
-| Login `/login` | VISION | Soundrobe already has `WebLoginScreen.tsx`. |
+| Login `/login` | VISION | Deliberately omitted: the Soundrobe web service has no built-in login. |
 
 ## 9. Capability gap
 
@@ -262,12 +262,12 @@ The browser runtime now mounts its own application (`src/web/`), selected in
 | `src/web/tokens.css` | Reference tokens: `oklch()` colours, radius and type scales, chrome and table geometry |
 | `src/web/web.css` | Shell, workspace, table, tree, editor and log layout |
 | `src/web/columns.ts` | The ten-column contract with reference widths |
-| `src/web/WebShell.tsx` | Floating header, brand, nav, session, sign out |
+| `src/web/WebShell.tsx` | Floating header, brand, and navigation |
 | `src/web/DirectoryTree.tsx` | Folder tree with on-demand expansion |
 | `src/web/TrackTable.tsx` | Ten-column file table |
 | `src/web/TrackDetailEditor.tsx` | Six-section detail editor with draft + Apply |
 | `src/web/OperationLogView.tsx` | Operation log over real server task state |
-| `src/web/WebApp.tsx` | Auth gate and view routing |
+| `src/web/WebApp.tsx` | View routing for the open web service |
 | `src/web/WorkspaceView.tsx` | Workspace composition and data flow |
 
 ### Measured parity (real browser, 1440×900, local service)

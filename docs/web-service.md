@@ -2,20 +2,19 @@
 
 The web runtime uses the same React interface and Rust metadata pipeline as
 the desktop app. It is a single-user, single-process service for a trusted
-operator behind an HTTPS reverse proxy.
+operator behind an HTTPS reverse proxy. The service has no built-in login;
+protect access at the network or reverse-proxy boundary.
 
 ## Local container
 
-Build the image and create a password file without committing either file:
+Build the image:
 
 ```sh
-printf '%s\n' 'replace-with-a-long-password' > /absolute/path/soundrobe-password
-chmod 600 /absolute/path/soundrobe-password
 docker build -t soundrobe:local .
 ```
 
-Copy `.env.web.example` to `.env.web`, set the public URL, password-file path,
-and at least one library bind path, then validate and start the Compose stack:
+Copy `.env.web.example` to `.env.web`, set the public URL and at least one
+library bind path, then validate and start the Compose stack:
 
 ```sh
 docker compose --env-file .env.web -f docker-compose.yml config --quiet
@@ -25,8 +24,7 @@ curl --fail http://127.0.0.1:8080/healthz
 
 The service listens on port `8080` in the container. `SOUNDROBE_PORT` changes
 the host port; `SOUNDROBE_PUBLIC_URL` must be the browser-visible origin, not
-the internal container address. Startup fails if the public URL or password is
-missing.
+the internal container address. Startup fails if the public URL is missing.
 
 ## Libraries and permissions
 
@@ -45,24 +43,22 @@ read-only; only `/config`, library mounts, and the `/tmp` tmpfs are writable.
 ## Reverse proxy and SSE
 
 Terminate TLS at Nginx Proxy Manager or another reverse proxy and proxy the
-same origin to the container. Preserve cookies, allow long-lived
-`/api/v1/events` connections, disable response buffering for that endpoint,
-and use a read timeout longer than the expected assistant or audit operation.
-No CORS API is exposed; browser mutations must remain same-origin.
+same origin to the container. Allow long-lived `/api/v1/events` connections,
+disable response buffering for that endpoint, and use a read timeout longer
+than the expected assistant or audit operation. No CORS API is exposed;
+browser mutations must remain same-origin.
 
-The only public operational endpoint is `GET /healthz`. The application API
-requires the opaque session cookie issued by the login endpoint. Do not expose
-the container directly to the Internet without an HTTPS and access-control
-boundary.
+The only public operational endpoint intended for probes is `GET /healthz`.
+The application API is open to anyone who can reach the service, so do not
+expose the container directly to the Internet without an HTTPS and access-
+control boundary.
 
 ## Local development
 
 For a local browser-service run, make a directory whose immediate children are
-the libraries you want Soundrobe to expose. Set a temporary local password,
-then start the server on loopback:
+the libraries you want Soundrobe to expose, then start the server on loopback:
 
 ```sh
-export SOUNDROBE_AUTH_PASSWORD='replace-with-a-local-password'
 # Replace this with an existing directory that contains your library folders.
 just web-local "/path/to/libraries-root"
 ```
