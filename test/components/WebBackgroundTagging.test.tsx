@@ -8,6 +8,7 @@
  * really happened, and a refusal must be visible instead of silent.
  */
 
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -15,6 +16,7 @@ import { MonitoringView } from "../../src/web/MonitoringView";
 import { SettingsView, SCHEDULE_PRESETS } from "../../src/web/SettingsView";
 import { WorkspaceSettingsDrawer } from "../../src/web/WorkspaceSettingsDrawer";
 import { TrackTable } from "../../src/web/TrackTable";
+import { WebShell } from "../../src/web/WebShell";
 import type {
   BackgroundTaggingSettings,
   MonitoringLog,
@@ -23,6 +25,8 @@ import type {
 import type { TrackData } from "../../src/shared/desktop-api";
 
 afterEach(() => cleanup());
+
+const webStyles = readFileSync("src/web/web.css", "utf8");
 
 const SETTINGS: BackgroundTaggingSettings = {
   enabled: true,
@@ -889,6 +893,52 @@ describe("Settings", () => {
       // And clicking it must not throw, so a dead entry cannot ship.
       fireEvent.click(nav);
     }
+  });
+
+  it("keeps the settings pane scrollable with its section nav visible", async () => {
+    render(
+      <WebShell activeView="settings">
+        <SettingsView
+          loadBackground={async () => SETTINGS}
+          loadConfig={async () => ({})}
+          loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+        />
+      </WebShell>,
+    );
+
+    await screen.findByTestId("settings-system");
+    expect(screen.getByRole("main").className).toContain("sr-main--settings");
+    expect(screen.getByTestId("settings-nav").className).toContain("sr-tabs--settings");
+    expect(webStyles).toMatch(/\.sr-main--settings\s*\{[^}]*overflow-y:\s*auto/s);
+    expect(webStyles).toMatch(/\.sr-tabs--settings\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/s);
+    expect(webStyles).toMatch(/\.sr-pane--settings\s*\{[^}]*overflow:\s*visible/s);
+    expect(webStyles).toMatch(/\.sr-tabs--settings\s*\{[^}]*flex-wrap:\s*nowrap/s);
+    expect(webStyles).toMatch(/\.sr-tabs--settings\s*\{[^}]*overflow-x:\s*auto/s);
+    expect(webStyles).not.toMatch(/\.sr-nav__item span:not\(\.sr-sr-only\)\s*\{[^}]*display:\s*none/s);
+  });
+
+  it("moves focus to the selected section and exposes the current location", async () => {
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({})}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+
+    const sourcesNav = await screen.findByTestId("settings-nav-sources");
+    const automationNav = screen.getByTestId("settings-nav-automation");
+    const automationHeading = screen.getByRole("heading", { name: "Automation" });
+
+    expect(sourcesNav.getAttribute("aria-current")).toBe("location");
+    expect(automationNav.getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(automationNav);
+
+    expect(automationNav.getAttribute("aria-current")).toBe("location");
+    expect(sourcesNav.getAttribute("aria-current")).toBeNull();
+    expect(automationHeading.getAttribute("tabindex")).toBe("-1");
+    expect(document.activeElement).toBe(automationHeading);
   });
 
   it("states what a custom expression means, since five fields are not readable", async () => {

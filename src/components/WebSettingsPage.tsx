@@ -277,7 +277,7 @@ export function WebSettingsPage({
       {error && <div role="alert" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#f0c9d0] bg-[#fff7f8] px-4 py-3 text-sm text-[#a24557]"><span>{error}</span><button type="button" onClick={() => void loadSettings()} disabled={loading} className={SECONDARY_BUTTON_CLASS}>Retry</button></div>}
 
       <div data-testid="web-settings-detail" className="web-settings-detail">
-        <aside className="web-settings-detail-rail">
+        <aside className="web-settings-detail-rail web-settings-subnav" data-testid="web-settings-subnav">
           <p className="web-settings-detail-label">Settings</p>
           <nav aria-label="Settings sections" className="web-settings-tabs">
             {SECTIONS.map((section) => (
@@ -287,9 +287,11 @@ export function WebSettingsPage({
                 aria-current={activeSection === section.id ? "page" : undefined}
                 className={`web-settings-tab ${activeSection === section.id ? "is-selected" : ""}`}
                 onClick={(event) => {
-                  event.preventDefault();
                   setActiveSection(section.id);
-                  document.getElementById(section.id)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+                  if (isDrawer) {
+                    event.preventDefault();
+                    document.getElementById(section.id)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+                  }
                 }}
               >
                 {section.label}
@@ -312,23 +314,25 @@ export function WebSettingsPage({
           <section id="providers" className="web-settings-card">
             <CardHeading title="AI & metadata providers" description="Choose the services that can suggest metadata. Secrets remain protected by the service." />
             <div className="web-settings-card-body">
-              <Field label="Provider" htmlFor="web-settings-provider">
-                <select id="web-settings-provider" value={settings.llmProvider} onChange={(event) => handleProviderChange(event.target.value)} className={INPUT_CLASS}>
-                  <option value="">Select provider</option>
-                  {PROVIDER_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
-              </Field>
-              <Field label="Model" htmlFor="web-settings-model" hint="Use a provider model identifier supported by the service.">
-                <input id="web-settings-model" list="web-settings-models" value={settings.llmModel} onChange={(event) => updateSetting("llmModel", event.target.value)} placeholder="gpt-4o-mini" className={INPUT_CLASS} />
-                <datalist id="web-settings-models">{modelOptions.map((model) => <option key={model} value={model} />)}</datalist>
-              </Field>
-              <Field label="Base URL" htmlFor="web-settings-base-url" hint="Optional endpoint override for compatible providers.">
-                <input id="web-settings-base-url" value={settings.llmBaseUrl} onChange={(event) => updateSetting("llmBaseUrl", event.target.value)} placeholder={PROVIDERS[settings.llmProvider]?.baseUrl ?? "https://api.openai.com/v1"} className={INPUT_CLASS} />
-              </Field>
-              <SecretField id="web-settings-llm-key" label="LLM API key" value={settings.llmApiKey} onChange={(value) => updateSetting("llmApiKey", value)} />
-              <SecretField id="web-settings-discogs" label="Discogs token" value={settings.discogsToken} onChange={(value) => updateSetting("discogsToken", value)} />
-              <SecretField id="web-settings-audiodb" label="TheAudioDB API key" value={settings.theAudioDbApiKey} onChange={(value) => updateSetting("theAudioDbApiKey", value)} />
-              <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="web-settings-options">
+                <Field label="Provider" htmlFor="web-settings-provider">
+                  <select id="web-settings-provider" value={settings.llmProvider} onChange={(event) => handleProviderChange(event.target.value)} className={INPUT_CLASS}>
+                    <option value="">Select provider</option>
+                    {PROVIDER_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Model" htmlFor="web-settings-model" description="Use a provider model identifier supported by the service.">
+                  <input id="web-settings-model" list="web-settings-models" value={settings.llmModel} onChange={(event) => updateSetting("llmModel", event.target.value)} placeholder="gpt-4o-mini" className={INPUT_CLASS} />
+                  <datalist id="web-settings-models">{modelOptions.map((model) => <option key={model} value={model} />)}</datalist>
+                </Field>
+                <Field label="Base URL" htmlFor="web-settings-base-url" description="Optional endpoint override for compatible providers.">
+                  <input id="web-settings-base-url" value={settings.llmBaseUrl} onChange={(event) => updateSetting("llmBaseUrl", event.target.value)} placeholder={PROVIDERS[settings.llmProvider]?.baseUrl ?? "https://api.openai.com/v1"} className={INPUT_CLASS} />
+                </Field>
+                <SecretField id="web-settings-llm-key" label="LLM API key" value={settings.llmApiKey} onChange={(value) => updateSetting("llmApiKey", value)} />
+                <SecretField id="web-settings-discogs" label="Discogs token" value={settings.discogsToken} onChange={(value) => updateSetting("discogsToken", value)} />
+                <SecretField id="web-settings-audiodb" label="TheAudioDB API key" value={settings.theAudioDbApiKey} onChange={(value) => updateSetting("theAudioDbApiKey", value)} />
+              </div>
+              <div className="web-settings-actions">
                 <button type="button" onClick={() => void handleTestConnection()} disabled={connection === "testing" || !settings.llmModel || !hasConfiguredKey} className={SECONDARY_BUTTON_CLASS}>
                   {connection === "testing" ? "Testing…" : "Test connection"}
                 </button>
@@ -341,26 +345,30 @@ export function WebSettingsPage({
           <section id="lyrics" className="web-settings-card">
             <CardHeading title="Lyrics & metadata" description="Keep lyrics and written tag text aligned with your existing native settings." />
             <div className="web-settings-card-body">
-              <Field label="Lyrics API URL" htmlFor="web-settings-lyrics-url" hint="Leave blank to use the service default.">
-                <input id="web-settings-lyrics-url" value={settings.lyricsApiUrl} onChange={(event) => updateSetting("lyricsApiUrl", event.target.value)} placeholder="https://lrclib.net/api" className={INPUT_CLASS} />
-              </Field>
-              <ToggleField id="web-settings-lyrics-download" label="Auto-download lyrics" description="Fetch lyrics when no local .lrc or .txt file is present." checked={settings.lyricsDownloadEnabled} onChange={(checked) => updateSetting("lyricsDownloadEnabled", checked)} />
-              <Field label="Chinese script" htmlFor="web-settings-script" hint="Apply conversion when writing tag text.">
-                <select id="web-settings-script" value={settings.chineseScript} onChange={(event) => updateSetting("chineseScript", event.target.value)} className={INPUT_CLASS}>
-                  <option value="">Default (no conversion)</option>
-                  <option value="simplified">Simplified Chinese</option>
-                  <option value="traditional">Traditional Chinese</option>
-                </select>
-              </Field>
+              <div className="web-settings-options">
+                <Field label="Lyrics API URL" htmlFor="web-settings-lyrics-url" description="Leave blank to use the service default.">
+                  <input id="web-settings-lyrics-url" value={settings.lyricsApiUrl} onChange={(event) => updateSetting("lyricsApiUrl", event.target.value)} placeholder="https://lrclib.net/api" className={INPUT_CLASS} />
+                </Field>
+                <ToggleField id="web-settings-lyrics-download" label="Auto-download lyrics" description="Fetch lyrics when no local .lrc or .txt file is present." checked={settings.lyricsDownloadEnabled} onChange={(checked) => updateSetting("lyricsDownloadEnabled", checked)} />
+                <Field label="Chinese script" htmlFor="web-settings-script" description="Apply conversion when writing tag text.">
+                  <select id="web-settings-script" value={settings.chineseScript} onChange={(event) => updateSetting("chineseScript", event.target.value)} className={INPUT_CLASS}>
+                    <option value="">Default (no conversion)</option>
+                    <option value="simplified">Simplified Chinese</option>
+                    <option value="traditional">Traditional Chinese</option>
+                  </select>
+                </Field>
+              </div>
             </div>
           </section>
 
           <section id="assistant" className="web-settings-card">
             <CardHeading title="Assistant & diagnostics" description="Browser-supported assistant behavior and service diagnostics." />
             <div className="web-settings-card-body">
-              <ToggleField id="web-settings-assistant" label="Auto-apply assistant actions" description="Apply low-risk tag changes without an extra approval step." checked={settings.assistantAutonomous} onChange={(checked) => updateSetting("assistantAutonomous", checked)} />
-              <ToggleField id="web-settings-debug" label="Debug mode" description="Publish verbose service diagnostics to the browser activity stream." checked={settings.debug} onChange={(checked) => updateSetting("debug", checked)} />
-              <p className="border-t border-[#ebe9e6] pt-4 text-xs leading-5 text-[#85807a]">Native update and desktop-only controls are intentionally unavailable in the browser service.</p>
+              <div className="web-settings-options">
+                <ToggleField id="web-settings-assistant" label="Auto-apply assistant actions" description="Apply low-risk tag changes without an extra approval step." checked={settings.assistantAutonomous} onChange={(checked) => updateSetting("assistantAutonomous", checked)} />
+                <ToggleField id="web-settings-debug" label="Debug mode" description="Publish verbose service diagnostics to the browser activity stream." checked={settings.debug} onChange={(checked) => updateSetting("debug", checked)} />
+              </div>
+              <p className="web-settings-browser-note">Native update and desktop-only controls are intentionally unavailable in the browser service.</p>
             </div>
           </section>
 
@@ -405,16 +413,42 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   return <div className="web-settings-info"><p className="web-settings-info-label">{label}</p><p className="web-settings-info-value">{value}</p></div>;
 }
 
-function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: string; hint?: string; children: React.ReactNode }) {
-  return <div className="web-settings-field"><label htmlFor={htmlFor} className="web-settings-label">{label}</label>{children}{hint && <p className="web-settings-hint">{hint}</p>}</div>;
+function SettingLabel({ label, htmlFor, description }: { label: string; htmlFor: string; description?: string }) {
+  const tooltipId = `${htmlFor}-tooltip`;
+  return (
+    <div className="web-settings-label-row">
+      <label htmlFor={htmlFor} className="web-settings-label">{label}</label>
+      {description && (
+        <span className="web-settings-tooltip">
+          <button
+            type="button"
+            className="web-settings-tooltip-trigger"
+            aria-label={`More information about ${label}`}
+            aria-describedby={tooltipId}
+            title={description}
+          >
+            i
+          </button>
+          <span id={tooltipId} role="tooltip" data-testid={`web-settings-tooltip-${htmlFor}`} className="web-settings-tooltip-content">
+            {description}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, htmlFor, description, children }: { label: string; htmlFor: string; description?: string; children: React.ReactNode }) {
+  return <div className="web-settings-field web-settings-option" data-testid="web-settings-option"><SettingLabel label={label} htmlFor={htmlFor} description={description} />{children}</div>;
 }
 
 function SecretField({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
-  return <Field label={label} htmlFor={id} hint={value.startsWith("****") ? "A masked value is already configured. Leave this blank to preserve it." : "Leave blank to keep the current protected value."}><input id={id} type="password" autoComplete="off" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Enter a new value to replace the current one" className={INPUT_CLASS} /></Field>;
+  const description = value.startsWith("****") ? "A masked value is already configured. Leave this blank to preserve it." : "Leave blank to keep the current protected value.";
+  return <Field label={label} htmlFor={id} description={description}><input id={id} type="password" autoComplete="off" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Enter a new value to replace the current one" className={INPUT_CLASS} /></Field>;
 }
 
 function ToggleField({ id, label, description, checked, onChange }: { id: string; label: string; description: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  return <div className="flex items-start justify-between gap-5 border-t border-[#e7e8ee] pt-4 first:border-t-0 first:pt-0"><div><label htmlFor={id} className="web-settings-label">{label}</label><p className="web-settings-hint">{description}</p></div><button id={id} type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`relative mt-0.5 inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none ${checked ? "bg-[#9b7cf7]" : "bg-[#d9dbe3]"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`} /></button></div>;
+  return <div className="web-settings-option web-settings-toggle" data-testid="web-settings-option"><div className="web-settings-toggle-copy"><SettingLabel label={label} htmlFor={id} description={description} /></div><button id={id} type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`web-settings-toggle-control ${checked ? "is-enabled" : ""}`}><span /></button></div>;
 }
 
 const INPUT_CLASS = "web-settings-input";

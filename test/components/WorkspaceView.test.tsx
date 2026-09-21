@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WorkspaceView } from "../../src/web/WorkspaceView";
 import type { DirectoryData, TrackData } from "../../src/shared/desktop-api";
 
@@ -52,6 +52,35 @@ function directory(path: string, subdirs: DirectoryData["subdirs"], tracks: Trac
 }
 
 describe("WorkspaceView", () => {
+  it("retries the selected library when its initial load fails", async () => {
+    const rootPath = "/music/Artist";
+    const root = directory(rootPath, [], [makeTrack(`${rootPath}/01.mp3`, "Recovered")]);
+    const readDirectory = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("temporary read failure"))
+      .mockResolvedValue(root);
+    const api = {
+      listLibraryRoots: vi.fn().mockResolvedValue([{ id: "artist", name: "Artist", path: rootPath }]),
+      readDirectory,
+      listDirectory: vi.fn().mockResolvedValue([]),
+      getCoverDataUrl: vi.fn().mockResolvedValue(null),
+    } as unknown as Window["api"];
+
+    render(
+      <WorkspaceView
+        api={api}
+        loadReleases={() => Promise.resolve({ releases: [] })}
+      />,
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toContain("temporary read failure");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByText("Recovered")).toBeTruthy();
+    expect(readDirectory).toHaveBeenCalledTimes(2);
+    expect(readDirectory).toHaveBeenLastCalledWith(rootPath);
+  });
+
   it("shows every loaded album track for an artist root when no album is selected", async () => {
     const rootPath = "/music/Artist";
     const groupingPath = `${rootPath}/keep`;

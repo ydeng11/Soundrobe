@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The browser service no longer prompts for a password or maintains a login session; access is controlled by the deployment boundary instead.
 - Tagging cleanup can now clear a validated set of ID3/Navidrome-supported tags (including Comment and Description) in the same write as new metadata. Desktop and web Settings autocomplete only supported tags, explicitly label selected tags as cleared, and use an × control to remove them; Monitoring reports the tags kept and cleared when a run finishes.
+- Browser Workspace's Refresh button now retries the selected library after an initial directory load failure instead of becoming a no-op.
 - Browser Workspace now shows all loaded tracks in the selected artist folder when no specific album is open; selecting an album still narrows the table to that album.
 - Browser Search results are rows you compare rather than one run-on line: year, track
   count, country and format each get their own place, the whole row is the target, and

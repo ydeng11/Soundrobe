@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import React from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { WebSettingsPage } from "../../src/components/WebSettingsPage";
 
 afterEach(() => cleanup());
+
+const webStyles = readFileSync("src/styles/web.css", "utf8");
 
 const defaultConfig = {
   llmProvider: "openrouter",
@@ -51,7 +54,7 @@ describe("WebSettingsPage", () => {
     expect(screen.getByText("Version 0.1.11")).toBeTruthy();
   });
 
-  it("keeps the selected settings section visible in the browser tabs", async () => {
+  it("keeps the selected settings section linked to its scroll target", async () => {
     render(<WebSettingsPage />);
 
     await screen.findByDisplayValue("openai/gpt-4o-mini");
@@ -60,9 +63,36 @@ describe("WebSettingsPage", () => {
     expect(general.getAttribute("aria-current")).toBe("page");
     expect(providers.getAttribute("aria-current")).toBeNull();
 
+    expect(providers.getAttribute("href")).toBe("#providers");
     fireEvent.click(providers);
     expect(general.getAttribute("aria-current")).toBeNull();
     expect(providers.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("highlights each setting option and keeps its long explanation in a tooltip", async () => {
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    expect(screen.getAllByTestId("web-settings-option").length).toBeGreaterThan(8);
+
+    const modelInfo = screen.getByRole("button", { name: "More information about Model" });
+    expect(modelInfo.getAttribute("title")).toBe(
+      "Use a provider model identifier supported by the service.",
+    );
+    expect(screen.getByTestId("web-settings-tooltip-web-settings-model").textContent).toContain(
+      "Use a provider model identifier supported by the service.",
+    );
+    expect(document.querySelectorAll(".web-settings-hint")).toHaveLength(0);
+  });
+
+  it("keeps the settings section rail marked as persistent navigation", async () => {
+    render(<WebSettingsPage />);
+
+    await screen.findByDisplayValue("openai/gpt-4o-mini");
+    expect(screen.getByTestId("web-settings-subnav").className).toContain("web-settings-subnav");
+    expect(webStyles).toMatch(/\.web-settings-detail-rail\s*\{[^}]*position:\s*sticky[^}]*top:\s*0/s);
+    expect(webStyles).not.toMatch(/\.web-settings-detail-rail\s*\{[^}]*position:\s*static/s);
+    expect(webStyles).not.toMatch(/\.web-settings-detail-rail\s*\{[^}]*overflow-y:\s*auto/s);
   });
 
   it("keeps redacted secrets intact and saves only supported web settings", async () => {

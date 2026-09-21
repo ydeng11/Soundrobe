@@ -443,7 +443,8 @@ export function WorkspaceView({
             type="button"
             className="sr-btn"
             onClick={() => {
-              if (directory) void loadDirectory(directory.path, directory.path === root.path);
+              const path = directory?.path ?? root.path;
+              void loadDirectory(path, path === root.path);
             }}
           >
             Refresh

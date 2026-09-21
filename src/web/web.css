@@ -209,6 +209,14 @@
   overflow: hidden;
 }
 
+/* Settings is a document-length surface inside the fixed app shell. Its main
+   pane owns the scroll so the header remains fixed while section navigation can
+   stay pinned to the pane's top edge. */
+.sr-main--settings {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
 .sr-workspace {
   display: grid;
   grid-template-columns: var(--sr-side-w) minmax(0, 1fr);
@@ -237,6 +245,10 @@
   border: 1px solid var(--sr-border);
   border-radius: var(--sr-radius);
   overflow: hidden;
+}
+
+.sr-pane--settings {
+  overflow: visible;
 }
 
 /* ---------- Breadcrumb / toolbar ---------- */
@@ -502,6 +514,12 @@
   font-weight: var(--sr-fw-bold);
 }
 
+.sr-section__title:focus {
+  outline: 2px solid var(--sr-focus-ring);
+  outline-offset: 4px;
+  border-radius: var(--sr-radius-xs);
+}
+
 .sr-field {
   display: grid;
   /* Wide enough for a real field name. At 104px the sentence-like labels these
@@ -696,12 +714,53 @@
     max-height: 50vh;
   }
 
-  .sr-nav__item span:not(.sr-sr-only) {
+  .sr-header {
+    gap: 8px;
+  }
+
+  .sr-brand {
+    flex: 0 0 auto;
+  }
+
+  .sr-nav {
+    flex: 1 1 0;
+    overflow-x: auto;
+  }
+
+  .sr-header__spacer {
     display: none;
+  }
+
+  .sr-nav__item > span:not([aria-hidden="true"]) {
+    display: none;
+  }
+
+  .sr-nav__item > span[aria-hidden="true"] {
+    display: inline-flex;
   }
 
   .sr-nav__item {
     padding: 0 10px;
+  }
+}
+
+@media (max-width: 720px) {
+  .sr-pane--settings > .sr-section > .sr-field:not(.sr-field--stacked) {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .sr-pane--settings > .sr-section > .sr-field:not(.sr-field--stacked) > .sr-field__static {
+    grid-column: auto;
+  }
+
+  .sr-pane--settings > .sr-section > .sr-field > .sr-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .sr-pane--settings > .sr-section > .sr-field > .sr-toolbar > .sr-input {
+    flex: 1 1 100%;
   }
 }
 
@@ -758,6 +817,24 @@
   padding: 10px 12px 0;
   border-bottom: 1px solid var(--sr-border);
   flex: none;
+}
+
+.sr-tabs--settings {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  background: var(--sr-surface);
+  scrollbar-width: thin;
+}
+
+.sr-tabs--settings .sr-tab {
+  flex: 0 0 auto;
+}
+
+.sr-pane--settings > .sr-section {
+  scroll-margin-top: 56px;
 }
 
 .sr-tab {

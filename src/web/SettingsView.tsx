@@ -156,6 +156,7 @@ export function SettingsView({
   const [saved, setSaved] = React.useState<Record<string, string>>({});
   /** Per-field pending state, so saving one field does not lock the page. */
   const [pending, setPending] = React.useState<Record<string, boolean>>({});
+  const [activeGroup, setActiveGroup] = React.useState(GROUPS[0].id);
 
   const timers = React.useRef<number[]>([]);
   React.useEffect(
@@ -526,12 +527,15 @@ export function SettingsView({
     ) : null;
 
   const jumpTo = (id: string) => {
+    setActiveGroup(id);
+    const target = document.getElementById(`settings-group-${id}`);
     // Optional call: a non-browser render has the element but no scrolling.
-    document.getElementById(`settings-group-${id}`)?.scrollIntoView?.({ block: "start" });
+    target?.scrollIntoView?.({ block: "start" });
+    target?.querySelector<HTMLElement>(".sr-section__title")?.focus({ preventScroll: true });
   };
 
   return (
-    <div className="sr-pane" data-testid="settings">
+    <div className="sr-pane sr-pane--settings" data-testid="settings">
       <div className="sr-toolbar">
         <h2 className="sr-section__title">Settings</h2>
         <div className="sr-header__spacer" />
@@ -542,13 +546,14 @@ export function SettingsView({
         )}
       </div>
 
-      <nav className="sr-tabs" aria-label="Settings sections" data-testid="settings-nav">
+      <nav className="sr-tabs sr-tabs--settings" aria-label="Settings sections" data-testid="settings-nav">
         {GROUPS.map((group) => (
           <button
             key={group.id}
             type="button"
             className="sr-tab"
             data-testid={`settings-nav-${group.id}`}
+            aria-current={activeGroup === group.id ? "location" : undefined}
             onClick={() => jumpTo(group.id)}
           >
             {group.label}
@@ -562,8 +567,15 @@ export function SettingsView({
         </p>
       )}
 
-      <section className="sr-section" id="settings-group-sources" data-testid="settings-sources">
-        <h3 className="sr-section__title">Metadata sources</h3>
+      <section
+        className="sr-section"
+        id="settings-group-sources"
+        aria-labelledby="settings-heading-sources"
+        data-testid="settings-sources"
+      >
+        <h3 id="settings-heading-sources" className="sr-section__title" tabIndex={-1}>
+          Metadata sources
+        </h3>
         <p className="sr-field__static">Where Soundrobe may look for metadata it cannot read from the files.</p>
 
         <div className="sr-field sr-field--stacked">
@@ -615,8 +627,15 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="sr-section" id="settings-group-writing" data-testid="settings-writing">
-        <h3 className="sr-section__title">Tag writing</h3>
+      <section
+        className="sr-section"
+        id="settings-group-writing"
+        aria-labelledby="settings-heading-writing"
+        data-testid="settings-writing"
+      >
+        <h3 id="settings-heading-writing" className="sr-section__title" tabIndex={-1}>
+          Tag writing
+        </h3>
         <div className="sr-field">
           <label className="sr-field__label" htmlFor="setting-chinese">
             Chinese script conversion
@@ -758,8 +777,15 @@ export function SettingsView({
         )}
       </section>
 
-      <section className="sr-section" id="settings-group-lyrics" data-testid="settings-lyrics">
-        <h3 className="sr-section__title">Lyrics</h3>
+      <section
+        className="sr-section"
+        id="settings-group-lyrics"
+        aria-labelledby="settings-heading-lyrics"
+        data-testid="settings-lyrics"
+      >
+        <h3 id="settings-heading-lyrics" className="sr-section__title" tabIndex={-1}>
+          Lyrics
+        </h3>
         <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-lyrics">
             <input
@@ -827,8 +853,15 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="sr-section" id="settings-group-automation" data-testid="settings-automation">
-        <h3 className="sr-section__title">Automation</h3>
+      <section
+        className="sr-section"
+        id="settings-group-automation"
+        aria-labelledby="settings-heading-automation"
+        data-testid="settings-automation"
+      >
+        <h3 id="settings-heading-automation" className="sr-section__title" tabIndex={-1}>
+          Automation
+        </h3>
         <p className="sr-field__static">
           Tagging runs unattended on the schedule below. Each run records its outcome, visible
           under Monitoring.
@@ -1035,8 +1068,15 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="sr-section" id="settings-group-assistant" data-testid="settings-assistant">
-        <h3 className="sr-section__title">Assistant</h3>
+      <section
+        className="sr-section"
+        id="settings-group-assistant"
+        aria-labelledby="settings-heading-assistant"
+        data-testid="settings-assistant"
+      >
+        <h3 id="settings-heading-assistant" className="sr-section__title" tabIndex={-1}>
+          Assistant
+        </h3>
         <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-assistant">
             <input
@@ -1064,8 +1104,15 @@ export function SettingsView({
         </div>
       </section>
 
-      <section className="sr-section" id="settings-group-system" data-testid="settings-system">
-        <h3 className="sr-section__title">System</h3>
+      <section
+        className="sr-section"
+        id="settings-group-system"
+        aria-labelledby="settings-heading-system"
+        data-testid="settings-system"
+      >
+        <h3 id="settings-heading-system" className="sr-section__title" tabIndex={-1}>
+          System
+        </h3>
         <div className="sr-field sr-field--stacked">
           <label className="sr-field__label" htmlFor="setting-debug">
             <input
