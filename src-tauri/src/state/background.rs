@@ -425,10 +425,8 @@ mod tests {
     use time::{Date, Month, Time};
 
     fn dir(tag: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "soundrobe-background-{tag}-{}",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("soundrobe-background-{tag}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).unwrap();
         path
@@ -491,7 +489,10 @@ mod tests {
             .expect_err("an unparseable schedule must not be saved");
         assert!(error.contains("5 fields"), "unexpected message: {error}");
         assert_eq!(state.settings().schedule, "*/5 * * * *");
-        assert_eq!(BackgroundState::init_in(&data).settings().schedule, "*/5 * * * *");
+        assert_eq!(
+            BackgroundState::init_in(&data).settings().schedule,
+            "*/5 * * * *"
+        );
     }
 
     #[test]
@@ -578,7 +579,14 @@ mod tests {
         assert_eq!(runs[0].status, RunStatus::Running);
         assert_eq!(runs[1].id, first.id);
 
-        state.finish_run(&first.id, RunStatus::Completed, 4, 1, "tagged 4", Vec::new());
+        state.finish_run(
+            &first.id,
+            RunStatus::Completed,
+            4,
+            1,
+            "tagged 4",
+            Vec::new(),
+        );
 
         let runs = state.runs();
         let closed = runs.iter().find(|run| run.id == first.id).unwrap();
@@ -592,10 +600,22 @@ mod tests {
         // A late completion must not rewrite history, and history survives reload.
         state.finish_run(&first.id, RunStatus::Failed, 0, 0, "late", Vec::new());
         assert_eq!(
-            state.runs().iter().find(|run| run.id == first.id).unwrap().status,
+            state
+                .runs()
+                .iter()
+                .find(|run| run.id == first.id)
+                .unwrap()
+                .status,
             RunStatus::Completed
         );
-        state.finish_run("missing-run", RunStatus::Failed, 0, 0, "unknown", Vec::new());
+        state.finish_run(
+            "missing-run",
+            RunStatus::Failed,
+            0,
+            0,
+            "unknown",
+            Vec::new(),
+        );
         let reloaded = BackgroundState::init_in(&data);
         assert_eq!(reloaded.runs().len(), 2);
         assert_eq!(reloaded.runs()[0].id, second.id);
@@ -608,7 +628,10 @@ mod tests {
         // has to survive a restart - that durability is the whole point.
         let data = dir("ledger");
         let state = BackgroundState::init_in(&data);
-        let run = state.record_run(RunTrigger::Manual, Some("background-auto-tag-1".to_string()));
+        let run = state.record_run(
+            RunTrigger::Manual,
+            Some("background-auto-tag-1".to_string()),
+        );
         state.finish_run(
             &run.id,
             RunStatus::Completed,

@@ -118,9 +118,13 @@ alone, so a typo can never leave background tagging unable to run.
 The scheduler evaluates every 20 seconds and fires each slot once. A slot whose
 minute has already passed still runs late rather than being dropped, but only
 one missed slot is caught up per evaluation, so a service that was stopped for a
-week does not start a week of backlog. A due slot is retired as it is reported:
-if another operation holds the tagging lock the occurrence is skipped and
-logged, never queued behind it.
+week does not start a week of backlog. A due slot is retired as it is reported;
+its discovered albums are checkpointed even when another operation holds the
+tagging lock, then resume without an unbounded in-memory retry. Individual
+queued albums and review flags are checkpointed in `~/.soundrobe/worker.db`; provider
+catalog pages and release details remain in the resumable `~/.soundrobe/cache.db`.
+A restart converts an interrupted item back to pending work instead of losing it or
+starting concurrent duplicate work.
 
 ### What gets tagged
 
@@ -143,8 +147,9 @@ untagged, and it is never tagged twice.
 
 ### Observing it
 
-`~/.soundrobe/background-tagging.json` holds both the settings and the last 50
-runs, and is the authoritative record of what happened. **Monitoring** is the single
+`~/.soundrobe/background-tagging.json` holds the settings and last 50 runs, while
+`~/.soundrobe/worker.db` holds resumable album checkpoints and review flags.
+Together they are the durable record of background tagging. **Monitoring** is the single
 page for all of it: a strip of counts that stays visible, over four tabs — Overview,
 Releases, Operations and Logs. There is no separate Operation log destination, because
 the log answers the same question Monitoring does.
@@ -152,7 +157,8 @@ the log answers the same question Monitoring does.
 The strip is the overview and every count in it is a way in: clicking *Needs review 5*
 opens the Releases tab filtered to those five albums, and each row has an **Open**
 button that loads that album into the Workspace. Monitoring reports the problem and
-takes you to where it is fixed.
+takes you to where it is fixed; after checking the tags, either surface can
+acknowledge the review so the durable flag clears.
 
 The **Releases** tab filters by tagging state and searches by path, and pages in 50 at
 a time so a library of thousands does not have to render at once. The **Logs** tab
@@ -171,6 +177,11 @@ Its log source selector covers two files in the service data directory:
 | Auto-tag trace | `auto-tag-debug-YYYY-MM-DD.log` | Verbose per-release tracing, written only while debug logging is on. |
 
 A source with no file yet reports that plainly instead of showing an empty log.
+Provider outages, rate-limit exhaustion, and incomplete artist catalogs remain
+explicit deferred outcomes; they do not become guessed misses or trigger the AI
+fallback. If the AI fallback does write tags, Monitoring labels the release
+**Needs review**. That flag is stored in `~/.soundrobe/worker.db`, survives a
+restart, and disappears only after the operator presses **Acknowledge review**.
 Background tagging is on by default because the service already swept mounted
 libraries at startup before it was configurable; turning it off is one switch in
 Settings.

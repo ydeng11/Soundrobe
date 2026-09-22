@@ -457,6 +457,10 @@ export interface MonitoredRelease {
   status: ReleaseHealthStatus;
 }
 
+export interface MonitoringReviewAcknowledgement extends MonitoredRelease {
+  reviewed: true;
+}
+
 export interface MonitoringLog {
   path: string;
   totalLines: number;
@@ -547,6 +551,19 @@ export function listMonitoringReleases(
     fetchImpl,
     baseUrl,
     "monitoring:releases",
+  );
+}
+
+export function markMonitoringReleaseReviewed(
+  albumPath: string,
+  options: WebRequestOptions = {},
+): Promise<MonitoringReviewAcknowledgement> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<MonitoringReviewAcknowledgement>(
+    fetchImpl,
+    baseUrl,
+    "monitoring:mark-reviewed",
+    { albumPath },
   );
 }
 

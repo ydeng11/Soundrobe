@@ -10,6 +10,7 @@ import React from "react";
 import type { DirEntry, DirectoryData, LibraryRoot, TrackData } from "../shared/desktop-api";
 import {
   listMonitoringReleases,
+  markMonitoringReleaseReviewed,
   type MonitoredRelease,
 } from "../shared/web-adapter";
 import { DirectoryTree } from "./DirectoryTree";
@@ -50,6 +51,8 @@ function loadDetailsVisible(): boolean {
   }
 }
 
+const defaultMarkReviewed = (path: string) => markMonitoringReleaseReviewed(path);
+
 async function readDirectoryDescendants(
   api: Window["api"],
   entries: readonly DirEntry[],
@@ -72,6 +75,8 @@ export interface WorkspaceViewProps {
   api?: Window["api"];
   /** Albums background tagging classified; injected for tests. */
   loadReleases?: () => Promise<{ releases: MonitoredRelease[] }>;
+  /** Acknowledge one reviewed album; injected for tests. */
+  markReviewed?: (path: string) => Promise<unknown>;
   /**
    * An album to open on arrival, set when Monitoring sends the reader to the
    * album it just reported a problem with.
@@ -93,6 +98,7 @@ interface DirectoryView {
 export function WorkspaceView({
   api = window.api,
   loadReleases = listMonitoringReleases,
+  markReviewed = defaultMarkReviewed,
   openAlbumPath = null,
   onAlbumOpened,
 }: WorkspaceViewProps) {
@@ -115,6 +121,7 @@ export function WorkspaceView({
     React.useState<WebTableColumnKey[]>(loadVisibleColumns);
   /** Albums the service's own classification left needing a person. */
   const [reviewPaths, setReviewPaths] = React.useState<ReadonlySet<string>>(new Set());
+  const [acknowledgingPath, setAcknowledgingPath] = React.useState<string | null>(null);
 
   const root = roots[rootIndex] ?? null;
 
@@ -146,6 +153,26 @@ export function WorkspaceView({
   React.useEffect(() => {
     void refreshReviewPaths();
   }, [refreshReviewPaths]);
+
+  const acknowledgeReview = React.useCallback(
+    async (path: string) => {
+      setAcknowledgingPath(path);
+      setError(null);
+      try {
+        await markReviewed(path);
+        setReviewPaths((current) => {
+          const next = new Set(current);
+          next.delete(path);
+          return next;
+        });
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setAcknowledgingPath(null);
+      }
+    },
+    [markReviewed],
+  );
 
   const loadDirectory = React.useCallback(
     async (path: string, includeChildTracks = false) => {
@@ -464,18 +491,28 @@ export function WorkspaceView({
                 ? "1 album needs review"
                 : `${reviewInLibrary.length} albums need review`}
             </strong>{" "}
-            — background tagging left these without an authoritative match. Open one,
+            — background tagging left these tags for a person to verify. Open one,
             then use Search, Number, or Convert.{" "}
             {reviewInLibrary.map((path) => (
-              <button
-                key={path}
-                type="button"
-                className="sr-btn"
-                data-testid={`review-open-${path}`}
-                onClick={() => void loadDirectory(path)}
-              >
-                {albumNameOf(path)}
-              </button>
+              <React.Fragment key={path}>
+                <button
+                  type="button"
+                  className="sr-btn"
+                  data-testid={`review-open-${path}`}
+                  onClick={() => void loadDirectory(path)}
+                >
+                  {albumNameOf(path)}
+                </button>
+                <button
+                  type="button"
+                  className="sr-btn"
+                  disabled={acknowledgingPath === path}
+                  data-testid={`review-acknowledge-${path}`}
+                  onClick={() => void acknowledgeReview(path)}
+                >
+                  {acknowledgingPath === path ? "Acknowledging…" : "Acknowledge review"}
+                </button>
+              </React.Fragment>
             ))}
           </div>
         )}

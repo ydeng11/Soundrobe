@@ -1,6 +1,9 @@
 use serde::Serialize;
 use serde_json::Value;
-use std::{collections::VecDeque, sync::{Arc, Mutex}};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex},
+};
 use tokio::sync::broadcast;
 use uuid::Uuid;
 
@@ -50,10 +53,7 @@ struct EventState {
 
 impl Default for EventBus {
     fn default() -> Self {
-        Self::with_generation(
-            DEFAULT_REPLAY_CAPACITY,
-            Uuid::new_v4().simple().to_string(),
-        )
+        Self::with_generation(DEFAULT_REPLAY_CAPACITY, Uuid::new_v4().simple().to_string())
     }
 }
 
@@ -86,7 +86,10 @@ impl EventBus {
     }
 
     fn publish_value(&self, channel: &str, payload: Value) -> EventEnvelope {
-        let mut state = self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         state.next_sequence = state.next_sequence.saturating_add(1);
         let envelope = EventEnvelope {
             generation: self.generation.clone(),
@@ -116,13 +119,16 @@ impl EventBus {
         generation: Option<&str>,
         channels: &[&str],
     ) -> (Vec<EventEnvelope>, broadcast::Receiver<EventEnvelope>, bool) {
-        let state = self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         let gap = generation.is_some_and(|generation| generation != self.generation)
             || (after > 0
-            && state
-                .history
-                .front()
-                .is_some_and(|event| event.sequence > after.saturating_add(1)));
+                && state
+                    .history
+                    .front()
+                    .is_some_and(|event| event.sequence > after.saturating_add(1)));
         let replay = state
             .history
             .iter()
@@ -139,7 +145,10 @@ impl EventBus {
     }
 
     pub fn replay_after(&self, after: u64, channels: &[&str]) -> Vec<EventEnvelope> {
-        let state = self.state.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         state
             .history
             .iter()
@@ -174,7 +183,8 @@ mod tests {
     async fn replay_is_sequenced_bounded_and_channel_filtered() {
         let bus = EventBus::with_capacity(2);
         bus.publish("audit:event", &json!({ "step": 1 })).unwrap();
-        bus.publish("assistant:event", &json!({ "step": 2 })).unwrap();
+        bus.publish("assistant:event", &json!({ "step": 2 }))
+            .unwrap();
         bus.publish("audit:event", &json!({ "step": 3 })).unwrap();
 
         let replay = bus.replay_after(0, &["audit:event"]);
@@ -224,7 +234,8 @@ mod tests {
     fn reports_when_a_reconnect_is_older_than_the_replay_window() {
         let bus = EventBus::with_capacity(2);
         for step in 1..=4 {
-            bus.publish("audit:event", &json!({ "step": step })).unwrap();
+            bus.publish("audit:event", &json!({ "step": step }))
+                .unwrap();
         }
 
         let (_, _, gap) = bus.replay_and_subscribe(1, Some("test"), &["audit:event"]);

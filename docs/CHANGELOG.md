@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Background tagging now resumes provider catalog discovery and queued album work from SQLite after a restart; provider outages or incomplete catalogs remain deferred instead of triggering guessed AI tags, and AI-written metadata remains marked for review until acknowledged in Monitoring.
 - The browser service no longer prompts for a password or maintains a login session; access is controlled by the deployment boundary instead.
 - Tagging cleanup can now clear a validated set of ID3/Navidrome-supported tags (including Comment and Description) in the same write as new metadata. Desktop and web Settings autocomplete only supported tags, explicitly label selected tags as cleared, and use an × control to remove them; Monitoring reports the tags kept and cleared when a run finishes.
 - Browser Workspace's Refresh button now retries the selected library after an initial directory load failure instead of becoming a no-op.

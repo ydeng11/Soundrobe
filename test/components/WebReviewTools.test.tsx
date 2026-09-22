@@ -150,11 +150,13 @@ function fakeApi(
 function renderWorkspace(
   api: ReturnType<typeof fakeApi>,
   releases: MonitoredRelease[] = [],
+  markReviewed: (path: string) => Promise<unknown> = async () => {},
 ) {
   return render(
     <WorkspaceView
       api={api as unknown as Window["api"]}
       loadReleases={async () => ({ releases })}
+      markReviewed={markReviewed}
     />,
   );
 }
@@ -175,6 +177,17 @@ describe("albums the service left needing review", () => {
     const banner = await screen.findByTestId("review-banner");
     expect(banner.textContent).toContain("1 album needs review");
     expect(banner.textContent).toContain("Reference Album One");
+  });
+
+  it("lets the workspace acknowledge a reviewed album", async () => {
+    const api = fakeApi();
+    const markReviewed = vi.fn(async () => {});
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }], markReviewed);
+
+    await screen.findByTestId("review-banner");
+    fireEvent.click(screen.getByTestId(`review-acknowledge-${ALBUM}`));
+    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith(ALBUM));
+    await waitFor(() => expect(screen.queryByTestId("review-banner")).toBeNull());
   });
 
   it("does not claim a healthy or failed album needs review", async () => {

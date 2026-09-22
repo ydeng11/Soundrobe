@@ -8,6 +8,8 @@
 
 pub mod paths;
 
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod album;
 #[cfg(feature = "desktop")]
 pub mod assistant;
 #[cfg(feature = "desktop")]
@@ -25,13 +27,11 @@ pub mod conversation;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod cron;
 #[cfg(any(feature = "desktop", feature = "server"))]
+pub mod events;
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod library;
 #[cfg(feature = "server")]
 pub mod operation;
-#[cfg(any(feature = "desktop", feature = "server"))]
-pub mod events;
-#[cfg(any(feature = "desktop", feature = "server"))]
-pub mod album;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod providers;
 #[cfg(feature = "desktop")]
@@ -39,9 +39,13 @@ pub mod quit_guard;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod sqlite;
 #[cfg(any(feature = "desktop", feature = "server"))]
+pub mod tag_source;
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod tasks;
 #[cfg(feature = "desktop")]
 pub mod updater;
+#[cfg(feature = "server")]
+pub mod worker;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod write_queue;
 

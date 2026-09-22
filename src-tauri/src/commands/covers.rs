@@ -335,8 +335,13 @@ async fn download_artwork_at(
             tokio::task::spawn_blocking(move || {
                 let journaled = review.is_some();
                 let write = || -> Result<(), ApiError> {
-                    if journaled && kind == ArtworkKind::Album && is_cover_suppressed(&album_for_suppression) {
-                        return Err(ApiError::Message("Cover remains removed: suppression changed during lookup".into()));
+                    if journaled
+                        && kind == ArtworkKind::Album
+                        && is_cover_suppressed(&album_for_suppression)
+                    {
+                        return Err(ApiError::Message(
+                            "Cover remains removed: suppression changed during lookup".into(),
+                        ));
                     }
                     fs::write(&destination_for_write, bytes_for_write)?;
                     if kind == ArtworkKind::Album && !journaled {
@@ -347,7 +352,10 @@ async fn download_artwork_at(
                 if let Some(review) = review {
                     let result = review.mutate(&destination_for_write, write);
                     if let Err(error) = &result {
-                        review.report_error(format!("Artwork write failed: {}: {error}", destination_for_write.display()));
+                        review.report_error(format!(
+                            "Artwork write failed: {}: {error}",
+                            destination_for_write.display()
+                        ));
                     }
                     result
                 } else {

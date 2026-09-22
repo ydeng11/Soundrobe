@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import {
   createWebDesktopApi,
   listWebTasks,
+  markMonitoringReleaseReviewed,
   uploadWebCover,
   type WebEventSource,
 } from "../../src/shared/web-adapter";
@@ -80,6 +81,28 @@ describe("web-adapter command transport", () => {
       expect.objectContaining({
         method: "GET",
         credentials: "same-origin",
+      }),
+    );
+  });
+
+  it("posts an explicit monitoring review acknowledgement for one album", async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({
+        path: "/album",
+        status: "healthy",
+        reviewed: true,
+      }), { status: 200 }),
+    );
+
+    await expect(markMonitoringReleaseReviewed("/album", {
+      fetch: fetchMock,
+      baseUrl: "https://soundrobe.test",
+    })).resolves.toEqual({ path: "/album", status: "healthy", reviewed: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://soundrobe.test/api/v1/commands/monitoring%3Amark-reviewed",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ albumPath: "/album" }),
       }),
     );
   });

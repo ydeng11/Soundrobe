@@ -6,11 +6,14 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(any(feature = "desktop", test))]
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(feature = "desktop")]
 use tauri::{AppHandle, Emitter, Manager, State};
 
+#[cfg(feature = "desktop")]
+use crate::state::tasks::{TaskRegistry, TaskStatus};
 use crate::{
     commands::{
         covers::{download_album_artwork_at, download_artist_artwork_at},
@@ -30,14 +33,16 @@ use crate::{
         providers::{
             album_names_match, convert_chinese_text, ArtistIdentity, DiscogsClient,
             MusicBrainzClient, ProviderAlbum, ProviderReleaseSummary, ProviderRetryContext,
-            ProviderRetryMetrics, ProviderState, RemoteArtworkClient,
+            ProviderState, ReleaseSearchSummary, RemoteArtworkClient,
         },
-        sqlite::CacheState,
+        sqlite::{CacheState, CatalogPage},
+        tag_source::TagSource,
         write_queue::WriteQueue,
     },
 };
-#[cfg(feature = "desktop")]
-use crate::state::tasks::{TaskRegistry, TaskStatus};
+
+#[cfg(any(feature = "desktop", test))]
+use crate::state::providers::ProviderRetryMetrics;
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
 
@@ -228,7 +233,9 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
     };
     let year_hint = album_evidence.year.clone().or(tagged_year);
     let folder_album_hint = clean_folder_album_hint(
-        album_evidence.folder_album.or_else(|| non_empty(folder_album)),
+        album_evidence
+            .folder_album
+            .or_else(|| non_empty(folder_album)),
         artist_hint.as_deref(),
         year_hint.as_deref(),
     );
@@ -297,10 +304,8 @@ fn non_empty(value: String) -> Option<String> {
 fn extract_folder_year(name: &str) -> Option<String> {
     let year_prefix =
         Regex::new(r"^\s*((?:19|20)\d{2})(?:\s*[-.]|[^\d]|$)").expect("valid folder year regex");
-    let year_marker = Regex::new(
-        r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|,|$))",
-    )
-    .expect("valid folder year marker regex");
+    let year_marker = Regex::new(r"(?i)(?:^|[-–—(])\s*((?:19|20)\d{2})(?:\s*(?:\)|\]|\[|,|$))")
+        .expect("valid folder year marker regex");
     let extract_prefix = |value: &str| {
         year_prefix
             .captures(value)
@@ -424,13 +429,12 @@ pub fn parse_folder_album_evidence(
     .replace(&folder_album, "")
     .trim()
     .to_string();
-    folder_album = Regex::new(
-        r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$",
-    )
-    .expect("valid format suffix regex")
-    .replace(&folder_album, "")
-    .trim()
-    .to_string();
+    folder_album =
+        Regex::new(r"(?i)\s*[,\-]?\s*(?:flac|mp3|wav|aac|ogg|m4a|wma|ape)(?:\s*分轨)?\s*$")
+            .expect("valid format suffix regex")
+            .replace(&folder_album, "")
+            .trim()
+            .to_string();
     let folder_album = non_empty(folder_album);
     let tagged_album = tagged_album
         .map(str::trim)
@@ -1263,10 +1267,7 @@ fn rank_artist_releases_with_country(
                 .then_with(|| left.title.cmp(&right.title))
         },
     );
-    ranked
-        .into_iter()
-        .map(|(_, _, release)| release)
-        .collect()
+    ranked.into_iter().map(|(_, _, release)| release).collect()
 }
 
 fn rank_candidate_details(
@@ -1345,7 +1346,11 @@ fn select_credible_provider_candidate(
             .cmp(&left_score.explicit_id)
             .then_with(|| right_score.strict_match.cmp(&left_score.strict_match))
             .then_with(|| right_score.edition_matches.cmp(&left_score.edition_matches))
-            .then_with(|| right_score.exact_track_count.cmp(&left_score.exact_track_count))
+            .then_with(|| {
+                right_score
+                    .exact_track_count
+                    .cmp(&left_score.exact_track_count)
+            })
             .then_with(|| left_score.provider_extras.cmp(&right_score.provider_extras))
             .then_with(|| right_score.exact_year.cmp(&left_score.exact_year))
             .then_with(|| {
@@ -1390,6 +1395,7 @@ fn safe_provider_error(error: &str) -> String {
 enum ProviderAuthorityDecision {
     Selected(Box<AlbumCandidate>),
     Providerless,
+    Incomplete,
     Unavailable,
 }
 
@@ -1402,6 +1408,11 @@ fn provider_authority_decision(
         return ProviderAuthorityDecision::Selected(Box::new(candidate));
     }
     if attempts
+        .iter()
+        .any(|attempt| attempt.status == ProviderAttemptStatus::Incomplete)
+    {
+        ProviderAuthorityDecision::Incomplete
+    } else if attempts
         .iter()
         .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
     {
@@ -1436,9 +1447,9 @@ fn normalized_release_identity(value: &str) -> String {
 }
 
 fn has_cjk_text(value: &str) -> bool {
-    value.chars().any(|character| {
-        matches!(character as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF)
-    })
+    value
+        .chars()
+        .any(|character| matches!(character as u32, 0x3400..=0x4DBF | 0x4E00..=0x9FFF))
 }
 
 fn exact_album_identity(left: &str, right: &str) -> bool {
@@ -1585,7 +1596,10 @@ fn strict_provider_candidate_credibility(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Result<CredibilityScore, String> {
-    if !matches!(candidate.source, LookupSource::Musicbrainz | LookupSource::Discogs) {
+    if !matches!(
+        candidate.source,
+        LookupSource::Musicbrainz | LookupSource::Discogs
+    ) {
         return Err("candidate is not provider-backed".to_string());
     }
     let hint_album = request
@@ -1616,7 +1630,8 @@ fn strict_provider_candidate_credibility(
             return Err("provider artist conflicts with local evidence".to_string());
         }
     }
-    if let (Some(hint), Some(provider)) = (request.year_hint.as_deref(), candidate.year.as_deref()) {
+    if let (Some(hint), Some(provider)) = (request.year_hint.as_deref(), candidate.year.as_deref())
+    {
         if hint != provider {
             return Err("provider year conflicts with local evidence".to_string());
         }
@@ -1704,9 +1719,10 @@ fn strict_provider_candidate_credibility(
     Ok(CredibilityScore {
         strict_match: true,
         explicit_id: match candidate.source {
-            LookupSource::Musicbrainz => request.musicbrainz_album_id.as_ref().is_some_and(|_| {
-                request.musicbrainz_album_id == candidate.musicbrainz_album_id
-            }),
+            LookupSource::Musicbrainz => request
+                .musicbrainz_album_id
+                .as_ref()
+                .is_some_and(|_| request.musicbrainz_album_id == candidate.musicbrainz_album_id),
             LookupSource::Discogs => request
                 .discogs_release_id
                 .as_ref()
@@ -1759,7 +1775,10 @@ fn provider_selection_diagnostics(
     }
     for candidate in candidates {
         let provider = lookup_source_name(candidate.source);
-        if !matches!(candidate.source, LookupSource::Musicbrainz | LookupSource::Discogs) {
+        if !matches!(
+            candidate.source,
+            LookupSource::Musicbrainz | LookupSource::Discogs
+        ) {
             continue;
         }
         *candidate_counts.entry(provider).or_default() += 1;
@@ -1783,50 +1802,163 @@ fn provider_selection_diagnostics(
     })]
 }
 
+const MUSICBRAINZ_CATALOG_CACHE_VERSION: &str = "artist-catalog-v1";
+const DISCOGS_CATALOG_CACHE_VERSION: &str = "artist-catalog-v1";
+const ARTIST_CATALOG_PAGE_LIMIT: u32 = 100;
+const ARTIST_DETAIL_LIMIT: usize = 40;
+
+fn provider_release_summary(summary: ReleaseSearchSummary) -> ProviderReleaseSummary {
+    ProviderReleaseSummary {
+        id: summary.id,
+        title: summary.title,
+        year: summary.year.and_then(|year| year.parse().ok()),
+        kind: summary.kind,
+        artist_name: summary.artist,
+        country: summary.country,
+        formats: summary.formats,
+        catalog_number: summary.catalog_number,
+        barcode: summary.barcode,
+    }
+}
+
+fn cached_catalog_page(
+    page: CatalogPage,
+) -> Result<(Vec<ProviderReleaseSummary>, Option<u32>), String> {
+    let summaries = serde_json::from_value::<Vec<ReleaseSearchSummary>>(page.releases)
+        .map_err(|error| format!("cached artist catalog page could not be parsed: {error}"))?
+        .into_iter()
+        .map(provider_release_summary)
+        .collect();
+    Ok((summaries, page.next_cursor))
+}
+
+async fn artist_catalog<S: TagSource>(
+    source: &S,
+    cache: &CacheState,
+    provider: &str,
+    cache_version: &str,
+    artist_id: &str,
+    initial_cursor: u32,
+) -> Result<Vec<ProviderReleaseSummary>, String> {
+    let mut cursor = initial_cursor;
+    let mut releases = Vec::new();
+    loop {
+        if let Some(cached) =
+            cache.artist_release_catalog_page(provider, cache_version, artist_id, cursor)
+        {
+            let (summaries, next) = cached_catalog_page(cached)?;
+            releases.extend(summaries);
+            match next {
+                Some(next) => cursor = next,
+                None => {
+                    let _ = cache.set_artist_release_catalog_state(
+                        provider,
+                        cache_version,
+                        artist_id,
+                        None,
+                        None,
+                        true,
+                    );
+                    return Ok(releases);
+                }
+            }
+            continue;
+        }
+
+        let page = source
+            .release_page(artist_id, cursor, ARTIST_CATALOG_PAGE_LIMIT)
+            .await
+            .map_err(|error| error.to_string())?;
+        let next = page.next_cursor;
+        let total = page.total;
+        let value = serde_json::to_value(&page.summaries)
+            .map_err(|error| format!("artist catalog page could not be cached: {error}"))?;
+        let _ = cache.set_artist_release_catalog_page(
+            provider,
+            cache_version,
+            artist_id,
+            cursor,
+            &value,
+            page.returned,
+            total,
+            next,
+        );
+        let _ = cache.set_artist_release_catalog_state(
+            provider,
+            cache_version,
+            artist_id,
+            next,
+            total,
+            next.is_none(),
+        );
+        releases.extend(page.summaries.into_iter().map(provider_release_summary));
+        match next {
+            Some(next) => cursor = next,
+            None => return Ok(releases),
+        }
+    }
+}
+
 async fn musicbrainz_artist_candidates(
     client: &MusicBrainzClient,
     cache: &CacheState,
     request: &LookupRequest,
-) -> Result<Vec<AlbumCandidate>, String> {
+) -> Result<(Vec<AlbumCandidate>, Option<String>), String> {
     let Some(artist_id) = request.musicbrainz_artist_id.as_deref() else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), None));
     };
-    let releases = cached_artist_releases(cache, "musicbrainz-v2", artist_id).unwrap_or_default();
-    let releases = if releases.is_empty() {
-        let fetched = client.artist_release_page_result(artist_id, 1, 100).await?;
-        if let Ok(value) = serde_json::to_value(&fetched) {
-            let _ = cache.set_artist_releases("musicbrainz-v2", artist_id, 1, &value);
-        }
-        fetched
-    } else {
-        releases
-    };
+    let releases = artist_catalog(
+        client,
+        cache,
+        "musicbrainz",
+        MUSICBRAINZ_CATALOG_CACHE_VERSION,
+        artist_id,
+        0,
+    )
+    .await?;
     let mut candidates = Vec::new();
-    for release in rank_artist_releases_with_country(
+    let mut detail_error = None;
+    let ranked_releases = rank_artist_releases_with_country(
         releases,
         request.album_hint.as_deref(),
         request.year_hint.as_deref(),
         request.country_hint.as_deref(),
-    )
-    .into_iter()
-    .take(3)
-    {
+    );
+    let detail_limit_reached = ranked_releases.len() > ARTIST_DETAIL_LIMIT;
+    for release in ranked_releases.into_iter().take(ARTIST_DETAIL_LIMIT) {
         let album = cached_release_detail(cache, "musicbrainz-v4", &release.id);
         let album = match album {
             Some(album) => Some(album),
-            None => {
-                let fetched = client.release_by_id_result(&release.id).await?;
-                if let Ok(value) = serde_json::to_value(&fetched) {
-                    let _ = cache.set_release_detail("musicbrainz-v4", &release.id, &value);
+            None => match client.release_by_id_result(&release.id).await {
+                Ok(fetched) => {
+                    if let Ok(value) = serde_json::to_value(&fetched) {
+                        let _ = cache.set_release_detail("musicbrainz-v4", &release.id, &value);
+                    }
+                    Some(fetched)
                 }
-                Some(fetched)
-            }
+                Err(error) => {
+                    detail_error.get_or_insert(error);
+                    None
+                }
+            },
         };
         if let Some(album) = album {
             candidates.push(musicbrainz_candidate(album));
         }
     }
-    Ok(rank_candidate_details(candidates, request, "musicbrainz"))
+    if detail_limit_reached && detail_error.is_none() {
+        detail_error =
+            Some("MusicBrainz discovery incomplete: release detail limit reached".into());
+    }
+    if candidates.is_empty() {
+        if let Some(error) = detail_error.as_ref() {
+            return Err(error.clone());
+        }
+    }
+    Ok((
+        rank_candidate_details(candidates, request, "musicbrainz"),
+        detail_error,
+    ))
 }
 
 async fn discogs_artist_candidates(
@@ -1838,16 +1970,15 @@ async fn discogs_artist_candidates(
     let Some(artist_id) = request.discogs_artist_id.as_deref() else {
         return Ok(Vec::new());
     };
-    let releases = cached_artist_releases(cache, "discogs-v2", artist_id).unwrap_or_default();
-    let releases = if releases.is_empty() {
-        let fetched = client.artist_release_page_result(artist_id, 1, 100).await?;
-        if let Ok(value) = serde_json::to_value(&fetched) {
-            let _ = cache.set_artist_releases("discogs-v2", artist_id, 1, &value);
-        }
-        fetched
-    } else {
-        releases
-    };
+    let releases = artist_catalog(
+        client,
+        cache,
+        "discogs",
+        DISCOGS_CATALOG_CACHE_VERSION,
+        artist_id,
+        1,
+    )
+    .await?;
     let mut candidates = Vec::new();
     for release in rank_artist_releases_with_country(
         releases,
@@ -1856,19 +1987,11 @@ async fn discogs_artist_candidates(
         request.country_hint.as_deref(),
     )
     .into_iter()
-    .take(3)
+    .take(ARTIST_DETAIL_LIMIT)
     {
         candidates.push(discovery.detail(&release.id).await?);
     }
     Ok(rank_candidate_details(candidates, request, "discogs"))
-}
-
-fn cached_artist_releases(
-    cache: &CacheState,
-    provider: &str,
-    artist_id: &str,
-) -> Option<Vec<ProviderReleaseSummary>> {
-    serde_json::from_value(cache.artist_releases(provider, artist_id, 1)?).ok()
 }
 
 fn cached_release_detail(
@@ -1902,6 +2025,7 @@ pub enum AutoTagOutcome {
 pub enum ProviderAttemptStatus {
     Matched,
     NoMatch,
+    Incomplete,
     Unavailable,
 }
 
@@ -1920,6 +2044,15 @@ pub struct ProviderAttempt {
 
 fn is_zero_u32(value: &u32) -> bool {
     *value == 0
+}
+
+fn provider_error_status(error: &str) -> ProviderAttemptStatus {
+    let error = error.to_ascii_lowercase();
+    if error.contains("incomplete") || error.contains("budget") {
+        ProviderAttemptStatus::Incomplete
+    } else {
+        ProviderAttemptStatus::Unavailable
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -1982,6 +2115,7 @@ pub(crate) struct AutoTagRetryContexts {
 }
 
 impl AutoTagRetryContexts {
+    #[cfg(any(feature = "desktop", test))]
     pub(crate) fn new(cancelled: Arc<AtomicBool>) -> Self {
         Self {
             musicbrainz: ProviderRetryContext::new(
@@ -2031,6 +2165,14 @@ pub(crate) fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'stati
     }
 }
 
+fn candidate_apply_outcome(source: LookupSource) -> (AutoTagOutcome, Option<&'static str>) {
+    if source == LookupSource::Llm {
+        (AutoTagOutcome::NeedsReview, Some("ai_fallback"))
+    } else {
+        (AutoTagOutcome::Applied, None)
+    }
+}
+
 const AI_TAG_CONFIDENCE_THRESHOLD: f64 = 0.85;
 const AUTO_TAG_LLM_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -2061,10 +2203,9 @@ fn ai_validation_failure_from_error(error: &OpenRouterError) -> AiValidationFail
             "ai_timeout",
             format!("AI request timed out after {milliseconds}ms"),
         ),
-        OpenRouterError::Http { status, .. } => ai_failure(
-            "ai_failed",
-            format!("AI provider returned HTTP {status}"),
-        ),
+        OpenRouterError::Http { status, .. } => {
+            ai_failure("ai_failed", format!("AI provider returned HTTP {status}"))
+        }
         OpenRouterError::Network(_) => ai_failure("ai_failed", "AI provider request failed"),
         OpenRouterError::MissingChoices(_) => {
             ai_failure("ai_failed", "AI provider returned no choices")
@@ -2115,10 +2256,7 @@ fn required_ai_strings(
     }
 }
 
-fn required_ai_u32(
-    value: &serde_json::Value,
-    field: &str,
-) -> Result<u32, AiValidationFailure> {
+fn required_ai_u32(value: &serde_json::Value, field: &str) -> Result<u32, AiValidationFailure> {
     value
         .get(field)
         .and_then(serde_json::Value::as_u64)
@@ -2144,9 +2282,7 @@ pub fn validated_ai_candidate(
     if confidence < AI_TAG_CONFIDENCE_THRESHOLD {
         let mut failure = ai_failure(
             "ai_low_confidence",
-            format!(
-                "confidence {confidence:.3} is below {AI_TAG_CONFIDENCE_THRESHOLD:.2}"
-            ),
+            format!("confidence {confidence:.3} is below {AI_TAG_CONFIDENCE_THRESHOLD:.2}"),
         );
         failure.confidence = Some(confidence);
         return Err(failure);
@@ -2233,7 +2369,10 @@ pub fn validated_ai_candidate(
             .entry(disc_number)
             .or_default()
             .insert(track_number);
-        if common_disc_total.replace(disc_total).is_some_and(|total| total != disc_total) {
+        if common_disc_total
+            .replace(disc_total)
+            .is_some_and(|total| total != disc_total)
+        {
             return Err(ai_failure(
                 "ai_validation_failed",
                 "discTotal must be consistent",
@@ -2264,7 +2403,9 @@ pub fn validated_ai_candidate(
         ));
     }
     for (_, track_total, track) in &indexed_tracks {
-        let count = per_disc.get(&track.disc_number.unwrap_or_default()).copied();
+        let count = per_disc
+            .get(&track.disc_number.unwrap_or_default())
+            .copied();
         if count != Some(*track_total) {
             return Err(ai_failure(
                 "ai_validation_failed",
@@ -2525,12 +2666,55 @@ async fn fill_genre_if_missing(
 
 /// Reuse auto-tag's conservative genre fill for a manually resolved release.
 /// The manual workflow has no task cancellation token, so this bounded helper
-/// uses a request-local token and returns the unchanged candidate when genre
-/// inference is unavailable or rejected.
+/// uses a request-local token and returns no genre when inference is unavailable
+/// or rejected.
 pub(crate) async fn fill_manual_candidate_genre_if_missing(
-    candidate: &AlbumCandidate,
+    album: &ProviderAlbum,
+    provider: &str,
     config: &AutoTagConfig,
-) -> AlbumCandidate {
+) -> Option<String> {
+    let candidate = AlbumCandidate {
+        artist: album.artist.clone(),
+        artists: album.artists.clone(),
+        album: Some(album.title.clone()),
+        album_artist: album.artist.clone(),
+        album_artists: album.artists.clone(),
+        year: album.year.clone(),
+        genre: album.genre.clone(),
+        musicbrainz_album_id: (provider == "musicbrainz").then(|| album.id.clone()),
+        musicbrainz_artist_id: (provider == "musicbrainz")
+            .then(|| album.artist_id.clone())
+            .flatten(),
+        discogs_release_id: (provider == "discogs").then(|| album.id.clone()),
+        discogs_artist_id: (provider == "discogs")
+            .then(|| album.artist_id.clone())
+            .flatten(),
+        tracks: album
+            .tracks
+            .iter()
+            .map(|track| TrackCandidate {
+                title: track.title.clone(),
+                match_titles: track.match_titles.clone(),
+                artist: track.artist.clone(),
+                artists: track.artists.clone(),
+                track_number: track.track_number,
+                track_total: track.track_total,
+                disc_number: track.disc_number,
+                media_type: track.media_type.clone(),
+                musicbrainz_track_id: (provider == "musicbrainz")
+                    .then(|| track.recording_id.clone())
+                    .flatten(),
+                length: track.length,
+                ..TrackCandidate::default()
+            })
+            .collect(),
+        source: if provider == "discogs" {
+            LookupSource::Discogs
+        } else {
+            LookupSource::Musicbrainz
+        },
+        ..AlbumCandidate::default()
+    };
     let request = LookupRequest {
         artist_hint: candidate.artist.clone(),
         album_hint: candidate.album.clone(),
@@ -2542,9 +2726,10 @@ pub(crate) async fn fill_manual_candidate_genre_if_missing(
         tracks: candidate.tracks.clone(),
         ..LookupRequest::default()
     };
-    fill_genre_if_missing(candidate, &request, config, &AtomicBool::new(false))
+    fill_genre_if_missing(&candidate, &request, config, &AtomicBool::new(false))
         .await
         .0
+        .genre
 }
 
 pub async fn resolve_and_apply_album(
@@ -2699,10 +2884,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             .musicbrainz_error
             .as_deref()
             .map(safe_provider_error);
-        discogs_error = resolution
-            .discogs_error
-            .as_deref()
-            .map(safe_provider_error);
+        discogs_error = resolution.discogs_error.as_deref().map(safe_provider_error);
         for alias in &resolution.identity.english_aliases {
             if let Err(error) = save_alias(services.alias_file, artist, alias) {
                 tracing::warn!(%error, "failed to persist resolved artist alias");
@@ -2729,10 +2911,16 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             )
             .collect::<Vec<_>>();
         match musicbrainz_artist_candidates(&musicbrainz, services.cache, &request).await {
-            Ok(scoped) => provider_candidates.extend(scoped),
+            Ok((scoped, detail_error)) => {
+                provider_candidates.extend(scoped);
+                if let Some(error) = detail_error {
+                    musicbrainz_error = Some(safe_provider_error(&error));
+                }
+            }
             Err(error) => musicbrainz_error = Some(safe_provider_error(&error)),
         }
-        let mut credible = select_credible_provider_candidate(&request, provider_candidates.clone());
+        let mut credible =
+            select_credible_provider_candidate(&request, provider_candidates.clone());
         let mut generic_search_attempted = false;
         if credible.is_none() {
             if let (Some(artist), Some(album)) = (
@@ -2760,8 +2948,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         };
         let status = if credible.is_some() {
             ProviderAttemptStatus::Matched
-        } else if diagnostic.is_some() {
-            ProviderAttemptStatus::Unavailable
+        } else if let Some(error) = diagnostic.as_deref() {
+            provider_error_status(error)
         } else {
             ProviderAttemptStatus::NoMatch
         };
@@ -2773,7 +2961,9 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_after_seconds: musicbrainz_metrics.max_retry_after_seconds(),
         });
         #[cfg(feature = "desktop")]
-        if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
+        if let Some(review) = super::auto_tag_review::active_review() {
+            review.evidence("providerAttempts", serde_json::json!(provider_attempts));
+        }
         report(
             "source",
             format!("MusicBrainz: {count} candidate(s)"),
@@ -2814,12 +3004,14 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         let diagnostic = if generic_search_attempted {
             discogs_error.clone()
         } else {
-            discogs_error.clone().or_else(|| discogs_direct_error.clone())
+            discogs_error
+                .clone()
+                .or_else(|| discogs_direct_error.clone())
         };
         let status = if credible.is_some() {
             ProviderAttemptStatus::Matched
-        } else if diagnostic.is_some() {
-            ProviderAttemptStatus::Unavailable
+        } else if let Some(error) = diagnostic.as_deref() {
+            provider_error_status(error)
         } else {
             ProviderAttemptStatus::NoMatch
         };
@@ -2831,7 +3023,9 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
             retry_after_seconds: discogs_metrics.max_retry_after_seconds(),
         });
         #[cfg(feature = "desktop")]
-        if let Some(review) = super::auto_tag_review::active_review() { review.evidence("providerAttempts", serde_json::json!(provider_attempts)); }
+        if let Some(review) = super::auto_tag_review::active_review() {
+            review.evidence("providerAttempts", serde_json::json!(provider_attempts));
+        }
         report(
             "source",
             format!("Discogs releases: {count} candidate(s)"),
@@ -2846,11 +3040,12 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     let mut provider_diagnostics =
         provider_selection_diagnostics(&request, &fresh, &provider_attempts);
     provider_diagnostics.extend(discogs_discovery.diagnostics);
-    let providers_confirmed_no_match =
-        provider_decision == ProviderAuthorityDecision::Providerless;
+    let providers_confirmed_no_match = provider_decision == ProviderAuthorityDecision::Providerless;
     let mut candidate = match provider_decision {
         ProviderAuthorityDecision::Selected(candidate) => Some(*candidate),
-        ProviderAuthorityDecision::Providerless | ProviderAuthorityDecision::Unavailable => None,
+        ProviderAuthorityDecision::Providerless
+        | ProviderAuthorityDecision::Incomplete
+        | ProviderAuthorityDecision::Unavailable => None,
     };
     let mut ai_failure = None;
     if candidate.is_none() && providers_confirmed_no_match {
@@ -2863,6 +3058,16 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
 
     let Some(mut candidate) = candidate else {
         let (reason_code, reason, ai_status, ai_confidence) = if provider_attempts
+            .iter()
+            .any(|attempt| attempt.status == ProviderAttemptStatus::Incomplete)
+        {
+            (
+                "provider_incomplete",
+                "provider discovery was incomplete and can be resumed".to_string(),
+                None,
+                None,
+            )
+        } else if provider_attempts
             .iter()
             .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
         {
@@ -2914,7 +3119,12 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
 
     let cache_payload = fresh
         .iter()
-        .filter(|item| matches!(item.source, LookupSource::Musicbrainz | LookupSource::Discogs))
+        .filter(|item| {
+            matches!(
+                item.source,
+                LookupSource::Musicbrainz | LookupSource::Discogs
+            )
+        })
         .cloned()
         .collect::<Vec<_>>();
     if should_replace_lookup_cache(&cache_payload, !cached.is_empty()) {
@@ -2926,12 +3136,9 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
                 .first()
                 .map(|candidate| candidate.source)
                 .unwrap_or(LookupSource::Folder);
-            let _ = services.cache.set_lookup(
-                &hash,
-                &query,
-                &response,
-                lookup_source_name(source),
-            );
+            let _ = services
+                .cache
+                .set_lookup(&hash, &query, &response, lookup_source_name(source));
         }
     }
     provider_diagnostics.push(selected_track_match_diagnostic(&request, &candidate));
@@ -2942,7 +3149,10 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     candidate = protect_candidate_tracks(&request, &candidate);
     report(
         "source",
-        format!("Selected authoritative {} candidate", lookup_source_name(candidate.source)),
+        format!(
+            "Selected authoritative {} candidate",
+            lookup_source_name(candidate.source)
+        ),
         Some(serde_json::json!({"source": lookup_source_name(candidate.source)})),
     );
     check_cancelled(cancelled)?;
@@ -3085,17 +3295,23 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         }
     }
     check_cancelled(cancelled)?;
+    let (outcome, reason_code) = candidate_apply_outcome(candidate.source);
+    if outcome == AutoTagOutcome::NeedsReview {
+        report(
+            "needs_review",
+            "AI fallback tags require review".to_string(),
+            Some(serde_json::json!({"reasonCode": reason_code})),
+        );
+    }
     let ai_status = (candidate.source == LookupSource::Llm).then(|| "accepted".to_string());
     let ai_confidence = candidate.confidence;
-    let ai_threshold = ai_status
-        .as_ref()
-        .map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
+    let ai_threshold = ai_status.as_ref().map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
     Ok(AutoTagRunResult {
-        outcome: AutoTagOutcome::Applied,
+        outcome,
         authority: Some(candidate.source),
         candidate: Some(candidate),
         written,
-        reason_code: None,
+        reason_code: reason_code.map(str::to_string),
         diagnostics: provider_diagnostics,
         provider_attempts,
         ai_status,
@@ -3137,52 +3353,86 @@ pub fn album_auto_tag(
         let report_app = app.clone();
         let report_task_id = spawned_task_id.clone();
         let reviews = app.state::<super::auto_tag_review::ReviewStore>();
-        let review = match queue.run_exclusive(async { reviews.begin(&spawned_task_id, &path) }).await {
+        let review = match queue
+            .run_exclusive(async { reviews.begin(&spawned_task_id, &path) })
+            .await
+        {
             Ok(review) => review,
             Err(error) => {
-                tasks.finish(&spawned_task_id, TaskStatus::Failed, error.to_string(), serde_json::json!({"error": error.to_string()}));
+                tasks.finish(
+                    &spawned_task_id,
+                    TaskStatus::Failed,
+                    error.to_string(),
+                    serde_json::json!({"error": error.to_string()}),
+                );
                 return;
             }
         };
-        let operation = super::auto_tag_review::ACTIVE_REVIEW.scope(review, resolve_and_apply_album_with_retry_context(
-            &path,
-            &config,
-            AutoTagServices {
-                providers: &providers,
-                cache: &cache,
-                queue: &queue,
-                alias_file: &alias_file,
-            },
-            &cancelled,
-            Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
-            move |step, message| {
-                let tasks = progress_app.state::<TaskRegistry>();
-                if tasks.update(&progress_task_id, step, message) {
-                    let _ = progress_app.emit(
-                        "auto-tag:event",
-                        auto_tag_event(&progress_task_id, "progress", message, step, None),
-                    );
-                }
-            },
-            move |kind, message, data| {
-                if let Some(review) = super::auto_tag_review::active_review() { review.event(kind, &message, data.as_ref()); }
-                let progress = report_app
-                    .state::<TaskRegistry>()
-                    .get(&report_task_id)
-                    .map(|task| task.progress)
-                    .unwrap_or(0);
-                let _ = report_app.emit(
-                    "auto-tag:event",
-                    auto_tag_event(&report_task_id, kind, message, progress, data),
-                );
-            },
-        )).await;
+        let operation = super::auto_tag_review::ACTIVE_REVIEW
+            .scope(
+                review,
+                resolve_and_apply_album_with_retry_context(
+                    &path,
+                    &config,
+                    AutoTagServices {
+                        providers: &providers,
+                        cache: &cache,
+                        queue: &queue,
+                        alias_file: &alias_file,
+                    },
+                    &cancelled,
+                    Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+                    move |step, message| {
+                        let tasks = progress_app.state::<TaskRegistry>();
+                        if tasks.update(&progress_task_id, step, message) {
+                            let _ = progress_app.emit(
+                                "auto-tag:event",
+                                auto_tag_event(&progress_task_id, "progress", message, step, None),
+                            );
+                        }
+                    },
+                    move |kind, message, data| {
+                        if let Some(review) = super::auto_tag_review::active_review() {
+                            review.event(kind, &message, data.as_ref());
+                        }
+                        let progress = report_app
+                            .state::<TaskRegistry>()
+                            .get(&report_task_id)
+                            .map(|task| task.progress)
+                            .unwrap_or(0);
+                        let _ = report_app.emit(
+                            "auto-tag:event",
+                            auto_tag_event(&report_task_id, kind, message, progress, data),
+                        );
+                    },
+                ),
+            )
+            .await;
 
         let (review_outcome, review_result) = match &operation {
-            Ok(result) => (if result.outcome == AutoTagOutcome::Applied { "applied" } else { "needs_review" }, serde_json::to_value(result).unwrap_or_default()),
-            Err(error) => (if cancelled.load(Ordering::Acquire) { "cancelled" } else { "failed" }, serde_json::json!({"error": error.to_string()})),
+            Ok(result) => (
+                if result.outcome == AutoTagOutcome::Applied {
+                    "applied"
+                } else {
+                    "needs_review"
+                },
+                serde_json::to_value(result).unwrap_or_default(),
+            ),
+            Err(error) => (
+                if cancelled.load(Ordering::Acquire) {
+                    "cancelled"
+                } else {
+                    "failed"
+                },
+                serde_json::json!({"error": error.to_string()}),
+            ),
         };
-        if let Err(error) = queue.run_exclusive(async { reviews.finish(&spawned_task_id, review_outcome, review_result) }).await {
+        if let Err(error) = queue
+            .run_exclusive(async {
+                reviews.finish(&spawned_task_id, review_outcome, review_result)
+            })
+            .await
+        {
             tracing::error!(%error, "auto-tag review readback failed");
         }
 
@@ -3211,7 +3461,10 @@ pub fn album_auto_tag(
                     AutoTagOutcome::NeedsReview => {
                         let message = format!(
                             "Needs review — {}",
-                            result.reason_code.as_deref().unwrap_or("no authoritative match")
+                            result
+                                .reason_code
+                                .as_deref()
+                                .unwrap_or("no authoritative match")
                         );
                         tasks.finish(
                             &spawned_task_id,
@@ -3512,11 +3765,28 @@ fn apply_clear_tag_fields(
 ) {
     for tag in clear_tags {
         match tag.as_str() {
-            "title" | "artist" | "artists" | "album" | "albumArtist" | "albumArtists"
-            | "year" | "genre" | "composer" | "comment" | "description" | "lyrics"
-            | "compilation" | "trackNumber" | "trackTotal" | "discNumber" | "discTotal"
-            | "musicbrainzTrackId" | "musicbrainzAlbumId" | "musicbrainzArtistId"
-            | "discogsArtistId" | "discogsReleaseId" => {
+            "title"
+            | "artist"
+            | "artists"
+            | "album"
+            | "albumArtist"
+            | "albumArtists"
+            | "year"
+            | "genre"
+            | "composer"
+            | "comment"
+            | "description"
+            | "lyrics"
+            | "compilation"
+            | "trackNumber"
+            | "trackTotal"
+            | "discNumber"
+            | "discTotal"
+            | "musicbrainzTrackId"
+            | "musicbrainzAlbumId"
+            | "musicbrainzArtistId"
+            | "discogsArtistId"
+            | "discogsReleaseId" => {
                 fields.insert(tag.clone(), serde_json::Value::Null);
             }
             _ => {}
@@ -3601,7 +3871,10 @@ mod tests {
     fn clear_tag_selection_emits_null_patch_fields() {
         let mut fields = serde_json::Map::from_iter([
             ("comment".to_string(), serde_json::json!("old comment")),
-            ("description".to_string(), serde_json::json!("old description")),
+            (
+                "description".to_string(),
+                serde_json::json!("old description"),
+            ),
             ("title".to_string(), serde_json::json!("new title")),
         ]);
         apply_clear_tag_fields(
@@ -4112,7 +4385,9 @@ mod tests {
     #[test]
     fn build_lookup_request_cleans_decorated_folder_album_hint() {
         let root = temp_root();
-        let album = root.join("Ellie Goulding").join("Ellie Goulding - Lights - 2010, FLAC");
+        let album = root
+            .join("Ellie Goulding")
+            .join("Ellie Goulding - Lights - 2010, FLAC");
         fs::create_dir_all(&album).unwrap();
         fs::copy(corpus_wav(), album.join("01.wav")).unwrap();
 
@@ -4726,11 +5001,20 @@ mod tests {
         for (local, provider) in [
             ("The Celts (SHM-CD)", "The Celts"),
             ("A Box Of Dreams (CD2 - Clouds)", "A Box Of Dreams"),
-            ("Only Time - The Collection CD2", "Only Time - The Collection"),
-            ("The Very Best Of Enya (Deluxe Edition) [Digibook]", "The Very Best Of Enya"),
+            (
+                "Only Time - The Collection CD2",
+                "Only Time - The Collection",
+            ),
+            (
+                "The Very Best Of Enya (Deluxe Edition) [Digibook]",
+                "The Very Best Of Enya",
+            ),
             ("Wild Child (Maxi-Single)", "Wild Child"),
         ] {
-            assert!(exact_album_identity(local, provider), "{local:?} vs {provider:?}");
+            assert!(
+                exact_album_identity(local, provider),
+                "{local:?} vs {provider:?}"
+            );
         }
         assert!(!exact_album_identity(
             "The Frog Prince (Original Soundtrack Collection)",
@@ -5806,7 +6090,11 @@ mod tests {
                 .iter()
                 .enumerate()
                 .map(|(index, title)| TrackCandidate {
-                    title: Some(if index == 4 { "5".into() } else { (*title).into() }),
+                    title: Some(if index == 4 {
+                        "5".into()
+                    } else {
+                        (*title).into()
+                    }),
                     filename: Some(format!("{:02}. {title}", index + 1)),
                     track_number: Some(u32::try_from(index + 1).unwrap()),
                     length: Some(durations[index]),
@@ -5961,6 +6249,17 @@ mod tests {
     }
 
     #[test]
+    fn ai_fallback_candidate_is_marked_for_review_after_a_write() {
+        let (outcome, reason_code) = candidate_apply_outcome(LookupSource::Llm);
+        assert_eq!(outcome, AutoTagOutcome::NeedsReview);
+        assert_eq!(reason_code, Some("ai_fallback"));
+
+        let (outcome, reason_code) = candidate_apply_outcome(LookupSource::Musicbrainz);
+        assert_eq!(outcome, AutoTagOutcome::Applied);
+        assert_eq!(reason_code, None);
+    }
+
+    #[test]
     fn provider_authority_matrix_applies_a_match_and_blocks_ai_on_outage() {
         let request = LookupRequest {
             artist_hint: Some("Artist".into()),
@@ -5985,16 +6284,26 @@ mod tests {
         };
 
         assert!(matches!(
-            provider_authority_decision(
-                &request,
-                vec![credible],
-                std::slice::from_ref(&outage),
-            ),
+            provider_authority_decision(&request, vec![credible], std::slice::from_ref(&outage),),
             ProviderAuthorityDecision::Selected(_)
         ));
         assert_eq!(
             provider_authority_decision(&request, Vec::new(), &[outage]),
             ProviderAuthorityDecision::Unavailable
+        );
+        assert_eq!(
+            provider_authority_decision(
+                &request,
+                Vec::new(),
+                &[ProviderAttempt {
+                    provider: "musicbrainz",
+                    status: ProviderAttemptStatus::Incomplete,
+                    diagnostic: Some("catalog budget reached".into()),
+                    retry_count: 0,
+                    retry_after_seconds: None,
+                }],
+            ),
+            ProviderAuthorityDecision::Incomplete
         );
         assert_eq!(
             provider_authority_decision(
@@ -6109,7 +6418,10 @@ mod tests {
     #[test]
     fn authoritative_ai_requires_complete_tracks_and_threshold() {
         let request = LookupRequest {
-            tracks: vec![track("Old One", "Old Artist"), track("Old Two", "Old Artist")],
+            tracks: vec![
+                track("Old One", "Old Artist"),
+                track("Old Two", "Old Artist"),
+            ],
             ..LookupRequest::default()
         };
         let valid = serde_json::json!({
@@ -6182,5 +6494,4 @@ mod tests {
         assert_eq!(malformed_failure.detail, "AI response was malformed JSON");
         assert!(!malformed_failure.detail.contains("model-private-output"));
     }
-
 }

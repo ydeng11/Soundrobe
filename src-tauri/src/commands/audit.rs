@@ -12,10 +12,10 @@ use crate::{
         aliases::save_alias,
         openrouter::{ChatMessage, OpenRouterClient},
     },
-        state::{
-            config::ConfigState,
-            events::{emit_event, EventSink},
-            providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
+    state::{
+        config::ConfigState,
+        events::{emit_event, EventSink},
+        providers::{DiscogsAliasResolution, ProviderState, RemoteArtworkClient},
         write_queue::WriteQueue,
     },
 };
@@ -1579,16 +1579,16 @@ where
     let output = match operation.await {
         Ok(summary) => {
             emit(AuditEvent {
-                    kind: "completed",
-                    album_path: None,
-                    current: Some(summary.albums),
-                    total: Some(summary.albums),
-                    message: Some(format!(
-                        "Audit complete: {} album(s), {} issue(s)",
-                        summary.albums, summary.issues
-                    )),
-                    results: None,
-                });
+                kind: "completed",
+                album_path: None,
+                current: Some(summary.albums),
+                total: Some(summary.albums),
+                message: Some(format!(
+                    "Audit complete: {} album(s), {} issue(s)",
+                    summary.albums, summary.issues
+                )),
+                results: None,
+            });
             Ok(summary)
         }
         Err(_) if token.load(Ordering::Acquire) => {
@@ -1600,7 +1600,10 @@ where
             })
         }
         Err(error) => {
-            emit(audit_event("failed", Some(format!("Audit failed: {error}"))));
+            emit(audit_event(
+                "failed",
+                Some(format!("Audit failed: {error}")),
+            ));
             Err(error)
         }
     };

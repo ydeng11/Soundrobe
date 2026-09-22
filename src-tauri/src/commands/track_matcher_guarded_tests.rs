@@ -179,7 +179,10 @@ fn guarded_ligature_equivalence_requires_unique_duration_backing() {
         &[],
     );
     assert_eq!(collision.stats.matched, 0);
-    assert_eq!(collision.title_rejections[0].kind, SkipKind::ComparisonAmbiguous);
+    assert_eq!(
+        collision.title_rejections[0].kind,
+        SkipKind::ComparisonAmbiguous
+    );
 }
 
 #[test]

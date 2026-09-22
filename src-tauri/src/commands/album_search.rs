@@ -11,22 +11,23 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "desktop")]
 use tauri::State;
 
+use crate::commands::auto_tag::fill_manual_candidate_genre_if_missing;
 use crate::commands::lyrics::LyricsDocument;
+#[cfg(any(feature = "desktop", feature = "server"))]
+use crate::commands::track_matcher::match_remote_candidate_tracks;
 use crate::commands::{
     library::collect_audio_files,
     mutations::{write_track_queued, TrackPatch},
     tracks::read_album,
 };
-#[cfg(any(feature = "desktop", feature = "server"))]
-use crate::commands::track_matcher::match_remote_candidate_tracks;
 use crate::error::ApiError;
+use crate::state::write_queue::WriteQueue;
 use crate::state::{
     config::ConfigState,
     providers::{
         DiscogsClient, MusicBrainzClient, ProviderAlbum, ProviderState, ReleaseSearchSummary,
     },
 };
-use crate::state::write_queue::WriteQueue;
 
 // ── Request / response types ─────────────────────────────────────────
 
@@ -671,18 +672,22 @@ pub(crate) async fn release_track_count_inner(
         ProviderRetryMetrics::default(),
     );
     match request.provider.as_str() {
-        "musicbrainz" => MusicBrainzClient::at(providers.http(), providers.musicbrainz_base())
+        "musicbrainz" => {
+            MusicBrainzClient::at(providers.http(), providers.musicbrainz_base())
+                .with_retry_context(retry)
+                .search_track_count(&request.release_id)
+                .await
+        }
+        "discogs" => {
+            DiscogsClient::at(
+                providers.http(),
+                discogs_token(config),
+                providers.discogs_base(),
+            )
             .with_retry_context(retry)
-            .search_track_count(&request.release_id)
-            .await,
-        "discogs" => DiscogsClient::at(
-            providers.http(),
-            discogs_token(config),
-            providers.discogs_base(),
-        )
-        .with_retry_context(retry)
-        .search_track_count(&request.release_id, request.kind.as_deref())
-        .await,
+            .search_track_count(&request.release_id, request.kind.as_deref())
+            .await
+        }
         other => Err(format!("Unknown provider: {other}")),
     }
 }
@@ -714,7 +719,7 @@ pub(crate) async fn resolve_release_inner(
     providers: &ProviderState,
     config: &ConfigState,
 ) -> Result<ProviderAlbum, String> {
-    let album = match request.provider.as_str() {
+    let mut album = match request.provider.as_str() {
         "musicbrainz" => {
             let client = MusicBrainzClient::at(providers.http(), providers.musicbrainz_base());
             client.release_by_id_result(&request.release_id).await
@@ -727,13 +732,16 @@ pub(crate) async fn resolve_release_inner(
                     .master_metadata(&request.release_id)
                     .await
                     .ok_or_else(|| "Discogs master metadata unavailable".to_string()),
-                _ => client
-                    .release_metadata_result(&request.release_id)
-                    .await,
+                _ => client.release_metadata_result(&request.release_id).await,
             }
         }
         other => Err(format!("Unknown provider: {other}")),
     }?;
+
+    if album.genre.is_none() {
+        album.genre =
+            fill_manual_candidate_genre_if_missing(&album, &request.provider, &config.raw()).await;
+    }
 
     Ok(album)
 }
@@ -812,7 +820,11 @@ pub async fn album_preview_release_match(
         filename: track.filename.clone(),
     };
     let matcher_local_tracks = local_tracks.iter().map(matcher_track).collect::<Vec<_>>();
-    let matcher_remote_tracks = album_candidate.tracks.iter().map(matcher_track).collect::<Vec<_>>();
+    let matcher_remote_tracks = album_candidate
+        .tracks
+        .iter()
+        .map(matcher_track)
+        .collect::<Vec<_>>();
 
     // Run track matching
     let matched = match_remote_candidate_tracks(
@@ -1712,22 +1724,26 @@ mod tests {
         std::fs::create_dir_all(&album).unwrap();
         fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
 
-        let request = renderer_apply_payload(&album, serde_json::json!({
-            "artist": "Artist",
-            "artists": ["Artist"],
-            "album": "Canonical Album",
-            "album_artist": "Artist",
-            "album_artists": ["Artist"],
-            "year": "2008",
-            "source": "musicbrainz",
-            "tracks": [{
-                "title": "背叛",
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
                 "artist": "Artist",
                 "artists": ["Artist"],
-                "track_number": 22,
-                "disc_number": 1
-            }]
-        }), &[0]);
+                "album": "Canonical Album",
+                "album_artist": "Artist",
+                "album_artists": ["Artist"],
+                "year": "2008",
+                "source": "musicbrainz",
+                "tracks": [{
+                    "title": "背叛",
+                    "artist": "Artist",
+                    "artists": ["Artist"],
+                    "track_number": 22,
+                    "disc_number": 1
+                }]
+            }),
+            &[0],
+        );
         let config = config_with_chinese_script(None);
 
         let written = apply_search_candidate(&request, &config, &WriteQueue::default())
@@ -1751,22 +1767,26 @@ mod tests {
         std::fs::create_dir_all(&album).unwrap();
         fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
 
-        let request = renderer_apply_payload(&album, serde_json::json!({
-            "artist": "楊宗緯",
-            "artists": ["楊宗緯"],
-            "album": "星空傳奇演唱會",
-            "album_artist": "楊宗緯",
-            "album_artists": ["楊宗緯"],
-            "year": "2008",
-            "source": "musicbrainz",
-            "tracks": [{
-                "title": "背叛",
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
                 "artist": "楊宗緯",
                 "artists": ["楊宗緯"],
-                "track_number": 1,
-                "disc_number": 1
-            }]
-        }), &[0]);
+                "album": "星空傳奇演唱會",
+                "album_artist": "楊宗緯",
+                "album_artists": ["楊宗緯"],
+                "year": "2008",
+                "source": "musicbrainz",
+                "tracks": [{
+                    "title": "背叛",
+                    "artist": "楊宗緯",
+                    "artists": ["楊宗緯"],
+                    "track_number": 1,
+                    "disc_number": 1
+                }]
+            }),
+            &[0],
+        );
         // chinese_script=simplified is the config this user has set.
         let config = config_with_chinese_script(Some("simplified"));
 
@@ -1790,22 +1810,26 @@ mod tests {
         std::fs::create_dir_all(&album).unwrap();
         fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
 
-        let request = renderer_apply_payload(&album, serde_json::json!({
-            "artist": "楊宗緯",
-            "artists": ["楊宗緯"],
-            "album": "星空傳奇演唱會",
-            "album_artist": "楊宗緯",
-            "album_artists": ["楊宗緯"],
-            "year": "2008",
-            "source": "musicbrainz",
-            "tracks": [{
-                "title": "背叛",
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
                 "artist": "楊宗緯",
                 "artists": ["楊宗緯"],
-                "track_number": 1,
-                "disc_number": 1
-            }]
-        }), &[0]);
+                "album": "星空傳奇演唱會",
+                "album_artist": "楊宗緯",
+                "album_artists": ["楊宗緯"],
+                "year": "2008",
+                "source": "musicbrainz",
+                "tracks": [{
+                    "title": "背叛",
+                    "artist": "楊宗緯",
+                    "artists": ["楊宗緯"],
+                    "track_number": 1,
+                    "disc_number": 1
+                }]
+            }),
+            &[0],
+        );
         let config = config_with_chinese_script(None);
 
         let written = apply_search_candidate(&request, &config, &WriteQueue::default())
@@ -2010,15 +2034,19 @@ mod tests {
         fs::copy(corpus_flac(), album.join("01.flac")).unwrap();
         fs::copy(corpus_flac(), album.join("02.flac")).unwrap();
 
-        let request = renderer_apply_payload(&album, serde_json::json!({
-            "artist": "Artist",
-            "artists": ["Artist"],
-            "album": "Canonical Album",
-            "album_artist": "Artist",
-            "album_artists": ["Artist"],
-            "source": "musicbrainz",
-            "tracks": [{ "title": "Only One", "artists": [] }]
-        }), &[0]);
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
+                "artist": "Artist",
+                "artists": ["Artist"],
+                "album": "Canonical Album",
+                "album_artist": "Artist",
+                "album_artists": ["Artist"],
+                "source": "musicbrainz",
+                "tracks": [{ "title": "Only One", "artists": [] }]
+            }),
+            &[0],
+        );
         let config = config_with_chinese_script(None);
 
         let error = apply_search_candidate(&request, &config, &WriteQueue::default())

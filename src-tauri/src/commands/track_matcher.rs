@@ -122,8 +122,7 @@ pub fn match_remote_candidate_tracks(
                 .as_deref()
                 .filter(|title| !title.trim().is_empty())
                 .map(|title| {
-                    strip_known_artist_prefix(title, &artists)
-                        .unwrap_or_else(|| title.to_string())
+                    strip_known_artist_prefix(title, &artists).unwrap_or_else(|| title.to_string())
                 })
                 .or_else(|| clean_filename_identity(&filename, &artists))
                 .map(|title| guarded_title(&title))
@@ -892,7 +891,10 @@ fn filename_without_audio_extension(filename: &str) -> Option<&str> {
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
     if extension.as_deref().is_some_and(is_audio_extension) {
-        basename.rsplit_once('.').map(|(stem, _)| stem).or(Some(basename))
+        basename
+            .rsplit_once('.')
+            .map(|(stem, _)| stem)
+            .or(Some(basename))
     } else {
         Some(basename)
     }

@@ -52,6 +52,33 @@ function emptyLog(): MonitoringLog {
 }
 
 describe("Monitoring", () => {
+  it("keeps AI-written releases visible until the operator acknowledges review", async () => {
+    const albumPath = "/library/Music/Artist/Album";
+    let acknowledged = false;
+    const markReviewed = vi.fn(async () => {
+      acknowledged = true;
+    });
+
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({
+          releases: acknowledged ? [] : [{ path: albumPath, status: "needs_review" }],
+        })}
+        markReviewed={markReviewed}
+        readLog={async () => emptyLog()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-tab-releases"));
+    fireEvent.click(await screen.findByTestId(`release-review-${albumPath}`));
+    await waitFor(() => expect(markReviewed).toHaveBeenCalledWith(albumPath));
+    await waitFor(() =>
+      expect(screen.queryByTestId(`release-review-${albumPath}`)).toBeNull(),
+    );
+  });
+
   it("keeps the operation log reachable here, since it has no navigation entry", async () => {
     // The operations answer the same question this view does - what has the
     // background tagger been doing - so they live here. If this tab disappeared,

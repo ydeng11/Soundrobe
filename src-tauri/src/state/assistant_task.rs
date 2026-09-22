@@ -638,7 +638,10 @@ fn migrate_clarification_column(connection: &Connection) -> Result<()> {
         .map_err(|e| format!("Failed to read assistant_session schema: {e}"))?
         .collect::<std::result::Result<Vec<_>, _>>()
         .map_err(|e| format!("Failed to read assistant_session schema: {e}"))?;
-    if !columns.iter().any(|column| column == "consecutive_clarifications") {
+    if !columns
+        .iter()
+        .any(|column| column == "consecutive_clarifications")
+    {
         connection
             .execute_batch(
                 "ALTER TABLE assistant_session ADD COLUMN consecutive_clarifications INTEGER NOT NULL DEFAULT 0",
@@ -885,7 +888,9 @@ mod tests {
         state.initialize().unwrap();
 
         let conn = Connection::open(&path).unwrap();
-        let mut stmt = conn.prepare("PRAGMA table_info(assistant_session)").unwrap();
+        let mut stmt = conn
+            .prepare("PRAGMA table_info(assistant_session)")
+            .unwrap();
         let rows: std::result::Result<Vec<String>, _> = stmt
             .query_map([], |row| row.get::<_, String>(1))
             .unwrap()

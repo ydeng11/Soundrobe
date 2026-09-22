@@ -46,6 +46,7 @@ import {
 import {
   getMonitoringStatus,
   listMonitoringReleases,
+  markMonitoringReleaseReviewed,
   readMonitoringLog,
   retryFailedBackgroundTagging,
   runBackgroundTagging,
@@ -70,6 +71,8 @@ export interface MonitoringViewProps {
    * the failures are visible, so it is where they can be acted on.
    */
   retryFailed?: (runId: string) => Promise<{ taskId: string }>;
+  /** Acknowledge an AI-written release after the operator has reviewed it. */
+  markReviewed?: (path: string) => Promise<unknown>;
   /** The operation log is a tab of this view rather than a destination. */
   loadTasks?: () => Promise<WebTask[]>;
   cancelTask?: (taskId: string) => Promise<unknown>;
@@ -135,6 +138,7 @@ const defaultLoadReleases = () => listMonitoringReleases();
 const defaultReadLog = (source: MonitoringLogSource, lines?: number) => readMonitoringLog(source, lines);
 const defaultRunNow = () => runBackgroundTagging();
 const defaultRetryFailed = (runId: string) => retryFailedBackgroundTagging(runId);
+const defaultMarkReviewed = (path: string) => markMonitoringReleaseReviewed(path);
 const defaultLoadTasks = () => import("../shared/web-adapter").then((m) => m.listWebTasks());
 const defaultCancelTask = (taskId: string) => window.api.cancelTask(taskId);
 
@@ -144,6 +148,7 @@ export function MonitoringView({
   readLog = defaultReadLog,
   runNow = defaultRunNow,
   retryFailed = defaultRetryFailed,
+  markReviewed = defaultMarkReviewed,
   loadTasks = defaultLoadTasks,
   cancelTask = defaultCancelTask,
   onOpenAlbum,
@@ -275,6 +280,23 @@ export function MonitoringView({
     [refresh, retryFailed],
   );
 
+  const handleMarkReviewed = React.useCallback(
+    async (path: string) => {
+      setBusy(true);
+      setNotice(null);
+      try {
+        await markReviewed(path);
+        setNotice(`Review acknowledged for ${albumNameOf(path)}.`);
+        await refresh();
+      } catch (reason) {
+        setNotice(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [markReviewed, refresh],
+  );
+
   const runs = status?.recentRuns ?? [];
   const running = status?.running ?? [];
   const facets = React.useMemo(() => facetCounts(releases), [releases]);
@@ -285,6 +307,9 @@ export function MonitoringView({
     [releases, releaseFilter, releaseQuery],
   );
   const visibleReleases = shownReleases.slice(0, releaseLimit);
+  const releaseActions = Boolean(
+    onOpenAlbum || visibleReleases.some((release) => release.status === "needs_review"),
+  );
 
   const parsedLog = React.useMemo(() => parseLog(log?.lines ?? []), [log]);
   const counts = React.useMemo(() => levelCounts(parsedLog), [parsedLog]);
@@ -656,7 +681,7 @@ export function MonitoringView({
                         <th scope="col">Release</th>
                         <th scope="col">Tagging state</th>
                         <th scope="col">Path</th>
-                        {onOpenAlbum && <th scope="col">Actions</th>}
+                        {releaseActions && <th scope="col">Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -685,16 +710,29 @@ export function MonitoringView({
                             </span>
                           </td>
                           <td className="sr-cell--muted">{release.path}</td>
-                          {onOpenAlbum && (
+                          {releaseActions && (
                             <td>
-                              <button
-                                type="button"
-                                className="sr-btn"
-                                data-testid={`release-open-${release.path}`}
-                                onClick={() => onOpenAlbum(release.path)}
-                              >
-                                Open
-                              </button>
+                              {release.status === "needs_review" && (
+                                <button
+                                  type="button"
+                                  className="sr-btn"
+                                  disabled={busy}
+                                  data-testid={`release-review-${release.path}`}
+                                  onClick={() => void handleMarkReviewed(release.path)}
+                                >
+                                  Acknowledge review
+                                </button>
+                              )}
+                              {onOpenAlbum && (
+                                <button
+                                  type="button"
+                                  className="sr-btn"
+                                  data-testid={`release-open-${release.path}`}
+                                  onClick={() => onOpenAlbum(release.path)}
+                                >
+                                  Open
+                                </button>
+                              )}
                             </td>
                           )}
                         </tr>

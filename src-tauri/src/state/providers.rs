@@ -226,14 +226,9 @@ impl ProviderState {
         use_musicbrainz: bool,
         use_discogs: bool,
     ) -> ArtistIdentity {
-        self.resolve_artist_identity_result(
-            artist,
-            discogs_token,
-            use_musicbrainz,
-            use_discogs,
-        )
-        .await
-        .identity
+        self.resolve_artist_identity_result(artist, discogs_token, use_musicbrainz, use_discogs)
+            .await
+            .identity
     }
 
     pub async fn resolve_artist_identity_result(
@@ -475,7 +470,7 @@ pub struct ProviderReleaseSummary {
 
 /// Lightweight search result returned by `search_release_summaries`.
 /// Does not include tracks — use `release_by_id` / `release_metadata` for detail.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseSearchSummary {
     pub provider: String,
@@ -497,6 +492,44 @@ pub struct ReleaseSearchSummary {
     pub catalog_number: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub barcode: Option<String>,
+}
+
+/// A single provider catalog page. `returned` is the number of raw releases
+/// returned by the provider, before malformed entries are filtered out.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReleaseSummaryPage {
+    pub summaries: Vec<ReleaseSearchSummary>,
+    pub total: Option<u32>,
+    pub returned: u32,
+    next_offset: Option<u32>,
+    next_page: Option<u32>,
+}
+
+impl ReleaseSummaryPage {
+    pub fn next_offset(&self) -> Option<u32> {
+        self.next_offset
+    }
+
+    pub fn next_page(&self) -> Option<u32> {
+        self.next_page
+    }
+}
+
+fn next_musicbrainz_offset(
+    offset: u32,
+    returned: u32,
+    limit: u32,
+    total: Option<u32>,
+) -> Option<u32> {
+    if returned == 0 {
+        return None;
+    }
+    let next = offset.saturating_add(returned);
+    if total.is_some_and(|total| next >= total) || (total.is_none() && returned < limit) {
+        None
+    } else {
+        Some(next)
+    }
 }
 
 pub struct MusicBrainzClient {
@@ -603,7 +636,10 @@ impl MusicBrainzClient {
         let response = self
             .send_with_retry(
                 format!("{}/release/{release_id}", self.base_url),
-                &[("fmt", "json".to_string()), ("inc", "recordings".to_string())],
+                &[
+                    ("fmt", "json".to_string()),
+                    ("inc", "recordings".to_string()),
+                ],
             )
             .await?;
         if !response.status().is_success() {
@@ -827,8 +863,67 @@ impl MusicBrainzClient {
             .collect())
     }
 
+    /// Fetch one complete lightweight artist catalog page without fetching
+    /// release details. MusicBrainz may return fewer rows than `limit` because
+    /// release pages are bounded by their total track count.
+    pub async fn artist_release_summary_page_result(
+        &self,
+        artist_id: &str,
+        offset: u32,
+        limit: u32,
+    ) -> Result<ReleaseSummaryPage, String> {
+        let response = self
+            .send_with_retry(
+                format!("{}/release", self.base_url),
+                &[
+                    ("artist", artist_id.to_string()),
+                    ("limit", limit.to_string()),
+                    ("offset", offset.to_string()),
+                    ("fmt", "json".to_string()),
+                    ("inc", "artist-credits+media".to_string()),
+                ],
+            )
+            .await
+            .map_err(|error| format!("MusicBrainz artist release summaries failed: {error}"))?
+            .error_for_status()
+            .map_err(|error| format!("MusicBrainz artist release summaries failed: {error}"))?;
+        let body = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|error| {
+                format!("MusicBrainz artist release summaries could not be parsed: {error}")
+            })?;
+        let releases = body
+            .get("releases")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                "MusicBrainz artist release summaries response missing releases array".to_string()
+            })?;
+        let returned = u32::try_from(releases.len()).unwrap_or(u32::MAX);
+        let total = body
+            .get("release-count")
+            .or_else(|| body.get("count"))
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok());
+        let summaries = releases
+            .iter()
+            .filter_map(parse_musicbrainz_search_summary)
+            .collect::<Vec<_>>();
+        let next_offset = next_musicbrainz_offset(offset, returned, limit, total);
+        Ok(ReleaseSummaryPage {
+            summaries,
+            total,
+            returned,
+            next_offset,
+            next_page: None,
+        })
+    }
+
     pub async fn search_artist_by_name(&self, artist: &str) -> Option<ProviderArtist> {
-        self.search_artist_by_name_result(artist).await.ok().flatten()
+        self.search_artist_by_name_result(artist)
+            .await
+            .ok()
+            .flatten()
     }
 
     pub async fn search_artist_by_name_result(
@@ -971,7 +1066,9 @@ impl MusicBrainzClient {
             .ok_or_else(|| "MusicBrainz browse response is missing release-count".to_string())?
             .as_u64()
             .and_then(|count| u32::try_from(count).ok())
-            .ok_or_else(|| "MusicBrainz browse response has an invalid release-count".to_string())?;
+            .ok_or_else(|| {
+                "MusicBrainz browse response has an invalid release-count".to_string()
+            })?;
         let summaries = response
             .get("releases")
             .and_then(serde_json::Value::as_array)
@@ -1170,9 +1267,7 @@ pub async fn resolve_artist_identity_with_clients_result(
     }
     ArtistIdentityResolution {
         identity: ArtistIdentity {
-            musicbrainz_artist_id: musicbrainz_artist
-                .as_ref()
-                .map(|artist| artist.id.clone()),
+            musicbrainz_artist_id: musicbrainz_artist.as_ref().map(|artist| artist.id.clone()),
             discogs_artist_id,
             english_aliases: musicbrainz_artist
                 .map(|artist| artist.aliases)
@@ -1293,10 +1388,12 @@ fn parse_musicbrainz_search_summary(value: &serde_json::Value) -> Option<Release
 
 fn musicbrainz_track_count(value: &serde_json::Value) -> Option<u32> {
     if let Some(media) = value.get("media").and_then(serde_json::Value::as_array) {
-        if media
-            .iter()
-            .any(|medium| medium.get("tracks").and_then(serde_json::Value::as_array).is_some())
-        {
+        if media.iter().any(|medium| {
+            medium
+                .get("tracks")
+                .and_then(serde_json::Value::as_array)
+                .is_some()
+        }) {
             // Resolver parsing deduplicates identical media (for example SACD
             // and CD copies), so count the same playable tracks here.
             return musicbrainz_media_track_count(media);
@@ -1349,9 +1446,12 @@ fn musicbrainz_medium_signature(medium: &serde_json::Value) -> Option<Vec<String
 
 fn musicbrainz_media_track_count(media: &[serde_json::Value]) -> Option<u32> {
     if media.is_empty()
-        || !media
-            .iter()
-            .all(|medium| medium.get("tracks").and_then(serde_json::Value::as_array).is_some())
+        || !media.iter().all(|medium| {
+            medium
+                .get("tracks")
+                .and_then(serde_json::Value::as_array)
+                .is_some()
+        })
     {
         return None;
     }
@@ -1831,18 +1931,16 @@ fn parse_discogs_position(position: &str) -> (Option<u32>, Option<u32>, Option<S
     let media = Regex::new(r"(?i)^(CD|DVD)\s*[-.]?\s*(\d+)(?:[-. ]+(\d+))?$")
         .expect("valid Discogs media position regex");
     if let Some(captures) = media.captures(compact) {
-        let media_type = captures.get(1).map(|value| value.as_str().to_ascii_uppercase());
+        let media_type = captures
+            .get(1)
+            .map(|value| value.as_str().to_ascii_uppercase());
         let first = captures
             .get(2)
             .and_then(|value| value.as_str().parse().ok());
         let second = captures
             .get(3)
             .and_then(|value| value.as_str().parse().ok());
-        return (
-            second.and(first),
-            second.or(first),
-            media_type,
-        );
+        return (second.and(first), second.or(first), media_type);
     }
     let trailing = Regex::new(r"(\d+)$").expect("valid Discogs position regex");
     (
@@ -1866,6 +1964,77 @@ fn parse_discogs_duration(duration: &str) -> Option<f64> {
         [hours, minutes, seconds] => Some(hours * 3600.0 + minutes * 60.0 + seconds),
         _ => None,
     }
+}
+
+fn parse_discogs_release_summary(value: &serde_json::Value) -> Option<ReleaseSearchSummary> {
+    let id = value
+        .get("main_release")
+        .and_then(serde_json::Value::as_u64)
+        .or_else(|| value.get("id").and_then(serde_json::Value::as_u64))?
+        .to_string();
+    let raw_title = value.get("title")?.as_str()?;
+    let (artist_from_title, album_title) = raw_title
+        .split_once(" - ")
+        .map(|(artist, album)| (Some(artist.trim().to_string()), album.trim().to_string()))
+        .unwrap_or((None, raw_title.to_string()));
+    let kind = value
+        .get("type")
+        .and_then(serde_json::Value::as_str)
+        .filter(|kind| matches!(*kind, "master" | "release"))
+        .map(str::to_string);
+    let year = value
+        .get("year")
+        .and_then(serde_json::Value::as_u64)
+        .or_else(|| {
+            value
+                .get("year")
+                .and_then(serde_json::Value::as_str)
+                .and_then(|year| year.parse().ok())
+        })
+        .map(|year: u64| year.to_string());
+    let formats = value
+        .get("format")
+        .and_then(serde_json::Value::as_array)
+        .map(|formats| {
+            formats
+                .iter()
+                .filter_map(serde_json::Value::as_str)
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    let barcode = value
+        .get("barcode")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|barcodes| barcodes.first())
+        .and_then(serde_json::Value::as_str)
+        .filter(|barcode| !barcode.is_empty())
+        .map(str::to_string);
+    let catalog_number = value
+        .get("catno")
+        .and_then(serde_json::Value::as_str)
+        .filter(|catalog_number| !catalog_number.is_empty())
+        .map(str::to_string);
+    Some(ReleaseSearchSummary {
+        provider: "discogs".to_string(),
+        id,
+        kind,
+        title: album_title,
+        artist: value
+            .get("artist")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string)
+            .or(artist_from_title),
+        year,
+        track_count: None,
+        country: value
+            .get("country")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
+        formats,
+        catalog_number,
+        barcode,
+    })
 }
 
 fn merge_genre_style(
@@ -2031,10 +2200,7 @@ impl DiscogsClient {
         self.release_metadata_result(release_id).await.ok()
     }
 
-    pub async fn release_metadata_result(
-        &self,
-        release_id: &str,
-    ) -> Result<ProviderAlbum, String> {
+    pub async fn release_metadata_result(&self, release_id: &str) -> Result<ProviderAlbum, String> {
         let release: serde_json::Value = self
             .get_json_result(&format!("releases/{release_id}"))
             .await?;
@@ -2166,13 +2332,7 @@ impl DiscogsClient {
         }
         let per_page = u32::try_from(max_candidates.max(10)).unwrap_or(50).min(50);
         let (summaries, _) = self.search_release_summaries(&params, 1, per_page).await?;
-        let summaries = rank_discogs_release_summaries(
-            summaries,
-            album,
-            year,
-            country,
-            format,
-        );
+        let summaries = rank_discogs_release_summaries(summaries, album, year, country, format);
         let mut albums = Vec::new();
         for summary in summaries.into_iter().take(max_candidates) {
             let path = if summary.kind.as_deref() == Some("master") {
@@ -2182,12 +2342,17 @@ impl DiscogsClient {
             };
             let detail = self.get_json_result::<serde_json::Value>(&path).await?;
             let album = parse_discogs_release(&detail, &summary.id).ok_or_else(|| {
-                format!("Discogs release response could not be parsed: {}", summary.id)
+                format!(
+                    "Discogs release response could not be parsed: {}",
+                    summary.id
+                )
             })?;
             albums.push(album);
         }
         if albums.is_empty() {
-            return self.search_album_result(artist, album, max_candidates).await;
+            return self
+                .search_album_result(artist, album, max_candidates)
+                .await;
         }
         Ok(albums)
     }
@@ -2238,7 +2403,9 @@ impl DiscogsClient {
                             albums.push(self.release_metadata_result(&main_id.to_string()).await?);
                             continue;
                         }
-                        if let Some(detail) = parse_discogs_release(&detail, &release_id.to_string()) {
+                        if let Some(detail) =
+                            parse_discogs_release(&detail, &release_id.to_string())
+                        {
                             albums.push(detail);
                             continue;
                         }
@@ -2316,9 +2483,7 @@ impl DiscogsClient {
         let releases = body
             .get("releases")
             .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| {
-                "Discogs artist releases response missing releases array".to_string()
-            })?;
+            .ok_or_else(|| "Discogs artist releases response missing releases array".to_string())?;
         Ok(releases
             .iter()
             .filter_map(|release| {
@@ -2374,6 +2539,52 @@ impl DiscogsClient {
                 })
             })
             .collect())
+    }
+
+    /// Fetch one Discogs artist catalog page as normalized lightweight summaries.
+    pub async fn artist_release_summary_page_result(
+        &self,
+        artist_id: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<ReleaseSummaryPage, String> {
+        let body = self
+            .get_json_result::<serde_json::Value>(&format!(
+                "artists/{artist_id}/releases?per_page={per_page}&page={page}&sort=year&sort_order=desc"
+            ))
+            .await?;
+        let releases = body
+            .get("releases")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| {
+                "Discogs artist release summaries response missing releases array".to_string()
+            })?;
+        let returned = u32::try_from(releases.len()).unwrap_or(u32::MAX);
+        let total = body
+            .get("pagination")
+            .and_then(|pagination| pagination.get("items"))
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok());
+        let pages = body
+            .get("pagination")
+            .and_then(|pagination| pagination.get("pages"))
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok());
+        let summaries = releases
+            .iter()
+            .filter_map(parse_discogs_release_summary)
+            .collect::<Vec<_>>();
+        let next_page = pages
+            .filter(|pages| page < *pages)
+            .map(|_| page + 1)
+            .or_else(|| (pages.is_none() && returned >= per_page).then_some(page + 1));
+        Ok(ReleaseSummaryPage {
+            summaries,
+            total,
+            returned,
+            next_offset: None,
+            next_page,
+        })
     }
 
     pub async fn search_artist_exact(&self, name: &str) -> Option<String> {
@@ -2543,8 +2754,8 @@ impl DiscogsClient {
             let response = match request.send().await {
                 Ok(response) => response,
                 Err(error) => {
-                    let retryable = self.retry_context.is_some()
-                        && (error.is_timeout() || error.is_connect());
+                    let retryable =
+                        self.retry_context.is_some() && (error.is_timeout() || error.is_connect());
                     if !retryable || attempt + 1 >= attempts {
                         return Err(format!("Discogs request failed: {error}"));
                     }
@@ -2564,9 +2775,8 @@ impl DiscogsClient {
             };
             let status = response.status();
             let retry_after = retry_after_seconds(&response);
-            let should_retry = self.retry_context.is_some()
-                && retryable_status(status)
-                && attempt + 1 < attempts;
+            let should_retry =
+                self.retry_context.is_some() && retryable_status(status) && attempt + 1 < attempts;
             if should_retry {
                 let context = match self.retry_context.as_ref() {
                     Some(context) => context,
@@ -2755,14 +2965,18 @@ fn rank_discogs_release_summaries(
         .map(|(order, summary)| {
             let title_exact = u8::from(normalize(&summary.title) == normalize(album));
             let country_score = match (country.as_deref(), summary.country.as_deref()) {
-                (Some(expected), Some(actual))
-                    if normalize_discogs_country(actual) == expected => 2,
+                (Some(expected), Some(actual)) if normalize_discogs_country(actual) == expected => {
+                    2
+                }
                 (Some(_), None) => 1,
                 _ => 0,
             };
             let format_score = match (format.as_deref(), summary.formats.as_slice()) {
                 (Some(expected), formats)
-                    if formats.iter().any(|actual| normalize(actual) == expected) => 1,
+                    if formats.iter().any(|actual| normalize(actual) == expected) =>
+                {
+                    1
+                }
                 _ => 0,
             };
             let year_score = match (year, summary.year.as_deref()) {
@@ -3630,7 +3844,8 @@ mod tests {
         if path.starts_with("/mb/artist/?query=") {
             return (
                 "200 OK",
-                r#"{"artists":[{"id":"mb-mariah","name":"Mariah Carey","aliases":[]}]}"#.to_string(),
+                r#"{"artists":[{"id":"mb-mariah","name":"Mariah Carey","aliases":[]}]}"#
+                    .to_string(),
                 "application/json",
             );
         }
@@ -3641,9 +3856,7 @@ mod tests {
         path: &str,
         _base: &str,
     ) -> (&'static str, String, &'static str) {
-        assert!(
-            path.starts_with("/mb/artist/") || path.starts_with("/discogs/database/search?")
-        );
+        assert!(path.starts_with("/mb/artist/") || path.starts_with("/discogs/database/search?"));
         (
             "500 Internal Server Error",
             "{}".to_string(),
@@ -3710,8 +3923,7 @@ mod tests {
             }));
             return (
                 "200 OK",
-                serde_json::json!({"results": results, "pagination": {"items": 45}})
-                    .to_string(),
+                serde_json::json!({"results": results, "pagination": {"items": 45}}).to_string(),
                 "application/json",
             );
         }
@@ -3791,7 +4003,11 @@ mod tests {
         _base: &str,
     ) -> (&'static str, String, &'static str) {
         assert!(path.starts_with("/database/search?"));
-        ("200 OK", r#"{"pagination":{}}"#.to_string(), "application/json")
+        (
+            "200 OK",
+            r#"{"pagination":{}}"#.to_string(),
+            "application/json",
+        )
     }
 
     fn discogs_missing_artist_releases_array_route(
@@ -3799,7 +4015,11 @@ mod tests {
         _base: &str,
     ) -> (&'static str, String, &'static str) {
         assert!(path.starts_with("/artists/7/releases?"));
-        ("200 OK", r#"{"pagination":{}}"#.to_string(), "application/json")
+        (
+            "200 OK",
+            r#"{"pagination":{}}"#.to_string(),
+            "application/json",
+        )
     }
 
     fn musicbrainz_invalid_count_route(
@@ -3906,10 +4126,7 @@ mod tests {
         )
     }
 
-    fn musicbrainz_two_disc_route(
-        path: &str,
-        _base: &str,
-    ) -> (&'static str, String, &'static str) {
+    fn musicbrainz_two_disc_route(path: &str, _base: &str) -> (&'static str, String, &'static str) {
         assert!(path.starts_with("/release/two-disc?"));
         (
             "200 OK",
@@ -4028,7 +4245,11 @@ mod tests {
             );
         }
         assert!(path.starts_with("/release/failed?"));
-        ("503 Service Unavailable", "{}".to_string(), "application/json")
+        (
+            "503 Service Unavailable",
+            "{}".to_string(),
+            "application/json",
+        )
     }
 
     fn musicbrainz_artist_page_route(
@@ -4207,8 +4428,114 @@ mod tests {
         assert_eq!(summaries[0].artist.as_deref(), Some("Mariah Carey"));
         assert_eq!(summaries[0].track_count, Some(10));
         assert_eq!(summaries[1].track_count, Some(10));
-        assert!(requests.recv().unwrap().contains("artist%3A%22Mariah+Carey%22"));
-        assert!(requests.recv().unwrap().contains("/release?artist=artist-id&"));
+        assert!(requests
+            .recv()
+            .unwrap()
+            .contains("artist%3A%22Mariah+Carey%22"));
+        assert!(requests
+            .recv()
+            .unwrap()
+            .contains("/release?artist=artist-id&"));
+    }
+
+    fn musicbrainz_artist_catalog_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.contains("offset=0") {
+            return (
+                "200 OK",
+                r#"{"release-count":3,"releases":[
+                  {"id":"one","title":"First","date":"1990","country":"US",
+                   "artist-credit":[{"name":"Artist"}],"media":[{"format":"CD","track-count":10}]},
+                  {"id":"two","title":"Second","date":"1991","artist-credit":[{"name":"Artist"}],"media":[{"format":"CD","track-count":8}]}
+                ]}"#
+                    .to_string(),
+                "application/json",
+            );
+        }
+        assert!(path.contains("offset=2"), "unexpected path: {path}");
+        (
+            "200 OK",
+            r#"{"release-count":3,"releases":[
+              {"id":"three","title":"Third","date":"1992","artist-credit":[{"name":"Artist"}],"media":[{"format":"CD","track-count":12}]}
+            ]}"#
+                .to_string(),
+            "application/json",
+        )
+    }
+
+    #[tokio::test]
+    async fn musicbrainz_artist_catalog_page_advances_by_actual_return_count() {
+        let (base, requests) = server(2, musicbrainz_artist_catalog_route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+
+        let first = client
+            .artist_release_summary_page_result("artist-id", 0, 100)
+            .await
+            .unwrap();
+        assert_eq!(first.summaries.len(), 2);
+        assert_eq!(first.total, Some(3));
+        assert_eq!(first.next_offset(), Some(2));
+        assert_eq!(first.summaries[0].track_count, Some(10));
+
+        let second = client
+            .artist_release_summary_page_result("artist-id", first.next_offset().unwrap(), 100)
+            .await
+            .unwrap();
+        assert_eq!(second.summaries.len(), 1);
+        assert_eq!(second.next_offset(), None);
+        assert!(requests.recv().unwrap().contains("offset=0"));
+        assert!(requests.recv().unwrap().contains("offset=2"));
+    }
+
+    fn discogs_artist_catalog_route(
+        path: &str,
+        _base: &str,
+    ) -> (&'static str, String, &'static str) {
+        if path.contains("&page=1") {
+            return (
+                "200 OK",
+                r#"{"pagination":{"items":3,"pages":2},"releases":[
+                  {"id":11,"title":"Artist - First","year":2001,"type":"master","artist":"Artist"},
+                  {"id":12,"title":"Artist - Second","year":2002,"type":"release","artist":"Artist"}
+                ]}"#
+                .to_string(),
+                "application/json",
+            );
+        }
+        assert!(path.contains("&page=2"), "unexpected path: {path}");
+        (
+            "200 OK",
+            r#"{"pagination":{"items":3,"pages":2},"releases":[
+              {"id":13,"title":"Artist - Third","year":2003,"type":"release","artist":"Artist"}
+            ]}"#
+            .to_string(),
+            "application/json",
+        )
+    }
+
+    #[tokio::test]
+    async fn discogs_artist_catalog_page_exposes_all_reported_pages() {
+        let (base, requests) = server(2, discogs_artist_catalog_route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+
+        let first = client
+            .artist_release_summary_page_result("7", 1, 100)
+            .await
+            .unwrap();
+        assert_eq!(first.summaries.len(), 2);
+        assert_eq!(first.total, Some(3));
+        assert_eq!(first.next_page(), Some(2));
+
+        let second = client
+            .artist_release_summary_page_result("7", first.next_page().unwrap(), 100)
+            .await
+            .unwrap();
+        assert_eq!(second.summaries.len(), 1);
+        assert_eq!(second.next_page(), None);
+        assert!(requests.recv().unwrap().contains("&page=1"));
+        assert!(requests.recv().unwrap().contains("&page=2"));
     }
 
     #[tokio::test]
@@ -4268,9 +4595,7 @@ mod tests {
         let (base, _requests) = server(3, musicbrainz_mixed_detail_failure_route);
         let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
 
-        let result = client
-            .search_album_result("Artist", "Album", 2)
-            .await;
+        let result = client.search_album_result("Artist", "Album", 2).await;
 
         assert!(result.is_err());
     }
@@ -4342,7 +4667,11 @@ mod tests {
     #[tokio::test]
     async fn search_track_count_musicbrainz_fetches_media_and_preserves_unknown_counts() {
         fn route(_path: &str, _body: &str) -> (&'static str, String, &'static str) {
-            ("200 OK", r#"{"media":[{"track-count":2},{"track-count":3}]}"#.into(), "application/json")
+            (
+                "200 OK",
+                r#"{"media":[{"track-count":2},{"track-count":3}]}"#.into(),
+                "application/json",
+            )
         }
         let (base, requests) = server(1, route);
         let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
@@ -4359,25 +4688,44 @@ mod tests {
         }
         let (base, _requests) = server(1, route);
         let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
-        assert!(client.search_track_count("42", None).await.unwrap_err().contains("503"));
+        assert!(client
+            .search_track_count("42", None)
+            .await
+            .unwrap_err()
+            .contains("503"));
     }
 
     #[test]
     fn search_track_counts_require_complete_media_and_count_discogs_tracks_not_headings() {
         use serde_json::json;
-        assert_eq!(musicbrainz_track_count(&json!({"media":[{"track-count":2},{"track-count":3}]})), Some(5));
-        assert_eq!(musicbrainz_track_count(&json!({"media":[{"track-count":2},{}]})), None);
-        assert_eq!(musicbrainz_track_count(&json!({"media":[
-            {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]},
-            {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]}
-        ]})), Some(2));
+        assert_eq!(
+            musicbrainz_track_count(&json!({"media":[{"track-count":2},{"track-count":3}]})),
+            Some(5)
+        );
+        assert_eq!(
+            musicbrainz_track_count(&json!({"media":[{"track-count":2},{}]})),
+            None
+        );
+        assert_eq!(
+            musicbrainz_track_count(&json!({"media":[
+                {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]},
+                {"tracks":[{"number":"1","title":"Song A"},{"number":"2","title":"Song B"}]}
+            ]})),
+            Some(2)
+        );
         let discogs = json!({"title":"Album","artists":[{"name":"Artist"}],"tracklist":[
             {"type_":"heading","title":"Disc one"},
             {"type_":"track","position":"1-1"},
             {"type_":"index","position":"2","sub_tracks":[{"type_":"track","position":"2-1"},{"type_":"track","position":"2-2"}]}
         ]});
         assert_eq!(discogs_track_count(&discogs), Some(2));
-        assert_eq!(parse_discogs_release(&discogs, "fallback").unwrap().tracks.len(), 2);
+        assert_eq!(
+            parse_discogs_release(&discogs, "fallback")
+                .unwrap()
+                .tracks
+                .len(),
+            2
+        );
         assert_eq!(discogs_track_count(&json!({})), None);
         assert_eq!(discogs_track_count(&json!({"tracklist":[]})), None);
     }
@@ -4390,8 +4738,17 @@ mod tests {
         }
         let (base, requests) = server(2, route);
         let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
-        assert_eq!(client.search_track_count("42", None).await.unwrap(), Some(2));
-        assert_eq!(client.search_track_count("42", Some("master")).await.unwrap(), Some(2));
+        assert_eq!(
+            client.search_track_count("42", None).await.unwrap(),
+            Some(2)
+        );
+        assert_eq!(
+            client
+                .search_track_count("42", Some("master"))
+                .await
+                .unwrap(),
+            Some(2)
+        );
         assert!(requests.recv().unwrap().contains("/releases/42"));
         assert!(requests.recv().unwrap().contains("/masters/42"));
     }
@@ -4551,9 +4908,9 @@ mod tests {
         );
         assert_eq!(album.tracks[1].length, Some(202000.0));
         let request = requests.recv().unwrap();
-        assert!(
-            request.contains("GET /release/release-id?fmt=json&inc=recordings%2Bartist-credits%2Blabels%2Burl-rels")
-        );
+        assert!(request.contains(
+            "GET /release/release-id?fmt=json&inc=recordings%2Bartist-credits%2Blabels%2Burl-rels"
+        ));
     }
 
     #[test]
@@ -4588,7 +4945,10 @@ mod tests {
         assert_eq!(release.formats, vec!["CD"]);
         assert_eq!(release.catalog_number.as_deref(), Some("SRCS 5672"));
         assert_eq!(release.barcode.as_deref(), Some("4988009606729"));
-        assert_eq!(release.linked_discogs_release_id.as_deref(), Some("1521689"));
+        assert_eq!(
+            release.linked_discogs_release_id.as_deref(),
+            Some("1521689")
+        );
     }
 
     #[tokio::test]
@@ -4876,8 +5236,12 @@ mod tests {
         let paths = (0..4)
             .map(|_| requests.recv().unwrap().lines().next().unwrap().to_string())
             .collect::<Vec<_>>();
-        assert!(paths.iter().any(|path| path.contains("artist=%E5%8E%9F%E5%90%8D")));
-        assert!(paths.iter().any(|path| path.contains("q=%E5%8E%9F%E5%90%8D")));
+        assert!(paths
+            .iter()
+            .any(|path| path.contains("artist=%E5%8E%9F%E5%90%8D")));
+        assert!(paths
+            .iter()
+            .any(|path| path.contains("q=%E5%8E%9F%E5%90%8D")));
         assert!(paths.iter().any(|path| path.contains("/mb/artist/?")));
         assert!(paths.iter().any(|path| path.contains("artist=Alias")));
     }
@@ -4889,9 +5253,14 @@ mod tests {
         let musicbrainz = MusicBrainzClient::at(http.clone(), &format!("{base}/mb"));
         let discogs = DiscogsClient::at(http, None, &format!("{base}/discogs"));
 
-        let identity =
-            resolve_artist_identity_with_clients(&musicbrainz, &discogs, "Mariah Carey", true, true)
-                .await;
+        let identity = resolve_artist_identity_with_clients(
+            &musicbrainz,
+            &discogs,
+            "Mariah Carey",
+            true,
+            true,
+        )
+        .await;
 
         assert_eq!(identity.musicbrainz_artist_id.as_deref(), Some("mb-mariah"));
         assert_eq!(identity.discogs_artist_id.as_deref(), Some("33534"));
@@ -4901,7 +5270,9 @@ mod tests {
         assert!(paths.iter().any(|path| {
             path.contains("/discogs/database/search?type=artist&artist=Mariah+Carey")
         }));
-        assert!(paths.iter().any(|path| path.starts_with("GET /mb/artist/?query=")));
+        assert!(paths
+            .iter()
+            .any(|path| path.starts_with("GET /mb/artist/?query=")));
     }
 
     #[tokio::test]
@@ -4911,9 +5282,14 @@ mod tests {
         let musicbrainz = MusicBrainzClient::at(http.clone(), &format!("{base}/mb"));
         let discogs = DiscogsClient::at(http, None, &format!("{base}/discogs"));
 
-        let resolution =
-            resolve_artist_identity_with_clients_result(&musicbrainz, &discogs, "Artist", true, true)
-                .await;
+        let resolution = resolve_artist_identity_with_clients_result(
+            &musicbrainz,
+            &discogs,
+            "Artist",
+            true,
+            true,
+        )
+        .await;
 
         assert!(resolution.musicbrainz_error.is_some());
         assert!(resolution.discogs_error.is_some());
@@ -4939,7 +5315,10 @@ mod tests {
         let second = state
             .resolve_artist_identity_result("Artist", None, true, true)
             .await;
-        assert_eq!(second.identity.musicbrainz_artist_id.as_deref(), Some("mb-recovered"));
+        assert_eq!(
+            second.identity.musicbrainz_artist_id.as_deref(),
+            Some("mb-recovered")
+        );
         assert_eq!(second.identity.discogs_artist_id.as_deref(), Some("33534"));
         assert!(second.musicbrainz_error.is_none());
     }
@@ -4961,7 +5340,10 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(albums.first().map(|album| album.id.as_str()), Some("1521689"));
+        assert_eq!(
+            albums.first().map(|album| album.id.as_str()),
+            Some("1521689")
+        );
         let search = requests.recv().unwrap();
         assert!(search.contains("artist=Mariah+Carey"));
         assert!(search.contains("release_title=Emotions"));
@@ -5010,10 +5392,7 @@ mod tests {
         thread::spawn(move || {
             for (status, body) in [
                 ("503 Service Unavailable", "{}"),
-                (
-                    "503 Service Unavailable",
-                    "{}",
-                ),
+                ("503 Service Unavailable", "{}"),
                 (
                     "200 OK",
                     r#"{"artists":[{"id":"artist-id","name":"張學友","aliases":[{"name":"张学友"}]}]}"#,
@@ -5030,11 +5409,7 @@ mod tests {
                 .unwrap();
             }
         });
-        let state = ProviderState::at(
-            ProviderState::new().http(),
-            &base,
-            "http://127.0.0.1:1",
-        );
+        let state = ProviderState::at(ProviderState::new().http(), &base, "http://127.0.0.1:1");
 
         let first = state.resolve_musicbrainz_artist_id_result("张学友").await;
         let second = state

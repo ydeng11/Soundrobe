@@ -80,7 +80,12 @@ impl TaskRegistry {
         let mut tasks = self
             .tasks
             .lock()
-            .map(|tasks| tasks.values().map(|entry| entry.progress.clone()).collect::<Vec<_>>())
+            .map(|tasks| {
+                tasks
+                    .values()
+                    .map(|entry| entry.progress.clone())
+                    .collect::<Vec<_>>()
+            })
             .unwrap_or_default();
         tasks.sort_by(|left, right| left.task_id.cmp(&right.task_id));
         tasks

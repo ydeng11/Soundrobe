@@ -524,15 +524,12 @@ fn metadata_patch_expected_paths(
                 .unwrap_or("set")
             {
                 "set" => {
-                    let desired = if change
-                        .get("valueFrom")
-                        .and_then(Value::as_str)
-                        == Some("folder_name")
-                    {
-                        folder_name_for_path(path)
-                    } else {
-                        change.get("value").and_then(action_value_string)
-                    };
+                    let desired =
+                        if change.get("valueFrom").and_then(Value::as_str) == Some("folder_name") {
+                            folder_name_for_path(path)
+                        } else {
+                            change.get("value").and_then(action_value_string)
+                        };
                     desired.as_ref().is_some_and(|desired| {
                         old_value.as_deref() != Some(desired)
                             && (!change
@@ -1803,7 +1800,11 @@ pub(crate) fn execute_files_relocate(
         ));
     }
 
-    let summary = format!("Relocate {} file(s) across {} track(s)", actions.len(), paths.len());
+    let summary = format!(
+        "Relocate {} file(s) across {} track(s)",
+        actions.len(),
+        paths.len()
+    );
     let mut batch = assistant_batch(
         session_id,
         "folder-move",
@@ -1990,7 +1991,8 @@ mod tests {
     #[test]
     fn metadata_patch_value_from_folder_name_produces_per_track_actions() {
         let mut input = test_input();
-        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
+        input.selected_track_paths =
+            vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
         input.tracks = vec![
             serde_json::json!({"path": "/music/album1/a.mp3", "album": "Old"}),
             serde_json::json!({"path": "/music/album2/b.mp3", "album": "Old"}),
@@ -2011,19 +2013,34 @@ mod tests {
         let values = batch
             .actions
             .iter()
-            .map(|action| (action.track_path.as_deref().unwrap(), action.new_value.as_deref().unwrap()))
+            .map(|action| {
+                (
+                    action.track_path.as_deref().unwrap(),
+                    action.new_value.as_deref().unwrap(),
+                )
+            })
             .collect::<Vec<_>>();
         assert_eq!(
             values,
-            vec![("/music/album1/a.mp3", "album1"), ("/music/album2/b.mp3", "album2")]
+            vec![
+                ("/music/album1/a.mp3", "album1"),
+                ("/music/album2/b.mp3", "album2")
+            ]
         );
         // Preview must surface derivation semantics, not just a count.
         assert!(
-            result.result.summary.contains("derived from each track's containing folder"),
+            result
+                .result
+                .summary
+                .contains("derived from each track's containing folder"),
             "{}",
             result.result.summary
         );
-        assert!(result.result.summary.contains("2 distinct value(s)"), "{}", result.result.summary);
+        assert!(
+            result.result.summary.contains("2 distinct value(s)"),
+            "{}",
+            result.result.summary
+        );
         // Completion contract must be marked as folder-derived and cover both paths.
         let contract = batch.completion_contract.as_ref().unwrap();
         assert_eq!(
@@ -2036,7 +2053,8 @@ mod tests {
     #[test]
     fn metadata_patch_value_from_skips_tracks_already_matching_their_folder() {
         let mut input = test_input();
-        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album1/b.mp3".into()];
+        input.selected_track_paths =
+            vec!["/music/album1/a.mp3".into(), "/music/album1/b.mp3".into()];
         input.tracks = vec![
             serde_json::json!({"path": "/music/album1/a.mp3", "album": "album1"}),
             serde_json::json!({"path": "/music/album1/b.mp3", "album": "Old"}),
@@ -2054,7 +2072,10 @@ mod tests {
         assert!(result.result.ok, "{}", result.result.summary);
         let batch = result.batches.first().expect("derived preview batch");
         assert_eq!(batch.actions.len(), 1);
-        assert_eq!(batch.actions[0].track_path.as_deref(), Some("/music/album1/b.mp3"));
+        assert_eq!(
+            batch.actions[0].track_path.as_deref(),
+            Some("/music/album1/b.mp3")
+        );
         assert_eq!(batch.actions[0].new_value.as_deref(), Some("album1"));
     }
 
@@ -2071,7 +2092,10 @@ mod tests {
             "session-1",
         );
         assert!(!result.result.ok);
-        assert!(result.result.summary.contains("exactly one of 'value' or 'valueFrom'"));
+        assert!(result
+            .result
+            .summary
+            .contains("exactly one of 'value' or 'valueFrom'"));
     }
 
     #[test]
@@ -2087,7 +2111,10 @@ mod tests {
             "session-1",
         );
         assert!(!result.result.ok);
-        assert!(result.result.summary.contains("Unsupported valueFrom source: 'filename'"));
+        assert!(result
+            .result
+            .summary
+            .contains("Unsupported valueFrom source: 'filename'"));
     }
 
     #[test]
@@ -2118,7 +2145,8 @@ mod tests {
         // "set album based on their folder name where missing" must derive
         // only into tracks without an existing album; present values survive.
         let mut input = test_input();
-        input.selected_track_paths = vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
+        input.selected_track_paths =
+            vec!["/music/album1/a.mp3".into(), "/music/album2/b.mp3".into()];
         input.tracks = vec![
             serde_json::json!({"path": "/music/album1/a.mp3", "album": "Existing"}),
             serde_json::json!({"path": "/music/album2/b.mp3"}), // missing album
@@ -2198,7 +2226,10 @@ mod tests {
         );
         assert!(result.result.ok, "{}", result.result.summary);
         assert!(
-            result.result.summary.contains("Warning: writing the same value 'Loose'"),
+            result
+                .result
+                .summary
+                .contains("Warning: writing the same value 'Loose'"),
             "{}",
             result.result.summary
         );
@@ -2414,7 +2445,10 @@ mod tests {
         );
         assert!(!result.result.ok);
         assert!(
-            result.result.summary.contains("exactly one of 'value' or 'valueFrom'"),
+            result
+                .result
+                .summary
+                .contains("exactly one of 'value' or 'valueFrom'"),
             "{}",
             result.result.summary
         );
@@ -3089,8 +3123,15 @@ mod tests {
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 1);
         assert_eq!(batch.kind, "folder-move");
-        let expected = dir.join("song").join("01_song.mp3").to_string_lossy().into_owned();
-        assert_eq!(batch.actions[0].destination_path.as_deref(), Some(expected.as_str()));
+        let expected = dir
+            .join("song")
+            .join("01_song.mp3")
+            .to_string_lossy()
+            .into_owned();
+        assert_eq!(
+            batch.actions[0].destination_path.as_deref(),
+            Some(expected.as_str())
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -3148,7 +3189,10 @@ mod tests {
         assert_eq!(
             destinations,
             vec![
-                album_dir.join("instrumental.mp3").to_string_lossy().into_owned(),
+                album_dir
+                    .join("instrumental.mp3")
+                    .to_string_lossy()
+                    .into_owned(),
                 album_dir.join("vocal.mp3").to_string_lossy().into_owned(),
             ]
         );
@@ -3170,10 +3214,17 @@ mod tests {
                 "paths": [a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
                 "destination": {"template": "Albums/2024"}
             }),
-            &relocate_input(&dir, &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()]),
+            &relocate_input(
+                &dir,
+                &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
+            ),
             "session-1",
         );
-        assert!(result.result.ok, "{}", result.result.error.as_deref().unwrap_or(""));
+        assert!(
+            result.result.ok,
+            "{}",
+            result.result.error.as_deref().unwrap_or("")
+        );
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 2);
         let target = dir.join("Albums").join("2024");
@@ -3250,7 +3301,10 @@ mod tests {
                 "session-1",
             );
             assert!(!result.result.ok);
-            assert!(result.result.summary.contains("resolves outside the library root"));
+            assert!(result
+                .result
+                .summary
+                .contains("resolves outside the library root"));
             let _ = std::fs::remove_dir_all(&dir);
             let _ = std::fs::remove_dir_all(&outside);
         }
@@ -3272,10 +3326,17 @@ mod tests {
                 "paths": [a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
                 "destination": {"template": "{value}", "source": {"kind": "filename"}}
             }),
-            &relocate_input(&dir, &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()]),
+            &relocate_input(
+                &dir,
+                &[a.to_string_lossy().as_ref(), b.to_string_lossy().as_ref()],
+            ),
             "session-1",
         );
-        assert!(result.result.ok, "{}", result.result.error.as_deref().unwrap_or(""));
+        assert!(
+            result.result.ok,
+            "{}",
+            result.result.error.as_deref().unwrap_or("")
+        );
         let batch = result.batches.first().unwrap();
         assert_eq!(batch.actions.len(), 2);
         let album = dir.join("song");
@@ -3488,12 +3549,23 @@ mod tests {
         );
         assert!(result.result.ok, "{}", result.result.summary);
         let batch = result.batches.first().expect("preview batch");
-        assert_eq!(batch.actions.len(), 2, "both versions must get an album action");
+        assert_eq!(
+            batch.actions.len(),
+            2,
+            "both versions must get an album action"
+        );
         for action in &batch.actions {
             let path = action.track_path.as_deref().unwrap();
-            let expected = if path == original { "36.5℃" } else { "喜剧演员" };
+            let expected = if path == original {
+                "36.5℃"
+            } else {
+                "喜剧演员"
+            };
             assert_eq!(action.field.as_deref(), Some("album"));
-            assert_eq!(action.old_value.as_deref(), Some("based on their folder name"));
+            assert_eq!(
+                action.old_value.as_deref(),
+                Some("based on their folder name")
+            );
             assert_eq!(action.new_value.as_deref(), Some(expected));
             // The preview description must describe the real destination change
             // (old album value), not the source title value.
@@ -3531,9 +3603,15 @@ mod tests {
             "session-transform",
         );
         assert!(result.result.ok, "{}", result.result.summary);
-        assert!(result.batches.is_empty(), "no preview batch when nothing changes");
         assert!(
-            result.result.summary.contains("already had the target value"),
+            result.batches.is_empty(),
+            "no preview batch when nothing changes"
+        );
+        assert!(
+            result
+                .result
+                .summary
+                .contains("already had the target value"),
             "no-changes summary should explain why: {}",
             result.result.summary
         );
@@ -3576,7 +3654,11 @@ mod tests {
         );
         assert!(result.result.ok, "{}", result.result.summary);
         let batch = result.batches.first().expect("preview batch");
-        assert_eq!(batch.actions.len(), 2, "both versions must get an album action");
+        assert_eq!(
+            batch.actions.len(),
+            2,
+            "both versions must get an album action"
+        );
         let by_path: std::collections::HashMap<&str, &AssistantAction> = batch
             .actions
             .iter()

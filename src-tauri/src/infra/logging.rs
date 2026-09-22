@@ -12,8 +12,8 @@ use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tracing_subscriber::fmt::MakeWriter;
 
-use crate::state::paths::app_dir;
 use crate::state::events::{emit_event, EventSink};
+use crate::state::paths::app_dir;
 
 #[derive(Clone)]
 pub(crate) struct GeneralLogWriter {

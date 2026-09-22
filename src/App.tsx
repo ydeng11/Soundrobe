@@ -39,6 +39,7 @@ import { SearchDialog } from "./components/SearchDialog";
 import { ConfirmWriteDialog } from "./components/ConfirmWriteDialog";
 import { ExtraTagsEditor } from "./components/ExtraTagsEditor";
 import { BatchExtraTagsEditor } from "./components/BatchExtraTagsEditor";
+import { AutoTagSummaryDialog } from "./components/AutoTagSummaryDialog";
 import type { ConvertResult } from "./components/ConvertDialog";
 import {
   parseFilenameWithConvertPattern,
@@ -59,6 +60,7 @@ import type {
   AuditTrackResult,
   PreviewMatchResult,
   AlbumCandidate,
+  AutoTagReviewDetail,
   ProviderAlbum,
 } from "./shared/desktop-api";
 import {
@@ -76,6 +78,10 @@ import {
   uploadWebCover,
 } from "./shared/web-adapter";
 import { isWebRuntime } from "./shared/install-desktop-api";
+import {
+  runAutoTagBatch,
+  type AutoTagBatchSummary,
+} from "./state/auto-tag-batch";
 
 const EXTRA_TAG_UNDO_FIELD = "__assistantExtraTags";
 
@@ -142,6 +148,9 @@ export default function App() {
   const [assistantApiKeyConfigured, setAssistantApiKeyConfigured] = React.useState(false);
   const [assistantModel, setAssistantModel] = React.useState("");
   const [assistantAutonomous, setAssistantAutonomous] = useState(false);
+  const [autoTagSummary, setAutoTagSummary] = useState<AutoTagBatchSummary | null>(null);
+  const autoTagResetRef = useRef<Promise<void> | null>(null);
+  const nativeReviewIdsRef = useRef<string[]>([]);
 
   // Cover URL cache: albumPath → dataUrl | null
   const coverUrlCacheRef = useRef<Map<string, string | null>>(new Map());
@@ -323,6 +332,21 @@ export default function App() {
     }
   }, [loadAlbumTracks]);
 
+  const resetAutoTagSession = useCallback((): Promise<void> => {
+    if (autoTagResetRef.current) return autoTagResetRef.current;
+    const reset = (async () => {
+      await window.api.clearAutoTagReviews();
+      nativeReviewIdsRef.current = [];
+      setAutoTagSummary(null);
+      dispatch({ type: "CLEAR_UNDO" });
+    })();
+    const tracked = reset.finally(() => {
+      if (autoTagResetRef.current === tracked) autoTagResetRef.current = null;
+    });
+    autoTagResetRef.current = tracked;
+    return tracked;
+  }, []);
+
   const handleOpenLibrary = useCallback(async () => {
     try {
       if (!window.api) {
@@ -331,6 +355,7 @@ export default function App() {
 
       const selectedPath = await window.api.openFolderDialog();
       if (!selectedPath) return;
+      await resetAutoTagSession();
       await loadLibrary(selectedPath);
     } catch (err: unknown) {
       const message =
@@ -340,7 +365,7 @@ export default function App() {
         error: `Failed to open library: ${message}`,
       });
     }
-  }, [loadLibrary]);
+  }, [loadLibrary, resetAutoTagSession]);
 
   const handleSelectWebRoot = useCallback(
     (path: string) => {
@@ -755,6 +780,29 @@ export default function App() {
       dispatch({ type: "SET_REVERTING", reverting: true });
       dispatch({ type: "SET_ERROR", error: null });
       try {
+        const nativeReviewIds = nativeReviewIdsRef.current;
+        const usesNativeReview =
+          targetIndex === 0 &&
+          history[0]?.description.startsWith("Auto-tag") &&
+          nativeReviewIds.length > 0;
+        if (usesNativeReview) {
+          for (const reviewId of nativeReviewIds) {
+            await window.api.revertAutoTagReview(reviewId);
+          }
+          nativeReviewIdsRef.current = [];
+          const nativeResult = await revertHistoryThrough(
+            state.undoManager,
+            targetId,
+            async () => null,
+          );
+          dispatch({
+            type: "APPLY_UNDO_RESULT",
+            undoManager: nativeResult.manager,
+            baseOperationIds,
+          });
+          return;
+        }
+
         const result = await revertHistoryThrough(
           state.undoManager,
           targetId,
@@ -857,28 +905,56 @@ export default function App() {
 
   // --- Auto-Tag ---
 
-  const handleAutoTag = useCallback(async () => {
-    if (!state.libraryPath || state.autoTagging) return;
+  const handleAutoTagReviewChanged = useCallback(
+    async (review: AutoTagReviewDetail) => {
+      nativeReviewIdsRef.current = nativeReviewIdsRef.current.filter(
+        (reviewId) => reviewId !== review.id,
+      );
+      if (review.decision !== "reverted") return;
+      const latest = state.undoManager.history[0];
+      if (!latest?.description.startsWith("Auto-tag")) return;
+      const result = await revertHistoryThrough(
+        state.undoManager,
+        latest.id,
+        async () => null,
+      );
+      dispatch({
+        type: "APPLY_UNDO_RESULT",
+        undoManager: result.manager,
+        baseOperationIds: state.undoManager.history.map((operation) => operation.id),
+      });
+    },
+    [state.undoManager],
+  );
 
-    // Determine which album paths to tag
+  const handleAutoTag = useCallback(async () => {
+    if (!state.libraryPath || state.autoTagging || autoTagResetRef.current) return;
+
     const targetPaths = state.activeAlbumPath
       ? [state.activeAlbumPath]
-      : state.albums.map((a) => a.path);
-
+      : state.albums.map((album) => album.path);
     if (targetPaths.length === 0) {
       dispatch({ type: "SET_ERROR", error: "No albums found to tag" });
       return;
     }
 
-    const isBatch = targetPaths.length > 1;
+    try {
+      await resetAutoTagSession();
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        error: error instanceof Error ? error.message : "Could not reset auto-tag review state",
+      });
+      return;
+    }
 
+    const isBatch = targetPaths.length > 1;
     dispatch({ type: "SET_AUTO_TAGGING", autoTagging: true });
     dispatch({ type: "SET_ERROR", error: null });
+    dispatch({ type: "SET_NOTICE", notice: null });
 
-    let completed = 0;
-    let totalErrors = 0;
     let snapshots: TrackSnapshot[] = [];
-    const attemptedAlbumPaths: string[] = [];
+    let attemptedAlbumPaths: string[] = [];
     let autoTagReadback: TrackData[] = [];
     let historyRecorded = false;
 
@@ -893,9 +969,7 @@ export default function App() {
           autoTagReadback.push(...detail.tracks);
         } catch (error) {
           readbackFailures.push(
-            `${albumPath}: ${
-              error instanceof Error ? error.message : "readback failed"
-            }`,
+            `${albumPath}: ${error instanceof Error ? error.message : "readback failed"}`,
           );
         }
       }
@@ -917,9 +991,7 @@ export default function App() {
       historyRecorded = true;
       if (readbackFailures.length > 0) {
         throw new Error(
-          `Auto-tag readback failed for ${readbackFailures
-            .slice(0, 3)
-            .join("; ")}`,
+          `Auto-tag readback failed for ${readbackFailures.slice(0, 3).join("; ")}`,
         );
       }
       return autoTagReadback;
@@ -931,96 +1003,50 @@ export default function App() {
         state.tracks,
         window.api.readAlbum,
       );
-
-      for (const albumPath of targetPaths) {
-        const albumName = basename(albumPath) ?? albumPath;
-        dispatch({
-          type: "SET_AUTO_TAG_PROGRESS",
-          progress: isBatch
-            ? {
-                current: completed,
-                total: targetPaths.length,
-                message: `${albumName}`,
-              }
-            : { current: 0, total: 9, message: `Auto-tagging: ${albumName}` },
-        });
-
-        const taskId = await window.api.autoTagAlbum(albumPath);
-        attemptedAlbumPaths.push(albumPath);
-        const unsubscribe = window.api.onAutoTagEvent((event) => {
-          if (event.taskId !== taskId) return;
+      const summary = await runAutoTagBatch({
+        albumPaths: targetPaths,
+        api: window.api,
+        onProgress: (progress) =>
           dispatch({
             type: "SET_AUTO_TAG_PROGRESS",
-            progress: isBatch
-              ? {
-                  current: completed,
-                  total: targetPaths.length,
-                  message: event.message,
-                }
-              : {
-                  current: event.progress,
-                  total: event.total,
-                  message: event.message,
-                },
-          });
+            progress: {
+              current: isBatch ? progress.current : Math.min(progress.current, 9),
+              total: isBatch ? progress.total : 9,
+              message: progress.message,
+            },
+          }),
+      });
+      setAutoTagSummary(summary);
+      nativeReviewIdsRef.current = summary.items
+        .filter((item) => item.reviewId && (item.status === "applied" || item.status === "recovered"))
+        .map((item) => item.reviewId!);
+      attemptedAlbumPaths = summary.items
+        .filter((item) => item.readbackRequired)
+        .map((item) => item.albumPath);
+
+      const needsReview = summary.items.filter((item) => item.status === "needs_review");
+      if (needsReview.length > 0) {
+        dispatch({
+          type: "SET_NOTICE",
+          notice: `Needs review (${needsReview.length}): ${needsReview
+            .map((item) => `${basename(item.albumPath) ?? item.albumPath}: ${item.reasonCode ?? item.message}`)
+            .join("; ")}`,
         });
-
-        try {
-          let done = false;
-          while (!done) {
-            const progress = await window.api.getTaskProgress(taskId);
-            if (!progress) {
-              done = true;
-              break;
-            }
-
-            dispatch({
-              type: "SET_AUTO_TAG_PROGRESS",
-              progress: isBatch
-                ? {
-                    current: completed,
-                    total: targetPaths.length,
-                    message: progress.message,
-                  }
-                : {
-                    current: progress.progress,
-                    total: progress.total,
-                    message: progress.message,
-                  },
-            });
-
-            if (
-              progress.status === "completed" ||
-              progress.status === "failed" ||
-              progress.status === "cancelled"
-            ) {
-              done = true;
-              if (progress.status === "failed") {
-                totalErrors++;
-                console.debug(
-                  `[auto-tag] Auto-tag failed for ${albumName}: ${progress.message}`,
-                );
-              }
-            } else {
-              await new Promise((resolve) => setTimeout(resolve, 300));
-            }
-          }
-        } finally {
-          unsubscribe();
-        }
-
-        completed++;
+      }
+      const failed = summary.items.filter(
+        (item) => item.status === "failed" || item.status === "cancelled",
+      ).length;
+      if (failed > 0) {
+        dispatch({
+          type: "SET_ERROR",
+          error: `Auto-tag completed with ${failed} album(s) with errors`,
+        });
       }
 
-      // Scoped refresh: only re-read tracks for tagged albums
       dispatch({
         type: "SET_AUTO_TAG_PROGRESS",
         progress: isBatch
-          ? {
-              current: completed,
-              total: targetPaths.length,
-              message: "Refreshing tracks...",
-            }
+          ? { current: summary.items.length, total: summary.items.length, message: "Refreshing tracks..." }
           : { current: 9, total: 9, message: "Refreshing tracks..." },
       });
       const updatedTrackList = await recordAttemptedAutoTag();
@@ -1028,13 +1054,8 @@ export default function App() {
       dispatch({ type: "SET_ALBUMS", albums: scannedAlbums });
 
       const taggedAlbumSet = new Set(targetPaths);
-      if (state.activeAlbumPath) {
-        taggedAlbumSet.add(state.activeAlbumPath);
-      }
-
-      for (const albumPath of taggedAlbumSet) {
-        coverUrlCacheRef.current.delete(albumPath);
-      }
+      if (state.activeAlbumPath) taggedAlbumSet.add(state.activeAlbumPath);
+      for (const albumPath of taggedAlbumSet) coverUrlCacheRef.current.delete(albumPath);
       const visibleAlbumPath =
         state.activeAlbumPath ??
         (state.selectedTrack ? dirPath(state.selectedTrack.path) : null);
@@ -1043,26 +1064,15 @@ export default function App() {
           (track) => dirPath(track.path) === visibleAlbumPath,
         );
         const preferredTrackPath =
-          activeTracks.find((track) => track.hasCover)?.path ??
-          activeTracks[0]?.path;
+          activeTracks.find((track) => track.hasCover)?.path ?? activeTracks[0]?.path;
         fetchCover(visibleAlbumPath, undefined, preferredTrackPath);
       }
-
-      if (totalErrors > 0) {
-        dispatch({
-          type: "SET_ERROR",
-          error: `Auto-tag completed with ${totalErrors} album(s) with errors`,
-        });
-      }
-    } catch (err: unknown) {
-      let message = err instanceof Error ? err.message : "Auto-tag failed";
+    } catch (error) {
+      let message = error instanceof Error ? error.message : "Auto-tag failed";
       try {
         await recordAttemptedAutoTag();
       } catch (readbackError) {
-        const detail =
-          readbackError instanceof Error
-            ? readbackError.message
-            : "readback failed";
+        const detail = readbackError instanceof Error ? readbackError.message : "readback failed";
         message = `${message}; completed changes could not be read back: ${detail}`;
       }
       dispatch({ type: "SET_ERROR", error: message });
@@ -1078,7 +1088,7 @@ export default function App() {
     state.selectedTrack,
     state.autoTagging,
     fetchCover,
-    loadAlbumTracks,
+    resetAutoTagSession,
   ]);
 
   // --- Audit: LLM-based metadata verification against file paths ---
@@ -2815,6 +2825,12 @@ export default function App() {
         onClose={() => setShowConvertDialog(false)}
         onConvert={handleConvertAction}
         tracks={selectedTracksForBatch.map(toConvertTrack)}
+      />
+
+      <AutoTagSummaryDialog
+        summary={autoTagSummary}
+        onClose={() => setAutoTagSummary(null)}
+        onChanged={handleAutoTagReviewChanged}
       />
 
       <SearchDialog

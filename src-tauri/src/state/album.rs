@@ -12,8 +12,8 @@ const COVER_REMOVED_MARKER: &str = ".auto-tagger-cover-removed";
 const MAX_COVER_BYTES: u64 = 10 * 1024 * 1024;
 pub const MAX_COVER_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
 const COVER_NAMES: &[&str] = &[
-    "cover", "Cover", "COVER", "front", "Front", "FRONT", "folder", "Folder", "FOLDER",
-    "albumart", "AlbumArt",
+    "cover", "Cover", "COVER", "front", "Front", "FRONT", "folder", "Folder", "FOLDER", "albumart",
+    "AlbumArt",
 ];
 
 #[derive(Clone, Debug, Serialize)]
@@ -95,9 +95,8 @@ pub struct AlbumDetail {
 }
 
 pub fn read_album(album_path: &Path) -> io::Result<AlbumDetail> {
-    read_album_with_cancellation(album_path, &|| false)?.ok_or_else(|| {
-        io::Error::new(io::ErrorKind::Interrupted, "album read was cancelled")
-    })
+    read_album_with_cancellation(album_path, &|| false)?
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Interrupted, "album read was cancelled"))
 }
 
 pub fn cover_data_url(
@@ -117,8 +116,8 @@ pub fn cover_data_url(
         }
     }
 
-    if let Some(track_path) = preferred_track_path
-        .filter(|path| path.is_file() && path.starts_with(album_path))
+    if let Some(track_path) =
+        preferred_track_path.filter(|path| path.is_file() && path.starts_with(album_path))
     {
         if let Some(data_url) = embedded_cover_data_url(track_path) {
             return Ok(Some(data_url));
@@ -174,9 +173,8 @@ pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String>
             "cover image is too large",
         ));
     }
-    let jpeg = normalize_cover_image(bytes).ok_or_else(|| {
-        io::Error::new(io::ErrorKind::InvalidInput, "invalid cover image")
-    })?;
+    let jpeg = normalize_cover_image(bytes)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid cover image"))?;
     let temporary = album_path.join(format!(".cover-upload-{}.tmp", uuid::Uuid::new_v4()));
     let destination = album_path.join("cover.jpg");
     fs::write(&temporary, &jpeg)?;
@@ -203,7 +201,12 @@ fn find_external_cover(album_path: &Path) -> Option<std::path::PathBuf> {
     let entries = fs::read_dir(album_path)
         .ok()?
         .flatten()
-        .filter(|entry| entry.file_type().map(|kind| kind.is_file()).unwrap_or(false))
+        .filter(|entry| {
+            entry
+                .file_type()
+                .map(|kind| kind.is_file())
+                .unwrap_or(false)
+        })
         .collect::<Vec<_>>();
     for wanted_name in COVER_NAMES {
         for wanted_extension in ["jpg", "jpeg", "png"] {

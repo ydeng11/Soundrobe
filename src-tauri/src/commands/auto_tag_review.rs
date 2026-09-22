@@ -3,7 +3,10 @@ use super::{
     mutations::replace_file_atomic,
     tracks::{read_album, read_track_metadata, try_read_extra_tags},
 };
-use crate::{error::ApiError, state::write_queue::WriteQueue};
+use crate::error::ApiError;
+#[cfg(any(feature = "desktop", test))]
+use crate::state::write_queue::WriteQueue;
+#[cfg(feature = "desktop")]
 use base64::Engine;
 use lofty::file::TaggedFileExt;
 use serde::Serialize;

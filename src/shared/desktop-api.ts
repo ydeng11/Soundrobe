@@ -377,7 +377,7 @@ export interface AutoTagEvent {
 
 export interface AutoTagProviderAttempt {
   provider: string;
-  status: "matched" | "no_match" | "unavailable";
+  status: "matched" | "no_match" | "incomplete" | "unavailable";
   diagnostic?: string;
   retryCount?: number;
   retryAfterSeconds?: number;

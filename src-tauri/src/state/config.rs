@@ -599,8 +599,8 @@ impl ConfigState {
                         ));
                     }
                 };
-                let canonical = canonicalize_clear_tags(&values)
-                    .map_err(ConfigSetError::InvalidValue)?;
+                let canonical =
+                    canonicalize_clear_tags(&values).map_err(ConfigSetError::InvalidValue)?;
                 Value::Array(canonical.into_iter().map(Value::String).collect())
             }
             _ => value.clone(),
@@ -760,14 +760,9 @@ mod tests {
                 .as_nanos()
         ));
         std::fs::create_dir_all(dir.join(".soundrobe")).unwrap();
-        std::fs::write(
-            dir.join(".soundrobe").join("config.yaml"),
-            "debug: true\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join(".soundrobe").join("config.yaml"), "debug: true\n").unwrap();
         save_config(&dir, "notARealKey", &json!("x")).unwrap();
-        let written =
-            std::fs::read_to_string(dir.join(".soundrobe").join("config.yaml")).unwrap();
+        let written = std::fs::read_to_string(dir.join(".soundrobe").join("config.yaml")).unwrap();
         assert_eq!(written, "debug: true\n");
     }
 
@@ -876,12 +871,20 @@ mod tests {
             &EnvMap::new(),
         );
         assert_eq!(parsed.clear_tags_enabled, Some(true));
-        assert_eq!(parsed.clear_tags, Some(vec!["comment".to_string(), "description".to_string()]));
+        assert_eq!(
+            parsed.clear_tags,
+            Some(vec!["comment".to_string(), "description".to_string()])
+        );
 
         let home = cfg_home();
         let state = ConfigState::init_with_env(home, Arc::new(EnvMap::new()));
-        state.try_set("clearTags", &json!(["COMM", "description", "COMM"])).unwrap();
-        assert_eq!(state.raw().clear_tags, Some(vec!["comment".to_string(), "description".to_string()]));
+        state
+            .try_set("clearTags", &json!(["COMM", "description", "COMM"]))
+            .unwrap();
+        assert_eq!(
+            state.raw().clear_tags,
+            Some(vec!["comment".to_string(), "description".to_string()])
+        );
         assert!(state.try_set("clearTags", &json!(["unsupported"])).is_err());
     }
 

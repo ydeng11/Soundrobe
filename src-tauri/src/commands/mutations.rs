@@ -339,12 +339,7 @@ pub async fn tracks_batch_write(
     updates: Vec<TrackUpdate>,
     queue: State<'_, WriteQueue>,
 ) -> Result<BatchWriteResult, ApiError> {
-    batch_write_with_readback(
-        &queue,
-        updates,
-        Some(Arc::new(app) as Arc<dyn EventSink>),
-    )
-    .await
+    batch_write_with_readback(&queue, updates, Some(Arc::new(app) as Arc<dyn EventSink>)).await
 }
 
 #[cfg(feature = "desktop")]
@@ -1101,14 +1096,7 @@ pub(crate) async fn batch_write_with_exclusive_queue_held(
     max_folder_concurrency: usize,
 ) -> Result<ExclusiveBatchWriteResult, ApiError> {
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_grouped(
-        None,
-        updates,
-        progress,
-        &accum,
-        max_folder_concurrency,
-    )
-    .await?;
+    batch_write_grouped(None, updates, progress, &accum, max_folder_concurrency).await?;
     let mut accum = accum.lock().expect("accum lock poisoned");
     Ok(ExclusiveBatchWriteResult {
         successes: std::mem::take(&mut accum.successes),
@@ -1146,13 +1134,7 @@ pub(crate) async fn batch_write_with_readback(
     let input_paths: Vec<String> = updates.iter().map(|u| u.path.clone()).collect();
     let total = updates.len() as u64;
     let accum = Arc::new(Mutex::new(BatchAccumulator::default()));
-    batch_write_queued(
-        queue,
-        updates,
-        sink.map(|sink| (sink, total)),
-        &accum,
-    )
-    .await?;
+    batch_write_queued(queue, updates, sink.map(|sink| (sink, total)), &accum).await?;
     let mut acc = accum.lock().expect("accum lock poisoned");
     let successes: std::collections::HashSet<String> = acc.successes.drain(..).collect();
     let failures = acc.failures.clone();

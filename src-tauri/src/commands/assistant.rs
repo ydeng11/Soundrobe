@@ -248,7 +248,6 @@ mod credential_tests {
         let (key, _model) = resolve_credentials(Some(""), None, "", "");
         assert_eq!(key, None);
     }
-
 }
 
 #[derive(Clone, Copy)]
@@ -4497,8 +4496,8 @@ async fn apply_folder_moves(
     // Preview-time checks are not enough: a destination ancestor can become an
     // external symlink between preview and approval (TOCTOU).
     let Some(library_root) = batch.library_root.as_deref().map(Path::new) else {
-        let error = "Folder-move batch is missing its library root; refusing to move files"
-            .to_string();
+        let error =
+            "Folder-move batch is missing its library root; refusing to move files".to_string();
         runtime.mark_batch_failed(batch_id, &error);
         return serde_json::json!({ "success": false, "error": error, "results": [] });
     };
@@ -4529,7 +4528,8 @@ async fn apply_folder_moves(
         }
         let source_path = PathBuf::from(source);
         let destination_path = PathBuf::from(destination);
-        if let Err(error) = preflight_relocation(&source_path, &destination_path, &library_canonical)
+        if let Err(error) =
+            preflight_relocation(&source_path, &destination_path, &library_canonical)
         {
             runtime.mark_batch_failed(batch_id, &error);
             return serde_json::json!({ "success": false, "error": error, "results": [] });
@@ -4549,8 +4549,13 @@ async fn apply_folder_moves(
         let source = source_path.clone();
         let destination = destination_path.clone();
         tracing::debug!(from = %source.display(), to = %destination.display(), "relocating track");
-        match relocate_file_queued(queue, source.clone(), destination.clone(), &library_canonical)
-            .await
+        match relocate_file_queued(
+            queue,
+            source.clone(),
+            destination.clone(),
+            &library_canonical,
+        )
+        .await
         {
             Ok(()) => {
                 completed.push((source_path.clone(), destination_path.clone()));
@@ -6373,7 +6378,11 @@ mod apply_contract_tests {
             "uniform-literal-session",
         );
         let batch = execution.batches.first().expect("preview batch").clone();
-        assert_eq!(batch.actions.len(), 2, "track A already matches the literal");
+        assert_eq!(
+            batch.actions.len(),
+            2,
+            "track A already matches the literal"
+        );
         let batch_id = batch.id.clone();
         let runtime = AssistantRuntimeState::default();
         assert!(runtime.initialize());
@@ -6447,7 +6456,10 @@ mod apply_contract_tests {
         assert_eq!(result["success"], false, "{result}");
         assert_eq!(result["verification"]["status"], "failed", "{result}");
         assert!(
-            !result["verification"]["failures"].as_array().unwrap().is_empty(),
+            !result["verification"]["failures"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
             "{result}"
         );
         // The moved file must not have been touched by the failed batch.
@@ -6852,14 +6864,18 @@ mod apply_contract_tests {
                 },
                 AssistantAction {
                     source_path: Some(three.to_string_lossy().into_owned()),
-                    destination_path: Some(root.join("blocker").join("three.mp3").to_string_lossy().into_owned()),
+                    destination_path: Some(
+                        root.join("blocker")
+                            .join("three.mp3")
+                            .to_string_lossy()
+                            .into_owned()
+                    ),
                     ..Default::default()
                 },
             ],
         }));
 
-        let result =
-            apply_action_batch(&runtime, &WriteQueue::default(), "batch-rollback").await;
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-rollback").await;
 
         assert_eq!(result["success"], false);
         assert_eq!(result["rollback"].as_array().map(Vec::len), Some(2));
@@ -6911,7 +6927,10 @@ mod apply_contract_tests {
         let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-escape").await;
 
         assert_eq!(result["success"], false);
-        assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+        assert!(result["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("outside the library"));
         // Nothing moved.
         assert!(source.exists());
         assert!(!outside.join("source.mp3").exists());
@@ -6960,7 +6979,10 @@ mod apply_contract_tests {
                 apply_action_batch(&runtime, &WriteQueue::default(), "batch-symlink").await;
 
             assert_eq!(result["success"], false);
-            assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+            assert!(result["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("outside the library"));
             assert!(source.exists());
             fs::remove_dir_all(&outside).unwrap();
             fs::remove_dir_all(root).unwrap();
@@ -6989,7 +7011,12 @@ mod apply_contract_tests {
             completion_contract: None,
             actions: vec![AssistantAction {
                 source_path: Some(source.to_string_lossy().into_owned()),
-                destination_path: Some(root.join("nested").join("source.mp3").to_string_lossy().into_owned()),
+                destination_path: Some(
+                    root.join("nested")
+                        .join("source.mp3")
+                        .to_string_lossy()
+                        .into_owned()
+                ),
                 ..Default::default()
             }],
         }));
@@ -6997,7 +7024,10 @@ mod apply_contract_tests {
         let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-noroot").await;
 
         assert_eq!(result["success"], false);
-        assert!(result["error"].as_str().unwrap_or("").contains("missing its library root"));
+        assert!(result["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("missing its library root"));
         assert!(source.exists());
         fs::remove_dir_all(root).unwrap();
     }
@@ -7347,7 +7377,9 @@ mod assistant_behaviour_tests {
         assert!(is_clarification_question(
             "Just to clarify — do you mean 1 or 2?"
         ));
-        assert!(is_clarification_question("What would you like to do first?"));
+        assert!(is_clarification_question(
+            "What would you like to do first?"
+        ));
         assert!(is_clarification_question(
             "Which direction would you like to go?"
         ));
@@ -7621,10 +7653,7 @@ mod assistant_behaviour_tests {
         );
 
         assert!(execution.result.ok, "{}", execution.result.summary);
-        assert_eq!(
-            execution.batches[0].library_root.as_deref(),
-            Some("/music")
-        );
+        assert_eq!(execution.batches[0].library_root.as_deref(), Some("/music"));
     }
 
     #[test]
@@ -9435,7 +9464,11 @@ mod assistant_ai_tests {
             ("红昭愿", "音阙诗听-红昭愿.flac", "红昭愿"),
             ("红昭愿(伴奏)", "音阙诗听-红昭愿(伴奏).flac", "红昭愿(伴奏)"),
             ("长安记", "李佳思_音阙诗听-长安记.flac", "长安记"),
-            ("长安记(伴奏)", "李佳思_音阙诗听-长安记(伴奏).flac", "长安记(伴奏)"),
+            (
+                "长安记(伴奏)",
+                "李佳思_音阙诗听-长安记(伴奏).flac",
+                "长安记(伴奏)",
+            ),
         ];
         let mut tracks = Vec::new();
         for (folder, file, title) in &entries {
@@ -9455,7 +9488,12 @@ mod assistant_ai_tests {
         };
         // Base title = everything before the first '(' or '（'.
         let base_of = |title: &str| -> String {
-            title.split(['(', '（']).next().unwrap_or(title).trim().to_string()
+            title
+                .split(['(', '（'])
+                .next()
+                .unwrap_or(title)
+                .trim()
+                .to_string()
         };
         let path_to_base: std::collections::HashMap<String, String> = input
             .tracks
@@ -9523,7 +9561,10 @@ mod assistant_ai_tests {
             if registered_tool_is_read_only(name) == Some(true) {
                 let result = execute_context_tool(name, args, &input);
                 if !result.ok {
-                    println!("[smoke] read-only {name} failed (fed back): {}", result.summary);
+                    println!(
+                        "[smoke] read-only {name} failed (fed back): {}",
+                        result.summary
+                    );
                 }
                 messages.push(ChatMessage {
                     role: "assistant".into(),
@@ -9555,9 +9596,14 @@ mod assistant_ai_tests {
                         .collect();
                     println!(
                         "[smoke] {} reached plan.create with {} steps: {:?}",
-                        model, steps.len(), step_tools
+                        model,
+                        steps.len(),
+                        step_tools
                     );
-                    println!("[smoke] plan args: {}", serde_json::to_string(args).unwrap_or_default());
+                    println!(
+                        "[smoke] plan args: {}",
+                        serde_json::to_string(args).unwrap_or_default()
+                    );
                     // The workflow needs the Album-tag change AND the folder
                     // relocation; the tag step may be metadata.transform or
                     // metadata.patch (correct values are enforced by the
@@ -9744,7 +9790,10 @@ mod assistant_ai_tests {
                         .cloned(),
                 ),
                 "folder-move" => relocate_moves.extend(batch.actions.iter().filter_map(|action| {
-                    Some((action.source_path.clone()?, action.destination_path.clone()?))
+                    Some((
+                        action.source_path.clone()?,
+                        action.destination_path.clone()?,
+                    ))
                 })),
                 _ => {}
             }

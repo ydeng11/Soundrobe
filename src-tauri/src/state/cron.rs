@@ -19,15 +19,9 @@ pub enum CronError {
     /// The expression did not have exactly five whitespace-separated fields.
     FieldCount(usize),
     /// A field contained something that is neither `*`, a number, nor `-`/`,`.
-    BadField {
-        field: &'static str,
-        value: String,
-    },
+    BadField { field: &'static str, value: String },
     /// A field named a number outside its allowed range.
-    OutOfRange {
-        field: &'static str,
-        value: i64,
-    },
+    OutOfRange { field: &'static str, value: i64 },
     /// A `*/0` style step, which can never match anything.
     StepZero(&'static str),
 }
@@ -43,7 +37,10 @@ impl std::fmt::Display for CronError {
                 write!(formatter, "invalid value {value:?} in cron {field} field")
             }
             Self::OutOfRange { field, value } => {
-                write!(formatter, "value {value} is out of range for cron {field} field")
+                write!(
+                    formatter,
+                    "value {value} is out of range for cron {field} field"
+                )
             }
             Self::StepZero(field) => write!(formatter, "cron step of 0 in {field} field"),
         }
@@ -122,16 +119,10 @@ impl CronSchedule {
                 };
 
                 if low < min || low > max {
-                    return Err(CronError::OutOfRange {
-                        field,
-                        value: low,
-                    });
+                    return Err(CronError::OutOfRange { field, value: low });
                 }
                 if high < min || high > max {
-                    return Err(CronError::OutOfRange {
-                        field,
-                        value: high,
-                    });
+                    return Err(CronError::OutOfRange { field, value: high });
                 }
                 if high < low {
                     return Err(CronError::BadField {
@@ -318,8 +309,14 @@ mod tests {
     fn a_poll_that_already_matched_moves_to_the_following_slot() {
         // The scheduler passes its previous evaluation time, so landing exactly
         // on a slot must advance rather than repeat it.
-        assert_eq!(next("*/15 * * * *", dt(2026, 9, 18, 10, 30)), dt(2026, 9, 18, 10, 45));
-        assert_eq!(next("0 * * * *", dt(2026, 9, 18, 10, 0)), dt(2026, 9, 18, 11, 0));
+        assert_eq!(
+            next("*/15 * * * *", dt(2026, 9, 18, 10, 30)),
+            dt(2026, 9, 18, 10, 45)
+        );
+        assert_eq!(
+            next("0 * * * *", dt(2026, 9, 18, 10, 0)),
+            dt(2026, 9, 18, 11, 0)
+        );
     }
 
     #[test]
@@ -351,8 +348,14 @@ mod tests {
     #[test]
     fn malformed_expressions_are_rejected_with_a_reason() {
         assert_eq!(CronSchedule::parse(""), Err(CronError::FieldCount(0)));
-        assert_eq!(CronSchedule::parse("* * * *"), Err(CronError::FieldCount(4)));
-        assert_eq!(CronSchedule::parse("* * * * * *"), Err(CronError::FieldCount(6)));
+        assert_eq!(
+            CronSchedule::parse("* * * *"),
+            Err(CronError::FieldCount(4))
+        );
+        assert_eq!(
+            CronSchedule::parse("* * * * * *"),
+            Err(CronError::FieldCount(6))
+        );
         assert_eq!(
             CronSchedule::parse("60 * * * *"),
             Err(CronError::OutOfRange {
@@ -367,7 +370,10 @@ mod tests {
                 value: 24
             })
         );
-        assert_eq!(CronSchedule::parse("*/0 * * * *"), Err(CronError::StepZero("minute")));
+        assert_eq!(
+            CronSchedule::parse("*/0 * * * *"),
+            Err(CronError::StepZero("minute"))
+        );
         assert_eq!(
             CronSchedule::parse("abc * * * *"),
             Err(CronError::BadField {

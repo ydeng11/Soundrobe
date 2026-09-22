@@ -7,9 +7,9 @@ pub mod state;
 
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod commands;
+mod error;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod infra;
-mod error;
 
 #[cfg(feature = "desktop")]
 mod desktop;
