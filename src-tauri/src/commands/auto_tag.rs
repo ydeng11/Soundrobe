@@ -771,7 +771,7 @@ pub fn apply_canonical_artist_name(
             artist.trim().eq_ignore_ascii_case(&canonical_name)
                 || artist.trim().eq_ignore_ascii_case(old_album_artist.trim())
         };
-        let artist_is_solo = track.artist.as_deref().is_none_or(&same_solo_identity);
+        let artist_is_solo = track.artist.as_deref().is_none_or(same_solo_identity);
         let artists_are_solo = track
             .artists
             .iter()
