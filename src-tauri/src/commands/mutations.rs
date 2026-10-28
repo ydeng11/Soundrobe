@@ -4219,7 +4219,7 @@ pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io:
 }
 
 #[cfg(windows)]
-fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
+pub(crate) fn replace_file_atomic(source: &Path, destination: &Path) -> std::io::Result<()> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{
         MoveFileExW, MOVEFILE_REPLACE_EXISTING, MOVEFILE_WRITE_THROUGH,

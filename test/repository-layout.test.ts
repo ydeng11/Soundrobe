@@ -47,4 +47,19 @@ describe("repository layout", () => {
 
     expect(scriptsPackage.type).toBe("commonjs");
   });
+
+  it("keeps atomic replacement available to review recovery on every platform", () => {
+    const mutations = readFileSync(
+      resolve(repositoryRoot, "src-tauri/src/commands/mutations.rs"),
+      "utf8",
+    );
+    const definitions = mutations.match(
+      /pub\(crate\) fn replace_file_atomic\(source: &Path, destination: &Path\)/g,
+    );
+
+    // Review recovery is a sibling command module and imports this helper on
+    // every target, so both the Unix and Windows implementations must retain
+    // crate visibility.
+    expect(definitions).toHaveLength(2);
+  });
 });
