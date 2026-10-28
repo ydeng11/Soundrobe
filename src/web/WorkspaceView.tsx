@@ -84,6 +84,8 @@ export interface WorkspaceViewProps {
   openAlbumPath?: string | null;
   /** Called once `openAlbumPath` has been loaded, so the caller can clear it. */
   onAlbumOpened?: () => void;
+  /** Poll interval for durable review changes made by background workers. */
+  reviewRefreshMs?: number;
 }
 
 interface DirectoryView {
@@ -101,6 +103,7 @@ export function WorkspaceView({
   markReviewed = defaultMarkReviewed,
   openAlbumPath = null,
   onAlbumOpened,
+  reviewRefreshMs = 5_000,
 }: WorkspaceViewProps) {
   const [roots, setRoots] = React.useState<LibraryRoot[]>([]);
   const [rootIndex, setRootIndex] = React.useState(0);
@@ -122,6 +125,7 @@ export function WorkspaceView({
   /** Albums the service's own classification left needing a person. */
   const [reviewPaths, setReviewPaths] = React.useState<ReadonlySet<string>>(new Set());
   const [acknowledgingPath, setAcknowledgingPath] = React.useState<string | null>(null);
+  const reviewRefreshGeneration = React.useRef(0);
 
   const root = roots[rootIndex] ?? null;
 
@@ -140,19 +144,28 @@ export function WorkspaceView({
   const refreshReviewPaths = React.useCallback(async () => {
     // Review state is the service's last classification, so it is re-read
     // rather than cached: a fix made in another app must clear the badge here.
+    const generation = ++reviewRefreshGeneration.current;
     try {
       const { releases } = await loadReleases();
-      setReviewPaths(new Set(needsReviewPaths(releases)));
+      if (generation === reviewRefreshGeneration.current) {
+        setReviewPaths(new Set(needsReviewPaths(releases)));
+      }
     } catch {
-      // A workspace that cannot read review state still lists files; the
-      // banner simply stays empty rather than blocking the file browser.
-      setReviewPaths(new Set());
+      // Keep the last durable classification visible through a transient
+      // service error. Clearing it would falsely tell the operator that the
+      // release no longer needs review.
     }
   }, [loadReleases]);
 
   React.useEffect(() => {
     void refreshReviewPaths();
-  }, [refreshReviewPaths]);
+    if (reviewRefreshMs <= 0) return;
+    const timer = window.setInterval(() => void refreshReviewPaths(), reviewRefreshMs);
+    return () => {
+      reviewRefreshGeneration.current += 1;
+      window.clearInterval(timer);
+    };
+  }, [refreshReviewPaths, reviewRefreshMs]);
 
   const acknowledgeReview = React.useCallback(
     async (path: string) => {

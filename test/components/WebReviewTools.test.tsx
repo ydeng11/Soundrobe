@@ -12,7 +12,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { DirectoryData, TrackData } from "../../src/shared/desktop-api";
 import type { MonitoredRelease } from "../../src/shared/web-adapter";
 import { WorkspaceView } from "../../src/web/WorkspaceView";
@@ -188,6 +188,52 @@ describe("albums the service left needing review", () => {
     fireEvent.click(screen.getByTestId(`review-acknowledge-${ALBUM}`));
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith(ALBUM));
     await waitFor(() => expect(screen.queryByTestId("review-banner")).toBeNull());
+  });
+
+  it("keeps the last review warning when a background refresh fails", async () => {
+    const api = fakeApi();
+    const loadReleases = vi
+      .fn<() => Promise<{ releases: MonitoredRelease[] }>>()
+      .mockResolvedValueOnce({ releases: [{ path: ALBUM, status: "needs_review" }] })
+      .mockRejectedValue(new Error("service unavailable"));
+    render(
+      <WorkspaceView
+        api={api as unknown as Window["api"]}
+        loadReleases={loadReleases}
+        reviewRefreshMs={10}
+      />,
+    );
+
+    await screen.findByTestId("review-banner");
+    await waitFor(() => expect(loadReleases.mock.calls.length).toBeGreaterThan(1));
+    expect(screen.getByTestId("review-banner").textContent).toContain(
+      "1 album needs review",
+    );
+  });
+
+  it("does not let a stale polling response overwrite newer review state", async () => {
+    const api = fakeApi();
+    let resolveFirst!: (value: { releases: MonitoredRelease[] }) => void;
+    const first = new Promise<{ releases: MonitoredRelease[] }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const loadReleases = vi
+      .fn<() => Promise<{ releases: MonitoredRelease[] }>>()
+      .mockImplementationOnce(() => first)
+      .mockResolvedValue({ releases: [{ path: ALBUM, status: "needs_review" }] });
+    render(
+      <WorkspaceView
+        api={api as unknown as Window["api"]}
+        loadReleases={loadReleases}
+        reviewRefreshMs={10}
+      />,
+    );
+
+    await screen.findByTestId("review-banner");
+    await act(async () => resolveFirst({ releases: [] }));
+    expect(screen.getByTestId("review-banner").textContent).toContain(
+      "1 album needs review",
+    );
   });
 
   it("does not claim a healthy or failed album needs review", async () => {

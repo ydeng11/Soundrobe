@@ -6,7 +6,7 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(any(feature = "desktop", test))]
+#[cfg(any(feature = "desktop", feature = "server", test))]
 use std::sync::Arc;
 use std::time::Duration;
 #[cfg(feature = "desktop")]
@@ -20,7 +20,7 @@ use crate::{
         library::collect_audio_files,
         lyrics::{fetch_album_lyrics, LyricsDocument, DEFAULT_BASE_URL},
         mutations::{write_track_queued, TrackPatch},
-        tracks::read_album,
+        tracks::{read_album, read_extra_tags},
     },
     error::ApiError,
     infra::{
@@ -41,7 +41,7 @@ use crate::{
     },
 };
 
-#[cfg(any(feature = "desktop", test))]
+#[cfg(any(feature = "desktop", feature = "server", test))]
 use crate::state::providers::ProviderRetryMetrics;
 
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
@@ -149,6 +149,8 @@ pub struct LookupRequest {
     pub year_hint: Option<String>,
     #[serde(default)]
     pub country_hint: Option<String>,
+    #[serde(default)]
+    pub release_type_hint: Option<String>,
     pub musicbrainz_album_id: Option<String>,
     pub musicbrainz_artist_id: Option<String>,
     pub discogs_release_id: Option<String>,
@@ -206,6 +208,12 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
     let tagged_album = detail.tracks.iter().find_map(|track| track.album.clone());
     let album_evidence = parse_folder_album_evidence(folder_name, tagged_album.as_deref());
     let tagged_year = detail.tracks.iter().find_map(|track| track.year.clone());
+    let release_type_hint = detail.tracks.iter().find_map(|track| {
+        read_extra_tags(Path::new(&track.path))
+            .into_iter()
+            .find(|tag| tag.key.eq_ignore_ascii_case("RELEASETYPE"))
+            .and_then(|tag| non_empty(tag.value))
+    });
     let musicbrainz_album_id = detail
         .tracks
         .iter()
@@ -222,20 +230,19 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .tracks
         .iter()
         .find_map(|track| track.discogs_artist_id.clone());
-    let folder_artist_hint = non_empty(folder_artist);
+    let folder_artist_hint = usable_identity_hint(Some(folder_artist));
     let artist_hint = if folder_artist_hint
         .as_deref()
         .is_some_and(is_compilation_folder)
     {
         Some("Various Artists".to_string())
     } else {
-        tagged_artist.clone().or_else(|| folder_artist_hint.clone())
+        usable_identity_hint(tagged_artist.clone()).or_else(|| folder_artist_hint.clone())
     };
     let year_hint = album_evidence.year.clone().or(tagged_year);
     let folder_album_hint = clean_folder_album_hint(
-        album_evidence
-            .folder_album
-            .or_else(|| non_empty(folder_album)),
+        usable_identity_hint(album_evidence.folder_album.clone())
+            .or_else(|| usable_identity_hint(Some(folder_album))),
         artist_hint.as_deref(),
         year_hint.as_deref(),
     );
@@ -280,14 +287,13 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         artist_aliases: Vec::new(),
         tagged_artist_hint: tagged_artist,
         folder_artist_hint,
-        album_hint: album_evidence
-            .tagged_album
-            .clone()
+        album_hint: usable_identity_hint(album_evidence.tagged_album.clone())
             .or_else(|| folder_album_hint.clone()),
         tagged_album_hint: album_evidence.tagged_album,
         folder_album_hint,
         year_hint,
         country_hint: album_evidence.country,
+        release_type_hint,
         musicbrainz_album_id,
         musicbrainz_artist_id,
         discogs_release_id,
@@ -299,6 +305,45 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
 
 fn non_empty(value: String) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
+}
+
+fn usable_identity_hint(value: Option<String>) -> Option<String> {
+    value.filter(|value| {
+        let normalized = normalized_release_identity(value);
+        !normalized.is_empty()
+            && !matches!(
+                normalized.as_str(),
+                "unknown"
+                    | "unknown artist"
+                    | "unknown album"
+                    | "untitled"
+                    | "no artist"
+                    | "no album"
+                    | "artist"
+                    | "album"
+                    | "tracks"
+                    | "audio"
+                    | "music"
+                    | "n a"
+                    | "none"
+                    | "null"
+            )
+    })
+}
+
+fn has_tagging_identity(request: &LookupRequest) -> bool {
+    request.musicbrainz_album_id.is_some()
+        || request.musicbrainz_artist_id.is_some()
+        || request.discogs_release_id.is_some()
+        || request.discogs_artist_id.is_some()
+        || request
+            .artist_hint
+            .as_deref()
+            .is_some_and(|value| usable_identity_hint(Some(value.to_string())).is_some())
+        || request
+            .album_hint
+            .as_deref()
+            .is_some_and(|value| usable_identity_hint(Some(value.to_string())).is_some())
 }
 
 fn extract_folder_year(name: &str) -> Option<String> {
@@ -1233,7 +1278,7 @@ pub fn rank_artist_releases(
     album_hint: Option<&str>,
     year_hint: Option<&str>,
 ) -> Vec<ProviderReleaseSummary> {
-    rank_artist_releases_with_country(releases, album_hint, year_hint, None)
+    rank_artist_releases_with_country(releases, album_hint, year_hint, None, None, None)
 }
 
 fn rank_artist_releases_with_country(
@@ -1241,11 +1286,28 @@ fn rank_artist_releases_with_country(
     album_hint: Option<&str>,
     year_hint: Option<&str>,
     country_hint: Option<&str>,
+    release_type_hint: Option<&str>,
+    local_track_count: Option<u32>,
 ) -> Vec<ProviderReleaseSummary> {
     let mut ranked = releases
         .into_iter()
         .filter(|release| album_hint.is_none_or(|hint| album_names_match(hint, &release.title)))
+        .filter(|release| {
+            !matches!((local_track_count, release.track_count), (Some(local), Some(remote)) if remote < local)
+        })
         .map(|release| {
+            let track_count_score = match (local_track_count, release.track_count) {
+                (Some(local), Some(remote)) if local == remote => 2,
+                (Some(_), None) => 1,
+                _ => 0,
+            };
+            let type_score = match (release_type_hint, release.kind.as_deref()) {
+                (Some(hint), Some(kind)) if release_types_match(hint, kind) => 2,
+                (Some(_), None) => 1,
+                (Some(_), Some(_)) => 0,
+                (None, Some(_)) => 1,
+                (None, None) => 0,
+            };
             let country_score = match (country_hint, release.country.as_deref()) {
                 (Some(hint), Some(country)) if countries_match(hint, country) => 2,
                 (Some(_), None) => 1,
@@ -1255,19 +1317,36 @@ fn rank_artist_releases_with_country(
                 (Some(hint), Some(year)) if hint == year.to_string() => 1,
                 _ => 0,
             };
-            (country_score, year_score, release)
+            (track_count_score, type_score, year_score, country_score, release)
         })
         .collect::<Vec<_>>();
     ranked.sort_by(
-        |(left_country, left_year, left), (right_country, right_year, right)| {
-            right_country
-                .cmp(left_country)
+        |(left_tracks, left_type, left_year, left_country, left),
+         (right_tracks, right_type, right_year, right_country, right)| {
+            right_tracks
+                .cmp(left_tracks)
+                .then_with(|| right_type.cmp(left_type))
                 .then_with(|| right_year.cmp(left_year))
+                .then_with(|| right_country.cmp(left_country))
                 .then_with(|| right.year.cmp(&left.year))
                 .then_with(|| left.title.cmp(&right.title))
         },
     );
-    ranked.into_iter().map(|(_, _, release)| release).collect()
+    ranked
+        .into_iter()
+        .map(|(_, _, _, _, release)| release)
+        .collect()
+}
+
+fn release_types_match(left: &str, right: &str) -> bool {
+    fn normalized(value: &str) -> String {
+        value
+            .chars()
+            .filter(|character| character.is_ascii_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect()
+    }
+    normalized(left) == normalized(right)
 }
 
 fn rank_candidate_details(
@@ -1807,6 +1886,11 @@ const DISCOGS_CATALOG_CACHE_VERSION: &str = "artist-catalog-v1";
 const ARTIST_CATALOG_PAGE_LIMIT: u32 = 100;
 const ARTIST_DETAIL_LIMIT: usize = 40;
 
+fn detail_limit_error(provider: &str, candidate_count: usize) -> Option<String> {
+    (candidate_count > ARTIST_DETAIL_LIMIT)
+        .then(|| format!("{provider} discovery incomplete: release detail limit reached"))
+}
+
 fn provider_release_summary(summary: ReleaseSearchSummary) -> ProviderReleaseSummary {
     ProviderReleaseSummary {
         id: summary.id,
@@ -1814,6 +1898,7 @@ fn provider_release_summary(summary: ReleaseSearchSummary) -> ProviderReleaseSum
         year: summary.year.and_then(|year| year.parse().ok()),
         kind: summary.kind,
         artist_name: summary.artist,
+        track_count: summary.track_count,
         country: summary.country,
         formats: summary.formats,
         catalog_number: summary.catalog_number,
@@ -1821,15 +1906,19 @@ fn provider_release_summary(summary: ReleaseSearchSummary) -> ProviderReleaseSum
     }
 }
 
-fn cached_catalog_page(
-    page: CatalogPage,
-) -> Result<(Vec<ProviderReleaseSummary>, Option<u32>), String> {
+type CachedCatalogPage = (Vec<ProviderReleaseSummary>, Option<u32>, Option<u32>);
+
+fn cached_catalog_page(page: CatalogPage) -> Result<CachedCatalogPage, String> {
     let summaries = serde_json::from_value::<Vec<ReleaseSearchSummary>>(page.releases)
         .map_err(|error| format!("cached artist catalog page could not be parsed: {error}"))?
         .into_iter()
         .map(provider_release_summary)
         .collect();
-    Ok((summaries, page.next_cursor))
+    Ok((summaries, page.next_cursor, page.total))
+}
+
+fn catalog_cache_error(provider: &str, action: &str, error: impl std::fmt::Display) -> String {
+    format!("{provider} discovery incomplete: catalog {action} could not be persisted: {error}")
 }
 
 async fn artist_catalog<S: TagSource>(
@@ -1839,30 +1928,48 @@ async fn artist_catalog<S: TagSource>(
     cache_version: &str,
     artist_id: &str,
     initial_cursor: u32,
+    cancelled: &AtomicBool,
 ) -> Result<Vec<ProviderReleaseSummary>, String> {
     let mut cursor = initial_cursor;
     let mut releases = Vec::new();
     loop {
+        check_cancelled(cancelled).map_err(|error| error.to_string())?;
         if let Some(cached) =
             cache.artist_release_catalog_page(provider, cache_version, artist_id, cursor)
         {
-            let (summaries, next) = cached_catalog_page(cached)?;
+            let (summaries, next, total) = cached_catalog_page(cached)?;
             releases.extend(summaries);
             match next {
                 Some(next) => cursor = next,
                 None => {
-                    let _ = cache.set_artist_release_catalog_state(
-                        provider,
-                        cache_version,
-                        artist_id,
-                        None,
-                        None,
-                        true,
-                    );
+                    cache
+                        .set_artist_release_catalog_state(
+                            provider,
+                            cache_version,
+                            artist_id,
+                            None,
+                            total,
+                            true,
+                        )
+                        .map_err(|error| catalog_cache_error(provider, "completion", error))?;
                     return Ok(releases);
                 }
             }
             continue;
+        }
+
+        let resumes_current_generation = cache
+            .artist_release_catalog_state(provider, cache_version, artist_id)
+            .is_some_and(|state| !state.complete && state.next_cursor == Some(cursor));
+        if !resumes_current_generation {
+            cache
+                .clear_artist_release_catalog(provider, cache_version, artist_id)
+                .map_err(|error| catalog_cache_error(provider, "reset", error))?;
+            if cursor != initial_cursor {
+                cursor = initial_cursor;
+                releases.clear();
+                continue;
+            }
         }
 
         let page = source
@@ -1873,24 +1980,28 @@ async fn artist_catalog<S: TagSource>(
         let total = page.total;
         let value = serde_json::to_value(&page.summaries)
             .map_err(|error| format!("artist catalog page could not be cached: {error}"))?;
-        let _ = cache.set_artist_release_catalog_page(
-            provider,
-            cache_version,
-            artist_id,
-            cursor,
-            &value,
-            page.returned,
-            total,
-            next,
-        );
-        let _ = cache.set_artist_release_catalog_state(
-            provider,
-            cache_version,
-            artist_id,
-            next,
-            total,
-            next.is_none(),
-        );
+        cache
+            .set_artist_release_catalog_page(
+                provider,
+                cache_version,
+                artist_id,
+                cursor,
+                &value,
+                page.returned,
+                total,
+                next,
+            )
+            .map_err(|error| catalog_cache_error(provider, "page", error))?;
+        cache
+            .set_artist_release_catalog_state(
+                provider,
+                cache_version,
+                artist_id,
+                next,
+                total,
+                next.is_none(),
+            )
+            .map_err(|error| catalog_cache_error(provider, "checkpoint", error))?;
         releases.extend(page.summaries.into_iter().map(provider_release_summary));
         match next {
             Some(next) => cursor = next,
@@ -1903,6 +2014,7 @@ async fn musicbrainz_artist_candidates(
     client: &MusicBrainzClient,
     cache: &CacheState,
     request: &LookupRequest,
+    cancelled: &AtomicBool,
 ) -> Result<(Vec<AlbumCandidate>, Option<String>), String> {
     let Some(artist_id) = request.musicbrainz_artist_id.as_deref() else {
         return Ok((Vec::new(), None));
@@ -1914,6 +2026,7 @@ async fn musicbrainz_artist_candidates(
         MUSICBRAINZ_CATALOG_CACHE_VERSION,
         artist_id,
         0,
+        cancelled,
     )
     .await?;
     let mut candidates = Vec::new();
@@ -1923,8 +2036,10 @@ async fn musicbrainz_artist_candidates(
         request.album_hint.as_deref(),
         request.year_hint.as_deref(),
         request.country_hint.as_deref(),
+        request.release_type_hint.as_deref(),
+        u32::try_from(request.tracks.len()).ok(),
     );
-    let detail_limit_reached = ranked_releases.len() > ARTIST_DETAIL_LIMIT;
+    let limit_error = detail_limit_error("MusicBrainz", ranked_releases.len());
     for release in ranked_releases.into_iter().take(ARTIST_DETAIL_LIMIT) {
         let album = cached_release_detail(cache, "musicbrainz-v4", &release.id);
         let album = match album {
@@ -1946,9 +2061,8 @@ async fn musicbrainz_artist_candidates(
             candidates.push(musicbrainz_candidate(album));
         }
     }
-    if detail_limit_reached && detail_error.is_none() {
-        detail_error =
-            Some("MusicBrainz discovery incomplete: release detail limit reached".into());
+    if detail_error.is_none() {
+        detail_error = limit_error;
     }
     if candidates.is_empty() {
         if let Some(error) = detail_error.as_ref() {
@@ -1966,9 +2080,10 @@ async fn discogs_artist_candidates(
     cache: &CacheState,
     request: &LookupRequest,
     discovery: &mut editions::DiscogsDiscovery<'_>,
-) -> Result<Vec<AlbumCandidate>, String> {
+    cancelled: &AtomicBool,
+) -> Result<(Vec<AlbumCandidate>, Option<String>), String> {
     let Some(artist_id) = request.discogs_artist_id.as_deref() else {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), None));
     };
     let releases = artist_catalog(
         client,
@@ -1977,21 +2092,27 @@ async fn discogs_artist_candidates(
         DISCOGS_CATALOG_CACHE_VERSION,
         artist_id,
         1,
+        cancelled,
     )
     .await?;
     let mut candidates = Vec::new();
-    for release in rank_artist_releases_with_country(
+    let ranked_releases = rank_artist_releases_with_country(
         releases,
         request.album_hint.as_deref(),
         request.year_hint.as_deref(),
         request.country_hint.as_deref(),
-    )
-    .into_iter()
-    .take(ARTIST_DETAIL_LIMIT)
-    {
+        request.release_type_hint.as_deref(),
+        u32::try_from(request.tracks.len()).ok(),
+    );
+    let detail_error = detail_limit_error("Discogs", ranked_releases.len());
+    for release in ranked_releases.into_iter().take(ARTIST_DETAIL_LIMIT) {
+        check_cancelled(cancelled).map_err(|error| error.to_string())?;
         candidates.push(discovery.detail(&release.id).await?);
     }
-    Ok(rank_candidate_details(candidates, request, "discogs"))
+    Ok((
+        rank_candidate_details(candidates, request, "discogs"),
+        detail_error,
+    ))
 }
 
 fn cached_release_detail(
@@ -2055,6 +2176,18 @@ fn provider_error_status(error: &str) -> ProviderAttemptStatus {
     }
 }
 
+fn provider_diagnostic(
+    search_error: Option<String>,
+    direct_error: Option<String>,
+) -> Option<String> {
+    search_error.or_else(|| {
+        direct_error.filter(|error| {
+            let error = error.to_ascii_lowercase();
+            !error.contains("not found") && !error.contains("404")
+        })
+    })
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AutoTagRunResult {
@@ -2115,7 +2248,6 @@ pub(crate) struct AutoTagRetryContexts {
 }
 
 impl AutoTagRetryContexts {
-    #[cfg(any(feature = "desktop", test))]
     pub(crate) fn new(cancelled: Arc<AtomicBool>) -> Self {
         Self {
             musicbrainz: ProviderRetryContext::new(
@@ -2752,12 +2884,55 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     services: AutoTagServices<'_>,
     cancelled: &AtomicBool,
     retry_contexts: Option<AutoTagRetryContexts>,
+    progress: impl FnMut(u64, &str),
+    report: impl FnMut(&'static str, String, Option<serde_json::Value>),
+) -> Result<AutoTagRunResult, ApiError> {
+    resolve_and_apply_album_with_review_intent(
+        album_path,
+        config,
+        services,
+        cancelled,
+        retry_contexts,
+        |_| Ok(()),
+        progress,
+        report,
+    )
+    .await
+}
+
+// The server adds one pre-write durability hook to the established resolver
+// callbacks; keeping it here avoids a parallel tagging path.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn resolve_and_apply_album_with_review_intent(
+    album_path: &Path,
+    config: &AutoTagConfig,
+    services: AutoTagServices<'_>,
+    cancelled: &AtomicBool,
+    retry_contexts: Option<AutoTagRetryContexts>,
+    mut review_intent: impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
     mut progress: impl FnMut(u64, &str),
     mut report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
     let mut request = build_lookup_request(album_path)?;
     check_cancelled(cancelled)?;
+    if !has_tagging_identity(&request) {
+        let reason = "no artist or album identity is available; user review is required";
+        progress(9, "Needs review — artist or album identity is missing");
+        report(
+            "needs_review",
+            format!("Needs review: {reason}"),
+            Some(serde_json::json!({"reasonCode": "missing_identity"})),
+        );
+        return Ok(AutoTagRunResult {
+            outcome: AutoTagOutcome::NeedsReview,
+            reason_code: Some("missing_identity".into()),
+            diagnostics: vec![serde_json::json!({"reason": reason})],
+            cleared_tags: configured_clear_tag_labels(config),
+            kept_tags: configured_kept_tag_labels(config),
+            ..AutoTagRunResult::default()
+        });
+    }
 
     progress(3, "Checking cache...");
     let hash = query_hash(&request);
@@ -2910,7 +3085,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
                     .cloned(),
             )
             .collect::<Vec<_>>();
-        match musicbrainz_artist_candidates(&musicbrainz, services.cache, &request).await {
+        match musicbrainz_artist_candidates(&musicbrainz, services.cache, &request, cancelled).await
+        {
             Ok((scoped, detail_error)) => {
                 provider_candidates.extend(scoped);
                 if let Some(error) = detail_error {
@@ -2921,13 +3097,11 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         }
         let mut credible =
             select_credible_provider_candidate(&request, provider_candidates.clone());
-        let mut generic_search_attempted = false;
         if credible.is_none() {
             if let (Some(artist), Some(album)) = (
                 request.artist_hint.as_deref(),
                 request.album_hint.as_deref(),
             ) {
-                generic_search_attempted = true;
                 match musicbrainz.search_album_result(artist, album, 10).await {
                     Ok(albums) => {
                         provider_candidates.extend(albums.into_iter().map(musicbrainz_candidate));
@@ -2939,13 +3113,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         }
         let count = provider_candidates.len();
         fresh.extend(provider_candidates);
-        let diagnostic = if generic_search_attempted {
-            musicbrainz_error.clone()
-        } else {
-            musicbrainz_error
-                .clone()
-                .or_else(|| musicbrainz_direct_error.clone())
-        };
+        let diagnostic =
+            provider_diagnostic(musicbrainz_error.clone(), musicbrainz_direct_error.clone());
         let status = if credible.is_some() {
             ProviderAttemptStatus::Matched
         } else if let Some(error) = diagnostic.as_deref() {
@@ -2974,16 +3143,25 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
 
     if config.discogs_enabled != Some(false) {
         progress(6, "Searching Discogs releases...");
-        if let Err(error) =
-            discogs_artist_candidates(&discogs, services.cache, &request, &mut discogs_discovery)
-                .await
+        match discogs_artist_candidates(
+            &discogs,
+            services.cache,
+            &request,
+            &mut discogs_discovery,
+            cancelled,
+        )
+        .await
         {
-            discogs_error = Some(safe_provider_error(&error));
+            Ok((_scoped, detail_error)) => {
+                if let Some(error) = detail_error {
+                    discogs_error = Some(safe_provider_error(&error));
+                }
+            }
+            Err(error) => discogs_error = Some(safe_provider_error(&error)),
         }
         let mut credible =
             select_credible_provider_candidate(&request, discogs_discovery.candidates());
-        let generic_search_attempted = credible.is_none();
-        if generic_search_attempted {
+        if credible.is_none() {
             if let Err(error) = discogs_discovery.initial_search(&request).await {
                 discogs_error = Some(safe_provider_error(&error));
             }
@@ -3001,13 +3179,7 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         credible = select_credible_provider_candidate(&request, provider_candidates.clone());
         let count = provider_candidates.len();
         fresh.extend(provider_candidates);
-        let diagnostic = if generic_search_attempted {
-            discogs_error.clone()
-        } else {
-            discogs_error
-                .clone()
-                .or_else(|| discogs_direct_error.clone())
-        };
+        let diagnostic = provider_diagnostic(discogs_error.clone(), discogs_direct_error.clone());
         let status = if credible.is_some() {
             ProviderAttemptStatus::Matched
         } else if let Some(error) = diagnostic.as_deref() {
@@ -3212,6 +3384,8 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
     progress(9, "Applying tags...");
     let candidate = convert_candidate_chinese(&candidate, config.chinese_script.as_deref());
 
+    checkpoint_candidate_review(&candidate, &mut review_intent)?;
+
     #[cfg(feature = "desktop")]
     if let Some(review) = super::auto_tag_review::active_review() {
         review.evidence("candidate", serde_json::json!(candidate));
@@ -3320,6 +3494,16 @@ pub(crate) async fn resolve_and_apply_album_with_retry_context(
         cleared_tags: configured_clear_tag_labels(config),
         kept_tags: configured_kept_tag_labels(config),
     })
+}
+
+fn checkpoint_candidate_review(
+    candidate: &AlbumCandidate,
+    review_intent: &mut impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
+) -> Result<(), ApiError> {
+    if candidate.source == LookupSource::Llm {
+        review_intent(candidate)?;
+    }
+    Ok(())
 }
 
 #[cfg(feature = "desktop")]
@@ -3817,6 +4001,7 @@ pub(crate) mod eval_tests;
 mod tests {
     use super::*;
     use crate::infra::openrouter::OpenRouterError;
+    use crate::state::tag_source::{TagSourceError, TagSourceFuture, TagSourcePage};
     use std::fs;
     use std::io::{Read, Write};
     use std::net::TcpListener;
@@ -3863,6 +4048,52 @@ mod tests {
             artists: vec![artist.into()],
             ..TrackCandidate::default()
         }
+    }
+
+    #[test]
+    fn ai_candidates_require_a_successful_review_checkpoint_before_writes() {
+        let candidate = AlbumCandidate {
+            source: LookupSource::Llm,
+            ..AlbumCandidate::default()
+        };
+        let mut called = false;
+        let error = checkpoint_candidate_review(&candidate, &mut |_| {
+            called = true;
+            Err(ApiError::Message("review store unavailable".to_string()))
+        })
+        .expect_err("an AI write must stop when its review flag cannot be persisted");
+
+        assert!(called);
+        assert!(error.to_string().contains("review store unavailable"));
+    }
+
+    #[test]
+    fn provider_candidates_do_not_create_ai_review_flags() {
+        let candidate = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            ..AlbumCandidate::default()
+        };
+        let mut called = false;
+        checkpoint_candidate_review(&candidate, &mut |_| {
+            called = true;
+            Ok(())
+        })
+        .unwrap();
+
+        assert!(!called);
+    }
+
+    #[test]
+    fn direct_provider_outages_remain_blocking_after_an_empty_search() {
+        assert_eq!(
+            provider_diagnostic(None, Some("provider request failed: 503".into())).as_deref(),
+            Some("provider request failed: 503")
+        );
+        assert_eq!(
+            provider_diagnostic(None, Some("release not found: 404".into())),
+            None,
+            "a genuine missing direct id may still resolve to provider no-match"
+        );
     }
 
     /// Intent: cleanup is applied in the same atomic TrackPatch as metadata
@@ -6007,6 +6238,7 @@ mod tests {
                     formats: Vec::new(),
                     catalog_number: None,
                     barcode: None,
+                    track_count: Some(10),
                 },
                 ProviderReleaseSummary {
                     id: "japanese".into(),
@@ -6018,14 +6250,457 @@ mod tests {
                     formats: vec!["CD".into()],
                     catalog_number: Some("SRCS 5672".into()),
                     barcode: Some("4988009606729".into()),
+                    track_count: Some(10),
                 },
             ],
             Some("Emotions"),
             Some("1991"),
             Some("JP"),
+            None,
+            Some(10),
         );
 
         assert_eq!(ranked[0].id, "japanese");
+    }
+
+    #[test]
+    fn release_ranking_excludes_short_editions_and_prefers_exact_track_total() {
+        let summary = |id: &str, track_count, year, country, kind| ProviderReleaseSummary {
+            id: id.into(),
+            title: "Emotions [Japanese Edition]".into(),
+            year,
+            country,
+            kind,
+            track_count,
+            ..ProviderReleaseSummary::default()
+        };
+        let ranked = rank_artist_releases_with_country(
+            vec![
+                summary(
+                    "short",
+                    Some(9),
+                    Some(1991),
+                    Some("JP".into()),
+                    Some("album".into()),
+                ),
+                summary(
+                    "extended",
+                    Some(12),
+                    Some(1991),
+                    Some("JP".into()),
+                    Some("album".into()),
+                ),
+                summary("exact", Some(10), Some(1990), None, None),
+                summary(
+                    "unknown",
+                    None,
+                    Some(1991),
+                    Some("JP".into()),
+                    Some("album".into()),
+                ),
+            ],
+            Some("Emotions"),
+            Some("1991"),
+            Some("JP"),
+            None,
+            Some(10),
+        );
+
+        assert_eq!(
+            ranked
+                .iter()
+                .map(|release| release.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["exact", "unknown", "extended"],
+            "known short editions are excluded and exact track totals lead local ranking"
+        );
+    }
+
+    #[test]
+    fn release_ranking_prefers_the_local_release_type() {
+        let summary = |id: &str, kind: &str| ProviderReleaseSummary {
+            id: id.into(),
+            title: "Shared Title".into(),
+            kind: Some(kind.into()),
+            track_count: Some(4),
+            ..ProviderReleaseSummary::default()
+        };
+        let ranked = rank_artist_releases_with_country(
+            vec![summary("album", "Album"), summary("ep", "EP")],
+            Some("Shared Title"),
+            None,
+            None,
+            Some("EP"),
+            Some(4),
+        );
+
+        assert_eq!(ranked[0].id, "ep");
+    }
+
+    #[tokio::test]
+    async fn lookup_request_reads_release_type_from_local_tags() {
+        let root = temp_root();
+        let album = root.join("Artist/Shared Title");
+        fs::create_dir_all(&album).unwrap();
+        let track_path = album.join("01.flac");
+        fs::copy(corpus_flac(), &track_path).unwrap();
+        crate::commands::mutations::write_extra_tags_queued(
+            &WriteQueue::default(),
+            track_path,
+            vec![crate::commands::mutations::ExtraTagUpdate {
+                key: "RELEASETYPE".into(),
+                value: "EP".into(),
+            }],
+        )
+        .await
+        .unwrap();
+
+        let request = build_lookup_request(&album).unwrap();
+        assert_eq!(request.release_type_hint.as_deref(), Some("EP"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn release_summary_conversion_preserves_available_track_count() {
+        let summary = ReleaseSearchSummary {
+            provider: "musicbrainz".into(),
+            id: "release-id".into(),
+            kind: Some("album".into()),
+            title: "Album".into(),
+            artist: Some("Artist".into()),
+            year: Some("1991".into()),
+            track_count: Some(10),
+            country: Some("JP".into()),
+            formats: Vec::new(),
+            catalog_number: None,
+            barcode: None,
+        };
+
+        let converted = provider_release_summary(summary);
+
+        assert_eq!(
+            serde_json::to_value(converted).unwrap()["trackCount"],
+            serde_json::json!(10),
+            "summary fields must survive conversion so local ranking can use them"
+        );
+    }
+
+    #[test]
+    fn track_count_without_artist_or_album_identity_requires_human_input() {
+        let mut request = LookupRequest {
+            tracks: vec![track("01", "???"), track("02", "???")],
+            ..LookupRequest::default()
+        };
+
+        assert!(!has_tagging_identity(&request));
+
+        request.album_hint = Some("Known Album".into());
+        assert!(has_tagging_identity(&request));
+        request.album_hint = None;
+        request.artist_hint = Some("Known Artist".into());
+        assert!(has_tagging_identity(&request));
+    }
+
+    struct CatalogTestSource {
+        pages: HashMap<u32, Result<TagSourcePage, TagSourceError>>,
+        requests: std::sync::atomic::AtomicUsize,
+    }
+
+    impl TagSource for CatalogTestSource {
+        fn name(&self) -> &'static str {
+            "catalog-test"
+        }
+
+        fn resolve_artist_id<'a>(&'a self, artist: &'a str) -> TagSourceFuture<'a, Option<String>> {
+            Box::pin(async move { Ok(Some(artist.to_string())) })
+        }
+
+        fn release_page<'a>(
+            &'a self,
+            _artist_id: &'a str,
+            cursor: u32,
+            _limit: u32,
+        ) -> TagSourceFuture<'a, TagSourcePage> {
+            self.requests.fetch_add(1, Ordering::Relaxed);
+            let page = self.pages.get(&cursor).cloned().unwrap_or_else(|| {
+                Err(TagSourceError::Incomplete(format!(
+                    "unexpected cursor {cursor}"
+                )))
+            });
+            Box::pin(async move { page })
+        }
+
+        fn release_detail<'a>(
+            &'a self,
+            _release_id: &'a str,
+        ) -> TagSourceFuture<'a, ProviderAlbum> {
+            Box::pin(async { Ok(ProviderAlbum::default()) })
+        }
+    }
+
+    fn catalog_test_summary(id: &str) -> ReleaseSearchSummary {
+        ReleaseSearchSummary {
+            provider: "catalog-test".into(),
+            id: id.into(),
+            kind: Some("album".into()),
+            title: format!("Album {id}"),
+            artist: Some("Artist".into()),
+            year: Some("1991".into()),
+            track_count: Some(10),
+            country: Some("US".into()),
+            formats: Vec::new(),
+            catalog_number: None,
+            barcode: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn catalog_cache_failure_is_incomplete_and_stops_before_network() {
+        let root = temp_root();
+        let cache = CacheState::new(root.clone());
+        let source = CatalogTestSource {
+            pages: HashMap::new(),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+
+        let error = artist_catalog(
+            &source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &AtomicBool::new(false),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(
+            provider_error_status(&error),
+            ProviderAttemptStatus::Incomplete
+        );
+        assert_eq!(source.requests.load(Ordering::Relaxed), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn incomplete_artist_catalog_resumes_and_only_confirmed_complete_pages_are_cached() {
+        let root = temp_root();
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let cancelled = AtomicBool::new(false);
+
+        let first_source = CatalogTestSource {
+            pages: HashMap::from([
+                (
+                    0,
+                    Ok(TagSourcePage {
+                        summaries: vec![catalog_test_summary("one")],
+                        total: Some(2),
+                        returned: 1,
+                        next_cursor: Some(1),
+                    }),
+                ),
+                (
+                    1,
+                    Err(TagSourceError::Incomplete(
+                        "catalog request budget reached".into(),
+                    )),
+                ),
+            ]),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+
+        let error = artist_catalog(
+            &first_source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &cancelled,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(
+            provider_error_status(&error),
+            ProviderAttemptStatus::Incomplete
+        );
+        let checkpoint = cache
+            .artist_release_catalog_state("catalog-test", "test-v1", "artist-id")
+            .unwrap();
+        assert_eq!(checkpoint.next_cursor, Some(1));
+        assert_eq!(checkpoint.total, Some(2));
+        assert!(!checkpoint.complete);
+
+        let resumed_source = CatalogTestSource {
+            pages: HashMap::from([(
+                1,
+                Ok(TagSourcePage {
+                    summaries: vec![catalog_test_summary("two")],
+                    total: Some(2),
+                    returned: 1,
+                    next_cursor: None,
+                }),
+            )]),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let releases = artist_catalog(
+            &resumed_source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &cancelled,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            releases
+                .iter()
+                .map(|release| release.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["one", "two"]
+        );
+        assert_eq!(resumed_source.requests.load(Ordering::Relaxed), 1);
+        assert!(
+            cache
+                .artist_release_catalog_state("catalog-test", "test-v1", "artist-id")
+                .unwrap()
+                .complete
+        );
+
+        let cache_only_source = CatalogTestSource {
+            pages: HashMap::new(),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let warm = artist_catalog(
+            &cache_only_source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &cancelled,
+        )
+        .await
+        .unwrap();
+        assert_eq!(warm.len(), 2);
+        assert_eq!(cache_only_source.requests.load(Ordering::Relaxed), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn artist_catalog_stops_before_network_when_cancelled() {
+        let root = temp_root();
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let source = CatalogTestSource {
+            pages: HashMap::new(),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let cancelled = AtomicBool::new(true);
+
+        let error = artist_catalog(
+            &source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &cancelled,
+        )
+        .await
+        .unwrap_err();
+
+        assert!(error.to_ascii_lowercase().contains("cancel"));
+        assert_eq!(source.requests.load(Ordering::Relaxed), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn catalog_generation_restarts_when_cached_pages_do_not_match_checkpoint() {
+        let root = temp_root();
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(root.join("cache.db").to_str().unwrap())));
+        let old_page = serde_json::to_value(vec![catalog_test_summary("old")]).unwrap();
+        cache
+            .set_artist_release_catalog_page(
+                "catalog-test",
+                "test-v1",
+                "artist-id",
+                0,
+                &old_page,
+                1,
+                Some(3),
+                Some(1),
+            )
+            .unwrap();
+        cache
+            .set_artist_release_catalog_state(
+                "catalog-test",
+                "test-v1",
+                "artist-id",
+                Some(2),
+                Some(3),
+                false,
+            )
+            .unwrap();
+        let source = CatalogTestSource {
+            pages: HashMap::from([
+                (
+                    0,
+                    Ok(TagSourcePage {
+                        summaries: vec![catalog_test_summary("new-one")],
+                        total: Some(2),
+                        returned: 1,
+                        next_cursor: Some(1),
+                    }),
+                ),
+                (
+                    1,
+                    Ok(TagSourcePage {
+                        summaries: vec![catalog_test_summary("new-two")],
+                        total: Some(2),
+                        returned: 1,
+                        next_cursor: None,
+                    }),
+                ),
+            ]),
+            requests: std::sync::atomic::AtomicUsize::new(0),
+        };
+        let cancelled = AtomicBool::new(false);
+
+        let releases = artist_catalog(
+            &source,
+            &cache,
+            "catalog-test",
+            "test-v1",
+            "artist-id",
+            0,
+            &cancelled,
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            releases
+                .iter()
+                .map(|release| release.id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["new-one", "new-two"]
+        );
+        assert_eq!(source.requests.load(Ordering::Relaxed), 2);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn detail_limit_is_incomplete_for_every_provider() {
+        assert_eq!(detail_limit_error("MusicBrainz", ARTIST_DETAIL_LIMIT), None);
+        assert!(detail_limit_error("Discogs", ARTIST_DETAIL_LIMIT + 1)
+            .unwrap()
+            .contains("incomplete"));
     }
 
     #[test]
@@ -6341,10 +7016,13 @@ mod tests {
         };
         let base = scoped_detail_failure_server("musicbrainz");
         let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+        let cancelled = AtomicBool::new(false);
 
-        assert!(musicbrainz_artist_candidates(&client, &cache, &request)
-            .await
-            .is_err());
+        assert!(
+            musicbrainz_artist_candidates(&client, &cache, &request, &cancelled)
+                .await
+                .is_err()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -6363,15 +7041,14 @@ mod tests {
         };
         let base = scoped_detail_failure_server("discogs");
         let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        let cancelled = AtomicBool::new(false);
+        let mut discovery = editions::DiscogsDiscovery::new(&client, &cache, &cancelled);
 
-        assert!(discogs_artist_candidates(
-            &client,
-            &cache,
-            &request,
-            &mut editions::DiscogsDiscovery::new(&client, &cache, &AtomicBool::new(false))
-        )
-        .await
-        .is_err());
+        assert!(
+            discogs_artist_candidates(&client, &cache, &request, &mut discovery, &cancelled,)
+                .await
+                .is_err()
+        );
         fs::remove_dir_all(root).unwrap();
     }
 

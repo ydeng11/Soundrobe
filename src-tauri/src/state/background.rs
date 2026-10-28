@@ -39,6 +39,9 @@ const MAX_RUNS: usize = 50;
 /// need attention ahead of the rest and says that it dropped some.
 const MAX_RUN_ITEMS: usize = 200;
 
+pub(crate) const INTERRUPTED_RUN_MESSAGE: &str =
+    "Interrupted by service restart; pending work will resume";
+
 fn default_schedule() -> String {
     "0 0 * * *".to_string()
 }
@@ -250,10 +253,19 @@ impl BackgroundState {
 
     /// Record a run that is starting now and return its record.
     pub fn record_run(&self, trigger: RunTrigger, task_id: Option<String>) -> BackgroundRun {
+        self.record_run_checked(trigger, task_id)
+            .unwrap_or_else(|error| panic!("background run could not be persisted: {error}"))
+    }
+
+    pub fn record_run_checked(
+        &self,
+        trigger: RunTrigger,
+        task_id: Option<String>,
+    ) -> Result<BackgroundRun, String> {
         let mut inner = self.lock();
-        inner.counter += 1;
+        let counter = inner.counter + 1;
         let run = BackgroundRun {
-            id: format!("bg-run-{}-{}", inner.counter, unix_seconds()),
+            id: format!("bg-run-{counter}-{}", unix_seconds()),
             trigger,
             started_at: timestamp(local_now()),
             finished_at: None,
@@ -265,11 +277,13 @@ impl BackgroundState {
             items: Vec::new(),
             items_truncated: false,
         };
-        inner.runs.insert(0, run.clone());
-        inner.runs.truncate(MAX_RUNS);
-        drop(inner);
-        let _ = self.persist();
-        run
+        let mut runs = inner.runs.clone();
+        runs.insert(0, run.clone());
+        runs.truncate(MAX_RUNS);
+        self.persist_values(&inner.settings, &runs)?;
+        inner.counter = counter;
+        inner.runs = runs;
+        Ok(run)
     }
 
     /// Close out a run. Unknown ids and already-finished runs are ignored so a
@@ -283,24 +297,61 @@ impl BackgroundState {
         message: impl Into<String>,
         items: Vec<ReleaseOutcome>,
     ) {
-        let (items, items_truncated) = bound_items(items);
+        if let Err(error) = self.finish_run_checked(run_id, status, tagged, failed, message, items)
         {
-            let mut inner = self.lock();
-            let Some(run) = inner.runs.iter_mut().find(|run| run.id == run_id) else {
-                return;
-            };
-            if run.status != RunStatus::Running {
-                return;
-            }
-            run.status = status;
-            run.tagged = tagged;
-            run.failed = failed;
-            run.message = message.into();
-            run.finished_at = Some(timestamp(local_now()));
-            run.items = items;
-            run.items_truncated = items_truncated;
+            tracing::error!(%error, %run_id, "background run completion could not be persisted");
         }
-        let _ = self.persist();
+    }
+
+    pub fn finish_run_checked(
+        &self,
+        run_id: &str,
+        status: RunStatus,
+        tagged: u64,
+        failed: u64,
+        message: impl Into<String>,
+        items: Vec<ReleaseOutcome>,
+    ) -> Result<(), String> {
+        let (items, items_truncated) = bound_items(items);
+        let message = message.into();
+        let mut inner = self.lock();
+        let mut runs = inner.runs.clone();
+        let Some(run) = runs.iter_mut().find(|run| run.id == run_id) else {
+            return Ok(());
+        };
+        if run.status != RunStatus::Running {
+            return Ok(());
+        }
+        run.status = status;
+        run.tagged = tagged;
+        run.failed = failed;
+        run.message = message;
+        run.finished_at = Some(timestamp(local_now()));
+        run.items = items;
+        run.items_truncated = items_truncated;
+        self.persist_values(&inner.settings, &runs)?;
+        inner.runs = runs;
+        Ok(())
+    }
+
+    pub fn recover_interrupted_runs(&self) -> Result<usize, String> {
+        let mut inner = self.lock();
+        let mut runs = inner.runs.clone();
+        let mut recovered = 0;
+        for run in &mut runs {
+            if run.status == RunStatus::Running {
+                run.status = RunStatus::Failed;
+                run.failed = run.failed.max(1);
+                run.message = INTERRUPTED_RUN_MESSAGE.to_string();
+                run.finished_at = Some(timestamp(local_now()));
+                recovered += 1;
+            }
+        }
+        if recovered > 0 {
+            self.persist_values(&inner.settings, &runs)?;
+            inner.runs = runs;
+        }
+        Ok(recovered)
     }
 
     /// The next slot strictly after the last one already evaluated.
@@ -357,8 +408,19 @@ impl BackgroundState {
             let inner = self.lock();
             (inner.settings.clone(), inner.runs.clone())
         };
-        let text = serde_json::to_string_pretty(&Persisted { settings, runs })
-            .map_err(|error| error.to_string())?;
+        self.persist_values(&settings, &runs)
+    }
+
+    fn persist_values(
+        &self,
+        settings: &BackgroundSettings,
+        runs: &[BackgroundRun],
+    ) -> Result<(), String> {
+        let text = serde_json::to_string_pretty(&Persisted {
+            settings: settings.clone(),
+            runs: runs.to_vec(),
+        })
+        .map_err(|error| error.to_string())?;
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).map_err(|error| error.to_string())?;
         }
@@ -466,6 +528,51 @@ mod tests {
         assert_eq!(reloaded.settings(), state.settings());
         assert!(reloaded.settings().enabled);
         assert_eq!(reloaded.settings().directories, vec!["/music".to_string()]);
+    }
+
+    #[test]
+    fn failed_run_persistence_does_not_leave_a_running_history_entry() {
+        let data = dir("failed-record-run");
+        let mut state = BackgroundState::init_in(&data);
+        state.path = data.clone();
+
+        assert!(state
+            .record_run_checked(RunTrigger::Manual, Some("task-1".to_string()))
+            .is_err());
+        assert!(state.runs().is_empty());
+        fs::remove_dir_all(data).unwrap();
+    }
+
+    #[test]
+    fn failed_completion_persistence_keeps_the_run_retryable() {
+        let data = dir("failed-finish-run");
+        let mut state = BackgroundState::init_in(&data);
+        let run = state.record_run(RunTrigger::Manual, Some("task-1".to_string()));
+        state.path = data.clone();
+
+        assert!(state
+            .finish_run_checked(&run.id, RunStatus::Completed, 1, 0, "done", Vec::new(),)
+            .is_err());
+        assert_eq!(state.runs()[0].status, RunStatus::Running);
+
+        state.path = data.join(SETTINGS_FILE);
+        state
+            .finish_run_checked(&run.id, RunStatus::Completed, 1, 0, "done", Vec::new())
+            .unwrap();
+        assert_eq!(state.runs()[0].status, RunStatus::Completed);
+        fs::remove_dir_all(data).unwrap();
+    }
+
+    #[test]
+    fn failed_interruption_recovery_persistence_keeps_the_run_running() {
+        let data = dir("failed-recover-run");
+        let mut state = BackgroundState::init_in(&data);
+        state.record_run(RunTrigger::Schedule, Some("task-1".to_string()));
+        state.path = data.clone();
+
+        assert!(state.recover_interrupted_runs().is_err());
+        assert_eq!(state.runs()[0].status, RunStatus::Running);
+        fs::remove_dir_all(data).unwrap();
     }
 
     #[test]
@@ -619,6 +726,28 @@ mod tests {
         let reloaded = BackgroundState::init_in(&data);
         assert_eq!(reloaded.runs().len(), 2);
         assert_eq!(reloaded.runs()[0].id, second.id);
+    }
+
+    #[test]
+    fn interrupted_runs_are_failed_and_persisted_on_restart() {
+        let data = dir("interrupted");
+        let state = BackgroundState::init_in(&data);
+        let run = state.record_run(RunTrigger::Watch, Some("task-1".to_string()));
+        drop(state);
+
+        let reopened = BackgroundState::init_in(&data);
+        assert_eq!(reopened.recover_interrupted_runs().unwrap(), 1);
+        let recovered = reopened
+            .runs()
+            .into_iter()
+            .find(|candidate| candidate.id == run.id)
+            .unwrap();
+        assert_eq!(recovered.status, RunStatus::Failed);
+        assert!(recovered.finished_at.is_some());
+        assert!(recovered.message.contains("service restart"));
+
+        let reloaded = BackgroundState::init_in(&data);
+        assert_eq!(reloaded.runs()[0].status, RunStatus::Failed);
     }
 
     #[test]

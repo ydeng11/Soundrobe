@@ -43,8 +43,8 @@ use crate::commands::audit::{
     audit_specific_albums, discover_album_dirs, finish_audit_run, start_audit, AuditAlbumResult,
 };
 use crate::commands::auto_tag::{
-    auto_tag_completion_message, auto_tag_event, resolve_and_apply_album, AutoTagOutcome,
-    AutoTagRunResult, AutoTagServices, LookupSource,
+    auto_tag_completion_message, auto_tag_event, resolve_and_apply_album_with_review_intent,
+    AutoTagOutcome, AutoTagRetryContexts, AutoTagServices, LookupSource,
 };
 use crate::commands::configuration::test_llm_connection_at;
 use crate::commands::covers::{
@@ -61,6 +61,7 @@ use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
 use crate::commands::tracks::{
     read_album, read_extra_tags, read_track_metadata, unreadable_track_data, TrackData,
 };
+use crate::error::ApiError;
 use crate::infra::tag_catalog::suggestions as suggest_tags;
 use crate::state::{
     album::{
@@ -70,7 +71,7 @@ use crate::state::{
     audit::AuditState,
     background::{
         local_now, wall_clock, BackgroundRun, BackgroundState, ReleaseHealth, ReleaseOutcome,
-        RunStatus, RunTrigger,
+        RunStatus, RunTrigger, INTERRUPTED_RUN_MESSAGE,
     },
     config::{ConfigSetError, ConfigState},
     conversation::ConversationState,
@@ -232,6 +233,7 @@ struct ServerState {
     conversations: Arc<ConversationState>,
     background: BackgroundState,
     worker: Arc<WorkerStore>,
+    worker_error: Option<String>,
 }
 
 fn release_is_healthy(path: &Path) -> Result<bool, String> {
@@ -278,12 +280,6 @@ fn lookup_source_name(source: LookupSource) -> Option<String> {
         .ok()?
         .as_str()
         .map(str::to_string)
-}
-
-fn should_record_review(result: &AutoTagRunResult) -> bool {
-    result.outcome == AutoTagOutcome::NeedsReview
-        && result.written > 0
-        && result.reason_code.as_deref() == Some("ai_fallback")
 }
 
 /// Directories a background run covers: the configured ones, or every mounted
@@ -390,15 +386,15 @@ fn start_background_batch(
     albums: Vec<PathBuf>,
 ) -> Result<String, String> {
     if albums.is_empty() {
-        let run = state.background.record_run(trigger, None);
-        state.background.finish_run(
+        let run = state.background.record_run_checked(trigger, None)?;
+        state.background.finish_run_checked(
             &run.id,
             RunStatus::Completed,
             0,
             0,
             "every album already has complete tags",
             Vec::new(),
-        );
+        )?;
         return Err("every album already has complete tags".to_string());
     }
 
@@ -413,7 +409,22 @@ fn start_background_batch(
         total,
         "Starting background tagging...",
     );
-    let run = state.background.record_run(trigger, Some(task_id.clone()));
+    let run = match state
+        .background
+        .record_run_checked(trigger, Some(task_id.clone()))
+    {
+        Ok(run) => run,
+        Err(error) => {
+            state.operations.finish(token);
+            state.tasks.finish(
+                &task_id,
+                TaskStatus::Failed,
+                "Background run could not be persisted",
+                serde_json::json!({ "error": error }),
+            );
+            return Err(error);
+        }
+    };
     let run_id = run.id.clone();
 
     let tasks = state.tasks.clone();
@@ -431,14 +442,16 @@ fn start_background_batch(
     tokio::spawn(async move {
         let Some(cancelled) = tasks.cancellation(&task_id_for_work) else {
             operations.finish(token);
-            background.finish_run(
+            if let Err(error) = background.finish_run_checked(
                 &run_id,
                 RunStatus::Skipped,
                 0,
                 0,
                 "the run was replaced before it started",
                 Vec::new(),
-            );
+            ) {
+                tracing::error!(%error, %run_id, "skipped background run could not be persisted");
+            }
             return;
         };
 
@@ -463,7 +476,18 @@ fn start_background_batch(
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default();
             let message = format!("Tagging {name} ({}/{total})", index + 1);
-            let _ = worker.mark_running(album, &run_id);
+            if let Err(error) = worker.mark_running(album, &run_id) {
+                failed += 1;
+                last_message = format!("worker checkpoint failed: {error}");
+                items.push(ReleaseOutcome {
+                    path: key.clone(),
+                    status: ReleaseHealth::Failed,
+                    reason: Some(last_message.clone()),
+                    authority: None,
+                });
+                health.write().await.insert(key, ReleaseHealth::Failed);
+                continue;
+            }
             tasks.update(&task_id_for_work, index as u64, &message);
             health
                 .write()
@@ -482,7 +506,10 @@ fn start_background_batch(
 
             let progress_tasks = tasks.clone();
             let progress_task_id = task_id_for_work.clone();
-            let result = resolve_and_apply_album(
+            let review_worker = worker.clone();
+            let review_album = album.clone();
+            let review_run_id = run_id.clone();
+            let result = resolve_and_apply_album_with_review_intent(
                 album,
                 &config_values,
                 AutoTagServices {
@@ -492,6 +519,16 @@ fn start_background_batch(
                     alias_file: &alias_file,
                 },
                 &cancelled,
+                Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+                move |_candidate| {
+                    review_worker
+                        .record_review_flag(&review_album, "ai_fallback", &review_run_id)
+                        .map_err(|error| {
+                            ApiError::Message(format!(
+                                "AI review checkpoint failed before tag writes: {error}"
+                            ))
+                        })
+                },
                 move |_step, message| {
                     progress_tasks.update(&progress_task_id, index as u64, message);
                 },
@@ -499,7 +536,7 @@ fn start_background_batch(
             )
             .await;
 
-            let release_health = match &result {
+            let mut release_health = match &result {
                 Ok(result) if result.outcome == AutoTagOutcome::Applied => {
                     tagged += 1;
                     ReleaseHealth::Healthy
@@ -527,10 +564,7 @@ fn start_background_batch(
                 .ok()
                 .and_then(|result| result.authority)
                 .and_then(lookup_source_name);
-            if cancelled.load(Ordering::Acquire) {
-                let _ =
-                    worker.mark_finished(album, "pending", reason.as_deref(), authority.as_deref());
-            } else {
+            if !cancelled.load(Ordering::Acquire) {
                 let worker_status = match release_health {
                     ReleaseHealth::Healthy => "completed",
                     ReleaseHealth::NeedsReview => "needs_review",
@@ -538,14 +572,15 @@ fn start_background_batch(
                     ReleaseHealth::NeedsTagging => "pending",
                     ReleaseHealth::Unreadable | ReleaseHealth::Failed => "failed",
                 };
-                let _ = worker.mark_finished(
+                if let Err(error) = worker.mark_finished(
                     album,
                     worker_status,
                     reason.as_deref(),
                     authority.as_deref(),
-                );
-                if result.as_ref().is_ok_and(should_record_review) {
-                    let _ = worker.record_review_flag(album, "ai_fallback", &run_id);
+                ) {
+                    failed += 1;
+                    last_message = format!("worker completion checkpoint failed: {error}");
+                    release_health = ReleaseHealth::Failed;
                 }
             }
             items.push(ReleaseOutcome {
@@ -557,7 +592,22 @@ fn start_background_batch(
             health.write().await.insert(key, release_health);
         }
 
-        let (status, message) = if cancelled.load(Ordering::Acquire) {
+        let cancellation_error = if cancelled.load(Ordering::Acquire) {
+            worker
+                .cancel_paths(&albums, "operator_cancelled")
+                .err()
+                .map(|error| format!("worker cancellation checkpoint failed: {error}"))
+        } else {
+            None
+        };
+        if let Some(error) = &cancellation_error {
+            failed += 1;
+            last_message = error.clone();
+        }
+
+        let (status, message) = if let Some(error) = cancellation_error {
+            (RunStatus::Failed, error)
+        } else if cancelled.load(Ordering::Acquire) {
             (RunStatus::Cancelled, "Cancelled".to_string())
         } else if failed > 0 {
             (
@@ -581,17 +631,21 @@ fn start_background_batch(
             _ if needing_review > 0 => TaskStatus::NeedsReview,
             _ => TaskStatus::Completed,
         };
-        tasks.finish(
-            &task_id_for_work,
-            task_status,
-            &message,
-            serde_json::json!({
-                "tagged": tagged,
-                "failed": failed,
-                "needsReview": needing_review,
-            }),
-        );
-        background.finish_run(&run_id, status, tagged, failed, &message, items);
+        let task_result = serde_json::json!({
+            "tagged": tagged,
+            "failed": failed,
+            "needsReview": needing_review,
+        });
+        if task_status == TaskStatus::Failed && cancelled.load(Ordering::Acquire) {
+            tasks.finish_cancellation_failure(&task_id_for_work, &message, task_result);
+        } else {
+            tasks.finish(&task_id_for_work, task_status, &message, task_result);
+        }
+        if let Err(error) =
+            background.finish_run_checked(&run_id, status, tagged, failed, &message, items)
+        {
+            tracing::error!(%error, %run_id, "background run completion could not be persisted");
+        }
         let _ = events.publish(
             "background:event",
             &serde_json::json!({
@@ -609,7 +663,7 @@ fn start_background_batch(
 }
 
 fn start_pending_background_run(state: &ServerState) -> Result<String, String> {
-    let albums = state.worker.pending();
+    let albums = state.worker.pending_result()?;
     if albums.is_empty() {
         return Err("no pending background albums".to_string());
     }
@@ -718,6 +772,10 @@ fn start_background_library_tagging(state: ServerState) {
         return;
     }
     tokio::spawn(async move {
+        if let Some(error) = &state.worker_error {
+            tracing::error!(%error, "background tagging disabled because durable state is unavailable");
+            return;
+        }
         // Record what every covered release looks like before touching
         // anything, so Monitoring can show which ones need tagging even when a
         // run has nothing to do.
@@ -745,7 +803,11 @@ fn start_background_library_tagging(state: ServerState) {
 
         if !state.background.settings().enabled {
             tracing::info!("background tagging is disabled by configuration");
-        } else if !state.worker.pending().is_empty() {
+        } else if state
+            .worker
+            .pending_result()
+            .is_ok_and(|pending| !pending.is_empty())
+        {
             match start_pending_background_run(&state) {
                 Ok(task_id) => tracing::info!(%task_id, "recovered background tagging started"),
                 Err(error) => tracing::debug!(%error, "recovered background tagging did not start"),
@@ -766,7 +828,12 @@ fn start_background_library_tagging(state: ServerState) {
             tokio::time::sleep(BACKGROUND_POLL).await;
             let now = wall_clock(local_now());
 
-            if state.background.settings().enabled && !state.worker.pending().is_empty() {
+            if state.background.settings().enabled
+                && state
+                    .worker
+                    .pending_result()
+                    .is_ok_and(|pending| !pending.is_empty())
+            {
                 if let Err(error) = start_pending_background_run(&state) {
                     tracing::debug!(%error, "pending background tagging did not start");
                 }
@@ -1414,14 +1481,14 @@ async fn background_status(state: &ServerState) -> serde_json::Value {
 }
 
 /// Per-release tagging state, newest survey plus durable review flags.
-async fn monitoring_releases(state: &ServerState) -> serde_json::Value {
-    let review_paths = state
-        .worker
-        .unreviewed_review_paths()
-        .unwrap_or_default()
-        .into_iter()
-        .map(|path| path.to_string_lossy().into_owned())
-        .collect::<HashSet<_>>();
+async fn monitoring_releases(state: &ServerState) -> Result<serde_json::Value, String> {
+    let review_paths = match state.worker.actionable_review_paths() {
+        Ok(paths) => paths,
+        Err(error) => return Err(format!("durable worker review state unavailable: {error}")),
+    }
+    .into_iter()
+    .map(|path| path.to_string_lossy().into_owned())
+    .collect::<HashSet<_>>();
     let health = state.health.read().await;
     let mut known = HashSet::new();
     let mut releases = health
@@ -1448,7 +1515,7 @@ async fn monitoring_releases(state: &ServerState) -> serde_json::Value {
         }
     }
     releases.sort_by(|left, right| left["path"].as_str().cmp(&right["path"].as_str()));
-    serde_json::json!({ "releases": releases })
+    Ok(serde_json::json!({ "releases": releases }))
 }
 
 /// The newest `auto-tag-debug-*.log`, which is the file the desktop and server
@@ -1633,6 +1700,23 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
         Ok(token) => token,
         Err(_) => return error_response(StatusCode::CONFLICT, "another operation is busy"),
     };
+    match state
+        .worker
+        .enqueue(std::slice::from_ref(&album_path), "manual")
+    {
+        Ok(accepted) if accepted.is_empty() => {
+            state.operations.finish(token);
+            return error_response(StatusCode::CONFLICT, "album is already queued or running");
+        }
+        Ok(_) => {}
+        Err(error) => {
+            state.operations.finish(token);
+            return error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("durable worker queue unavailable: {error}"),
+            );
+        }
+    }
     let task_id = state.tasks.create("auto-tag", 9, "Starting...");
     let task_id_for_work = task_id.clone();
     let task_state = state.tasks.clone();
@@ -1642,6 +1726,7 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
     let queue = state.write_queue.clone();
     let config = state.config.clone();
     let operations = state.operations.clone();
+    let worker = state.worker.clone();
     tokio::spawn(async move {
         let Some(cancelled) = task_state.cancellation(&task_id_for_work) else {
             operations.finish(token);
@@ -1655,7 +1740,21 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
         let report_tasks = task_state.clone();
         let report_events = event_bus.clone();
         let report_task_id = task_id_for_work.clone();
-        let result = resolve_and_apply_album(
+        if let Err(error) = worker.mark_running(&album_path, &task_id_for_work) {
+            let message = format!("durable worker checkpoint failed: {error}");
+            task_state.finish(
+                &task_id_for_work,
+                TaskStatus::Failed,
+                &message,
+                serde_json::json!({"error": message}),
+            );
+            operations.finish(token);
+            return;
+        }
+        let review_worker = worker.clone();
+        let review_album = album_path.clone();
+        let review_run_id = task_id_for_work.clone();
+        let result = resolve_and_apply_album_with_review_intent(
             &album_path,
             &config_values,
             AutoTagServices {
@@ -1665,6 +1764,16 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                 alias_file: &alias_file,
             },
             &cancelled,
+            Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+            move |_candidate| {
+                review_worker
+                    .record_review_flag(&review_album, "ai_fallback", &review_run_id)
+                    .map_err(|error| {
+                        ApiError::Message(format!(
+                            "AI review checkpoint failed before tag writes: {error}"
+                        ))
+                    })
+            },
             move |step, message| {
                 if progress_tasks.update(&progress_task_id, step, message) {
                     let _ = progress_events.publish(
@@ -1694,6 +1803,22 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                     .expect("applied auto-tag has a candidate");
                 let data = serde_json::to_value(&result).unwrap_or_default();
                 let message = auto_tag_completion_message(candidate);
+                if let Err(error) = worker.mark_finished(
+                    &album_path,
+                    "completed",
+                    result.reason_code.as_deref(),
+                    result.authority.and_then(lookup_source_name).as_deref(),
+                ) {
+                    let message = format!("durable worker completion failed: {error}");
+                    task_state.finish(
+                        &task_id_for_work,
+                        TaskStatus::Failed,
+                        &message,
+                        serde_json::json!({"error": message}),
+                    );
+                    operations.finish(token);
+                    return;
+                }
                 if !task_state.finish(
                     &task_id_for_work,
                     TaskStatus::Completed,
@@ -1715,6 +1840,22 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                     .as_deref()
                     .map(|reason| format!("Needs review: {reason}"))
                     .unwrap_or_else(|| "Needs review".to_string());
+                if let Err(error) = worker.mark_finished(
+                    &album_path,
+                    "needs_review",
+                    result.reason_code.as_deref(),
+                    result.authority.and_then(lookup_source_name).as_deref(),
+                ) {
+                    let message = format!("durable worker completion failed: {error}");
+                    task_state.finish(
+                        &task_id_for_work,
+                        TaskStatus::Failed,
+                        &message,
+                        serde_json::json!({"error": message}),
+                    );
+                    operations.finish(token);
+                    return;
+                }
                 if task_state.finish(
                     &task_id_for_work,
                     TaskStatus::NeedsReview,
@@ -1732,20 +1873,49 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                     .get(&task_id_for_work)
                     .map(|task| task.progress)
                     .unwrap_or(0);
-                task_state.finish(
-                    &task_id_for_work,
-                    TaskStatus::Cancelled,
-                    "Cancelled",
-                    serde_json::Value::Null,
-                );
-                let _ = event_bus.publish(
-                    "auto-tag:event",
-                    &auto_tag_event(&task_id_for_work, "cancelled", "Cancelled", progress, None),
-                );
+                match worker.cancel_paths(std::slice::from_ref(&album_path), "operator_cancelled") {
+                    Ok(_) => {
+                        task_state.finish(
+                            &task_id_for_work,
+                            TaskStatus::Cancelled,
+                            "Cancelled",
+                            serde_json::Value::Null,
+                        );
+                        let _ = event_bus.publish(
+                            "auto-tag:event",
+                            &auto_tag_event(
+                                &task_id_for_work,
+                                "cancelled",
+                                "Cancelled",
+                                progress,
+                                None,
+                            ),
+                        );
+                    }
+                    Err(checkpoint_error) => {
+                        let message = format!(
+                            "Cancellation could not be persisted; worker scheduling is halted: {checkpoint_error}"
+                        );
+                        task_state.finish_cancellation_failure(
+                            &task_id_for_work,
+                            &message,
+                            serde_json::json!({"error": message}),
+                        );
+                        let _ = event_bus.publish(
+                            "auto-tag:event",
+                            &auto_tag_event(&task_id_for_work, "failed", message, progress, None),
+                        );
+                    }
+                }
                 tracing::debug!(%error, "web auto-tag task cancelled");
             }
             Err(error) => {
                 let message = error.to_string();
+                if let Err(checkpoint_error) =
+                    worker.mark_finished(&album_path, "failed", Some(&message), None)
+                {
+                    tracing::error!(%checkpoint_error, "manual auto-tag failure could not be persisted");
+                }
                 let data = serde_json::json!({"error": message});
                 if !task_state.finish(
                     &task_id_for_work,
@@ -2661,7 +2831,9 @@ async fn command(
                 // retry would be refused anyway. Retrying is about a run that
                 // finished and left releases behind, so answering "nothing left
                 // to retry" while a run is plainly in progress is wrong.
-                None => runs.iter().find(|run| run.status != RunStatus::Running),
+                None => runs.iter().find(|run| {
+                    run.status != RunStatus::Running && run.message != INTERRUPTED_RUN_MESSAGE
+                }),
             };
             let Some(run) = run else {
                 return error_response(StatusCode::NOT_FOUND, "no background run to retry");
@@ -2673,13 +2845,22 @@ async fn command(
                     "that run has no release left to retry",
                 );
             }
-            match start_background_run_for(&state, RunTrigger::Manual, albums) {
+            let albums = match state.worker.requeue(&albums, "retry") {
+                Ok(albums) => albums,
+                Err(error) => {
+                    return error_response(StatusCode::INTERNAL_SERVER_ERROR, &error);
+                }
+            };
+            match start_background_batch(&state, RunTrigger::Manual, albums) {
                 Ok(task_id) => Json(serde_json::json!({ "taskId": task_id })).into_response(),
                 Err(error) => error_response(StatusCode::CONFLICT, &error),
             }
         }
         "monitoring:status" => Json(background_status(&state).await).into_response(),
-        "monitoring:releases" => Json(monitoring_releases(&state).await).into_response(),
+        "monitoring:releases" => match monitoring_releases(&state).await {
+            Ok(releases) => Json(releases).into_response(),
+            Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, &error),
+        },
         "monitoring:mark-reviewed" => {
             let request = match decode_command_payload::<MonitoringReviewRequest>(payload) {
                 Ok(request) => request,
@@ -3345,10 +3526,21 @@ fn router_with_runtime_and_events(
     let cache = Arc::new(CacheState::new_in(config.data_dir.clone()));
     let _ = cache.initialize(config_state.raw().cache_path.as_deref());
     let worker = Arc::new(WorkerStore::new_in(config.data_dir.clone()));
-    if !worker.initialize() {
-        tracing::error!("durable background worker store could not be initialized");
+    let worker_error = if !worker.initialize() {
+        Some("durable background worker store could not be initialized".to_string())
+    } else {
+        worker
+            .recover_interrupted()
+            .map(|_| None)
+            .unwrap_or_else(|error| Some(format!("worker recovery failed: {error}")))
+    };
+    if let Some(error) = &worker_error {
+        tracing::error!(%error);
     }
-    let _ = worker.recover_interrupted();
+    let background = BackgroundState::init_in(&config.data_dir);
+    if let Err(error) = background.recover_interrupted_runs() {
+        tracing::error!(%error, "background run history recovery failed");
+    }
     let tasks = Arc::new(TaskRegistry::default());
     let conversations = Arc::new(ConversationState::new_in(config.data_dir.clone()));
     let _ = conversations.initialize(config_state.raw().cache_path.as_deref());
@@ -3370,8 +3562,9 @@ fn router_with_runtime_and_events(
         tasks,
         health: Arc::new(RwLock::new(HashMap::new())),
         conversations,
-        background: BackgroundState::init_in(&config.data_dir),
+        background,
         worker,
+        worker_error,
     };
     start_background_library_tagging(state.clone());
     let cover_upload_route = Router::new().route("/api/v1/covers", post(upload_cover));
@@ -3494,6 +3687,7 @@ mod tests {
                 assert!(worker.initialize());
                 worker
             },
+            worker_error: None,
         }
     }
 
@@ -5840,6 +6034,38 @@ mod tests {
         assert_eq!(value["schedule"], json!("*/15 * * * *"));
     }
 
+    #[test]
+    fn background_run_persistence_failure_finishes_the_created_task() {
+        let config = isolated_config("run-persist-failure");
+        fs::create_dir_all(&config.data_dir).unwrap();
+        fs::create_dir_all(
+            config
+                .data_dir
+                .join(crate::state::background::SETTINGS_FILE),
+        )
+        .unwrap();
+        let state = test_server_state(
+            &config,
+            Arc::new(ProcessEnv),
+            Arc::new(crate::state::providers::ProviderState::default()),
+        );
+
+        assert!(start_background_batch(
+            &state,
+            RunTrigger::Manual,
+            vec![config.data_dir.join("Album")],
+        )
+        .is_err());
+        let task = state
+            .tasks
+            .latest_with_prefix("background-auto-tag")
+            .unwrap();
+        assert_eq!(task.status, TaskStatus::Failed);
+        assert!(state.background.runs().is_empty());
+        assert!(state.operations.try_start(OperationKind::AutoTag).is_ok());
+        fs::remove_dir_all(config.data_dir).unwrap();
+    }
+
     #[tokio::test]
     async fn a_retry_defaults_to_the_newest_run_that_finished() {
         // The newest run is usually the retry that is already going. "Retry the
@@ -6543,25 +6769,6 @@ mod tests {
             .contains("unknown log source"));
     }
 
-    #[test]
-    fn only_ai_written_tags_create_durable_review_flags() {
-        let ai = AutoTagRunResult {
-            outcome: AutoTagOutcome::NeedsReview,
-            written: 1,
-            reason_code: Some("ai_fallback".into()),
-            ..Default::default()
-        };
-        assert!(should_record_review(&ai));
-
-        let deferred = AutoTagRunResult {
-            reason_code: Some("provider_incomplete".into()),
-            ..ai.clone()
-        };
-        assert!(!should_record_review(&deferred));
-        let no_write = AutoTagRunResult { written: 0, ..ai };
-        assert!(!should_record_review(&no_write));
-    }
-
     #[tokio::test]
     async fn monitoring_releases_keep_ai_flags_until_explicit_acknowledgement() {
         let config = isolated_config("review-flags");
@@ -6618,6 +6825,28 @@ mod tests {
         let (status, value) = post_command(app, cookie, "monitoring:releases", json!({})).await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(value["releases"], json!([]));
+    }
+
+    #[tokio::test]
+    async fn monitoring_releases_restore_provider_deferrals_from_worker_state() {
+        let config = isolated_config("provider-review-state");
+        let album = config.library_root_dir.join("Library/Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let worker = WorkerStore::new_in(config.data_dir.clone());
+        assert!(worker.initialize());
+        worker
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        worker
+            .mark_finished(&album, "needs_review", Some("provider_incomplete"), None)
+            .unwrap();
+
+        let app = router(config);
+        let cookie = signed_in(app.clone()).await;
+        let (status, value) = post_command(app, cookie, "monitoring:releases", json!({})).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(value["releases"][0]["path"], json!(album));
+        assert_eq!(value["releases"][0]["status"], json!("needs_review"));
     }
 
     // -----------------------------------------------------------------------

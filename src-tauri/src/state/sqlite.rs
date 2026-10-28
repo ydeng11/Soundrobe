@@ -343,6 +343,34 @@ impl CacheState {
         })
     }
 
+    pub fn clear_artist_release_catalog(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        let transaction = connection
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM artist_release_catalog_pages
+                 WHERE provider = ?1 AND cache_version = ?2 AND artist_id = ?3",
+                params![provider, cache_version, artist_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM artist_release_catalog_state
+                 WHERE provider = ?1 AND cache_version = ?2 AND artist_id = ?3",
+                params![provider, cache_version, artist_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
     pub fn release_detail(&self, provider: &str, release_id: &str) -> Option<Value> {
         let guard = self.inner.lock().ok()?;
         let connection = guard.as_ref()?;

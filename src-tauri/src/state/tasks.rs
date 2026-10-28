@@ -148,6 +148,30 @@ impl TaskRegistry {
         true
     }
 
+    /// Surface a failure that occurred while making an already-requested
+    /// cancellation durable. Ordinary late work still cannot rewrite a
+    /// cancelled task; this is reserved for the cancellation checkpoint.
+    pub fn finish_cancellation_failure(
+        &self,
+        task_id: &str,
+        message: impl Into<String>,
+        result: Value,
+    ) -> bool {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return false;
+        };
+        let Some(entry) = tasks.get_mut(task_id) else {
+            return false;
+        };
+        if entry.progress.status != TaskStatus::Cancelled {
+            return false;
+        }
+        entry.progress.status = TaskStatus::Failed;
+        entry.progress.message = message.into();
+        entry.progress.result = result;
+        true
+    }
+
     pub fn cancel(&self, task_id: &str) {
         let Ok(mut tasks) = self.tasks.lock() else {
             tracing::error!("task registry mutex poisoned; cancellation unavailable");
@@ -260,6 +284,23 @@ mod tests {
             serde_json::json!({"error": "late"})
         ));
         assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Cancelled);
+    }
+
+    #[test]
+    fn cancellation_checkpoint_failure_is_visible_without_resuming_work() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        let token = registry.cancellation(&id).unwrap();
+        registry.cancel(&id);
+
+        assert!(registry.finish_cancellation_failure(
+            &id,
+            "cancellation persistence failed",
+            serde_json::json!({"error": "disk unavailable"})
+        ));
+        let task = registry.get(&id).unwrap();
+        assert_eq!(task.status, TaskStatus::Failed);
+        assert!(token.load(Ordering::Acquire));
     }
 
     #[test]
