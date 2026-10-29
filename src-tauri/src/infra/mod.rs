@@ -16,15 +16,21 @@ pub fn is_not_redacted(key: &str) -> bool {
     !key.is_empty() && !key.starts_with("****")
 }
 
+#[cfg(feature = "desktop")]
 pub mod agent_completion;
 pub mod aliases;
 pub mod artwork;
 pub mod encoding;
 pub mod fs;
 pub mod http;
+/// Shared logging initialisation and debug-mode tracing. Used by both the
+/// desktop runtime and the self-hosted server so the service can expose its own
+/// log in Monitoring.
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod logging;
 pub mod openrouter;
 pub mod sqlite;
+pub mod tag_catalog;
 pub mod tag_io;
 
 #[cfg(test)]

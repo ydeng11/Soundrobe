@@ -15,6 +15,8 @@ interface MetadataEditorProps {
   onDownloadArtistArt?: () => Promise<void>;
   /** Called to write changed fields to disk when the user clicks Apply Changes. */
   onSave: (fields: Record<string, string>) => void;
+  /** Browser-only warm inspector treatment. */
+  web?: boolean;
 }
 
 const EDITABLE_FIELDS = [
@@ -39,6 +41,7 @@ export function MetadataEditor({
   onDownloadCover,
   onDownloadArtistArt,
   onSave,
+  web = false,
 }: MetadataEditorProps) {
   const filename = basename(track.path) ?? track.path;
 
@@ -157,10 +160,11 @@ export function MetadataEditor({
 
   return (
     <div
-      className="flex flex-col h-full overflow-y-auto bg-white border-l border-border"
+      data-web-variant={web || undefined}
+      className={web ? "flex flex-col h-full overflow-y-auto bg-[#fffdfb]" : "flex flex-col h-full overflow-y-auto bg-white border-l border-border"}
     >
       {/* Inspector header */}
-      <div className="px-5 py-3.5 bg-surface-alt/40 border-b border-border/60">
+      <div className={web ? "px-5 py-4 bg-[#faf9f7] border-b border-[#ebe9e6]" : "px-5 py-3.5 bg-surface-alt/40 border-b border-border/60"}>
         <div className="flex items-center gap-2.5">
           <div className="flex-1 min-w-0">
             <div className="text-[12px] font-medium text-text-primary truncate">
@@ -185,7 +189,7 @@ export function MetadataEditor({
         </div>
       </div>
 
-      <div className="flex-1 px-5 py-4 space-y-5">
+      <div className={web ? "flex-1 px-5 py-5 space-y-5" : "flex-1 px-5 py-4 space-y-5"}>
         {/* Album Art */}
         <div className="group">
           <div className="w-full aspect-square max-w-[220px] mx-auto rounded-xl overflow-hidden bg-surface-alt border border-border shadow-sm transition-all duration-300 group-hover:shadow-md group-hover:-translate-y-0.5">
@@ -267,6 +271,7 @@ export function MetadataEditor({
             onChange={(v) => setField("title", v)}
             placeholder="Track title"
             dirty={isDirty("title")}
+            web={web}
           />
           <InspectorField
             label="Artist"
@@ -274,6 +279,7 @@ export function MetadataEditor({
             onChange={(v) => setField("artist", v)}
             placeholder="Artist name"
             dirty={isDirty("artist")}
+            web={web}
           />
           <InspectorField
             label="Album"
@@ -281,6 +287,7 @@ export function MetadataEditor({
             onChange={(v) => setField("album", v)}
             placeholder="Album name"
             dirty={isDirty("album")}
+            web={web}
           />
           <div className="grid grid-cols-2 gap-2.5">
             <InspectorField
@@ -289,6 +296,7 @@ export function MetadataEditor({
               onChange={(v) => setField("year", v)}
               placeholder="2024"
               dirty={isDirty("year")}
+              web={web}
             />
             <InspectorField
               label="Track"
@@ -296,6 +304,7 @@ export function MetadataEditor({
               onChange={(v) => setField("track", v)}
               placeholder="1/10"
               dirty={isDirty("track")}
+              web={web}
             />
           </div>
           <InspectorField
@@ -304,6 +313,7 @@ export function MetadataEditor({
             onChange={(v) => setField("genre", v)}
             placeholder="Genre"
             dirty={isDirty("genre")}
+            web={web}
           />
           <InspectorField
             label="Album Artist"
@@ -311,6 +321,7 @@ export function MetadataEditor({
             onChange={(v) => setField("albumArtist", v)}
             placeholder="Album artist"
             dirty={isDirty("albumArtist")}
+            web={web}
           />
           <InspectorField
             label="Disc"
@@ -318,6 +329,7 @@ export function MetadataEditor({
             onChange={(v) => setField("disc", v)}
             placeholder="1/1"
             dirty={isDirty("disc")}
+            web={web}
           />
           <InspectorField
             label="Composer"
@@ -326,6 +338,7 @@ export function MetadataEditor({
             placeholder="Composer"
             dirty={isDirty("composer")}
             multiline
+            web={web}
           />
         </div>
 
@@ -333,7 +346,7 @@ export function MetadataEditor({
           type="button"
           onClick={flushChanges}
           disabled={!hasChanges || saving}
-          className="w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+          className={web ? "w-full rounded-xl bg-[#202124] px-3 py-2.5 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40" : "w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"}
         >
           Apply Changes
         </button>
@@ -392,6 +405,7 @@ function InspectorField({
   placeholder,
   multiline,
   dirty,
+  web = false,
 }: {
   label: string;
   value: string;
@@ -399,13 +413,15 @@ function InspectorField({
   placeholder?: string;
   multiline?: boolean;
   dirty?: boolean;
+  web?: boolean;
 }) {
   const id = useId();
-  const inputClass =
-    "w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200";
+  const inputClass = web
+    ? "w-full bg-[#fcfbfa] border rounded-xl px-3 py-2 text-[12px] text-[#302e2c] placeholder-[#9a9691] outline-none transition-all duration-200"
+    : "w-full bg-white border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all duration-200";
   const borderClass = dirty
     ? "border-[#ff9f0a]/60 focus:border-[#ff9f0a] focus:shadow-[0_0_0_3px_rgba(255,159,10,0.15)]"
-    : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]";
+    : web ? "border-[#d9d8d5] focus:border-[#a85732] focus:shadow-[0_0_0_3px_rgba(168,87,50,0.12)]" : "border-border focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]";
 
   return (
     <div className="relative">

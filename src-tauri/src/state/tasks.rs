@@ -74,6 +74,30 @@ impl TaskRegistry {
             .and_then(|tasks| tasks.get(task_id).map(|entry| entry.progress.clone()))
     }
 
+    /// A service dashboard needs a durable view of terminal work as well as
+    /// the currently running task; callers receive snapshots, never entries.
+    pub fn list(&self) -> Vec<TaskProgress> {
+        let mut tasks = self
+            .tasks
+            .lock()
+            .map(|tasks| {
+                tasks
+                    .values()
+                    .map(|entry| entry.progress.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        tasks.sort_by(|left, right| left.task_id.cmp(&right.task_id));
+        tasks
+    }
+
+    pub fn latest_with_prefix(&self, prefix: &str) -> Option<TaskProgress> {
+        self.list()
+            .into_iter()
+            .filter(|task| task.task_id.starts_with(prefix))
+            .max_by(|left, right| left.task_id.cmp(&right.task_id))
+    }
+
     pub fn cancellation(&self, task_id: &str) -> Option<Arc<AtomicBool>> {
         self.tasks
             .lock()
@@ -109,6 +133,9 @@ impl TaskRegistry {
         let Some(entry) = tasks.get_mut(task_id) else {
             return false;
         };
+        if entry.progress.status == TaskStatus::Cancelled && status != TaskStatus::Cancelled {
+            return false;
+        }
         entry.progress.status = status;
         entry.progress.message = message.into();
         entry.progress.result = result;
@@ -121,12 +148,39 @@ impl TaskRegistry {
         true
     }
 
+    /// Surface a failure that occurred while making an already-requested
+    /// cancellation durable. Ordinary late work still cannot rewrite a
+    /// cancelled task; this is reserved for the cancellation checkpoint.
+    pub fn finish_cancellation_failure(
+        &self,
+        task_id: &str,
+        message: impl Into<String>,
+        result: Value,
+    ) -> bool {
+        let Ok(mut tasks) = self.tasks.lock() else {
+            return false;
+        };
+        let Some(entry) = tasks.get_mut(task_id) else {
+            return false;
+        };
+        if entry.progress.status != TaskStatus::Cancelled {
+            return false;
+        }
+        entry.progress.status = TaskStatus::Failed;
+        entry.progress.message = message.into();
+        entry.progress.result = result;
+        true
+    }
+
     pub fn cancel(&self, task_id: &str) {
         let Ok(mut tasks) = self.tasks.lock() else {
             tracing::error!("task registry mutex poisoned; cancellation unavailable");
             return;
         };
         if let Some(entry) = tasks.get_mut(task_id) {
+            if entry.progress.status != TaskStatus::Running {
+                return;
+            }
             entry.cancelled.store(true, Ordering::Release);
             entry.progress.status = TaskStatus::Cancelled;
             entry.progress.message = "Cancelled".to_string();
@@ -209,6 +263,60 @@ mod tests {
         let progress = registry.get(&id).unwrap();
         assert_eq!(progress.status, TaskStatus::Cancelled);
         assert_eq!(progress.message, "Cancelled");
+    }
+
+    #[test]
+    fn cancellation_remains_terminal_when_work_finishes_late() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        registry.cancel(&id);
+
+        assert!(!registry.finish(
+            &id,
+            TaskStatus::Completed,
+            "Done",
+            serde_json::json!({"ok": true})
+        ));
+        assert!(!registry.finish(
+            &id,
+            TaskStatus::Failed,
+            "Failed",
+            serde_json::json!({"error": "late"})
+        ));
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Cancelled);
+    }
+
+    #[test]
+    fn cancellation_checkpoint_failure_is_visible_without_resuming_work() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        let token = registry.cancellation(&id).unwrap();
+        registry.cancel(&id);
+
+        assert!(registry.finish_cancellation_failure(
+            &id,
+            "cancellation persistence failed",
+            serde_json::json!({"error": "disk unavailable"})
+        ));
+        let task = registry.get(&id).unwrap();
+        assert_eq!(task.status, TaskStatus::Failed);
+        assert!(token.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn cancellation_does_not_rewrite_a_finished_task() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 9, "Starting...");
+        assert!(registry.finish(
+            &id,
+            TaskStatus::Completed,
+            "Done",
+            serde_json::json!({"ok": true})
+        ));
+
+        registry.cancel(&id);
+
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Completed);
     }
 
     #[test]

@@ -66,6 +66,7 @@ function providerAttemptsFromResult(result: unknown): AutoTagProviderAttempt[] {
       typeof attempt.provider === "string" &&
       (attempt.status === "matched" ||
         attempt.status === "no_match" ||
+        attempt.status === "incomplete" ||
         attempt.status === "unavailable")
     );
   });

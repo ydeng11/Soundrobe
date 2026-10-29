@@ -7,6 +7,239 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Auto-tagging now ranks locally discovered editions by total track count before fetching release details, continues discovery when pagination totals are missing, honors provider retry delays, and asks for review when a folder has no usable artist or album identity.
+- Background tagging now resumes provider catalog discovery and queued album work from SQLite after a restart; provider outages or incomplete catalogs remain deferred instead of triggering guessed AI tags, cancelled work stays stopped until retried, interrupted runs are closed visibly, and AI-written metadata is durably marked for review before files change and remains flagged until acknowledged in Monitoring or Workspace.
+- The browser service no longer prompts for a password or maintains a login session; access is controlled by the deployment boundary instead.
+- Tagging cleanup can now clear a validated set of ID3/Navidrome-supported tags (including Comment and Description) in the same write as new metadata. Desktop and web Settings autocomplete only supported tags, explicitly label selected tags as cleared, and use an × control to remove them; Monitoring reports the tags kept and cleared when a run finishes.
+- Browser Workspace's Refresh button now retries the selected library after an initial directory load failure instead of becoming a no-op.
+- Browser Workspace now shows all loaded tracks in the selected artist folder when no specific album is open; selecting an album still narrows the table to that album.
+- Browser Search results are rows you compare rather than one run-on line: year, track
+  count, country and format each get their own place, the whole row is the target, and
+  arrow keys move between rows.
+- Browser Search now leads with the release closest to the album's own track count
+  instead of the provider's own order. Measured: the first provider result for a
+  ten-track album was a twenty-six-track edition that matched none of its ten files,
+  while the ten-track edition matched all ten. Choosing an order yourself stops the page
+  choosing one for you.
+- Browser Search now moves through Search, Select release, and Match tracks as three
+  visible steps. It shows one step at a time, keeps the album context visible, gives
+  release candidates a clearer match summary, and presents each local file beside the
+  remote track and values that will be written. The wide comparison drawer remains
+  usable on a phone, with actions kept in view.
+
+- The browser service's **Monitoring** page is now four tabs — Overview, Releases,
+  Operations, Logs — under a strip of counts that stays visible. Every count that has
+  a list behind it is a button: "Needs review 5" is how you get to those five albums.
+  The Releases tab filters by state and searches by path, and each row opens the album
+  in the Workspace, so a problem reported here can be fixed from here. The previous
+  version stacked six sections on one page and every count was inert.
+- Monitoring now shows how long each run took, how long ago it started, and how long
+  until the next run, instead of only absolute timestamps. The record has always
+  carried this.
+- Monitoring's log viewer is live: it follows the log while you watch it, filters by
+  level (error, warning, info, debug) with counts, and searches lines. It previously
+  loaded once and never changed — precisely when a run in progress made you want it.
+- Monitoring says which clock its times are shown in, and that the schedule runs in
+  the service's local time. A schedule's timezone was previously left to be guessed.
+- The browser **Settings** page is grouped into six named sections — Metadata sources,
+  Tag writing, Lyrics, Automation, Assistant, System — with navigation between them and
+  a description under every setting.
+- Desktop Settings now highlights each editable option and puts its longer explanation in an
+  accessible tooltip.
+- Browser Settings now keeps its section navigation visible while scrolling, moves keyboard
+  focus to the selected section, exposes the current location, and stacks fields and actions
+  cleanly on narrow screens.
+- Settings now explains a crontab expression in words ("Every day at 00:00"), and says
+  so plainly when it cannot be sure rather than guessing at a schedule's meaning.
+- Browser-workspace polling now pauses while the tab is not visible.
+
+- The browser service's Operation log is now a section of the Monitoring page rather
+  than a destination of its own. Both answer the same question — what has the
+  background tagger been doing — so the navigation now has four entries instead of
+  five, and everything about a tagging run is on one page.
+- Browser-workspace text now carries a line height paired to its size, taken from the
+  reference, whose own text sets a leading on every size. Text blocks read slightly
+  looser than before; the file table's row, header and column geometry is unchanged.
+- Browser-workspace status colours (success, warning, danger) now come from the
+  reference's measured theme values instead of approximations read off screenshots,
+  so success, warning and danger read slightly differently. The secondary accent was
+  corrected the same way. Its value was wrong in a way that mattered: it was a
+  different hue and chroma, not a rounding difference.
+- Browser-workspace interactive states are now driven by tokens ported from the
+  reference's own theme rather than by values invented per rule: hover uses the
+  reference's base-300 surface, and the selected row, the active navigation item
+  and the active folder-tree row share the reference's neutral fill with its
+  neutral-content text, so a selected row is now unmistakable and legible rather
+  than a 10% accent tint.
+- The browser runtime now mounts its own application instead of reusing the standalone app's composition. It shares the Rust backend, the `DesktopAPI` contract and the state helpers, but not the desktop window chrome or layout.
+- The browser Workspace now follows Music Tag Web V2's tagging layout: a floating header, a folder tree beside a track detail editor, and a ten-column file table (Cover, File Name, Title, Artists, Albums, Album Artist, Lyrics, LRC, Year, Genres) sized to the reference's measured column widths and row density.
+- The browser file table now fills the width of its pane while keeping the reference's column proportions, instead of holding a fixed width. Hiding columns re-splits the pane between the columns that remain, and the table never narrows past the reference column widths, so a narrower pane scrolls rather than compressing text.
+- The browser file details editor no longer lists the file name. It is not editable, and the file table already shows it as its own column.
+- The browser track detail editor is grouped into Basic, Media, Lyric, Category, Metadata and Technical Information sections, and reports read-only duration, bitrate, sample rate, format and file size.
+- The browser service now reports tagging operations in an Operation log with status, progress, outcome counts and cancellation.
+- Browser navigation covers the tagging surfaces: Workspace, Monitoring, Operation log, Tag sources and Settings. The previous library, home and activity browser views are replaced by these tagging-focused destinations.
+- Background tagging is now configurable and observable instead of an unconditional sweep on every service start. It still runs once at startup, and every run is recorded with its trigger, outcome and counts. The schedule and run history live in `~/.soundrobe/background-tagging.json`.
+- Background runs now record what they did release by release: each run keeps the release path, its outcome, the reason it needs attention, and which source supplied the tags, and Monitoring shows that list per run. The ledger keeps failures and reviews and drops later successes when a run covers more releases than it stores, and says when it did.
+- Monitoring can re-run the releases a background run left needing action. Only those releases are tagged; releases the run already tagged, and paths that no longer exist, are left alone. A retry with no run named retries the most recent run that finished, so asking while another run is in progress reports the run that is actually happening instead of "nothing left to retry".
+
+### Fixed
+
+- Desktop library loading, auto-tag results, and review actions now work in the native app instead of being unavailable after the tagging migration.
+- Browser Settings section links no longer trap the page at the selected section. The main pane remains scrollable, and the sticky navigation can focus another section.
+- Background tagging no longer loses music added while a run is in progress. A watched album that could not start because another tagging operation held the lock is queued and retried on the next poll, instead of being remembered as seen and never tagged until its folder changed again.
+- Field hints in the browser workspace were laid out in the label gutter instead of
+  under the control they describe, so "Required, unless an album is given" was squeezed
+  into a 104-pixel column and wrapped to three lines in Search, and the Chinese-script
+  note to seven lines in Settings, while the space beside them sat empty. Hints now sit
+  under their control at full width, one step smaller and quieter than the value.
+- Setting names on the browser Settings page were cut off: nine of twelve had to fit a
+  104-pixel label gutter, and "Let the assistant apply its own actions without
+  confirmation" read as "Let the assistant apply its own ac…". Labels now wrap, in a
+  gutter wide enough for a real field name.
+- A checkbox setting's name sat inside the label gutter alongside its box, cramping both
+  into one narrow column. Those fields now use the whole row.
+- A field's hint sat the same distance below its control as fields sit from each other,
+  so it read as belonging to the field below it.
+
+- Browser Search lost your place when you filtered the results: narrowing while on a
+  later page showed an empty list with the pager hidden and no way back. It now returns
+  to the first page, which is what the desktop app already did.
+- Pressing Enter in a Browser Search field did nothing. It now runs the search, as the
+  desktop app does.
+- "Same track count as this album" could claim a filter it was not applying: ticking the
+  box and then editing the Tracks field left it ticked while filtering by a different
+  number. The box now reflects the value it stands for.
+- Browser Search wrote a track total taken from the provider with no field to see or
+  correct it. The mapping table now shows it.
+- The browser's tool dialogs never took focus, so a keyboard user stayed outside the
+  dialog they had just opened and focus was not returned on close.
+- Loading track counts disabled every "Use release" button for as long as it ran, which
+  can be a hundred provider requests — a release already on screen could not be chosen.
+- The Search dialog's outcome line appeared below the entire result list, and was not
+  announced to screen readers. It now reads first and is announced.
+- The Search dialog never named the album it was searching for.
+
+- Browser Settings could confirm a change that was no longer true: the "saved"
+  message was cleared only by the *next* save, so it stayed on screen indefinitely.
+  Confirmations now belong to the field that changed and expire on their own.
+- Browser Monitoring showed a release list of unbounded length; a library of thousands
+  of albums rendered thousands of rows. The list is now bounded and pages in.
+- Browser Settings accepted a covered folder that no library could read — outside every
+  served directory, or not a directory at all — which would have been configured and
+  then silently never tagged. It is now checked and refused with the reason.
+- Browser Settings reported an unusable crontab in a page-level banner at the top, far
+  from the field that caused it. The reason now appears at the field, which is marked
+  invalid and focused.
+- Saving one setting in the browser Settings page disabled every other control until it
+  finished. Only the field being saved is now busy.
+- The browser service's log viewer never refreshed after the page loaded.
+
+- Browser-workspace badges and chips were hard to read: the brand badge, the header
+  mark, the status chips and the informational badge all painted the accent colour on
+  its own 10% tint, which measures 2.49:1. They now use a darker step of the same hue
+  (4.60:1 on the tint, 5.02:1 on a card). The folder-tree expander was darker still —
+  1.59:1 — because it kept its own colour inside a selected row instead of following
+  the row's text, which is now fixed.
+- The browser workspace's primary button was hard to read: its white label sat at
+  2.72:1 on the reference's primary fill, and hovering it emptied the button into a
+  pale tint at 2.49:1. The label is now a dark colour on the same fill - 5.39:1, and
+  5.82:1 when hovered - and the hover lightens rather than darkens, so the label
+  never loses contrast at the moment it is pressed.
+- De-emphasised browser-workspace text was too faint to read comfortably. The muted
+  role sat at 2.33:1 against the page while carrying labels, table headers, notes
+  and technical readouts; it now meets the 4.5:1 floor. Status badge and banner
+  labels were worse: warning on its own tint was 1.90:1, and the notice and error
+  banners were 2.66:1 and 2.56:1, so status text now uses a darkened step of each
+  status hue while the status colour itself remains for fills and borders. The
+  status tints are now built the way the reference builds them, as the status colour
+  at its own alpha, instead of values sampled from screenshots.
+- Hovering a browser-workspace control gave no visible feedback: hover painted the
+  same colour as the page background, so navigation items, folder-tree rows and
+  buttons looked identical hovered and idle. They now use a colour taken from the
+  reference's own theme.
+- Eleven focusable browser-workspace controls - the ten file-name cells and the
+  breadcrumb buttons - had no visible focus ring of their own and fell back to the
+  browser default. They now use the same focus ring as every other control.
+- The self-hosted service can read a release's provider track count. The command
+  existed for the desktop app only, so the browser search could neither show nor
+  filter on provider track counts.
+- Browser Number and Convert report the files a writer refused instead of
+  reporting success for a partly completed run.
+- Auto-tag reviews now journal queued track writes, so a review that changed a
+  file is revertible again. Queued writes previously bypassed the recovery
+  journal, which left the review reporting that it had nothing to undo while
+  holding changes the user could not revert, and skipped the full-file recovery
+  backup.
+- Local browser-service sign-in accepts both standard loopback addresses.
+- Switching mounted browser-service roots clears the previous library while the
+  replacement scan is in progress or reports an error.
+- Browser Settings now keeps saving unavailable until configuration loads
+  successfully, tests protected provider credentials after a masked key is
+  cleared, and sorts the browser Format column by codec.
+
+### Added
+
+- Browser Settings takes a free-text value — the lyrics service URL, a custom crontab —
+  as a draft with Save and Cancel and an "unsaved changes" warning, rather than saving
+  whatever was typed so far or losing it on navigation.
+
+- The browser Workspace now shows which albums background tagging left needing
+  review: they are named above the file table and marked in the folder tree, so
+  a flagged album can be opened where it is listed instead of only being found
+  by running a scan again.
+- The browser Workspace gained Search, Number and Convert for the album being
+  viewed, with the desktop app's behaviour rather than a reduced version of it.
+  Search narrows a provider query by artist, album, year, country, format,
+  catalog number and barcode, filters, sorts and pages the results, loads
+  per-release track counts on request, and finishes in a mapping step where each
+  local file can be re-pointed at a different provider track, hand-edited, or
+  left out of the write. Number writes sequential track numbers across the whole
+  open album using the desktop's ordering rules. Convert rewrites tags from file
+  names, one tag from another, or file names from tags, using the desktop's
+  presets, and refuses a run whose result would be identical to what is already
+  there.
+- Soundrobe can now run as a self-hosted web service: a password-protected
+  browser dashboard manages mounted music libraries through the existing Rust
+  metadata pipeline.
+- Background tagging can be scheduled. The service evaluates a crontab in the
+  operator's local time and starts unattended tagging runs on it, with the
+  reference product's quick presets (every minute through daily at midnight)
+  plus a custom expression. An unusable expression is refused rather than
+  stored, so a schedule can never be saved in a state where it silently never
+  fires. A report is visible under Monitoring.
+- Covered folders can be watched, so music added to them is tagged
+  automatically. Detection uses the folder's change time, so a watched folder
+  does not trigger a full library rescan, and a run started this way covers only
+  the new arrivals.
+- A Monitoring page shows whether background tagging is on, the crontab and its
+  next run, which folders are actually covered, in-progress runs with their
+  live step, the outcome of recent runs, the tagging state of each release the
+  service surveyed, and the service's own log.
+- A Settings page exposes the background-tagging controls (enable, schedule,
+  covered folders, watching, and whether to skip already-complete releases)
+  beside the application settings (online lookups, Discogs, lyrics download and
+  lyrics service URL, Chinese script conversion, assistant autonomy and debug
+  logging) and the running version.
+- A Workspace settings drawer controls whether the file-details editor is shown
+  and which metadata columns the file table displays. These are per-browser
+  preferences that survive a reload, and the file-name column cannot be hidden
+  because it identifies the rows.
+- The service writes its own log to `auto-tagger.log`, so Monitoring shows what
+  the running service did without attaching to its stdout.
+- The service scans mounted libraries, maintains a health index for releases
+  already tagged, automatically processes only releases that need tagging,
+  and leaves failed or ambiguous releases in the review queue for user input.
+- Docker and Compose deployment files provide a hardened non-root service,
+  persistent configuration, direct per-library mounts, and a health endpoint.
+- `just web-local <libraries-root>` now builds and starts the browser service
+  on loopback for local development, using the standalone app's settings by
+  default while still allowing an isolated data directory override.
+- The browser service now supports the `directory:read` command, returning a
+  folder's subdirectories and parsed tracks in one round trip so the workspace
+  can browse and list a folder without a request per file.
+
 ## [0.1.11] - 2026-09-16
 
 ### Fixed

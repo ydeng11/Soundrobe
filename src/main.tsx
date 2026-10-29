@@ -1,7 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { installDesktopApi } from "./shared/install-desktop-api";
+import { installDesktopApi, isWebRuntime } from "./shared/install-desktop-api";
+import { WebApp } from "./web/WebApp";
 import "./index.css";
 
 async function bootstrap() {
@@ -11,12 +12,18 @@ async function bootstrap() {
     await import("@wdio/tauri-plugin");
   }
 
-  // Install the Tauri-backed `window.api` contract before React renders.
+  // Install the runtime `window.api` contract before React renders. This also
+  // records which runtime is active.
   installDesktopApi();
+
+  // The browser runtime mounts its own application. The web UI is independent
+  // of the standalone desktop composition in `App.tsx`; the two share the Rust
+  // backend and the `DesktopAPI` contract, not layout or navigation.
+  const Root = isWebRuntime() ? WebApp : App;
 
   ReactDOM.createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
-      <App />
+      <Root />
     </React.StrictMode>
   );
 }

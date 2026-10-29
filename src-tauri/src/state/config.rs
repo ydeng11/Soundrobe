@@ -14,11 +14,13 @@
 
 use serde_json::{json, Value};
 use std::collections::HashMap;
+
+use crate::infra::tag_catalog::canonicalize_clear_tags;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use super::paths::canonical_path;
+use super::paths::{app_dir, canonical_path};
 
 /// Resolved app configuration. Fields mirror `AutoTagConfig`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -33,10 +35,13 @@ pub struct AutoTagConfig {
     pub remote_lookup_enabled: Option<bool>,
     pub discogs_enabled: Option<bool>,
     pub debug: Option<bool>,
+    pub assistant_autonomous: Option<bool>,
     pub lyrics_download_enabled: Option<bool>,
     pub lyrics_api_url: Option<String>,
     pub theaudiodb_api_key: Option<String>,
     pub chinese_script: Option<String>,
+    pub clear_tags_enabled: Option<bool>,
+    pub clear_tags: Option<Vec<String>>,
     /// Maximum concurrent folder workers during batch track writes.
     /// Higher values (e.g. 8) may speed up local SSD/NVMe writes;
     /// lower values can avoid I/O thrashing on external/spinning volumes.
@@ -82,6 +87,10 @@ impl Env for EnvMap {
 /// Canonical `~/.soundrobe/config.yaml` path used for new writes.
 pub fn config_file_path(home: &Path) -> PathBuf {
     canonical_path(home, "config.yaml")
+}
+
+pub fn config_file_path_in(data_dir: &Path) -> PathBuf {
+    data_dir.join("config.yaml")
 }
 
 /// Load config from a flat YAML body plus environment overrides. Mirrors
@@ -174,14 +183,23 @@ fn parse_bool_or_null(v: &str) -> Option<bool> {
     }
 }
 
+fn parse_string_or_null(v: &str) -> Option<String> {
+    (!v.is_empty() && v != "null").then(|| v.to_string())
+}
+
+fn parse_clear_tags(v: &str) -> Option<Vec<String>> {
+    let values = serde_json::from_str::<Vec<String>>(v).ok()?;
+    canonicalize_clear_tags(&values).ok()
+}
+
 fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
     match key {
-        "llm_api_key" => config.llm_api_key = Some(value.to_string()),
-        "llm_model" => config.llm_model = Some(value.to_string()),
-        "llm_provider" => config.llm_provider = Some(value.to_string()),
-        "llm_base_url" => config.llm_base_url = Some(value.to_string()),
-        "discogs_token" => config.discogs_token = Some(value.to_string()),
-        "dataset_path" => config.dataset_path = Some(value.to_string()),
+        "llm_api_key" => config.llm_api_key = parse_string_or_null(value),
+        "llm_model" => config.llm_model = parse_string_or_null(value),
+        "llm_provider" => config.llm_provider = parse_string_or_null(value),
+        "llm_base_url" => config.llm_base_url = parse_string_or_null(value),
+        "discogs_token" => config.discogs_token = parse_string_or_null(value),
+        "dataset_path" => config.dataset_path = parse_string_or_null(value),
         "remote_lookup_enabled" => {
             if let Some(b) = parse_bool_or_null(value) {
                 config.remote_lookup_enabled = Some(b);
@@ -197,13 +215,18 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
                 config.debug = Some(b);
             }
         }
+        "assistant_autonomous" => {
+            if let Some(b) = parse_bool_or_null(value) {
+                config.assistant_autonomous = Some(b);
+            }
+        }
         "lyrics_download_enabled" => {
             if let Some(b) = parse_bool_or_null(value) {
                 config.lyrics_download_enabled = Some(b);
             }
         }
-        "lyrics_api_url" => config.lyrics_api_url = Some(value.to_string()),
-        "theaudiodb_api_key" => config.theaudiodb_api_key = Some(value.to_string()),
+        "lyrics_api_url" => config.lyrics_api_url = parse_string_or_null(value),
+        "theaudiodb_api_key" => config.theaudiodb_api_key = parse_string_or_null(value),
         "chinese_script" => {
             if value == "null" || value.is_empty() {
                 config.chinese_script = None;
@@ -215,6 +238,18 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
                 );
             }
         }
+        "clear_tags_enabled" => {
+            if let Some(b) = parse_bool_or_null(value) {
+                config.clear_tags_enabled = Some(b);
+            }
+        }
+        "clear_tags" => {
+            if let Some(tags) = parse_clear_tags(value) {
+                config.clear_tags = Some(tags);
+            } else {
+                tracing::warn!("ignored unsupported clear_tags config value");
+            }
+        }
         "write_concurrency" => {
             if let Ok(n) = value.parse::<usize>() {
                 config.write_concurrency = Some(n);
@@ -222,14 +257,6 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
         }
         _ => {} // unknown keys ignored, never partially written
     }
-}
-
-/// Resolve the effective write concurrency from config + env.
-/// Returns `None` when neither the file nor the env specifies a value,
-/// meaning the caller should use its built-in default (currently 4).
-pub fn resolve_write_concurrency(home: &Path) -> Option<usize> {
-    let text = std::fs::read_to_string(config_file_path(home)).unwrap_or_default();
-    load_from(&text, &ProcessEnv).write_concurrency
 }
 
 /// Map a renderer camelCase config key to its YAML key (CONFIG_KEY_MAP).
@@ -243,10 +270,13 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
         "remoteLookupEnabled" => Some("remote_lookup_enabled"),
         "discogsEnabled" => Some("discogs_enabled"),
         "debug" => Some("debug"),
+        "assistantAutonomous" => Some("assistant_autonomous"),
         "lyricsDownloadEnabled" => Some("lyrics_download_enabled"),
         "lyricsApiUrl" => Some("lyrics_api_url"),
         "theAudioDbApiKey" => Some("theaudiodb_api_key"),
         "chineseScript" => Some("chinese_script"),
+        "clearTagsEnabled" => Some("clear_tags_enabled"),
+        "clearTags" => Some("clear_tags"),
         "writeConcurrency" => Some("write_concurrency"),
         _ => None,
     }
@@ -321,10 +351,14 @@ pub fn apply_key(text: &str, yaml_key: &str, formatted_value: &str) -> String {
 /// Persist a renderer camelCase key to the config file in place. Creates the
 /// parent directory. Unknown keys are ignored (matches Electron's early return).
 pub fn save_config(home: &Path, camel_key: &str, value: &Value) -> std::io::Result<()> {
+    save_config_in(&app_dir(home), camel_key, value)
+}
+
+pub fn save_config_in(data_dir: &Path, camel_key: &str, value: &Value) -> std::io::Result<()> {
     let Some(yaml_key) = yaml_key_for(camel_key) else {
         return Ok(()); // unknown key — skip, never partially write
     };
-    let path = config_file_path(home);
+    let path = config_file_path_in(data_dir);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -372,10 +406,13 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
         "remoteLookupEnabled": config.remote_lookup_enabled.unwrap_or(true),
         "discogsEnabled": config.discogs_enabled.unwrap_or(true),
         "debug": config.debug.unwrap_or(false),
+        "assistantAutonomous": config.assistant_autonomous.unwrap_or(false),
         "lyricsDownloadEnabled": config.lyrics_download_enabled.unwrap_or(false),
         "lyricsApiUrl": config.lyrics_api_url.clone().map(Value::String).unwrap_or(Value::Null),
         "theAudioDbApiKey": mask(&config.theaudiodb_api_key),
         "chineseScript": config.chinese_script.clone().map(Value::String).unwrap_or(Value::Null),
+        "clearTagsEnabled": config.clear_tags_enabled.unwrap_or(false),
+        "clearTags": config.clear_tags.clone().unwrap_or_default(),
         "writeConcurrency": config.write_concurrency.map(Value::from).unwrap_or(Value::Null),
     })
 }
@@ -383,9 +420,18 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
 /// Load config from the on-disk YAML at `home/.soundrobe/config.yaml` plus an
 /// env. Missing/unreadable file yields the empty text (defaults), matching
 /// Electron's behavior when no config exists yet.
-fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
-    let text = fs::read_to_string(config_file_path(home)).unwrap_or_default();
-    load_from(&text, env)
+fn load_from_disk_in(data_dir: &Path, env: &dyn Env) -> AutoTagConfig {
+    let text = fs::read_to_string(config_file_path_in(data_dir)).unwrap_or_default();
+    let mut config = load_from(&text, env);
+    if config.dataset_path.is_none() {
+        config.dataset_path = Some(
+            data_dir
+                .join("dataset-index.sqlite")
+                .to_string_lossy()
+                .into_owned(),
+        );
+    }
+    config
 }
 
 /// Managed state holding the live app config, mirroring the role of
@@ -393,8 +439,9 @@ fn load_from_disk(home: &Path, env: &dyn Env) -> AutoTagConfig {
 /// startup from `config.yaml` + the process environment, and refreshed after a
 /// `set_config` write. Held behind a `Mutex` so Tauri commands read it
 /// concurrently without holding a SQLite/network lock.
+#[derive(Clone)]
 pub struct ConfigState {
-    home: PathBuf,
+    data_dir: PathBuf,
     env: Arc<dyn Env>,
     inner: Arc<Mutex<AutoTagConfig>>,
     /// Serialises concurrent read-modify-write of the YAML file.
@@ -404,18 +451,45 @@ pub struct ConfigState {
     write_lock: Arc<Mutex<()>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ConfigSetError {
+    UnsupportedKey(String),
+    InvalidValue(String),
+    Persistence,
+}
+
+impl std::fmt::Display for ConfigSetError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnsupportedKey(key) => write!(formatter, "unsupported config key: {key}"),
+            Self::InvalidValue(message) => formatter.write_str(message),
+            Self::Persistence => formatter.write_str("config persistence failed"),
+        }
+    }
+}
+
 impl ConfigState {
     /// Load config from `~/.soundrobe/config.yaml` + the real process env.
     pub fn init(home: PathBuf) -> Self {
-        Self::init_with_env(home, Arc::new(ProcessEnv))
+        Self::init_in(app_dir(&home))
     }
 
     /// Load config from a given home dir + an injected env (tests).
     pub fn init_with_env(home: PathBuf, env: Arc<dyn Env>) -> Self {
-        let config = load_from_disk(&home, env.as_ref());
+        Self::init_in_with_env(app_dir(&home), env)
+    }
+
+    /// Load config from an explicit application-data directory.
+    pub fn init_in(data_dir: PathBuf) -> Self {
+        Self::init_in_with_env(data_dir, Arc::new(ProcessEnv))
+    }
+
+    /// Load config from an explicit data directory + injected env (tests).
+    pub fn init_in_with_env(data_dir: PathBuf, env: Arc<dyn Env>) -> Self {
+        let config = load_from_disk_in(&data_dir, env.as_ref());
         tracing::info!("config loaded: chinese_script={:?}", config.chinese_script);
         Self {
-            home,
+            data_dir,
             env,
             inner: Arc::new(Mutex::new(config)),
             write_lock: Arc::new(Mutex::new(())),
@@ -451,7 +525,17 @@ impl ConfigState {
     }
 
     pub fn alias_file_path(&self) -> PathBuf {
-        canonical_path(&self.home, "artist-aliases.json")
+        self.data_dir.join("artist-aliases.json")
+    }
+
+    pub fn data_file(&self, file_name: &str) -> PathBuf {
+        self.data_dir.join(file_name)
+    }
+
+    /// The directory that holds every persistent data file, for callers that
+    /// need to enumerate it rather than name one file.
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
     }
 
     /// Reload config from disk + env (matches `refreshConfig()`). On a poisoned
@@ -462,7 +546,7 @@ impl ConfigState {
     /// until the app is restarted), never panicking. The on-disk file is still
     /// correct, so a restart picks it up.
     pub fn refresh(&self) {
-        let config = load_from_disk(&self.home, self.env.as_ref());
+        let config = load_from_disk_in(&self.data_dir, self.env.as_ref());
         match self.inner.lock() {
             Ok(mut guard) => *guard = config,
             Err(_) => {
@@ -473,11 +557,9 @@ impl ConfigState {
         }
     }
 
-    /// Write a renderer camelCase key to disk and refresh the live config
-    /// (matches the `config:set` handler: `saveConfig` + `refreshConfig`). Never
-    /// returns an error to the caller — Electron's handler catches and logs — so
-    /// the renderer's `setConfig` never rejects. A failed write is logged via
-    /// `tracing` and the live config is left untouched.
+    /// Write a renderer camelCase key to disk and refresh the live config.
+    /// Returns an error for the headless transport, which must not report a
+    /// failed persistence operation as a successful HTTP response.
     ///
     /// **Serialised**: holds `write_lock` across the read-modify-write **and**
     /// the subsequent `refresh` so that concurrent `Promise.all` calls from the
@@ -489,23 +571,64 @@ impl ConfigState {
     /// and produce a stale in-memory snapshot.  Since `refresh` acquires
     /// `inner.lock()` independently there is no deadlock risk (no code path
     /// acquires `write_lock` while holding `inner.lock()`).
-    pub fn set(&self, camel_key: &str, value: &Value) {
+    pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), ConfigSetError> {
+        yaml_key_for(camel_key)
+            .ok_or_else(|| ConfigSetError::UnsupportedKey(camel_key.to_string()))?;
+        let value = match camel_key {
+            "clearTagsEnabled" if !value.is_boolean() => {
+                return Err(ConfigSetError::InvalidValue(
+                    "clearTagsEnabled must be a boolean".to_string(),
+                ));
+            }
+            "clearTags" => {
+                let values = match value {
+                    Value::Null => Vec::new(),
+                    Value::Array(values) => values
+                        .iter()
+                        .map(|value| {
+                            value.as_str().map(str::to_string).ok_or_else(|| {
+                                ConfigSetError::InvalidValue(
+                                    "clearTags must contain only tag names".to_string(),
+                                )
+                            })
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                    _ => {
+                        return Err(ConfigSetError::InvalidValue(
+                            "clearTags must be an array of tag names".to_string(),
+                        ));
+                    }
+                };
+                let canonical =
+                    canonicalize_clear_tags(&values).map_err(ConfigSetError::InvalidValue)?;
+                Value::Array(canonical.into_iter().map(Value::String).collect())
+            }
+            _ => value.clone(),
+        };
         let _guard: MutexGuard<'_, ()> = match self.write_lock.lock() {
             Ok(g) => g,
-            Err(e) => {
-                tracing::warn!("config write-lock poisoned, skipping save for {camel_key}: {e}");
-                return;
+            Err(error) => {
+                tracing::warn!(%error, "config write-lock poisoned");
+                return Err(ConfigSetError::Persistence);
             }
         };
-        if let Err(e) = save_config(&self.home, camel_key, value) {
-            tracing::warn!("failed to save config key {camel_key}: {e}");
-            return;
+        if let Err(error) = save_config_in(&self.data_dir, camel_key, &value) {
+            tracing::warn!(%error, key = camel_key, "failed to save config");
+            return Err(ConfigSetError::Persistence);
         }
         // `refresh` already handles a poisoned mutex without panicking.
         self.refresh();
         // _guard dropped here — write-lock released after the in-memory state
         // is updated, guaranteeing the live config reflects the write before
         // the next queued writer starts.
+        Ok(())
+    }
+
+    /// Desktop preserves Electron's best-effort, non-rejecting config command.
+    pub fn set(&self, camel_key: &str, value: &Value) {
+        if let Err(error) = self.try_set(camel_key, value) {
+            tracing::warn!(%error, "config update failed");
+        }
     }
 }
 
@@ -637,14 +760,9 @@ mod tests {
                 .as_nanos()
         ));
         std::fs::create_dir_all(dir.join(".soundrobe")).unwrap();
-        std::fs::write(
-            dir.join(".soundrobe").join("config.yaml"),
-            "debug: true\n",
-        )
-        .unwrap();
+        std::fs::write(dir.join(".soundrobe").join("config.yaml"), "debug: true\n").unwrap();
         save_config(&dir, "notARealKey", &json!("x")).unwrap();
-        let written =
-            std::fs::read_to_string(dir.join(".soundrobe").join("config.yaml")).unwrap();
+        let written = std::fs::read_to_string(dir.join(".soundrobe").join("config.yaml")).unwrap();
         assert_eq!(written, "debug: true\n");
     }
 
@@ -744,6 +862,81 @@ mod tests {
         assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
     }
 
+    /// Intent: cleanup settings persist only canonical catalog IDs, so aliases
+    /// entered by the renderer cannot cause an unsupported tag write later.
+    #[test]
+    fn clear_tags_round_trip_and_validation() {
+        let parsed = load_from(
+            "clear_tags_enabled: true\nclear_tags: [\"COMM\",\"Description\"]\n",
+            &EnvMap::new(),
+        );
+        assert_eq!(parsed.clear_tags_enabled, Some(true));
+        assert_eq!(
+            parsed.clear_tags,
+            Some(vec!["comment".to_string(), "description".to_string()])
+        );
+
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home, Arc::new(EnvMap::new()));
+        state
+            .try_set("clearTags", &json!(["COMM", "description", "COMM"]))
+            .unwrap();
+        assert_eq!(
+            state.raw().clear_tags,
+            Some(vec!["comment".to_string(), "description".to_string()])
+        );
+        assert!(state.try_set("clearTags", &json!(["unsupported"])).is_err());
+    }
+
+    #[test]
+    fn config_state_try_set_rejects_unknown_keys_before_writing() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+
+        let error = state
+            .try_set("notARealKey", &json!(true))
+            .expect_err("unknown settings must fail explicitly");
+
+        assert_eq!(error.to_string(), "unsupported config key: notARealKey");
+        assert!(!config_file_path(&home).exists());
+    }
+
+    #[test]
+    fn null_string_values_reload_as_unset() {
+        let parsed = load_from(
+            "llm_model: null\nllm_provider: null\nllm_base_url: null\nlyrics_api_url: null\n",
+            &EnvMap::new(),
+        );
+
+        assert_eq!(parsed.llm_model, None);
+        assert_eq!(parsed.llm_provider, None);
+        assert_eq!(parsed.llm_base_url, None);
+        assert_eq!(parsed.lyrics_api_url, None);
+    }
+
+    #[test]
+    fn server_config_state_uses_exact_data_directory() {
+        let data_dir = cfg_home().join("config");
+        let state = ConfigState::init_in_with_env(data_dir.clone(), Arc::new(EnvMap::new()));
+
+        state.set("debug", &json!(true));
+
+        assert_eq!(
+            fs::read_to_string(data_dir.join("config.yaml")).unwrap(),
+            "debug: true\n"
+        );
+        assert_eq!(
+            state.alias_file_path(),
+            data_dir.join("artist-aliases.json")
+        );
+        assert_eq!(
+            state.raw().dataset_path.as_deref(),
+            data_dir.join("dataset-index.sqlite").to_str(),
+        );
+        assert!(!data_dir.join(".soundrobe").exists());
+        fs::remove_dir_all(data_dir.parent().unwrap()).unwrap();
+    }
+
     #[test]
     fn migrated_config_is_read_and_first_save_stays_in_soundrobe() {
         let home = cfg_home();
@@ -792,6 +985,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "desktop")]
     fn migrated_aliases_are_saved_in_soundrobe() {
         let home = cfg_home();
         fs::create_dir_all(home.join(".auto-tagger")).unwrap();
@@ -855,10 +1049,13 @@ mod tests {
             "remoteLookupEnabled": true,
             "discogsEnabled": true,
             "debug": true,
+            "assistantAutonomous": false,
             "lyricsDownloadEnabled": false,
             "lyricsApiUrl": "https://lr.example/api",
             "theAudioDbApiKey": null,
             "chineseScript": "traditional",
+            "clearTagsEnabled": false,
+            "clearTags": [],
             "writeConcurrency": null
         });
         assert_eq!(state.redacted(), expected);

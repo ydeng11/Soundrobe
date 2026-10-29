@@ -12,8 +12,22 @@ type SortKey =
   | "year"
   | "track"
   | "genre"
+  | "composer"
+  | "comment"
+  | "disc"
+  | "lyrics"
+  | "cover"
   | "duration"
+  | "sampleRate"
   | "bitrate";
+
+/** Browser workspace ordering shared by the toolbar and compact file table. */
+export type WebSort = {
+  key: SortKey;
+  ascending: boolean;
+};
+
+export type WebFileColumn = SortKey;
 
 interface Column {
   key: SortKey;
@@ -42,6 +56,10 @@ const MIN_COL_WIDTH = 40;
 const HANDLE_WIDTH = 5;
 const EMPTY_SELECTED_TRACK_PATHS: string[] = [];
 
+function minimumColumnWidth(column: Column): number {
+  return Math.max(MIN_COL_WIDTH, column.label.length * 8 + 38);
+}
+
 const ALL_COLUMNS: Column[] = [
   { key: "filename", label: "Path", width: "flex-[3]", align: "left" },
   { key: "title", label: "Title", width: "flex-[2]", align: "left" },
@@ -55,6 +73,25 @@ const ALL_COLUMNS: Column[] = [
   { key: "bitrate", label: "Bitrate", width: "w-20", align: "right" },
 ];
 
+const WEB_EXTRA_COLUMNS: Column[] = [
+  { key: "disc", label: "Disc", width: "w-16", align: "right" },
+  { key: "composer", label: "Composer", width: "flex-[1.5]", align: "left" },
+  { key: "lyrics", label: "Lyrics", width: "w-20", align: "left" },
+  { key: "comment", label: "Comment", width: "flex-[1.5]", align: "left" },
+  { key: "cover", label: "Cover", width: "w-16", align: "left" },
+  { key: "sampleRate", label: "Sample rate", width: "w-24", align: "right" },
+];
+
+const WEB_COLUMNS: Column[] = [
+  ...ALL_COLUMNS,
+  ...WEB_EXTRA_COLUMNS,
+].map((column) => ({
+  ...column,
+  label: column.key === "filename" ? "Location" : column.key === "bitrate" ? "Format" : column.label,
+}));
+
+export const WEB_FILE_COLUMNS: Array<{ key: WebFileColumn; label: string }> = WEB_COLUMNS.map(({ key, label }) => ({ key, label }));
+
 interface FileGridProps {
   tracks: TrackData[];
   activeAlbumPath?: string | null;
@@ -66,6 +103,17 @@ interface FileGridProps {
   onEditExtraTags?: (track: TrackData, selectedPaths: string[]) => void;
   onDeleteFiles?: (paths: string[]) => void;
   auditByTrackPath?: Record<string, TrackAuditSummary>;
+  /** Browser-only compact table treatment. Desktop columns and interactions stay unchanged. */
+  web?: boolean;
+  /** Select All is scoped to the visible, focused browser workspace only. */
+  webActive?: boolean;
+  /** Optional browser-owned ordering. Omit to retain FileGrid's desktop-local sorting. */
+  webSort?: WebSort;
+  /** Receives browser toolbar/table sort updates when webSort is controlled. */
+  onWebSortChange?: (sort: WebSort) => void;
+  /** Optional browser-owned visible columns. Desktop keeps its local chooser. */
+  webVisibleColumns?: WebFileColumn[];
+  onWebVisibleColumnsChange?: (columns: WebFileColumn[]) => void;
 }
 
 export function FileGrid({
@@ -79,20 +127,30 @@ export function FileGrid({
   onEditExtraTags,
   onDeleteFiles,
   auditByTrackPath = {},
+  web = false,
+  webActive = false,
+  webSort,
+  onWebSortChange,
+  webVisibleColumns,
+  onWebVisibleColumnsChange,
 }: FileGridProps) {
   const [sortKey, setSortKey] = useState<SortKey>("track");
   const [sortAsc, setSortAsc] = useState(true);
   const lastClickedRef = useRef<number>(-1);
 
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    () => new Set(ALL_COLUMNS.filter((c) => !c.defaultHidden).map((c) => c.key))
+    () => new Set((web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => !c.defaultHidden).map((c) => c.key))
   );
 
   // Memoize visible column descriptors — stable identity while visible set is unchanged
+  const activeVisibleColumns = web && webVisibleColumns
+    ? new Set<string>(webVisibleColumns)
+    : visibleColumns;
   const COLUMNS = useMemo(
-    () => ALL_COLUMNS.filter((c) => visibleColumns.has(c.key)),
-    [visibleColumns]
+    () => (web ? WEB_COLUMNS : ALL_COLUMNS).filter((c) => activeVisibleColumns.has(c.key)),
+    [activeVisibleColumns, web]
   );
+  const visibleColumnKey = COLUMNS.map((column) => column.key).join(",");
 
   // Derive multi-selected paths from props instead of mirroring in local state
   const multiSelected = useMemo(
@@ -111,13 +169,16 @@ export function FileGrid({
   // Draggable column widths (pixel values)
   const headerRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number> | null>(null);
+  const columnLayoutKeyRef = useRef<string | null>(null);
 
   // Compute initial pixel widths — always sum exactly to container width
   useLayoutEffect(() => {
-    if (columnWidths) return; // Already initialized
+    const layoutChanged = columnLayoutKeyRef.current !== visibleColumnKey;
+    if (columnWidths && !layoutChanged) return;
     const container = headerRef.current?.parentElement;
     if (!container) return;
-    const visKeys = ALL_COLUMNS.filter((c) => visibleColumns.has(c.key));
+    const availableColumns = web ? WEB_COLUMNS : ALL_COLUMNS;
+    const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
     // Account for resize handle widths between columns
     const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
     const totalWidth = container.clientWidth - 24 - handleTotal;
@@ -132,7 +193,7 @@ export function FileGrid({
     // Proportional widths, clamped to minimum
     visKeys.forEach((c) => {
       widths[c.key] = Math.max(
-        MIN_COL_WIDTH,
+        minimumColumnWidth(c),
         Math.round(((COLUMN_FLEX[c.key] ?? 1) / totalFlex) * totalWidth)
       );
     });
@@ -146,7 +207,7 @@ export function FileGrid({
         if (sum < totalWidth) {
           widths[c.key]++;
           sum++;
-        } else if (widths[c.key] > MIN_COL_WIDTH) {
+        } else if (widths[c.key] > minimumColumnWidth(c)) {
           widths[c.key]--;
           sum--;
         }
@@ -154,8 +215,9 @@ export function FileGrid({
       iter++;
     }
 
+    columnLayoutKeyRef.current = visibleColumnKey;
     setColumnWidths(widths);
-  }, [visibleColumns, columnWidths]);
+  }, [columnWidths, visibleColumnKey, web]);
 
   // Column resize drag state
   const dragRef = useRef<{
@@ -173,9 +235,8 @@ export function FileGrid({
       if (!container || !visibleColumns || !columnWidths) {
         return;
       }
-      const visKeys = ALL_COLUMNS.filter((c) =>
-        visibleColumns.has(c.key)
-      );
+      const availableColumns = web ? WEB_COLUMNS : ALL_COLUMNS;
+      const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
       const curCol = visKeys[colIndex];
       const nextCol = visKeys[colIndex + 1];
       if (!curCol || !nextCol) return;
@@ -193,27 +254,25 @@ export function FileGrid({
         if (!container) return;
         const { startX, startW, nextStartW } = dragRef.current;
         // Compute the current total width to cap overflow
-        const visKeys = ALL_COLUMNS.filter((c) =>
-          visibleColumns.has(c.key)
-        );
+        const visKeys = availableColumns.filter((c) => activeVisibleColumns.has(c.key));
         const handleTotal = (visKeys.length - 1) * HANDLE_WIDTH;
         const availableForCols = container.clientWidth - 24 - handleTotal;
         const delta = ev.clientX - startX;
-        let newW = Math.max(MIN_COL_WIDTH, startW + delta);
-        let newNext = Math.max(MIN_COL_WIDTH, nextStartW - delta);
+        let newW = Math.max(minimumColumnWidth(curCol), startW + delta);
+        let newNext = Math.max(minimumColumnWidth(nextCol), nextStartW - delta);
 
         // Cap total width so columns don't overflow the container
         const otherSum = visKeys.reduce((sum, c) => {
           if (c.key === curCol.key || c.key === nextCol.key) return sum;
-          return sum + (columnWidths?.[c.key] ?? MIN_COL_WIDTH);
+          return sum + (columnWidths?.[c.key] ?? minimumColumnWidth(c));
         }, 0);
         const totalAllowed = newW + newNext + otherSum;
-        if (totalAllowed > availableForCols && newNext > MIN_COL_WIDTH) {
+        if (totalAllowed > availableForCols && newNext > minimumColumnWidth(nextCol)) {
           // Shrink next column to fit
-          newNext = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newW);
-        } else if (totalAllowed > availableForCols && newW > MIN_COL_WIDTH) {
+          newNext = Math.max(minimumColumnWidth(nextCol), availableForCols - otherSum - newW);
+        } else if (totalAllowed > availableForCols && newW > minimumColumnWidth(curCol)) {
           // Shrink current column to fit
-          newW = Math.max(MIN_COL_WIDTH, availableForCols - otherSum - newNext);
+          newW = Math.max(minimumColumnWidth(curCol), availableForCols - otherSum - newNext);
         }
 
         setColumnWidths((prev) => {
@@ -239,11 +298,12 @@ export function FileGrid({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [visibleColumns, columnWidths]
+    [activeVisibleColumns, columnWidths, web]
   );
 
   // Right-click context menu state
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const fileListRef = useRef<HTMLDivElement>(null);
   // Guards against rapid right-clicks that would trigger the Rust backend's
   // ContextMenuAlreadyActive rejection (one concurrent native popup at a time).
   const contextMenuBusyRef = useRef(false);
@@ -258,6 +318,18 @@ export function FileGrid({
   }, [contextMenu]);
 
   const toggleColumn = useCallback((key: string) => {
+    if (web && webVisibleColumns && onWebVisibleColumnsChange) {
+      const webKey = key as WebFileColumn;
+      const current = new Set(webVisibleColumns);
+      if (current.has(webKey)) {
+        if (current.size <= 1) return;
+        current.delete(webKey);
+      } else {
+        current.add(webKey);
+      }
+      onWebVisibleColumnsChange(WEB_FILE_COLUMNS.map((column) => column.key).filter((column) => current.has(column)));
+      return;
+    }
     setVisibleColumns((prev) => {
       const next = new Set(prev);
       // Don't allow hiding the last column
@@ -269,16 +341,27 @@ export function FileGrid({
       }
       return next;
     });
-  }, []);
+  }, [onWebVisibleColumnsChange, web, webVisibleColumns]);
+
+  const activeSortKey = web && webSort ? webSort.key : sortKey;
+  const activeSortAscending = web && webSort ? webSort.ascending : sortAsc;
 
   const toggleSort = useCallback((key: SortKey) => {
+    if (web && onWebSortChange) {
+      const webKey = key as WebSort["key"];
+      onWebSortChange({
+        key: webKey,
+        ascending: key === activeSortKey ? !activeSortAscending : true,
+      });
+      return;
+    }
     if (key === sortKey) {
       setSortAsc((prev) => !prev);
     } else {
       setSortKey(key);
       setSortAsc(true);
     }
-  }, [sortKey]);
+  }, [activeSortAscending, activeSortKey, onWebSortChange, sortKey, web]);
 
   // Filter tracks by active album in-memory (no disk reads)
   const albumFiltered = useMemo(() => {
@@ -303,7 +386,7 @@ export function FileGrid({
 
     return [...list].sort((a, b) => {
       let cmp = 0;
-      switch (sortKey) {
+      switch (activeSortKey) {
         case "filename":
           cmp = shortPath(a.path).localeCompare(shortPath(b.path));
           break;
@@ -328,16 +411,36 @@ export function FileGrid({
         case "genre":
           cmp = (a.genre ?? "").localeCompare(b.genre ?? "");
           break;
+        case "composer":
+          cmp = (a.composer ?? "").localeCompare(b.composer ?? "");
+          break;
+        case "comment":
+          cmp = (a.comment ?? "").localeCompare(b.comment ?? "");
+          break;
+        case "disc":
+          cmp = (a.discNumber ?? 999) - (b.discNumber ?? 999);
+          break;
+        case "lyrics":
+          cmp = Number(Boolean(a.lyrics?.syncedLyrics || a.lyrics?.plainLyrics)) - Number(Boolean(b.lyrics?.syncedLyrics || b.lyrics?.plainLyrics));
+          break;
+        case "cover":
+          cmp = Number(a.hasCover) - Number(b.hasCover);
+          break;
         case "duration":
           cmp = a.duration - b.duration;
           break;
+        case "sampleRate":
+          cmp = (a.sampleRate ?? 0) - (b.sampleRate ?? 0);
+          break;
         case "bitrate":
-          cmp = (a.bitrate ?? 0) - (b.bitrate ?? 0);
+          cmp = web
+            ? (a.codec ?? "").localeCompare(b.codec ?? "")
+            : (a.bitrate ?? 0) - (b.bitrate ?? 0);
           break;
       }
-      return sortAsc ? cmp : -cmp;
+      return activeSortAscending ? cmp : -cmp;
     });
-  }, [albumFiltered, filterText, sortKey, sortAsc]);
+  }, [activeSortAscending, activeSortKey, albumFiltered, filterText, web]);
 
   // Memoize the sorted paths array for quick lookups in the Cmd+A handler
   const sortedPaths = useMemo(() => sorted.map((t) => t.path), [sorted]);
@@ -350,13 +453,16 @@ export function FileGrid({
         if (active === "input" || active === "textarea" || active === "select") {
           return; // Let native select-all work in text fields
         }
+        if (web && (!webActive || !fileListRef.current?.contains(document.activeElement))) {
+          return;
+        }
         e.preventDefault();
         onMultiSelect?.(sortedPaths);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [sortedPaths, onMultiSelect]);
+  }, [sortedPaths, onMultiSelect, web, webActive]);
 
   const showTrackMenu = useCallback(
     async (track: TrackData) => {
@@ -478,31 +584,31 @@ export function FileGrid({
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div data-web-variant={web || undefined} className={web ? "web-file-grid" : "flex flex-col h-full bg-white"}>
       {/* Column headers */}
       <div
         ref={headerRef}
-        className="flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"
-        onContextMenu={handleHeaderContextMenu}
+        className={web ? "web-file-grid-header flex items-center select-none overflow-hidden" : "flex items-center px-3 py-1.5 text-[11px] font-medium text-text-muted bg-surface-alt/60 border-b border-border select-none overflow-hidden"}
+        onContextMenu={web ? undefined : handleHeaderContextMenu}
       >
         {COLUMNS.map((col, ci) => (
           <React.Fragment key={col.key}>
             <button
               onClick={() => toggleSort(col.key)}
-              className={`flex items-center gap-1.5 px-1.5 hover:text-text-secondary transition-all duration-150 truncate shrink-0 rounded-md ${
-                col.key === sortKey
-                  ? "bg-accent/10 text-accent font-semibold"
-                  : "hover:bg-surface-hover"
+              className={`flex items-center gap-1.5 px-1.5 transition-all duration-150 truncate shrink-0 rounded-md ${
+                col.key === activeSortKey
+                  ? web ? "web-file-header-selected" : "bg-accent/10 text-accent font-semibold"
+                  : web ? "hover:bg-[#f3f1ef] hover:text-[#4b4641]" : "hover:bg-surface-hover hover:text-text-secondary"
               }`}
               style={{
-                width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-                minWidth: MIN_COL_WIDTH,
+                width: columnWidths?.[col.key] ?? minimumColumnWidth(col),
+                minWidth: minimumColumnWidth(col),
               }}
             >
               <span className="truncate">{col.label}</span>
               <span className="inline-flex items-center justify-center w-3.5 h-3.5 shrink-0">
-                {col.key === sortKey ? (
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent transition-transform duration-200" style={{ transform: sortAsc ? 'rotate(0deg)' : 'rotate(180deg)' }}>
+                {col.key === activeSortKey ? (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-accent transition-transform duration-200" style={{ transform: activeSortAscending ? 'rotate(0deg)' : 'rotate(180deg)' }}>
                     <polyline points="18 15 12 9 6 15" />
                   </svg>
                 ) : (
@@ -534,7 +640,7 @@ export function FileGrid({
             Columns
           </div>
           <div className="h-px bg-border/50 mx-2 my-0.5" />
-          {ALL_COLUMNS.map((col) => (
+          {(web ? WEB_COLUMNS : ALL_COLUMNS).map((col) => (
             <button
               key={col.key}
               onClick={(e) => {
@@ -566,9 +672,12 @@ export function FileGrid({
 
       {/* File rows */}
       <div
-        className="flex-1 overflow-y-auto"
+        ref={fileListRef}
+        className={web ? "web-file-grid-body" : "flex-1 overflow-y-auto"}
         data-testid="file-grid-body"
-        onContextMenu={handleFileAreaContextMenu}
+        tabIndex={web ? 0 : undefined}
+        aria-label={web ? "File list" : undefined}
+        onContextMenu={web ? undefined : handleFileAreaContextMenu}
       >
         {sorted.length === 0 ? (
           <div className="flex items-center justify-center h-full text-text-muted text-[12px]">
@@ -598,13 +707,14 @@ export function FileGrid({
               columnWidths={columnWidths}
               onRowClick={handleRowClick}
               onRowContextMenu={handleRowContextMenu}
+              web={web}
             />
           ))
         )}
       </div>
 
       {/* Footer bar */}
-      <div className="flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3">
+      <div className={web ? "web-file-grid-footer" : "flex items-center px-4 py-1.5 text-[10.5px] text-text-muted bg-surface-alt/60 border-t border-border gap-3"}>
         <span className="tabular-nums">{sorted.length} file{sorted.length !== 1 ? "s" : ""}</span>
         {multiSelected.size > 1 && (
           <span className="text-accent tabular-nums font-medium">{multiSelected.size} selected</span>
@@ -659,8 +769,24 @@ function getCellValue(track: TrackData, key: SortKey): string {
         : "—";
     case "genre":
       return track.genre ?? "—";
+    case "composer":
+      return track.composer ?? "—";
+    case "comment":
+      return track.comment ?? "—";
+    case "disc":
+      return track.discNumber != null
+        ? track.discTotal != null
+          ? `${track.discNumber}/${track.discTotal}`
+          : String(track.discNumber)
+        : "—";
+    case "lyrics":
+      return track.lyrics?.syncedLyrics || track.lyrics?.plainLyrics ? "Available" : "—";
+    case "cover":
+      return track.hasCover ? "Available" : "—";
     case "duration":
       return formatDuration(track.duration);
+    case "sampleRate":
+      return track.sampleRate != null ? `${Math.round(track.sampleRate / 1000)} kHz` : "—";
     case "bitrate":
       return track.bitrate ? `${Math.round(track.bitrate / 1000)}k` : "—";
   }
@@ -679,6 +805,7 @@ interface FileGridRowProps {
   columnWidths: Record<string, number> | null;
   onRowClick: (track: TrackData, index: number, event: React.MouseEvent) => void;
   onRowContextMenu: (e: React.MouseEvent, track: TrackData) => void;
+  web?: boolean;
 }
 
 const FileGridRow = memo(function FileGridRow({
@@ -692,6 +819,7 @@ const FileGridRow = memo(function FileGridRow({
   columnWidths,
   onRowClick,
   onRowContextMenu,
+  web = false,
 }: FileGridRowProps) {
   const auditClass = auditSummary?.hasManualReview
     ? auditSummary.highestStatus === "error"
@@ -701,26 +829,32 @@ const FileGridRow = memo(function FileGridRow({
       ? "bg-green-500/5 shadow-[inset_2px_0_0_0_rgba(34,197,94,0.35)]"
       : null;
 
-  const rowClass = [
-    "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
-    "transition-colors duration-75",
-    isPrimary
-      ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
-      : isMulti
-        ? "bg-table-selected/60"
-        : auditClass
-          ? auditClass
-        : isAltRow
-          ? "bg-table-alt"
-          : "bg-table-row",
-    "hover:bg-table-selected/40",
-  ].join(" ");
+  const rowClass = web
+    ? [
+        "web-file-grid-row",
+        isPrimary || isMulti ? "web-file-grid-row-selected" : "",
+        auditClass ?? "",
+      ].join(" ")
+    : [
+        "flex items-center px-3 py-1 text-[12.5px] cursor-pointer select-none border-b border-border/30",
+        "transition-colors duration-75",
+        isPrimary
+          ? "bg-table-selected border-table-selectedBorder shadow-[inset_2px_0_0_0_rgba(0,122,255,0.5)]"
+          : isMulti
+            ? "bg-table-selected/60"
+            : auditClass
+              ? auditClass
+              : isAltRow
+                ? "bg-table-alt"
+                : "bg-table-row",
+        "hover:bg-table-selected/40",
+      ].join(" ");
 
   return (
     <div
       data-testid={`file-row-${track.path}`}
       onClick={(e) => onRowClick(track, index, e)}
-      onContextMenu={(e) => onRowContextMenu(e, track)}
+      onContextMenu={web ? undefined : (e) => onRowContextMenu(e, track)}
       className={rowClass}
     >
       {columns.map((col, ci) => (
@@ -730,12 +864,12 @@ const FileGridRow = memo(function FileGridRow({
               col.align === "right" ? "text-right" : "text-left"
             } px-1.5 truncate ${
               isPrimary
-                ? "text-text-primary font-medium"
-                : "text-text-secondary"
+                ? web ? "web-file-cell-primary" : "text-text-primary font-medium"
+                : web ? "web-file-cell" : "text-text-secondary"
             }`}
             style={{
-              width: columnWidths?.[col.key] ?? (col.width.includes("-") ? 80 : 120),
-              minWidth: MIN_COL_WIDTH,
+              width: columnWidths?.[col.key] ?? minimumColumnWidth(col),
+              minWidth: minimumColumnWidth(col),
             }}
           >
             {col.key === "filename" ? (
@@ -751,7 +885,7 @@ const FileGridRow = memo(function FileGridRow({
                 )}
               </span>
             ) : (
-              getCellValue(track, col.key)
+              web && col.key === "bitrate" ? track.codec.toUpperCase() : getCellValue(track, col.key)
             )}
           </span>
           {ci < columns.length - 1 && (

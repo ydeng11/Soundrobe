@@ -10,6 +10,8 @@ interface BatchEditorProps {
   onRemoveCover?: () => void;
   onDownloadCover?: () => Promise<void>;
   onDownloadArtistArt?: () => Promise<void>;
+  /** Browser-only warm inspector treatment. */
+  web?: boolean;
 }
 
 const BATCH_FIELDS: { key: string; label: string; placeholder: string }[] = [
@@ -30,6 +32,7 @@ export function BatchEditor({
   onRemoveCover,
   onDownloadCover,
   onDownloadArtistArt,
+  web = false,
 }: BatchEditorProps) {
   // Build suggestion lists from the selected tracks
   const suggestions = useMemo(() => {
@@ -127,9 +130,9 @@ export function BatchEditor({
   }, [tracks]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-white border-l border-border">
+    <div data-web-variant={web || undefined} className={web ? "flex flex-col h-full overflow-y-auto bg-[#fffdfb]" : "flex flex-col h-full overflow-y-auto bg-white border-l border-border"}>
       {/* Header */}
-      <div className="px-5 py-3.5 bg-surface-alt/40 border-b border-border/60">
+      <div className={web ? "px-5 py-4 bg-[#faf9f7] border-b border-[#ebe9e6]" : "px-5 py-3.5 bg-surface-alt/40 border-b border-border/60"}>
         <div className="flex items-center gap-2.5">
           <div className="flex-1 min-w-0">
             <div className="text-[12px] font-medium text-text-primary truncate">
@@ -157,7 +160,7 @@ export function BatchEditor({
         </div>
       </div>
 
-      <div className="flex-1 px-5 py-4 space-y-5">
+      <div className={web ? "flex-1 px-5 py-5 space-y-5" : "flex-1 px-5 py-4 space-y-5"}>
         {/* Cover art preview */}
         <div>
           <div className="w-full aspect-square max-w-[220px] mx-auto rounded-xl overflow-hidden bg-surface-alt border border-border shadow-sm">
@@ -240,6 +243,7 @@ export function BatchEditor({
               suggestions={suggestions[f.key]}
               hasDiffering={differing.has(f.key)}
               onChange={(v) => setField(f.key, v)}
+              web={web}
             />
           ))}
         </div>
@@ -248,7 +252,7 @@ export function BatchEditor({
           type="button"
           onClick={flushChanges}
           disabled={!dirty || saving}
-          className="w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+          className={web ? "w-full rounded-xl bg-[#202124] px-3 py-2.5 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40" : "w-full rounded-lg bg-accent px-3 py-2 text-[12px] font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"}
         >
           Apply changes
         </button>
@@ -266,6 +270,7 @@ function BatchField({
   suggestions,
   hasDiffering,
   onChange,
+  web = false,
 }: {
   label: string;
   placeholder: string;
@@ -273,6 +278,7 @@ function BatchField({
   suggestions: string[];
   hasDiffering: boolean;
   onChange: (v: string) => void;
+  web?: boolean;
 }) {
   const id = useId();
   const listboxId = useId();
@@ -400,7 +406,7 @@ function BatchField({
           onFocus={handleFocus}
           onKeyDown={handleKeyDown}
           placeholder={hasDiffering ? `${placeholder} (mixed values)` : placeholder}
-          className="w-full bg-white border border-border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"
+          className={web ? "w-full bg-[#fcfbfa] border border-[#d9d8d5] rounded-xl px-3 py-2 text-[12px] text-[#302e2c] placeholder-[#9a9691] outline-none transition-all focus:border-[#a85732] focus:shadow-[0_0_0_3px_rgba(168,87,50,0.12)]" : "w-full bg-white border border-border rounded-lg px-3 py-1.5 text-[12px] text-text-primary placeholder-text-muted/40 outline-none transition-all focus:border-accent/60 focus:shadow-[0_0_0_3px_rgba(0,122,255,0.2)]"}
         />
         {open && filtered.length > 0 && (
           <div

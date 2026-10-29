@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import type { TagSuggestion } from "../shared/desktop-api";
 
 const TABS = ["providers", "metadata", "advanced"] as const;
 type TabId = (typeof TABS)[number];
@@ -21,6 +22,8 @@ interface SettingsState {
   assistantAutonomous: boolean;
   theAudioDbApiKey: string;
   chineseScript: string;
+  clearTagsEnabled: boolean;
+  clearTags: string[];
 }
 
 interface SettingsModalProps {
@@ -52,7 +55,12 @@ export function SettingsModal({
     assistantAutonomous: false,
     theAudioDbApiKey: "",
     chineseScript: "",
+    clearTagsEnabled: false,
+    clearTags: [],
   });
+  const [tagDraft, setTagDraft] = useState("");
+  const [tagSuggestions, setTagSuggestions] = useState<TagSuggestion[]>([]);
+  const [supportedTags, setSupportedTags] = useState<TagSuggestion[]>([]);
   const [keyConfigured, setKeyConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,6 +74,8 @@ export function SettingsModal({
     setSaveError(null);
     setAppVersion(null);
     setActiveTab("providers");
+    setTagDraft("");
+    setTagSuggestions([]);
 
     if (typeof window.api.appInfo === "function") {
       void window.api
@@ -76,7 +86,13 @@ export function SettingsModal({
 
     (async () => {
       try {
-        const cfg = await window.api.getConfig();
+        const [cfg, tags] = await Promise.all([
+          window.api.getConfig(),
+          typeof window.api.suggestTagNames === "function"
+            ? window.api.suggestTagNames("")
+            : Promise.resolve([]),
+        ]);
+        setSupportedTags(tags);
         setKeyConfigured(!!(cfg.llmApiKeyConfigured as boolean));
         setSettings({
           llmApiKey: (cfg.llmApiKey as string) ?? "",
@@ -90,6 +106,10 @@ export function SettingsModal({
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
           theAudioDbApiKey: (cfg.theAudioDbApiKey as string) ?? "",
           chineseScript: (cfg.chineseScript as string) ?? "",
+          clearTagsEnabled: (cfg.clearTagsEnabled as boolean) ?? false,
+          clearTags: Array.isArray(cfg.clearTags)
+            ? cfg.clearTags.filter((tag): tag is string => typeof tag === "string")
+            : [],
         });
       } catch (err) {
         setSaveError(
@@ -100,6 +120,26 @@ export function SettingsModal({
       }
     })();
   }, [open]);
+
+  useEffect(() => {
+    const query = tagDraft.trim();
+    if (!query || typeof window.api?.suggestTagNames !== "function") {
+      setTagSuggestions([]);
+      return;
+    }
+    let active = true;
+    void window.api
+      .suggestTagNames(query)
+      .then((tags) => {
+        if (active) setTagSuggestions(tags);
+      })
+      .catch(() => {
+        if (active) setTagSuggestions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [tagDraft]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -132,6 +172,8 @@ export function SettingsModal({
       promises.push(window.api.setDebugMode(settings.debug));
       promises.push(window.api.setConfig("assistantAutonomous", settings.assistantAutonomous));
       promises.push(window.api.setConfig("chineseScript", settings.chineseScript || null));
+      promises.push(window.api.setConfig("clearTagsEnabled", settings.clearTagsEnabled));
+      promises.push(window.api.setConfig("clearTags", settings.clearTags));
 
       await Promise.all(promises);
       onClose();
@@ -142,6 +184,17 @@ export function SettingsModal({
     } finally {
       setSaving(false);
     }
+  };
+
+  const keptTagLabels = supportedTags
+    .filter((tag) => !settings.clearTags.includes(tag.id))
+    .map((tag) => tag.label);
+
+  const addClearTag = (suggestion: TagSuggestion) => {
+    if (!settings.clearTags.includes(suggestion.id)) {
+      setSettings({ ...settings, clearTags: [...settings.clearTags, suggestion.id] });
+    }
+    setTagDraft("");
   };
 
   if (!open) return null;
@@ -251,7 +304,7 @@ export function SettingsModal({
                         setSettings({
                           ...settings,
                           llmProvider: provider,
-                          llmBaseUrl: baseUrl || settings.llmBaseUrl,
+                          llmBaseUrl: baseUrl,
                           llmModel: defaultModel || settings.llmModel,
                         });
                       }}
@@ -355,6 +408,82 @@ export function SettingsModal({
                       <option value="traditional">Traditional Chinese</option>
                     </select>
                   </FieldRow>
+
+                  <ToggleRow
+                    label="Clear selected tags before writing metadata"
+                    description="Only ID3 / Navidrome-supported tags are available."
+                    checked={settings.clearTagsEnabled}
+                    onChange={(enabled) => setSettings({ ...settings, clearTagsEnabled: enabled })}
+                  />
+
+                  {settings.clearTagsEnabled && (
+                    <div className="flex flex-col gap-2" data-testid="settings-clear-tags">
+                      <label className="text-[11px] font-medium text-text-primary" htmlFor="setting-clear-tag">
+                        Selected tags will be cleared
+                      </label>
+                      <div className="flex gap-1.5">
+                        <input
+                          id="setting-clear-tag"
+                          role="combobox"
+                          aria-label="Tags to clear"
+                          aria-autocomplete="list"
+                          value={tagDraft}
+                          onChange={(event) => setTagDraft(event.target.value)}
+                          placeholder="Type Comment or Description"
+                          className={INPUT_CLASS}
+                        />
+                      </div>
+                      {tagSuggestions.length > 0 && (
+                        <div role="listbox" className="flex flex-wrap gap-1">
+                          {tagSuggestions.map((suggestion) => (
+                            <button
+                              key={suggestion.id}
+                              type="button"
+                              role="option"
+                              aria-selected={settings.clearTags.includes(suggestion.id)}
+                              disabled={settings.clearTags.includes(suggestion.id)}
+                              onClick={() => addClearTag(suggestion)}
+                              title={`${suggestion.frame} · ${suggestion.source}`}
+                              className="px-2 py-1 text-[10px] rounded-md border border-border bg-surface-alt text-text-secondary hover:bg-surface-hover disabled:opacity-50"
+                            >
+                              {suggestion.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {settings.clearTags.length > 0 && (
+                        <ul className="flex flex-wrap gap-1" data-testid="settings-clear-tag-list">
+                          {settings.clearTags.map((tagId) => {
+                            const suggestion = supportedTags.find((tag) => tag.id === tagId);
+                            return (
+                              <li key={tagId} className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-md bg-surface-alt">
+                                {suggestion?.label ?? tagId}
+                                <button
+                                  type="button"
+                                  aria-label={`Remove ${suggestion?.label ?? tagId} from clear list`}
+                                  title="Remove from clear list"
+                                  onClick={() =>
+                                    setSettings({
+                                      ...settings,
+                                      clearTags: settings.clearTags.filter((tag) => tag !== tagId),
+                                    })
+                                  }
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded text-text-muted hover:text-text-primary"
+                                >
+                                  <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M6 6 18 18M18 6 6 18" />
+                                  </svg>
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                      <p className="text-[10px] leading-tight text-text-muted" data-testid="settings-kept-tags">
+                        Tags kept during tagging: {keptTagLabels.length > 0 ? keptTagLabels.join(", ") : "none"}.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

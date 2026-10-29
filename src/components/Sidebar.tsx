@@ -7,6 +7,8 @@ interface SidebarProps {
   activeAlbumPath: string | null;
   onSelectAlbum: (path: string | null) => void;
   onOpenLibrary: () => void;
+  /** Browser-only compact navigation treatment. Desktop remains unchanged. */
+  web?: boolean;
 }
 
 export function Sidebar({
@@ -15,45 +17,53 @@ export function Sidebar({
   activeAlbumPath,
   onSelectAlbum,
   onOpenLibrary,
+  web = false,
 }: SidebarProps) {
   return (
-    <div className="w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden">
+    <div data-web-variant={web || undefined} className={web ? "web-folder-sidebar" : "w-[220px] min-w-[180px] h-full flex flex-col bg-sidebar-DEFAULT backdrop-blur-xl border-r border-sidebar-border select-none overflow-hidden"}>
       {/* App header */}
-      <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
-        <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center shadow-sm shadow-accent/20 transition-all duration-300 group">
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="white"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="group-hover:scale-110 transition-transform duration-300"
-          >
-            <path d="M9 18V5l12-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="18" cy="16" r="3" />
-          </svg>
+      {web ? (
+        <div className="web-folder-sidebar-heading">
+          <p className="web-rail-label">Mounted root</p>
+          <p className="web-root-name" title={libraryPath ?? undefined}>{libraryPath ?? "No library selected"}</p>
         </div>
-        <span className="text-[13px] font-semibold text-text-primary tracking-tight">
-          TagUI
-        </span>
-      </div>
+      ) : (
+        <div className="px-4 pt-3 pb-2 flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-lg bg-accent flex items-center justify-center shadow-sm shadow-accent/20 transition-all duration-300 group">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="group-hover:scale-110 transition-transform duration-300"
+            >
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+          </div>
+          <span className="text-[13px] font-semibold text-text-primary tracking-tight">
+            TagUI
+          </span>
+        </div>
+      )}
 
       {/* Divider */}
-      <div className="mx-4 my-2 h-px bg-sidebar-border" />
+      <div className={web ? "web-folder-sidebar-divider" : "mx-4 my-2 h-px bg-sidebar-border"} />
 
       {/* Section header */}
-      <div className="px-4 py-1">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          Albums
+      <div className={web ? "web-folder-sidebar-label" : "px-4 py-1"}>
+        <span className={web ? "web-rail-label" : "text-[11px] font-semibold uppercase tracking-wider text-text-muted"}>
+          {web ? `Albums ${albums.length}` : "Albums"}
         </span>
       </div>
 
       {/* Albums List */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div className={web ? "web-folder-sidebar-list" : "flex-1 overflow-y-auto px-2 pb-2"}>
         {!libraryPath ? (
           <div className="px-3 py-6 text-center">
             <div className="text-text-muted text-[11px] leading-relaxed">
@@ -63,7 +73,7 @@ export function Sidebar({
             </div>
             <button
               onClick={onOpenLibrary}
-              className="mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"
+              className={web ? "web-button-primary mt-3" : "mt-3 px-3 py-1.5 text-[11px] font-medium rounded-lg bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm"}
             >
               Open Library…
             </button>
@@ -73,9 +83,10 @@ export function Sidebar({
             No albums found
           </div>
         ) : (
-          <div className="space-y-0.5">
+          <div className={web ? "space-y-0.5 px-2" : "space-y-0.5"}>
             {/* "All Files" item */}
             <AlbumRow
+              web={web}
               name="All Files"
               count={0}
               active={activeAlbumPath === null}
@@ -83,6 +94,7 @@ export function Sidebar({
             />
             {albums.map((album) => (
               <AlbumRow
+                web={web}
                 key={album.path}
                 name={album.name}
                 artist={album.artistHint || album.albumHint}
@@ -97,7 +109,7 @@ export function Sidebar({
 
       {/* Bottom metadata */}
       {libraryPath && (
-        <div className="px-4 py-2 border-t border-sidebar-border">
+        <div className={web ? "web-folder-sidebar-footer" : "px-4 py-2 border-t border-sidebar-border"}>
           <div className="flex items-center gap-1.5 text-[10px] text-text-muted truncate">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -118,12 +130,14 @@ function AlbumRow({
   count,
   active,
   onClick,
+  web = false,
 }: {
   name: string;
   artist?: string;
   count?: number;
   active?: boolean;
   onClick: () => void;
+  web?: boolean;
 }) {
   return (
     <div className="relative group">
@@ -137,10 +151,10 @@ function AlbumRow({
       />
       <button
         onClick={onClick}
-        className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 py-1.5 rounded-lg text-[12px] transition-all duration-150 text-left ${
+        className={`w-full flex items-center gap-2 pl-[15px] pr-2.5 ${web ? "py-2.5 rounded-xl" : "py-1.5 rounded-lg"} text-[12px] transition-all duration-150 text-left ${
           active
-            ? "bg-sidebar-active text-accent font-medium"
-            : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
+            ? web ? "web-folder-row-selected" : "bg-sidebar-active text-accent font-medium"
+            : web ? "web-folder-row" : "text-text-secondary hover:bg-sidebar-hover hover:text-text-primary"
         }`}
       >
         <span className="w-4 h-4 shrink-0 flex items-center justify-center">

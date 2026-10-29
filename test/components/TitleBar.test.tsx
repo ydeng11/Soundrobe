@@ -71,6 +71,15 @@ describe("TitleBar — all buttons", () => {
     });
   });
 
+  it("keeps service-only library management out of the editor toolbar", () => {
+    render(<TitleBar {...defaultProps({ webService: true })} />);
+
+    for (const label of ["Open Library", "Auto-Tag", "Results", "Search", "Get Lyrics", "Audit"]) {
+      expect(screen.queryByText(label)).toBeNull();
+    }
+    expect(screen.getByPlaceholderText("Filter files...")).toBeTruthy();
+  });
+
   // ── Library path + track count + refresh ──────────────────
 
   describe("library path display", () => {

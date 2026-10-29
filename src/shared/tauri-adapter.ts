@@ -95,6 +95,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     },
 
     // Library
+    listLibraryRoots: () => invokeCommand("library:list-roots"),
     scanLibrary: (dirPath) => invokeCommand("library:scan", { dirPath }),
     refreshAlbum: (albumPath) => invokeCommand("album:refresh", { albumPath }),
 
@@ -152,6 +153,7 @@ export function createTauriDesktopApi(): DesktopAPI {
     // Config
     getConfig: () => invokeCommand("config:get", undefined),
     setConfig: (key, value) => invokeCommand("config:set", { key, value }),
+    suggestTagNames: (query) => invokeCommand("tags:suggest", { query }),
 
     // Auto-tag
     clearAutoTagReviews: () => invokeCommand("auto-tag:reviews:clear"),

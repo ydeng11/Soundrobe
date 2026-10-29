@@ -11,6 +11,8 @@
 # Project specific
 .env
 .env.local
+.env.web
+.soundrobe-web-local/
 *.log
 .cache/
 cache.db
@@ -30,3 +32,6 @@ test-results/
 !.planning/handoffs/
 .planning/handoffs/*
 !.planning/handoffs/APE_HANDOFF.md
+
+# Skills installed for other agent tools (universal skills live in .agents/skills)
+.claude/skills/

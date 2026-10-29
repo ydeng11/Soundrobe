@@ -49,6 +49,18 @@ describe("install-desktop-api loader", () => {
     expect(listenMock.mock.calls[0][0]).toBe("debug:log");
   });
 
+  it("installs the fetch-backed facade in a plain browser", () => {
+    installDesktopApi();
+
+    const api = (window as unknown as { api: unknown }).api;
+    expect(typeof api).toBe("object");
+    expect(api).not.toBeNull();
+    expect(typeof (api as { listLibraryRoots: unknown }).listLibraryRoots).toBe(
+      "function",
+    );
+    expect(listenMock).not.toHaveBeenCalled();
+  });
+
   it("is idempotent under Tauri (does not recreate window.api)", () => {
     (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {};
     installDesktopApi();

@@ -6,6 +6,48 @@ use std::{fs, io};
 pub const APP_DIR_NAME: &str = ".soundrobe";
 pub const LEGACY_APP_DIR_NAME: &str = ".auto-tagger";
 
+/// Explicit application-data location for a runtime.
+///
+/// Desktop paths retain the user's home solely to perform the one-time legacy
+/// migration. Server paths contain only the configured data directory, so
+/// preparing a container runtime cannot inspect or migrate a user home.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AppDataPaths {
+    data_dir: PathBuf,
+    legacy_home: Option<PathBuf>,
+}
+
+impl AppDataPaths {
+    pub fn desktop(home: PathBuf) -> Self {
+        Self {
+            data_dir: app_dir(&home),
+            legacy_home: Some(home),
+        }
+    }
+
+    pub fn server(data_dir: PathBuf) -> Self {
+        Self {
+            data_dir,
+            legacy_home: None,
+        }
+    }
+
+    pub fn prepare(&self) -> io::Result<()> {
+        if let Some(home) = &self.legacy_home {
+            migrate_legacy_dir(home)?;
+        }
+        fs::create_dir_all(&self.data_dir)
+    }
+
+    pub fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+
+    pub fn file(&self, file_name: &str) -> PathBuf {
+        self.data_dir.join(file_name)
+    }
+}
+
 pub fn app_dir(home: &Path) -> PathBuf {
     home.join(APP_DIR_NAME)
 }
@@ -113,6 +155,45 @@ mod tests {
             canonical_path(home, "config.yaml"),
             home.join(".soundrobe/config.yaml")
         );
+    }
+
+    #[test]
+    fn desktop_paths_prepare_migrates_legacy_data() {
+        let root =
+            std::env::temp_dir().join(format!("soundrobe-desktop-paths-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(legacy_app_dir(&root)).unwrap();
+        fs::write(legacy_app_dir(&root).join("config.yaml"), b"debug: true\n").unwrap();
+
+        let paths = AppDataPaths::desktop(root.clone());
+        paths.prepare().unwrap();
+
+        assert_eq!(paths.data_dir(), root.join(".soundrobe"));
+        assert_eq!(
+            paths.file("config.yaml"),
+            root.join(".soundrobe/config.yaml")
+        );
+        assert!(!legacy_app_dir(&root).exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn server_paths_use_exact_directory_without_legacy_migration() {
+        let root =
+            std::env::temp_dir().join(format!("soundrobe-server-paths-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let legacy = root.join(".auto-tagger");
+        fs::create_dir_all(&legacy).unwrap();
+        fs::write(legacy.join("keep"), b"legacy").unwrap();
+
+        let paths = AppDataPaths::server(root.join("config"));
+        paths.prepare().unwrap();
+
+        assert_eq!(paths.data_dir(), root.join("config"));
+        assert_eq!(paths.file("cache.db"), root.join("config/cache.db"));
+        assert!(legacy.join("keep").exists());
+        assert!(!root.join("config/.soundrobe").exists());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

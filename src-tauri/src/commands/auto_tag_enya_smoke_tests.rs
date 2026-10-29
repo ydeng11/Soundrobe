@@ -105,7 +105,9 @@ fn classify_invocation(
     provider_incomplete: bool,
     invariants_ok: bool,
 ) -> FolderClassification {
-    if resolver_error || (!invariants_ok && result.is_some_and(|value| value.outcome == AutoTagOutcome::Applied)) {
+    if resolver_error
+        || (!invariants_ok && result.is_some_and(|value| value.outcome == AutoTagOutcome::Applied))
+    {
         return FolderClassification::FailedVerification;
     }
     if timed_out || provider_incomplete {
@@ -132,8 +134,7 @@ fn reconcile_folder_classification(
         || warm == FolderClassification::ConfirmedSuccess
     {
         FolderClassification::ConfirmedSuccess
-    } else if cold == FolderClassification::Incomplete || warm == FolderClassification::Incomplete
-    {
+    } else if cold == FolderClassification::Incomplete || warm == FolderClassification::Incomplete {
         FolderClassification::Incomplete
     } else {
         FolderClassification::NeedsReview
@@ -277,13 +278,9 @@ fn hash_tree(root: &Path, include_audio_payloads: bool) -> std::io::Result<HashS
             .unwrap_or(&path)
             .to_string_lossy()
             .replace(std::path::MAIN_SEPARATOR, "/");
-        record.files.insert(
-            relative.clone(),
-            FileHash {
-                bytes,
-                sha256,
-            },
-        );
+        record
+            .files
+            .insert(relative.clone(), FileHash { bytes, sha256 });
         if include_audio_payloads {
             let bytes = fs::read(&path)?;
             record
@@ -314,7 +311,11 @@ fn cache_counts(path: &Path) -> BTreeMap<String, u64> {
     let Ok(connection) = Connection::open(path) else {
         return counts;
     };
-    for table in ["lookup_cache", "artist_release_cache", "release_detail_cache"] {
+    for table in [
+        "lookup_cache",
+        "artist_release_cache",
+        "release_detail_cache",
+    ] {
         let count = connection
             .query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
                 row.get::<_, i64>(0)
@@ -351,9 +352,17 @@ fn provider_incomplete(
         .join(" ")
         .to_ascii_lowercase();
     attempts_unavailable
-        || ["429", "503", "rate limit", "timed out", "timeout", "detail limit", "unavailable"]
-            .iter()
-            .any(|needle| text.contains(needle))
+        || [
+            "429",
+            "503",
+            "rate limit",
+            "timed out",
+            "timeout",
+            "detail limit",
+            "unavailable",
+        ]
+        .iter()
+        .any(|needle| text.contains(needle))
 }
 
 fn evidence_counts(request: &LookupRequest, candidate: &AlbumCandidate) -> Value {
@@ -557,9 +566,7 @@ fn report_markdown(
     let guarded_attributions = folder_results
         .values()
         .filter(|result| {
-            result
-                .get("classification")
-                .and_then(Value::as_str)
+            result.get("classification").and_then(Value::as_str)
                 == Some(FolderClassification::ConfirmedSuccess.as_str())
                 && ["cold", "warm"].iter().any(|phase| {
                     result
@@ -576,10 +583,14 @@ fn report_markdown(
     for result in folder_results.values() {
         match result.get("classification").and_then(Value::as_str) {
             Some(value) if value == FolderClassification::Incomplete.as_str() => {
-                *causes.entry("provider unavailable or detail limit".into()).or_default() += 1;
+                *causes
+                    .entry("provider unavailable or detail limit".into())
+                    .or_default() += 1;
             }
             Some(value) if value == FolderClassification::NeedsReview.as_str() => {
-                *causes.entry("no authoritative provider match".into()).or_default() += 1;
+                *causes
+                    .entry("no authoritative provider match".into())
+                    .or_default() += 1;
             }
             _ => {}
         }
@@ -600,23 +611,24 @@ fn report_markdown(
         ));
     }
     text.push_str("\n## Album results\n\n");
-    text.push_str("| Folder | Classification | Cold | Warm | Selected release IDs |\n|---|---|---|---|---|\n");
+    text.push_str(
+        "| Folder | Classification | Cold | Warm | Selected release IDs |\n|---|---|---|---|---|\n",
+    );
     for (folder, result) in folder_results {
         let classification = result
             .get("classification")
             .and_then(Value::as_str)
             .unwrap_or("unknown");
-        let cold = result
-            .get("cold")
-            .map(|_| "recorded")
-            .unwrap_or("missing");
-        let warm = result
-            .get("warm")
-            .map(|_| "recorded")
-            .unwrap_or("missing");
+        let cold = result.get("cold").map(|_| "recorded").unwrap_or("missing");
+        let warm = result.get("warm").map(|_| "recorded").unwrap_or("missing");
         let ids = ["cold", "warm"]
             .iter()
-            .filter_map(|phase| result.get(*phase)?.get("selectedIdentity")?.get("discogsReleaseId"))
+            .filter_map(|phase| {
+                result
+                    .get(*phase)?
+                    .get("selectedIdentity")?
+                    .get("discogsReleaseId")
+            })
             .filter_map(Value::as_str)
             .collect::<Vec<_>>()
             .join(", ");
@@ -626,7 +638,9 @@ fn report_markdown(
     }
     text.push_str("\n## Attribution\n\n");
     text.push_str("A matcher attribution is reported only when a native selected candidate carries GuardedTitle evidence and prior evidence shows that the same release failed before normalized-title matching. Provider recovery and different-release selection remain separate causes. Matcher-only cache probes are supporting evidence and are not counted as native successes.\n\n");
-    text.push_str(&format!("Native GuardedTitle attributions: {guarded_attributions}.\n\n"));
+    text.push_str(&format!(
+        "Native GuardedTitle attributions: {guarded_attributions}.\n\n"
+    ));
     text.push_str("## Remaining causes\n\n");
     let mut ranked_causes = causes.into_iter().collect::<Vec<_>>();
     ranked_causes.sort_by(|(left_name, left_count), (right_name, right_count)| {
@@ -701,7 +715,10 @@ fn enya_manifest_reconciles_expected_counts_and_duplicates() {
 #[test]
 fn enya_folder_scope_parser_ignores_blank_lines_and_deduplicates() {
     let scope = parse_folder_scope("first\n\n second \nfirst\n");
-    assert_eq!(scope.into_iter().collect::<Vec<_>>(), vec!["first", "second"]);
+    assert_eq!(
+        scope.into_iter().collect::<Vec<_>>(),
+        vec!["first", "second"]
+    );
 }
 
 #[test]
@@ -719,13 +736,19 @@ fn enya_2016_greatest_hits_disc_suffix_rejects_title_conflict_only_on_cd1() {
     ))
     .expect("CD2 request fixture");
     assert_eq!(request_cd1.selected_disc_number, Some(1));
-    assert_eq!(candidate_tracks_for_request(&request_cd1, &candidate).len(), 22);
+    assert_eq!(
+        candidate_tracks_for_request(&request_cd1, &candidate).len(),
+        22
+    );
     assert_eq!(
         strict_provider_candidate_credibility(&request_cd1, &candidate).unwrap_err(),
         "provider tracks do not strongly cover every local file: track 12 \"White Is The Winter Night\" -> \"White Is In The Winter Night\": positional_only"
     );
     assert_eq!(request_cd2.selected_disc_number, Some(2));
-    assert_eq!(candidate_tracks_for_request(&request_cd2, &candidate).len(), 21);
+    assert_eq!(
+        candidate_tracks_for_request(&request_cd2, &candidate).len(),
+        21
+    );
     assert!(strict_provider_candidate_credibility(&request_cd2, &candidate).is_ok());
 }
 
@@ -844,7 +867,10 @@ fn enya_sanitization_redacts_secrets_and_url_queries_recursively() {
         "headers": {"Authorization": "Bearer abc"},
         "nested": [{"discogsToken": "abc", "accessKey": "abc", "title": "Déjà Vu"}],
     }));
-    assert_eq!(value["url"], "https://example.test/release?[redacted-query]");
+    assert_eq!(
+        value["url"],
+        "https://example.test/release?[redacted-query]"
+    );
     assert_eq!(value["headers"], "[redacted]");
     assert_eq!(value["nested"][0]["discogsToken"], "[redacted]");
     assert_eq!(value["nested"][0]["accessKey"], "[redacted]");
@@ -872,6 +898,8 @@ fn enya_classification_prioritizes_safety_and_provider_state() {
         ai_status: None,
         ai_confidence: None,
         ai_threshold: None,
+        cleared_tags: Vec::new(),
+        kept_tags: Vec::new(),
     };
     assert_eq!(
         classify_invocation(Some(&result), false, false, false, true),
@@ -917,7 +945,8 @@ fn enya_flac_payload_hash_ignores_id3_prefix() {
 
 #[tokio::test]
 async fn enya_readback_validation_checks_written_fields_and_collaborators() {
-    let root = std::env::temp_dir().join(format!("soundrobe-enya-readback-{}", uuid::Uuid::new_v4()));
+    let root =
+        std::env::temp_dir().join(format!("soundrobe-enya-readback-{}", uuid::Uuid::new_v4()));
     let album = root.join("Enya/readback");
     fs::create_dir_all(&album).expect("create readback fixture");
     let media = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -962,8 +991,7 @@ async fn live_enya_review_smoke() {
             .expect("SOUNDROBE_ENYA_REVIEW_MANIFEST required"),
     );
     let artifact_dir = PathBuf::from(
-        std::env::var("SOUNDROBE_ENYA_ARTIFACT_DIR")
-            .expect("SOUNDROBE_ENYA_ARTIFACT_DIR required"),
+        std::env::var("SOUNDROBE_ENYA_ARTIFACT_DIR").expect("SOUNDROBE_ENYA_ARTIFACT_DIR required"),
     );
     fs::create_dir_all(&artifact_dir).expect("create Enya artifact directory");
     let manifest = load_manifest(&manifest_path);
@@ -980,14 +1008,17 @@ async fn live_enya_review_smoke() {
     if let Some(scope) = &scoped_folders {
         assert!(!scope.is_empty(), "folder scope must not be empty");
         folders.retain(|relative, _| scope.contains(relative));
-        assert_eq!(folders.len(), scope.len(), "folder scope contains unknown paths");
+        assert_eq!(
+            folders.len(),
+            scope.len(),
+            "folder scope contains unknown paths"
+        );
     } else {
         assert_eq!(folders.len(), EXPECTED_REVIEW_FOLDERS);
     }
 
     let command_log = artifact_dir.join("command.log");
-    fs::write(&command_log, "live_enya_review_smoke started\n")
-        .expect("create command log");
+    fs::write(&command_log, "live_enya_review_smoke started\n").expect("create command log");
 
     let source_hashes_before = folders
         .iter()
@@ -1050,7 +1081,10 @@ async fn live_enya_review_smoke() {
             copy_tree(source, &destination).expect("copy complete album folder");
             let copied_before_clear = hash_tree(&destination, false).expect("hash copied album");
             let source_before = source_hashes_before.get(relative).unwrap();
-            assert_eq!(&copied_before_clear, source_before, "copy differs from source");
+            assert_eq!(
+                &copied_before_clear, source_before,
+                "copy differs from source"
+            );
             let audio_files = collect_audio_files(&destination);
             let clear_patch = TrackPatch {
                 musicbrainz_album_id: Patch::Null,
@@ -1125,14 +1159,17 @@ async fn live_enya_review_smoke() {
             }
             let invariants_ok = result.as_ref().is_some_and(|value| {
                 value.outcome == AutoTagOutcome::Applied
-                    && value.authority.is_some_and(|source| source != LookupSource::Llm)
+                    && value
+                        .authority
+                        .is_some_and(|source| source != LookupSource::Llm)
                     && credibility
                     && write_count_ok
                     && readback_record.exact
                     && readback_record.collaborator_preserved
                     && audio_payloads_equal
             });
-            let incomplete = provider_incomplete(result.as_ref(), resolver_error.as_deref(), timed_out);
+            let incomplete =
+                provider_incomplete(result.as_ref(), resolver_error.as_deref(), timed_out);
             let no_write_review_ok = result.as_ref().is_some_and(|value| {
                 value.outcome == AutoTagOutcome::NeedsReview
                     && value.written == 0
@@ -1168,7 +1205,11 @@ async fn live_enya_review_smoke() {
                 "classification": classification.as_str(),
             }));
             append_jsonl(
-                if phase == "cold" { &cold_path } else { &warm_path },
+                if phase == "cold" {
+                    &cold_path
+                } else {
+                    &warm_path
+                },
                 &record,
             )
             .expect("append native invocation record");
@@ -1178,10 +1219,7 @@ async fn live_enya_review_smoke() {
                 .as_object_mut()
                 .expect("folder result object")
                 .insert(phase.to_string(), record);
-            let mut log = OpenOptions::new()
-                .append(true)
-                .open(&command_log)
-                .unwrap();
+            let mut log = OpenOptions::new().append(true).open(&command_log).unwrap();
             writeln!(
                 log,
                 "folder={} phase={} classification={}",
@@ -1224,7 +1262,10 @@ async fn live_enya_review_smoke() {
             "classification".into(),
             Value::String(final_class.as_str().into()),
         );
-        object.insert("identityConsistent".into(), Value::Bool(identity_consistent));
+        object.insert(
+            "identityConsistent".into(),
+            Value::Bool(identity_consistent),
+        );
         object.insert(
             "warmRecoveryAfterColdIncomplete".into(),
             Value::Bool(
@@ -1236,14 +1277,22 @@ async fn live_enya_review_smoke() {
 
     let source_hashes_after = folders
         .iter()
-        .map(|(relative, path)| (relative.clone(), hash_tree(path, false).expect("hash source after")))
+        .map(|(relative, path)| {
+            (
+                relative.clone(),
+                hash_tree(path, false).expect("hash source after"),
+            )
+        })
         .collect::<BTreeMap<_, _>>();
     fs::write(
         artifact_dir.join("source-hashes-after.json"),
         serde_json::to_vec_pretty(&source_hashes_after).unwrap(),
     )
     .expect("write source hashes after");
-    assert_eq!(source_hashes_before, source_hashes_after, "Enya source changed");
+    assert_eq!(
+        source_hashes_before, source_hashes_after,
+        "Enya source changed"
+    );
 
     let logical_rows = manifest
         .logical_results

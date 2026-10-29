@@ -5,12 +5,14 @@ use crate::commands::tracks::{
     ape_text_values, read_track_metadata, read_track_metadata_without_lyrics,
 };
 use crate::error::ApiError;
-use crate::state::config::{AutoTagConfig, ConfigState};
+use crate::state::config::AutoTagConfig;
+#[cfg(feature = "desktop")]
+use crate::state::config::ConfigState;
 use crate::state::write_queue::WriteQueue;
 use chardetng::EncodingDetector;
 use encoding_rs::{Encoding, BIG5, EUC_KR, GB18030, SHIFT_JIS, WINDOWS_1252};
 use lofty::config::ParseOptions;
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 use lofty::config::WriteOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
@@ -20,7 +22,7 @@ use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisComments, VorbisFile};
 use lofty::tag::ItemKey;
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 use lofty::tag::TagExt;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
@@ -29,6 +31,7 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+#[cfg(feature = "desktop")]
 use tauri::State;
 use tokio::sync::Semaphore;
 
@@ -43,7 +46,7 @@ const AUDIO_EXTENSIONS: &[&str] = &[
 ];
 
 /// Resolve the lyrics API base URL from config, falling back to LRCLIB.
-fn resolve_lyrics_base_url(config: &AutoTagConfig) -> String {
+pub(crate) fn resolve_lyrics_base_url(config: &AutoTagConfig) -> String {
     config
         .lyrics_api_url
         .as_ref()
@@ -385,6 +388,7 @@ pub struct LyricsBatchReport {
     pub results: Vec<LyricsTrackResult>,
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn lyrics_fetch(
     track_name: String,
@@ -404,6 +408,7 @@ pub async fn lyrics_fetch(
     .await)
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub async fn album_download_lyrics(
     album_path: String,
@@ -1155,7 +1160,7 @@ pub async fn fetch_lyrics_at(
         .and_then(|plain| LyricsDocument::from_plain(&plain, language).ok())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use std::io::{Read, Write};

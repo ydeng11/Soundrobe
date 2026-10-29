@@ -47,4 +47,44 @@ describe("repository layout", () => {
 
     expect(scriptsPackage.type).toBe("commonjs");
   });
+
+  it("keeps atomic replacement available to review recovery on every platform", () => {
+    const mutations = readFileSync(
+      resolve(repositoryRoot, "src-tauri/src/commands/mutations.rs"),
+      "utf8",
+    );
+    const definitions = mutations.match(
+      /pub\(crate\) fn replace_file_atomic\(source: &Path, destination: &Path\)/g,
+    );
+
+    // Review recovery is a sibling command module and imports this helper on
+    // every target, so both the Unix and Windows implementations must retain
+    // crate visibility.
+    expect(definitions).toHaveLength(2);
+  });
+
+  it("wires auto-tag review state and commands into the desktop runtime", () => {
+    const desktop = readFileSync(
+      resolve(repositoryRoot, "src-tauri/src/desktop.rs"),
+      "utf8",
+    );
+
+    // Opening a library clears the previous review session, and auto-tagging
+    // records review snapshots. Missing either the store or a handler prevents
+    // the native library workflow from starting.
+    expect(desktop).toContain(
+      "app.manage(commands::auto_tag_review::ReviewStore::default());",
+    );
+
+    for (const command of [
+      "auto_tag_reviews_clear",
+      "auto_tag_reviews_list",
+      "auto_tag_review_get",
+      "auto_tag_review_keep",
+      "auto_tag_review_revert",
+      "auto_tag_review_artwork",
+    ]) {
+      expect(desktop).toContain(`commands::auto_tag_review::${command},`);
+    }
+  });
 });

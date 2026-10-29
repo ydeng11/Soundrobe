@@ -24,6 +24,7 @@ use crate::state::assistant::{
 };
 use crate::state::config::ConfigState;
 use crate::state::conversation::{ConversationEntry, ConversationState};
+use crate::state::events::emit_event;
 use crate::state::providers::convert_chinese_text;
 use crate::state::providers::{DiscogsClient, MusicBrainzClient, ProviderState};
 use crate::state::write_queue::WriteQueue;
@@ -35,7 +36,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 const ASSISTANT_LLM_TIMEOUT_SECS: u64 = 120;
 const ASSISTANT_SESSION_TIMEOUT_SECS: u64 = 600;
@@ -276,15 +277,7 @@ async fn execute_native_assistant_tool(
     }
     let result = match name {
         "query.datasetStatus" => {
-            let path = services
-                .config
-                .dataset_path
-                .as_deref()
-                .map(PathBuf::from)
-                .or_else(|| {
-                    dirs::home_dir()
-                        .map(|home| crate::state::paths::canonical_path(&home, "dataset-index.sqlite"))
-                });
+            let path = services.config.dataset_path.as_deref().map(PathBuf::from);
             let status = path
                 .as_deref()
                 .map(dataset_status_at)
@@ -764,7 +757,7 @@ pub async fn assistant_send(
                     "actionBatches": stored_batches
                 })),
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
 
@@ -870,7 +863,7 @@ pub async fn assistant_send(
             message: assistant_step_message(step_number),
             data: None,
         };
-        let _ = app.emit("assistant:event", step);
+        emit_event(&app, "assistant:event", &step);
         let response = tokio::time::timeout_at(
             deadline,
             client.complete_json(
@@ -888,7 +881,7 @@ pub async fn assistant_send(
                 message: "Cancelled".into(),
                 data: None,
             };
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         let response = match response {
@@ -1058,7 +1051,7 @@ pub async fn assistant_send(
                 data: None,
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         if would_repeat_tool_call(&signatures, &tool_call.tool_name, &tool_call.args) {
@@ -1081,7 +1074,7 @@ pub async fn assistant_send(
                 "toolArgs": tool_call.args
             })),
         };
-        let _ = app.emit("assistant:event", &running);
+        emit_event(&app, "assistant:event", &running);
         conversation.record(
             "tool_call",
             &serde_json::json!({
@@ -1187,7 +1180,7 @@ pub async fn assistant_send(
                 "error": result.error
             })),
         };
-        let _ = app.emit("assistant:event", &tool_result);
+        emit_event(&app, "assistant:event", &tool_result);
         if !result.ok {
             let validation_error = result
                 .error
@@ -1218,7 +1211,7 @@ pub async fn assistant_send(
                 })),
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             return Ok(event);
         }
         messages.push(ChatMessage {
@@ -1255,7 +1248,7 @@ pub async fn assistant_send(
             data: None,
         };
         conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-        let _ = app.emit("assistant:event", &event);
+        emit_event(&app, "assistant:event", &event);
         return Ok(event);
     }
     match resolve_assistant_outcome(&draft, &pending_tool_batches, &session_id, &input) {
@@ -1309,7 +1302,7 @@ pub async fn assistant_send(
                 }
             };
             conversation.record("assistant_message", &event.message, Some(&model), 0, 0, 0);
-            let _ = app.emit("assistant:event", &event);
+            emit_event(&app, "assistant:event", &event);
             Ok(event)
         }
         Err(error) => assistant_error_event(&app, Some(session_id), &error.to_string()),
@@ -1343,7 +1336,7 @@ fn assistant_error_event_with_conversation(
         message: message.to_string(),
         data: None,
     };
-    let _ = app.emit("assistant:event", &event);
+    emit_event(app, "assistant:event", &event);
     Ok(event)
 }
 
@@ -3702,15 +3695,16 @@ pub fn assistant_cancel(
             "Failed to record assistant cancellation".to_string(),
         ));
     }
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "cancelled",
             message: "Session cancelled".to_string(),
             data: None,
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -3747,15 +3741,16 @@ pub fn assistant_reject_actions(
         .current()
         .ok_or_else(|| ApiError::Message("No active assistant session".to_string()))?;
     conversation.record("system", &format!("Rejected: {title}"), None, 0, 0, 0);
-    app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type: "action_batch_rejected",
             message: format!("Rejected: {title}"),
             data: Some(serde_json::json!({ "batchId": action_batch_id })),
         },
-    )?;
+    );
     Ok(())
 }
 
@@ -4259,13 +4254,11 @@ fn finish_metadata_apply(
 }
 
 async fn apply_standard_actions(
-    runtime: &AssistantRuntimeState,
     batch: &AssistantActionBatch,
-    batch_id: &str,
     metadata_only: bool,
-    mark_status: bool,
     undo_tracks: &BTreeMap<String, crate::commands::tracks::TrackData>,
     progress: Option<TrackWriteProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut updates: Vec<(String, TrackPatch)> = Vec::new();
     for action in &batch.actions {
@@ -4280,9 +4273,6 @@ async fn apply_standard_actions(
         let patch = match action_patch(field, action.new_value.as_deref()) {
             Ok(patch) => patch,
             Err(error) => {
-                if mark_status {
-                    runtime.mark_batch_failed(batch_id, &error.to_string());
-                }
                 return serde_json::json!({ "success": false, "error": error.to_string() });
             }
         };
@@ -4302,9 +4292,6 @@ async fn apply_standard_actions(
         .collect::<Vec<_>>();
     if undo.len() != updates.len() {
         let message = "Could not capture complete standard-tag undo evidence";
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, message);
-        }
         return serde_json::json!({ "success": false, "error": message, "undoSnapshots": undo });
     }
     let write_result = match batch_write_with_exclusive_queue_held(
@@ -4313,6 +4300,7 @@ async fn apply_standard_actions(
             .map(|(path, fields)| TrackUpdate { path, fields })
             .collect(),
         progress,
+        max_folder_concurrency,
     )
     .await
     {
@@ -4343,14 +4331,8 @@ async fn apply_standard_actions(
         .count();
     if failed > 0 {
         let error = format!("Failed to update {failed} track(s)");
-        if mark_status {
-            runtime.mark_batch_failed(batch_id, &error);
-        }
         serde_json::json!({ "success": false, "error": error, "results": results.into_iter().filter(|result| result["success"] == false).collect::<Vec<_>>(), "undoSnapshots": undo })
     } else {
-        if mark_status {
-            runtime.mark_batch_applied(batch_id);
-        }
         serde_json::json!({ "success": true, "results": results, "undoSnapshots": undo })
     }
 }
@@ -4514,8 +4496,8 @@ async fn apply_folder_moves(
     // Preview-time checks are not enough: a destination ancestor can become an
     // external symlink between preview and approval (TOCTOU).
     let Some(library_root) = batch.library_root.as_deref().map(Path::new) else {
-        let error = "Folder-move batch is missing its library root; refusing to move files"
-            .to_string();
+        let error =
+            "Folder-move batch is missing its library root; refusing to move files".to_string();
         runtime.mark_batch_failed(batch_id, &error);
         return serde_json::json!({ "success": false, "error": error, "results": [] });
     };
@@ -4546,7 +4528,8 @@ async fn apply_folder_moves(
         }
         let source_path = PathBuf::from(source);
         let destination_path = PathBuf::from(destination);
-        if let Err(error) = preflight_relocation(&source_path, &destination_path, &library_canonical)
+        if let Err(error) =
+            preflight_relocation(&source_path, &destination_path, &library_canonical)
         {
             runtime.mark_batch_failed(batch_id, &error);
             return serde_json::json!({ "success": false, "error": error, "results": [] });
@@ -4566,8 +4549,13 @@ async fn apply_folder_moves(
         let source = source_path.clone();
         let destination = destination_path.clone();
         tracing::debug!(from = %source.display(), to = %destination.display(), "relocating track");
-        match relocate_file_queued(queue, source.clone(), destination.clone(), &library_canonical)
-            .await
+        match relocate_file_queued(
+            queue,
+            source.clone(),
+            destination.clone(),
+            &library_canonical,
+        )
+        .await
         {
             Ok(()) => {
                 completed.push((source_path.clone(), destination_path.clone()));
@@ -4792,6 +4780,7 @@ async fn apply_metadata_action_batch(
     batch: &AssistantActionBatch,
     batch_id: &str,
     progress: Option<AssistantApplyProgress>,
+    max_folder_concurrency: usize,
 ) -> Value {
     let mut standard_paths = BTreeSet::new();
     let mut extra_paths = BTreeSet::new();
@@ -4902,13 +4891,11 @@ async fn apply_metadata_action_batch(
     let write_result = match batch.kind.as_str() {
         "tag-update" => {
             apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
-                false,
                 false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await
         }
@@ -4927,13 +4914,11 @@ async fn apply_metadata_action_batch(
         }
         "metadata-update" => {
             let standard = apply_standard_actions(
-                runtime,
                 batch,
-                batch_id,
                 true,
-                false,
                 &standard_undo,
                 standard_progress,
+                max_folder_concurrency,
             )
             .await;
             let extra = apply_extra_actions(
@@ -5086,7 +5071,11 @@ async fn apply_action_batch_with_progress(
     ) {
         return queue
             .run_exclusive(apply_metadata_action_batch(
-                runtime, &batch, batch_id, progress,
+                runtime,
+                &batch,
+                batch_id,
+                progress,
+                queue.max_folder_concurrency(),
             ))
             .await;
     }
@@ -5131,9 +5120,10 @@ pub async fn assistant_apply_actions(
         let batch_id = action_batch_id.clone();
         Arc::new(
             move |phase: &'static str, current: u64, total: u64, message: String| {
-                let _ = app.emit(
+                emit_event(
+                    &app,
                     "assistant:event",
-                    AssistantEvent {
+                    &AssistantEvent {
                         session_id: session_id.clone(),
                         event_type: "action_batch_progress",
                         message,
@@ -5231,9 +5221,10 @@ pub async fn assistant_apply_actions(
         _ => return Ok(result),
     };
     conversation.record("system", &message, None, 0, 0, 0);
-    let _ = app.emit(
+    emit_event(
+        &app,
         "assistant:event",
-        AssistantEvent {
+        &AssistantEvent {
             session_id: current.session_id,
             event_type,
             message,
@@ -5305,9 +5296,10 @@ pub fn assistant_complete_task_actions(
     };
     if let Some(current) = conversation.current() {
         conversation.record("system", &message, None, 0, 0, 0);
-        let _ = app.emit(
+        emit_event(
+            &app,
             "assistant:event",
-            AssistantEvent {
+            &AssistantEvent {
                 session_id: current.session_id,
                 event_type,
                 message: message.clone(),
@@ -6386,7 +6378,11 @@ mod apply_contract_tests {
             "uniform-literal-session",
         );
         let batch = execution.batches.first().expect("preview batch").clone();
-        assert_eq!(batch.actions.len(), 2, "track A already matches the literal");
+        assert_eq!(
+            batch.actions.len(),
+            2,
+            "track A already matches the literal"
+        );
         let batch_id = batch.id.clone();
         let runtime = AssistantRuntimeState::default();
         assert!(runtime.initialize());
@@ -6460,7 +6456,10 @@ mod apply_contract_tests {
         assert_eq!(result["success"], false, "{result}");
         assert_eq!(result["verification"]["status"], "failed", "{result}");
         assert!(
-            !result["verification"]["failures"].as_array().unwrap().is_empty(),
+            !result["verification"]["failures"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
             "{result}"
         );
         // The moved file must not have been touched by the failed batch.
@@ -6865,14 +6864,18 @@ mod apply_contract_tests {
                 },
                 AssistantAction {
                     source_path: Some(three.to_string_lossy().into_owned()),
-                    destination_path: Some(root.join("blocker").join("three.mp3").to_string_lossy().into_owned()),
+                    destination_path: Some(
+                        root.join("blocker")
+                            .join("three.mp3")
+                            .to_string_lossy()
+                            .into_owned()
+                    ),
                     ..Default::default()
                 },
             ],
         }));
 
-        let result =
-            apply_action_batch(&runtime, &WriteQueue::default(), "batch-rollback").await;
+        let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-rollback").await;
 
         assert_eq!(result["success"], false);
         assert_eq!(result["rollback"].as_array().map(Vec::len), Some(2));
@@ -6924,7 +6927,10 @@ mod apply_contract_tests {
         let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-escape").await;
 
         assert_eq!(result["success"], false);
-        assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+        assert!(result["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("outside the library"));
         // Nothing moved.
         assert!(source.exists());
         assert!(!outside.join("source.mp3").exists());
@@ -6973,7 +6979,10 @@ mod apply_contract_tests {
                 apply_action_batch(&runtime, &WriteQueue::default(), "batch-symlink").await;
 
             assert_eq!(result["success"], false);
-            assert!(result["error"].as_str().unwrap_or("").contains("outside the library"));
+            assert!(result["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("outside the library"));
             assert!(source.exists());
             fs::remove_dir_all(&outside).unwrap();
             fs::remove_dir_all(root).unwrap();
@@ -7002,7 +7011,12 @@ mod apply_contract_tests {
             completion_contract: None,
             actions: vec![AssistantAction {
                 source_path: Some(source.to_string_lossy().into_owned()),
-                destination_path: Some(root.join("nested").join("source.mp3").to_string_lossy().into_owned()),
+                destination_path: Some(
+                    root.join("nested")
+                        .join("source.mp3")
+                        .to_string_lossy()
+                        .into_owned()
+                ),
                 ..Default::default()
             }],
         }));
@@ -7010,7 +7024,10 @@ mod apply_contract_tests {
         let result = apply_action_batch(&runtime, &WriteQueue::default(), "batch-noroot").await;
 
         assert_eq!(result["success"], false);
-        assert!(result["error"].as_str().unwrap_or("").contains("missing its library root"));
+        assert!(result["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("missing its library root"));
         assert!(source.exists());
         fs::remove_dir_all(root).unwrap();
     }
@@ -7360,7 +7377,9 @@ mod assistant_behaviour_tests {
         assert!(is_clarification_question(
             "Just to clarify — do you mean 1 or 2?"
         ));
-        assert!(is_clarification_question("What would you like to do first?"));
+        assert!(is_clarification_question(
+            "What would you like to do first?"
+        ));
         assert!(is_clarification_question(
             "Which direction would you like to go?"
         ));
@@ -7634,10 +7653,7 @@ mod assistant_behaviour_tests {
         );
 
         assert!(execution.result.ok, "{}", execution.result.summary);
-        assert_eq!(
-            execution.batches[0].library_root.as_deref(),
-            Some("/music")
-        );
+        assert_eq!(execution.batches[0].library_root.as_deref(), Some("/music"));
     }
 
     #[test]
@@ -9448,7 +9464,11 @@ mod assistant_ai_tests {
             ("红昭愿", "音阙诗听-红昭愿.flac", "红昭愿"),
             ("红昭愿(伴奏)", "音阙诗听-红昭愿(伴奏).flac", "红昭愿(伴奏)"),
             ("长安记", "李佳思_音阙诗听-长安记.flac", "长安记"),
-            ("长安记(伴奏)", "李佳思_音阙诗听-长安记(伴奏).flac", "长安记(伴奏)"),
+            (
+                "长安记(伴奏)",
+                "李佳思_音阙诗听-长安记(伴奏).flac",
+                "长安记(伴奏)",
+            ),
         ];
         let mut tracks = Vec::new();
         for (folder, file, title) in &entries {
@@ -9468,7 +9488,12 @@ mod assistant_ai_tests {
         };
         // Base title = everything before the first '(' or '（'.
         let base_of = |title: &str| -> String {
-            title.split(['(', '（']).next().unwrap_or(title).trim().to_string()
+            title
+                .split(['(', '（'])
+                .next()
+                .unwrap_or(title)
+                .trim()
+                .to_string()
         };
         let path_to_base: std::collections::HashMap<String, String> = input
             .tracks
@@ -9536,7 +9561,10 @@ mod assistant_ai_tests {
             if registered_tool_is_read_only(name) == Some(true) {
                 let result = execute_context_tool(name, args, &input);
                 if !result.ok {
-                    println!("[smoke] read-only {name} failed (fed back): {}", result.summary);
+                    println!(
+                        "[smoke] read-only {name} failed (fed back): {}",
+                        result.summary
+                    );
                 }
                 messages.push(ChatMessage {
                     role: "assistant".into(),
@@ -9568,9 +9596,14 @@ mod assistant_ai_tests {
                         .collect();
                     println!(
                         "[smoke] {} reached plan.create with {} steps: {:?}",
-                        model, steps.len(), step_tools
+                        model,
+                        steps.len(),
+                        step_tools
                     );
-                    println!("[smoke] plan args: {}", serde_json::to_string(args).unwrap_or_default());
+                    println!(
+                        "[smoke] plan args: {}",
+                        serde_json::to_string(args).unwrap_or_default()
+                    );
                     // The workflow needs the Album-tag change AND the folder
                     // relocation; the tag step may be metadata.transform or
                     // metadata.patch (correct values are enforced by the
@@ -9757,7 +9790,10 @@ mod assistant_ai_tests {
                         .cloned(),
                 ),
                 "folder-move" => relocate_moves.extend(batch.actions.iter().filter_map(|action| {
-                    Some((action.source_path.clone()?, action.destination_path.clone()?))
+                    Some((
+                        action.source_path.clone()?,
+                        action.destination_path.clone()?,
+                    ))
                 })),
                 _ => {}
             }

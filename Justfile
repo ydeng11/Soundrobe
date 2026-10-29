@@ -11,6 +11,7 @@ default:
     @echo ""
     @echo "Start the app:"
     @echo "  just dev                  start Tauri app with Vite HMR"
+    @echo "  just web-local <root>     start the local browser service for mounted libraries"
     @echo ""
     @echo "Develop:"
     @echo "  just install              install app dependencies"
@@ -21,6 +22,7 @@ default:
     @echo "  just smoke-openrouter     run credentialed OpenRouter release gate"
     @echo "  just smoke-assistant      run live native assistant loopback"
     @echo "  just smoke-cover-picker   run macOS native picker cancel gate"
+    @echo "  just smoke-background     run the offline background-tagging smoke over synthetic media"
     @echo "  just eval-auto-tag        run deterministic metadata-only auto-tag evaluation"
     @echo "  just eval-auto-tag-ground-truth audit the complete reviewed expectation ledger"
     @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
@@ -58,11 +60,45 @@ dev: _deps-check
         AUTO_TAG_CHINESE_SCRIPT="${AUTO_TAG_CHINESE_SCRIPT:-simplified}" \
         npm run dev
 
+# `library_root` must contain one directory per browser-visible library, matching
+# the /libraries mount layout used by the container service.
+web-local library_root: _deps-check
+    #!/usr/bin/env bash
+    set -euo pipefail
+    library_root={{quote(library_root)}}
+    if [ ! -d "$library_root" ]; then
+        echo "Library root does not exist: $library_root" >&2
+        exit 1
+    fi
+    data_dir="${SOUNDROBE_DATA_DIR:-$HOME/.soundrobe}"
+    mkdir -p "$data_dir"
+    npm run build:web
+    exec env \
+        SOUNDROBE_LISTEN_ADDR="${SOUNDROBE_LISTEN_ADDR:-127.0.0.1:8080}" \
+        SOUNDROBE_PUBLIC_URL="${SOUNDROBE_PUBLIC_URL:-http://127.0.0.1:8080}" \
+        SOUNDROBE_ADDITIONAL_ORIGINS="${SOUNDROBE_ADDITIONAL_ORIGINS:-http://localhost:8080}" \
+        SOUNDROBE_LIBRARY_ROOT_DIR="$library_root" \
+        SOUNDROBE_WEB_ROOT="$PWD/dist" \
+        SOUNDROBE_DATA_DIR="$data_dir" \
+        cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features server --bin soundrobe-server
+
 build: _deps-check
     npm run build
 
+# The local gate. Every suite runs and is reported separately: `npm test` chains
+# with `&&`, so one failing suite hides every suite after it, and the headless
+# server runtime is a mutually exclusive feature the desktop run never compiles.
+# CI runs the same set, as separate legs and steps, for the same reason.
 test: _deps-check
-    npm test
+    #!/usr/bin/env bash
+    set -uo pipefail
+    status=0
+    npm run test:web || status=1
+    npm run test:rust || status=1
+    npm run test:mock-provider || status=1
+    npm run test:review-eval || status=1
+    npm run test:rust:server || status=1
+    exit "$status"
 
 typecheck: _deps-check
     npm run typecheck
@@ -88,6 +124,11 @@ smoke-assistant: _deps-check
 
 smoke-cover-picker: _deps-check
     npm run build:e2e && npx wdio run wdio.conf.ts --spec e2e-tauri/live-cover-picker.spec.ts
+
+# Offline and deterministic: generated FLACs from the reviewed synthetic album,
+# resolved through a stubbed provider. No credentials, no real media, no network.
+smoke-background:
+    cd src-tauri && cargo test --no-default-features --features server --lib server::tests::background_smoke -- --ignored --nocapture
 
 # Deterministic corpus/profile/selection contracts; no credentials or media writes.
 eval-auto-tag:
@@ -310,7 +351,6 @@ fe-smoke-assistant:
 fe-smoke-cover-picker:
     @echo "DEPRECATED: use 'just smoke-cover-picker'"
     just smoke-cover-picker
-
 fe-model model_name="":
     @echo "DEPRECATED: use 'just model'"
     just model "{{ model_name }}"

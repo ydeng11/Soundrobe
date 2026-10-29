@@ -17,8 +17,21 @@ export interface AlbumInfo {
 export interface AppInfo {
   identifier: string;
   version: string;
-  runtime: "tauri";
+  runtime: "tauri" | "web";
   dev: boolean;
+}
+
+export interface TagSuggestion {
+  id: string;
+  label: string;
+  frame: string;
+  source: string;
+}
+
+export interface LibraryRoot {
+  id: string;
+  name: string;
+  path: string;
 }
 
 export interface CoverInfo {
@@ -364,7 +377,7 @@ export interface AutoTagEvent {
 
 export interface AutoTagProviderAttempt {
   provider: string;
-  status: "matched" | "no_match" | "unavailable";
+  status: "matched" | "no_match" | "incomplete" | "unavailable";
   diagnostic?: string;
   retryCount?: number;
   retryAfterSeconds?: number;
@@ -565,6 +578,7 @@ export interface DesktopAPI {
   ) => Promise<void>;
 
   // Library
+  listLibraryRoots: () => Promise<LibraryRoot[]>;
   scanLibrary: (dirPath: string) => Promise<AlbumInfo[]>;
   refreshAlbum: (albumPath: string) => Promise<AlbumDetail>;
 
@@ -653,6 +667,7 @@ export interface DesktopAPI {
   // Config
   getConfig: () => Promise<Record<string, unknown>>;
   setConfig: (key: string, value: unknown) => Promise<void>;
+  suggestTagNames: (query: string) => Promise<TagSuggestion[]>;
 
   // Debug
   subscribeDebugLogs: () => Promise<void>;

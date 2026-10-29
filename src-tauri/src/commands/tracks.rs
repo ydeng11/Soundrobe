@@ -4,15 +4,12 @@
 //! Atomic mutation cores live in `commands::mutations`; extra tags, rename, and
 //! remaining formats are enabled only as their differential contracts turn green.
 
+#[cfg(feature = "desktop")]
 use crate::commands::covers::{cover_cache_source, cover_cache_warm};
 use crate::commands::library::is_audio_file;
 use crate::commands::lyrics::{id3_lyrics_document, read_embedded_lyrics, LyricsDocument};
-use crate::commands::mutations::{
-    legacy_mp3_upgrade_required, upgrade_legacy_mp3_tag_atomic, TrackWriteOutcome,
-};
 use crate::error::ApiError;
-use crate::state::write_queue::WriteQueue;
-use lofty::config::{ParseOptions, ParsingMode};
+use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::flac::FlacFile;
 use lofty::id3::v2::{Frame, Id3v2Tag};
@@ -20,7 +17,7 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
-use lofty::tag::{ItemKey, Tag, TagType};
+use lofty::tag::{ItemKey, Tag};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -29,7 +26,12 @@ use std::fs;
 use std::fs::File;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use tauri::State;
+
+#[cfg(feature = "server")]
+fn cover_cache_source(_: &str, _: &str, _: &str) {}
+
+#[cfg(feature = "server")]
+fn cover_cache_warm(_: &Path, _: Option<&str>, _: bool) {}
 
 /// Renderer-facing metadata DTO. Field names/null/default behavior match
 /// `src/shared/desktop-api.ts::TrackData` exactly.
@@ -265,91 +267,6 @@ pub fn read_album(album_path: &Path) -> Result<AlbumDetail, ApiError> {
     })
 }
 
-/// Read an album after upgrading any directly contained legacy MP3 tags. The
-/// initial header scan is read-only and cheap; actual candidates are rechecked
-/// and rewritten while holding the process-wide exclusive write coordination
-/// guard so album loading cannot race another media mutation.
-pub(crate) async fn read_album_with_legacy_upgrades(
-    album_path: PathBuf,
-    queue: WriteQueue,
-) -> Result<AlbumDetail, ApiError> {
-    let scan_path = album_path.clone();
-    let candidates = tokio::task::spawn_blocking(move || legacy_mp3_candidates(&scan_path))
-        .await
-        .map_err(|error| ApiError::ReadTask(error.to_string()))??;
-
-    if candidates.is_empty() {
-        return tokio::task::spawn_blocking(move || read_album(&album_path))
-            .await
-            .map_err(|error| ApiError::ReadTask(error.to_string()))?;
-    }
-
-    queue
-        .run_exclusive(async move {
-            tokio::task::spawn_blocking(move || {
-                let mut repair_failed = false;
-                for path in candidates {
-                    match upgrade_legacy_mp3_tag_atomic(&path) {
-                        Ok(TrackWriteOutcome::Replaced) => tracing::info!(
-                            path = %path.display(),
-                            "upgraded legacy MP3 tag while loading album"
-                        ),
-                        Ok(TrackWriteOutcome::Skipped) => {}
-                        Err(error) => {
-                            repair_failed = true;
-                            tracing::warn!(
-                                path = %path.display(),
-                                %error,
-                                "legacy MP3 tag upgrade failed; loading compatibility metadata"
-                            );
-                        }
-                    }
-                }
-
-                let mut detail = read_album(&album_path)?;
-                if repair_failed && detail.status == "ok" {
-                    detail.status = "warning".to_string();
-                }
-                Ok(detail)
-            })
-            .await
-            .map_err(|error| ApiError::ReadTask(error.to_string()))?
-        })
-        .await
-}
-
-fn legacy_mp3_candidates(album_path: &Path) -> Result<Vec<PathBuf>, ApiError> {
-    let mut candidates = Vec::new();
-    for entry in fs::read_dir(album_path)? {
-        let entry = entry?;
-        if entry.file_name().to_string_lossy().starts_with('.') {
-            continue;
-        }
-        let path = entry.path();
-        if entry.file_type()?.is_file()
-            && path
-                .extension()
-                .and_then(|extension| extension.to_str())
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("mp3"))
-        {
-            match legacy_mp3_upgrade_required(&path) {
-                Ok(true) => candidates.push(path),
-                Ok(false) => {}
-                Err(error) => {
-                    tracing::warn!(
-                        path = %path.display(),
-                        %error,
-                        "legacy MP3 upgrade preflight failed; deferring to guarded repair"
-                    );
-                    candidates.push(path);
-                }
-            }
-        }
-    }
-    candidates.sort();
-    Ok(candidates)
-}
-
 fn detect_external_cover(album_path: &Path) -> Option<String> {
     for name in COVER_NAMES {
         for extension in COVER_EXTENSIONS {
@@ -362,15 +279,15 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
     None
 }
 
-/// `album:read` / `readAlbum()`. Legacy MP3 tag upgrades are the only loading
-/// side effect; unreadable album directories still propagate while individual
-/// malformed tracks remain contained in the result.
+/// `album:read` / `readAlbum()`. Read-only; propagates an unreadable album
+/// directory while containing individual malformed track files in the result.
+#[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn album_read(
-    album_path: String,
-    queue: State<'_, WriteQueue>,
-) -> Result<AlbumDetail, ApiError> {
-    read_album_with_legacy_upgrades(PathBuf::from(album_path), queue.inner().clone()).await
+pub async fn album_read(album_path: String) -> Result<AlbumDetail, ApiError> {
+    let path = PathBuf::from(album_path);
+    tokio::task::spawn_blocking(move || read_album(&path))
+        .await
+        .map_err(|error| ApiError::ReadTask(error.to_string()))?
 }
 
 /// Read multiple albums in parallel by spawning one blocking task per folder.
@@ -398,6 +315,7 @@ pub async fn read_albums(album_paths: &[PathBuf]) -> Vec<Result<AlbumDetail, Api
     results
 }
 
+#[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn track_extra_tags_read(track_path: String) -> Vec<ExtraTag> {
     read_extra_tags(Path::new(&track_path))
@@ -780,8 +698,9 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
                 TrackData::unreadable(path, size_bytes)
             }))
         }
-        Err(error) if extension == "mp3" => read_mpeg_relaxed(path, size_bytes)
-            .or_else(|_| read_mpeg_header_fallback(path, size_bytes)?.ok_or(error)),
+        Err(error) if extension == "mp3" => {
+            read_mpeg_header_fallback(path, size_bytes)?.ok_or(error)
+        }
         Err(error) if extension == "ogg" => {
             read_ogg_vorbis_fallback(path, size_bytes)?.ok_or(error)
         }
@@ -1172,21 +1091,11 @@ fn from_lofty(
         }
         _ => {}
     }
-    let mut ordered_tags = tagged.tags().to_vec();
-    if extension == "flac" {
-        ordered_tags.sort_by_key(|tag| {
-            if tag.tag_type() == TagType::VorbisComments {
-                0
-            } else {
-                1
-            }
-        });
-    }
     from_tags(
         path,
         size_bytes,
         extension,
-        &ordered_tags,
+        tagged.tags(),
         duration,
         bitrate,
         tagged.properties().sample_rate(),
@@ -1318,14 +1227,9 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
     // Parse ID3 independently of audio properties. Lofty's normal MPEG probe
     // rejects a one-frame corpus file, but its format reader can skip property
     // validation and retain the full ID3v2 tag.
+    let mut file = File::open(path)?;
     let parse_options = ParseOptions::new().read_properties(false);
-    let mpeg = if let Some(bytes) = legacy_mp3_v22_parser_bytes(path)? {
-        let mut cursor = Cursor::new(bytes);
-        MpegFile::read_from(&mut cursor, parse_options)?
-    } else {
-        let mut file = File::open(path)?;
-        MpegFile::read_from(&mut file, parse_options)?
-    };
+    let mpeg = MpegFile::read_from(&mut file, parse_options)?;
     let mut tags = Vec::new();
     let id3v2 = mpeg.id3v2();
     if let Some(id3v2) = id3v2 {
@@ -1340,10 +1244,6 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         Some(128_000.0),
         Some(44_100),
     );
-    if let Some(raw_year) = legacy_mp3_v22_year(path) {
-        track.year =
-            canonical_legacy_recording_date(&raw_year).map(|date| date.chars().take(4).collect());
-    }
     if let Some(id3v2) = id3v2 {
         let native_artists = id3_user_text_values(path, "ARTISTS");
         if !native_artists.is_empty() {
@@ -1364,202 +1264,6 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         track.compilation = None;
     }
     Ok(Some(track))
-}
-
-/// Retry legacy MP3 tags in Lofty's relaxed mode when its default parser
-/// rejects a non-standard frame such as a dotted ID3v2.3 year. The audio
-/// properties still come from Lofty's MPEG parser; only tag strictness changes.
-fn read_mpeg_relaxed(path: &Path, size_bytes: u64) -> Result<TrackData, ApiError> {
-    let options = ParseOptions::new()
-        .parsing_mode(ParsingMode::Relaxed)
-        .implicit_conversions(false);
-    let raw_v22_year = legacy_mp3_v22_year(path);
-    let parsed = if let Some(bytes) = legacy_mp3_v22_parser_bytes(path)? {
-        let mut cursor = Cursor::new(bytes);
-        MpegFile::read_from(&mut cursor, options)?
-    } else {
-        let mut file = File::open(path)?;
-        MpegFile::read_from(&mut file, options)?
-    };
-    let legacy_year = raw_v22_year
-        .clone()
-        .or_else(|| {
-            parsed
-                .id3v2()
-                .and_then(|tag| tag.get_text(&lofty::id3::v2::FrameId::new("TYER").ok()?))
-                .map(ToOwned::to_owned)
-        })
-        .and_then(|year| canonical_legacy_recording_date(&year));
-    let tagged = parsed.into();
-    let mut track = from_lofty(path, size_bytes, "mp3", &tagged);
-    if let Some(date) = legacy_year {
-        track.year = Some(date.chars().take(4).collect());
-    } else if raw_v22_year.is_some() {
-        // The parser copy uses a harmless placeholder for an unrecognized TYE
-        // value so the rest of the track remains readable. Do not expose that
-        // placeholder as a recovered year.
-        track.year = None;
-    }
-    Ok(track)
-}
-
-/// Convert only the legacy date forms Soundrobe can prove map losslessly to an
-/// ID3v2.4 recording timestamp. Unknown free-form years remain untouched so an
-/// automatic load never guesses at user metadata.
-pub(crate) fn canonical_legacy_recording_date(value: &str) -> Option<String> {
-    let value = value.trim();
-    if value.len() == 4 && value.bytes().all(|byte| byte.is_ascii_digit()) {
-        return Some(value.to_string());
-    }
-
-    for separator in ['.', '/'] {
-        let parts = value.split(separator).collect::<Vec<_>>();
-        if parts.len() != 3
-            || parts[0].len() != 4
-            || parts[1].len() != 2
-            || parts[2].len() != 2
-            || !parts
-                .iter()
-                .all(|part| part.bytes().all(|byte| byte.is_ascii_digit()))
-        {
-            continue;
-        }
-        let month = parts[1].parse::<u8>().ok()?;
-        let day = parts[2].parse::<u8>().ok()?;
-        if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
-            return None;
-        }
-        return Some(format!("{}-{month:02}-{day:02}", parts[0]));
-    }
-    None
-}
-
-/// Read an ID3v2.2 TYE value before Lofty's parser upgrades its three-byte
-/// frame ID to TDRC. This is needed when the value is not a valid timestamp and
-/// relaxed parsing would otherwise discard the frame.
-pub(crate) fn legacy_mp3_v22_year(path: &Path) -> Option<String> {
-    let data = fs::read(path).ok()?;
-    legacy_mp3_v22_year_from_bytes(&data)
-}
-
-/// Return parser-safe bytes for an ID3v2.2 file whose TYE frame Lofty cannot
-/// parse as TDRC. Only the in-memory copy is sanitized; the caller's file is
-/// never modified. An unknown year uses a placeholder so compatibility reads
-/// can still expose the other frames while repair rejects it later.
-pub(crate) fn legacy_mp3_v22_parser_bytes(path: &Path) -> Result<Option<Vec<u8>>, ApiError> {
-    let mut data = fs::read(path)?;
-    let Some(raw_year) = legacy_mp3_v22_year_from_bytes(&data) else {
-        return Ok(None);
-    };
-    let replacement = canonical_legacy_recording_date(&raw_year)
-        .and_then(|date| date.get(..4).map(ToOwned::to_owned))
-        .unwrap_or_else(|| "0000".to_string());
-    if !sanitize_legacy_mp3_v22_year(&mut data, &replacement) {
-        return Err(ApiError::MediaSafety(
-            "legacy MP3 TYE frame is too short to parse safely".to_string(),
-        ));
-    }
-    Ok(Some(data))
-}
-
-fn legacy_mp3_v22_year_from_bytes(data: &[u8]) -> Option<String> {
-    if data.get(..4) != Some(b"ID3\x02") {
-        return None;
-    }
-    let tag_size = syncsafe_u32(data.get(6..10)?)? as usize;
-    let tag_end = 10_usize.checked_add(tag_size)?;
-    if tag_end > data.len() {
-        return None;
-    }
-
-    let mut offset = 10_usize;
-    while offset.checked_add(6).is_some_and(|end| end <= tag_end) {
-        let id = data.get(offset..offset + 3)?;
-        if id.iter().all(|byte| *byte == 0) {
-            break;
-        }
-        let size = (usize::from(data[offset + 3]) << 16)
-            | (usize::from(data[offset + 4]) << 8)
-            | usize::from(data[offset + 5]);
-        let body_start = offset.checked_add(6)?;
-        let body_end = body_start.checked_add(size)?;
-        if body_end > tag_end {
-            return None;
-        }
-        if id == b"TYE" {
-            return decode_legacy_v22_text(data.get(body_start..body_end)?);
-        }
-        offset = body_end;
-    }
-    None
-}
-
-fn sanitize_legacy_mp3_v22_year(data: &mut [u8], replacement: &str) -> bool {
-    if replacement.len() != 4 || !replacement.bytes().all(|byte| byte.is_ascii_digit()) {
-        return false;
-    }
-    let Some(tag_size) = data
-        .get(6..10)
-        .and_then(syncsafe_u32)
-        .map(|size| size as usize)
-    else {
-        return false;
-    };
-    let Some(tag_end) = 10_usize.checked_add(tag_size) else {
-        return false;
-    };
-    if tag_end > data.len() {
-        return false;
-    }
-
-    let mut offset = 10_usize;
-    while offset.checked_add(6).is_some_and(|end| end <= tag_end) {
-        let Some(id) = data.get(offset..offset + 3) else {
-            return false;
-        };
-        if id.iter().all(|byte| *byte == 0) {
-            return false;
-        }
-        let size = (usize::from(data[offset + 3]) << 16)
-            | (usize::from(data[offset + 4]) << 8)
-            | usize::from(data[offset + 5]);
-        let Some(body_start) = offset.checked_add(6) else {
-            return false;
-        };
-        let Some(body_end) = body_start.checked_add(size) else {
-            return false;
-        };
-        if body_end > tag_end {
-            return false;
-        }
-        if id == b"TYE" {
-            let Some(body) = data.get_mut(body_start..body_end) else {
-                return false;
-            };
-            if body.len() < 5 {
-                return false;
-            }
-            body.fill(b' ');
-            body[0] = 0;
-            body[1..5].copy_from_slice(replacement.as_bytes());
-            return true;
-        }
-        offset = body_end;
-    }
-    false
-}
-
-fn decode_legacy_v22_text(body: &[u8]) -> Option<String> {
-    let (&encoding, text) = body.split_first()?;
-    let value = match encoding {
-        0 => text
-            .split(|byte| *byte == 0)
-            .next()
-            .map(|bytes| bytes.iter().map(|byte| char::from(*byte)).collect()),
-        1 => Some(decode_utf16(text, false).trim_matches('\0').to_string()),
-        _ => None,
-    }?;
-    Some(value)
 }
 
 pub(crate) fn id3_user_text_values(path: &Path, wanted: &str) -> Vec<String> {
@@ -2795,7 +2499,7 @@ fn u32_be(data: &[u8], offset: usize) -> Option<u32> {
     Some(u32::from_be_bytes(bytes))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
     use std::cell::Cell;
@@ -2886,172 +2590,6 @@ mod tests {
                 .collect(),
         );
         assert_eq!(actual, expected);
-    }
-
-    /// Intent: a malformed legacy year tag must not hide valid MPEG audio
-    /// properties and make a playable track appear to have zero duration.
-    #[test]
-    fn mp3_malformed_year_preserves_audio_duration() {
-        let root = album_test_root();
-        std::fs::create_dir_all(&root).unwrap();
-        let path = root.join("malformed-year.mp3");
-        std::fs::write(&path, mp3_with_malformed_year()).unwrap();
-
-        let track = read_track_metadata(&path).expect("playable MP3 should stay readable");
-
-        assert_eq!(track.title.as_deref(), Some("配不上你"));
-        assert_eq!(track.year.as_deref(), Some("2016"));
-        assert!(
-            (track.duration - 7.83).abs() < 0.02,
-            "expected MPEG-derived duration, got {}",
-            track.duration
-        );
-        assert_eq!(track.bitrate, Some(320_000.0));
-        assert_eq!(track.sample_rate, Some(44_100));
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// Intent: opening an album must turn legacy ID3v2.3 metadata into the
-    /// canonical writable format before returning the track. The repair keeps
-    /// every readable field and the MPEG/ID3v1 payload while making the
-    /// non-standard dotted year readable as an ID3v2.4 recording date.
-    #[tokio::test]
-    async fn album_load_upgrades_legacy_mp3_and_recovers_tags() {
-        let root = album_test_root();
-        let album = root.join("Fine乐团").join("Never Mind EP");
-        std::fs::create_dir_all(&album).unwrap();
-        let path = album.join("配不上你.mp3");
-        std::fs::write(&path, mp3_with_legacy_year("2016.12.26", false)).unwrap();
-        let before = std::fs::read(&path).unwrap();
-        let before_payload = legacy_test_mpeg_payload(&before).to_vec();
-
-        let detail = read_album_with_legacy_upgrades(
-            album.clone(),
-            crate::state::write_queue::WriteQueue::default(),
-        )
-        .await
-        .expect("legacy album should load after repair");
-
-        assert_eq!(detail.status, "ok");
-        assert_eq!(detail.tracks.len(), 1);
-        let track = &detail.tracks[0];
-        assert_eq!(track.title.as_deref(), Some("配不上你"));
-        assert_eq!(track.artist.as_deref(), Some("Fine乐团"));
-        assert_eq!(track.album.as_deref(), Some("Never Mind EP"));
-        assert_eq!(track.track_number, Some(1));
-        assert_eq!(track.track_total, Some(1));
-        assert_eq!(track.year.as_deref(), Some("2016"));
-        assert!(track.has_cover);
-        assert!(track.duration > 7.0);
-
-        let after = std::fs::read(&path).unwrap();
-        assert_eq!(&after[..4], b"ID3\x04");
-        assert_eq!(legacy_test_mpeg_payload(&after), before_payload);
-
-        let first_upgrade = after;
-        let second = read_album_with_legacy_upgrades(
-            album.clone(),
-            crate::state::write_queue::WriteQueue::default(),
-        )
-        .await
-        .expect("already-upgraded album should load");
-        assert_eq!(second.status, "ok");
-        assert_eq!(std::fs::read(&path).unwrap(), first_upgrade);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// Intent: synchronized/unsynchronized lyrics retain the established
-    /// ID3v2.3 compatibility format instead of being silently upgraded.
-    #[tokio::test]
-    async fn album_load_keeps_id3v23_when_lyrics_are_present() {
-        let root = album_test_root();
-        let album = root.join("Artist").join("Lyrics Album");
-        std::fs::create_dir_all(&album).unwrap();
-        let path = album.join("track.mp3");
-        let original = mp3_with_legacy_year("2016", true);
-        std::fs::write(&path, &original).unwrap();
-
-        let detail = read_album_with_legacy_upgrades(
-            album,
-            crate::state::write_queue::WriteQueue::default(),
-        )
-        .await
-        .expect("lyric-bearing legacy album should load");
-
-        assert_eq!(detail.status, "ok");
-        assert_eq!(&std::fs::read(&path).unwrap()[..4], b"ID3\x03");
-        assert_eq!(std::fs::read(&path).unwrap(), original);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// Intent: an unrecognized malformed timestamp is not safe to rewrite.
-    /// Loading still succeeds through compatibility parsing, reports a warning,
-    /// and leaves every original byte available for a later retry.
-    #[tokio::test]
-    async fn album_load_warns_without_mutating_an_unrepairable_legacy_tag() {
-        let root = album_test_root();
-        let album = root.join("Artist").join("Malformed Album");
-        std::fs::create_dir_all(&album).unwrap();
-        let path = album.join("track.mp3");
-        let original = mp3_with_legacy_year("summer 2016", false);
-        std::fs::write(&path, &original).unwrap();
-
-        let detail = read_album_with_legacy_upgrades(
-            album,
-            crate::state::write_queue::WriteQueue::default(),
-        )
-        .await
-        .expect("compatibility reader should keep the track available");
-
-        assert_eq!(detail.status, "warning");
-        assert_eq!(detail.tracks[0].title.as_deref(), Some("配不上你"));
-        assert!(detail.tracks[0].duration > 7.0);
-        assert_eq!(std::fs::read(&path).unwrap(), original);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-
-    /// Intent: automatic repairs participate in the same exclusive
-    /// coordination as every other media mutation, so loading cannot replace a
-    /// legacy tag while an existing queued write is still active.
-    #[tokio::test]
-    async fn album_load_waits_for_an_active_queued_write_before_upgrading() {
-        let root = album_test_root();
-        let album = root.join("Artist").join("Queued Album");
-        std::fs::create_dir_all(&album).unwrap();
-        let path = album.join("track.mp3");
-        std::fs::write(&path, mp3_with_legacy_year("2016.12.26", false)).unwrap();
-
-        let queue = crate::state::write_queue::WriteQueue::default();
-        let started = std::sync::Arc::new(tokio::sync::Notify::new());
-        let release = std::sync::Arc::new(tokio::sync::Notify::new());
-        let blocker = {
-            let queue = queue.clone();
-            let started = started.clone();
-            let release = release.clone();
-            tokio::spawn(async move {
-                queue
-                    .run(async move {
-                        started.notify_one();
-                        release.notified().await;
-                    })
-                    .await;
-            })
-        };
-        started.notified().await;
-
-        let loader = tokio::spawn(read_album_with_legacy_upgrades(album, queue));
-        tokio::task::yield_now().await;
-        assert!(
-            !loader.is_finished(),
-            "album repair must wait for the queue"
-        );
-
-        release.notify_one();
-        blocker.await.unwrap();
-        let detail = loader.await.unwrap().unwrap();
-        assert_eq!(detail.status, "ok");
-        assert_eq!(&std::fs::read(&path).unwrap()[..4], b"ID3\x04");
-        std::fs::remove_dir_all(root).unwrap();
     }
 
     /// Container parsers are exposed to untrusted library files. Truncated
@@ -3259,17 +2797,14 @@ mod tests {
     /// Intent: album loading now performs cover decoding and encoding, so the
     /// Tauri command must keep that blocking work off the async runtime thread.
     #[test]
-    fn repair_aware_album_reader_is_async() {
+    fn album_read_command_is_async() {
         fn assert_future<F>(_: F)
         where
             F: std::future::Future<Output = Result<AlbumDetail, ApiError>>,
         {
         }
 
-        assert_future(read_album_with_legacy_upgrades(
-            PathBuf::from("/missing/album"),
-            crate::state::write_queue::WriteQueue::default(),
-        ));
+        assert_future(album_read("/missing/album".to_string()));
     }
 
     /// Intent: one malformed track is visible but must downgrade a otherwise
@@ -3741,55 +3276,6 @@ mod tests {
         tag.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
         tag.extend_from_slice(&frames);
         tag
-    }
-
-    fn mp3_with_malformed_year() -> Vec<u8> {
-        mp3_with_legacy_year("2016.12.26", false)
-    }
-
-    fn mp3_with_legacy_year(year: &str, lyrics: bool) -> Vec<u8> {
-        let mut frames = Vec::new();
-        append_id3v23_frame(&mut frames, b"TIT2", "\u{3}配不上你".as_bytes());
-        append_id3v23_frame(&mut frames, b"TPE1", "\u{3}Fine乐团".as_bytes());
-        append_id3v23_frame(&mut frames, b"TALB", b"\x03Never Mind EP");
-        append_id3v23_frame(&mut frames, b"TRCK", b"\x031/1");
-        append_id3v23_frame(&mut frames, b"TYER", &[&[3][..], year.as_bytes()].concat());
-        let picture = [
-            &[1][..],
-            b"image/jpeg\0",
-            &[3, 0xff, 0xfe, 0, 0][..],
-            b"cover",
-        ]
-        .concat();
-        append_id3v23_frame(&mut frames, b"APIC", &picture);
-        append_id3v23_frame(&mut frames, b"XZZZ", b"preserve-me");
-        if lyrics {
-            append_id3v23_frame(&mut frames, b"USLT", b"\x03eng\0legacy lyrics");
-        }
-        let mut mp3 = Vec::from(&b"ID3\x03\0\0"[..]);
-        mp3.extend_from_slice(&syncsafe_bytes(frames.len() as u32));
-        mp3.extend_from_slice(&frames);
-
-        // 320 kbps MPEG-1 Layer III at 44.1 kHz: 1,044 bytes per frame.
-        // Repeating complete frames gives Lofty enough evidence to derive the
-        // duration independently of the malformed ID3 field.
-        for _ in 0..300 {
-            mp3.extend_from_slice(&[0xff, 0xfb, 0xe0, 0x00]);
-            mp3.resize(mp3.len() + 1_040, 0);
-        }
-        let mut id3v1 = [0_u8; 128];
-        id3v1[..3].copy_from_slice(b"TAG");
-        id3v1[3..15].copy_from_slice(b"legacy-title");
-        mp3.extend_from_slice(&id3v1);
-        mp3
-    }
-
-    fn legacy_test_mpeg_payload(bytes: &[u8]) -> &[u8] {
-        let start = bytes
-            .windows(4)
-            .position(|window| window == [0xff, 0xfb, 0xe0, 0x00])
-            .expect("test MP3 contains MPEG frames");
-        &bytes[start..]
     }
 
     fn metadata_rich_id3v23_with_lyrics() -> Vec<u8> {

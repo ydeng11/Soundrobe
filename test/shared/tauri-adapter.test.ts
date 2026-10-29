@@ -27,6 +27,7 @@ const CHANNEL_PARITY: Array<{
   args: Record<string, unknown>;
 }> = [
   { method: "appInfo", command: "app_info", args: {} },
+  { method: "listLibraryRoots", command: "library_list_roots", args: {} },
   { method: "checkForUpdate", command: "updater_check", args: {} },
   { method: "scanLibrary", command: "library_scan", args: { dirPath: "/lib" } },
   { method: "refreshAlbum", command: "album_refresh", args: { albumPath: "/a" } },
@@ -53,6 +54,7 @@ const CHANNEL_PARITY: Array<{
   { method: "fetchLyrics", command: "lyrics_fetch", args: { trackName: "t", artistName: "a", albumName: "g", duration: 1 } },
   { method: "getConfig", command: "config_get", args: {} },
   { method: "setConfig", command: "config_set", args: { key: "k", value: "v" } },
+  { method: "suggestTagNames", command: "tags_suggest", args: { query: "desc" } },
   { method: "clearAutoTagReviews", command: "auto_tag_reviews_clear", args: {} },
   { method: "listAutoTagReviews", command: "auto_tag_reviews_list", args: {} },
   { method: "getAutoTagReview", command: "auto_tag_review_get", args: { reviewId: "run" } },

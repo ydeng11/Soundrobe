@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use super::paths::canonical_path;
+use super::paths::app_dir;
 use std::time::{SystemTime, UNIX_EPOCH};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -74,14 +74,18 @@ struct ConversationInner {
 }
 
 pub struct ConversationState {
-    home: PathBuf,
+    data_dir: PathBuf,
     inner: Mutex<Option<ConversationInner>>,
 }
 
 impl ConversationState {
     pub fn new(home: PathBuf) -> Self {
+        Self::new_in(app_dir(&home))
+    }
+
+    pub fn new_in(data_dir: PathBuf) -> Self {
         Self {
-            home,
+            data_dir,
             inner: Mutex::new(None),
         }
     }
@@ -95,7 +99,7 @@ impl ConversationState {
         }
         let path = configured_cache_path
             .map(PathBuf::from)
-            .unwrap_or_else(|| canonical_path(&self.home, "cache.db"));
+            .unwrap_or_else(|| self.data_dir.join("cache.db"));
         if ensure_parent(&path).is_err() {
             return false;
         }
@@ -370,6 +374,18 @@ mod tests {
         assert_eq!(entries[0].content, "Session cancelled");
         assert!(state.reset_session());
         assert_ne!(repeated, state.current().unwrap());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn server_conversations_use_exact_data_directory() {
+        let root = root();
+        let data_dir = root.join("config");
+        let state = ConversationState::new_in(data_dir.clone());
+
+        assert!(state.initialize(None));
+        assert!(data_dir.join("cache.db").exists());
+        assert!(!data_dir.join(".soundrobe").exists());
         fs::remove_dir_all(root).unwrap();
     }
 

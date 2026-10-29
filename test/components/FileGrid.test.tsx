@@ -78,6 +78,73 @@ const tracks: TrackData[] = [
 ];
 
 describe("FileGrid", () => {
+  it("renders user-selected supported metadata fields in the browser table", () => {
+    const onSelect = vi.fn();
+    render(
+      <FileGrid
+        web
+        webVisibleColumns={["album", "albumArtist", "composer", "disc", "lyrics"]}
+        tracks={[makeTrack("/music/song.mp3", {
+          album: "Album X",
+          albumArtist: "Album Artist A",
+          composer: "Composer A",
+          discNumber: 1,
+          discTotal: 2,
+          lyrics: { syncedLyrics: null, plainLyrics: "Words", language: "en" },
+        })]}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />,
+    );
+
+    expect(screen.getByText("Album")).toBeTruthy();
+    expect(screen.getByText("Album Artist")).toBeTruthy();
+    expect(screen.getByText("Composer")).toBeTruthy();
+    expect(screen.getByText("Disc")).toBeTruthy();
+    expect(screen.getByText("Lyrics")).toBeTruthy();
+    expect(screen.getByText("1/2")).toBeTruthy();
+    expect(screen.getByText("Available")).toBeTruthy();
+  });
+
+  it("gives added browser fields enough initial width for their labels", () => {
+    render(
+      <FileGrid
+        web
+        webVisibleColumns={["filename", "albumArtist"]}
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    const albumArtistHeader = screen.getByRole("button", { name: /Album Artist/ });
+    expect(Number.parseInt(albumArtistHeader.style.width, 10)).toBeGreaterThan(80);
+  });
+
+  it("uses the compact browser table hierarchy without the native context menu", () => {
+    const onSelect = vi.fn();
+    const showTrackContextMenu = vi.fn();
+    window.api = { showTrackContextMenu } as unknown as Window["api"];
+    const { container } = render(
+      <FileGrid
+        web
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={onSelect}
+      />,
+    );
+
+    expect(screen.getByText("Location")).toBeTruthy();
+    expect(screen.getByText("Format")).toBeTruthy();
+    expect(container.querySelector("[data-web-variant='true']")).toBeTruthy();
+    fireEvent.contextMenu(screen.getByText("music/song1.mp3"));
+    fireEvent.contextMenu(screen.getByTestId("file-grid-body"));
+    expect(showTrackContextMenu).not.toHaveBeenCalled();
+  });
+
   it("renders all files when no filter is set", () => {
     const onSelect = vi.fn();
     render(
@@ -471,6 +538,56 @@ describe("FileGrid", () => {
     // Rows should be in reverse order (3 data rows)
     const dataRows = container.querySelectorAll('[class*="flex items-center px-3 py-1"]');
     expect(dataRows.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("sorts the browser Format column by codec rather than bitrate", () => {
+    const formatTracks = [
+      makeTrack("/music/flac-track.flac", {
+        codec: "flac",
+        bitrate: 320000,
+        trackNumber: 1,
+      }),
+      makeTrack("/music/mp3-track.mp3", {
+        codec: "mp3",
+        bitrate: 128000,
+        trackNumber: 2,
+      }),
+    ];
+    const { container } = render(
+      <FileGrid
+        web
+        tracks={formatTracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Format"));
+
+    const rows = [...container.querySelectorAll<HTMLElement>("[data-testid^='file-row-']")];
+    expect(rows.map((row) => row.dataset.testid)).toEqual([
+      "file-row-/music/flac-track.flac",
+      "file-row-/music/mp3-track.mp3",
+    ]);
+  });
+
+  it("uses the browser toolbar sort contract for table header sorting", () => {
+    const onWebSortChange = vi.fn();
+    render(
+      <FileGrid
+        web
+        webSort={{ key: "artist", ascending: true }}
+        onWebSortChange={onWebSortChange}
+        tracks={tracks}
+        selectedTrackPath={null}
+        filterText=""
+        onSelectTrack={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Artist"));
+    expect(onWebSortChange).toHaveBeenCalledWith({ key: "artist", ascending: false });
   });
 
   it("shift-click range select calls onMultiSelect with all paths in range, not onSelectTrack", () => {

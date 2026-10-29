@@ -88,6 +88,13 @@ export function AutoTagSummaryDialog({
   React.useEffect(() => {
     setSelectedReview(null);
     setTab("results");
+    if (!summary || !window.api?.getAutoTagReview) return;
+    void Promise.all(
+      summary.items
+        .map((item) => item.reviewId)
+        .filter((reviewId): reviewId is string => Boolean(reviewId))
+        .map((reviewId) => window.api.getAutoTagReview(reviewId).catch(() => null)),
+    );
   }, [summary]);
   if (!summary) return null;
 

@@ -191,7 +191,9 @@ fn configured_source_root(corpus_root: &Path, override_root: Option<&str>) -> Pa
 fn evaluation_source_root(corpus_root: &Path) -> PathBuf {
     configured_source_root(
         corpus_root,
-        std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT").ok().as_deref(),
+        std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT")
+            .ok()
+            .as_deref(),
     )
 }
 
@@ -209,12 +211,13 @@ fn overlay_reviewed_expectations(corpus: &mut EvalCorpus, path: &Path) {
     if !path.exists() {
         return;
     }
-    let file: ExpectationsFile = serde_json::from_str(
-        &fs::read_to_string(path).unwrap_or_else(|error| {
+    let file: ExpectationsFile =
+        serde_json::from_str(&fs::read_to_string(path).unwrap_or_else(|error| {
             panic!("read evaluation expectations {}: {error}", path.display())
-        }),
-    )
-    .unwrap_or_else(|error| panic!("parse evaluation expectations {}: {error}", path.display()));
+        }))
+        .unwrap_or_else(|error| {
+            panic!("parse evaluation expectations {}: {error}", path.display())
+        });
     assert_eq!(file.schema_version, corpus.schema_version);
     assert_eq!(file.corpus_version, corpus.corpus_version);
     let reviewed = file
@@ -293,9 +296,9 @@ fn candidate_position_matches(track: &TrackCandidate, expected: &str) -> bool {
     if expected == track_number.to_string() {
         return track.disc_number.is_none() || track.disc_number == Some(1);
     }
-    track.disc_number.is_some_and(|disc_number| {
-        expected == format!("{disc_number}-{track_number}")
-    })
+    track
+        .disc_number
+        .is_some_and(|disc_number| expected == format!("{disc_number}-{track_number}"))
 }
 
 fn normalized_mapping_title(value: &str) -> String {
@@ -342,10 +345,7 @@ fn is_provider_position_sequence(positions: &[String]) -> bool {
         && components.windows(2).all(|window| {
             (window[1].0 == window[0].0 && window[1].1 == window[0].1 + 1)
                 || (window[1].0 == window[0].0 + 1 && window[1].1 == 1)
-                || (window[1].0 == 1
-                    && window[1].1 == 1
-                    && window[0].0 == 1
-                    && window[0].1 > 1)
+                || (window[1].0 == 1 && window[1].1 == 1 && window[0].0 == 1 && window[0].1 > 1)
         })
 }
 
@@ -366,11 +366,8 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
     {
         return false;
     }
-    let has_duplicate_provider_position = provider_positions.len()
-        != provider_positions
-            .iter()
-            .collect::<BTreeSet<_>>()
-            .len();
+    let has_duplicate_provider_position =
+        provider_positions.len() != provider_positions.iter().collect::<BTreeSet<_>>().len();
     let provider_positions_are_ordered = is_provider_position_sequence(&provider_positions);
     let mut local_tracks = BTreeSet::new();
     let mut previous_local_track = 0;
@@ -382,9 +379,7 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
         else {
             return false;
         };
-        let Some(provider_track) = row
-            .get("providerTrack")
-            .and_then(provider_position_value)
+        let Some(provider_track) = row.get("providerTrack").and_then(provider_position_value)
         else {
             return false;
         };
@@ -394,16 +389,13 @@ fn reviewed_mapping_matches(candidate: &AlbumCandidate, mapping: &[Value]) -> bo
         previous_local_track = local_track;
         local_track > 0
             && local_tracks.insert(local_track)
-            && candidate
-                .tracks
-                .get(local_track - 1)
-                .is_some_and(|track| {
-                    (!has_duplicate_provider_position
-                        && candidate_position_matches(track, &provider_track))
-                        || (provider_positions_are_ordered
-                            && track.disc_number.is_none()
-                            && mapping_provider_title_matches(track, row))
-                })
+            && candidate.tracks.get(local_track - 1).is_some_and(|track| {
+                (!has_duplicate_provider_position
+                    && candidate_position_matches(track, &provider_track))
+                    || (provider_positions_are_ordered
+                        && track.disc_number.is_none()
+                        && mapping_provider_title_matches(track, row))
+            })
     }) && local_tracks.len() == candidate.tracks.len()
 }
 
@@ -2117,7 +2109,10 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
         {"localTrack": 1, "providerTrack": "1-2"},
         {"localTrack": 2, "providerTrack": "1-1"}
     ]);
-    assert!(reviewed_mapping_matches(&candidate, mapping.as_array().unwrap()));
+    assert!(reviewed_mapping_matches(
+        &candidate,
+        mapping.as_array().unwrap()
+    ));
 
     let mut case = load_corpus().cases[0].clone();
     case.expectation.status = "verified_match".into();
@@ -2134,7 +2129,10 @@ fn reviewed_mapping_must_match_the_selected_candidate_positions() {
         {"localTrack": 1, "providerTrack": "1-1"},
         {"localTrack": 2, "providerTrack": "1-2"}
     ]);
-    assert!(!reviewed_mapping_matches(&candidate, wrong.as_array().unwrap()));
+    assert!(!reviewed_mapping_matches(
+        &candidate,
+        wrong.as_array().unwrap()
+    ));
     case.expectation.mapping = wrong.as_array().unwrap().clone();
     assert_eq!(
         candidate_is_expected(&case, &accepted),
@@ -2422,6 +2420,8 @@ fn native_outcome_classification_keeps_safety_and_provider_failures_distinct() {
         ai_status: None,
         ai_confidence: None,
         ai_threshold: None,
+        cleared_tags: Vec::new(),
+        kept_tags: Vec::new(),
     };
     assert_eq!(
         native_classification(case, Some(&needs_review), false, false, true),
@@ -3056,7 +3056,7 @@ async fn live_auto_tag_eval() {
     fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
 }
 
-fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
+pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
     let url = reqwest::Url::parse(base).map_err(|error| error.to_string())?;
     if url.scheme() != "http"
         || url.host_str() != Some("127.0.0.1")

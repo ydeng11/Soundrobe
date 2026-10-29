@@ -2,13 +2,20 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useAppUpdater } from "../../src/state/useAppUpdater";
-import type { AppUpdateInfo } from "../../src/shared/desktop-api";
+import type { AppInfo, AppUpdateInfo } from "../../src/shared/desktop-api";
 
 const update: AppUpdateInfo = {
   currentVersion: "0.1.0",
   availableVersion: "0.2.0",
   date: null,
   notes: "Update notes",
+};
+
+const webAppInfo: AppInfo = {
+  identifier: "com.ihelio.soundrobe",
+  version: "0.2.0",
+  runtime: "web",
+  dev: false,
 };
 
 beforeEach(() => {
@@ -51,6 +58,15 @@ describe("useAppUpdater", () => {
     expect(result.current.checkMessage).toBe(
       "Updates are available in packaged production builds.",
     );
+  });
+
+  it("does not invoke the desktop updater in the web runtime", async () => {
+    window.api.appInfo = vi.fn().mockResolvedValue(webAppInfo);
+    const { result } = renderHook(() => useAppUpdater(false));
+
+    await waitFor(() => expect(window.api.appInfo).toHaveBeenCalledTimes(1));
+    expect(result.current.supported).toBe(false);
+    expect(window.api.checkForUpdate).not.toHaveBeenCalled();
   });
 
   it("keeps startup failures silent but exposes manual failures", async () => {

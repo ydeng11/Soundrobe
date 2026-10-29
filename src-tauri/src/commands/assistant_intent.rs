@@ -381,24 +381,23 @@ fn parse_request_tokens(message: &str) -> ParsedRequest {
             // instruction must never become a literal value: supported
             // folder-name derivations become a native source, and unsupported
             // derivation shapes fall through to the LLM.
-            let (value, value_from, derivation_unsupported) =
-                if is_quoted_value(trimmed_rest) {
-                    (Some(trimmed_rest.to_string()), None, false)
-                } else if let Some(after_to) = trimmed_rest.strip_prefix("to ") {
-                    if is_quoted_value(after_to) {
-                        (Some(after_to.to_string()), None, false)
-                    } else if is_folder_name_derivation(after_to) {
-                        (None, Some(ValueSource::FolderName), false)
-                    } else {
-                        (Some(after_to.to_string()), None, false)
-                    }
-                } else if is_folder_name_derivation(trimmed_rest) {
+            let (value, value_from, derivation_unsupported) = if is_quoted_value(trimmed_rest) {
+                (Some(trimmed_rest.to_string()), None, false)
+            } else if let Some(after_to) = trimmed_rest.strip_prefix("to ") {
+                if is_quoted_value(after_to) {
+                    (Some(after_to.to_string()), None, false)
+                } else if is_folder_name_derivation(after_to) {
                     (None, Some(ValueSource::FolderName), false)
-                } else if is_unsupported_derivation(trimmed_rest) {
-                    (None, None, true)
                 } else {
-                    (Some(trimmed_rest.to_string()), None, false)
-                };
+                    (Some(after_to.to_string()), None, false)
+                }
+            } else if is_folder_name_derivation(trimmed_rest) {
+                (None, Some(ValueSource::FolderName), false)
+            } else if is_unsupported_derivation(trimmed_rest) {
+                (None, None, true)
+            } else {
+                (Some(trimmed_rest.to_string()), None, false)
+            };
             return ParsedRequest {
                 action,
                 field: Some(field.clone()),
@@ -1298,11 +1297,8 @@ mod tests {
     fn derivation_with_missing_qualifier_preserves_only_if_missing() {
         // "…where missing" combined with a folder-name derivation must keep
         // the only_if_missing semantics so existing values are preserved.
-        let cmd = route_message(
-            "set album based on their folder name where missing",
-            None,
-        )
-        .expect("folder-name derivation with missing qualifier must route natively");
+        let cmd = route_message("set album based on their folder name where missing", None)
+            .expect("folder-name derivation with missing qualifier must route natively");
         assert_eq!(cmd.intent, IntentKind::SetFieldFrom);
         assert_eq!(cmd.field.as_deref(), Some("album"));
         assert_eq!(cmd.value_from, Some(ValueSource::FolderName));

@@ -13,16 +13,18 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
+const DEFAULT_FOLDER_CONCURRENCY: usize = 4;
+
 /// All media mutations pass through one queue so two UI actions cannot race on
 /// the same file and lifecycle code can block quit while work waits or runs.
 ///
 /// Cloning is cheap — the inner state is shared via `Arc`. This allows passing
 /// the queue to spawned tasks for concurrent per-folder batch writes.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct WriteQueue(Arc<WriteQueueInner>);
 
-#[derive(Default)]
 struct WriteQueueInner {
+    max_folder_concurrency: usize,
     /// Shared operations may proceed under a read guard; assistant metadata
     /// batches use the write guard to keep preflight, writes, and readback atomic.
     coordination: RwLock<()>,
@@ -35,7 +37,30 @@ struct WriteQueueInner {
     active: AtomicUsize,
 }
 
+impl Default for WriteQueue {
+    fn default() -> Self {
+        Self::with_concurrency(None)
+    }
+}
+
 impl WriteQueue {
+    pub fn with_concurrency(configured: Option<usize>) -> Self {
+        let max_folder_concurrency = configured
+            .filter(|value| *value > 0)
+            .unwrap_or(DEFAULT_FOLDER_CONCURRENCY);
+        Self(Arc::new(WriteQueueInner {
+            max_folder_concurrency,
+            coordination: RwLock::new(()),
+            gate: Mutex::new(()),
+            folder_gates: Mutex::new(HashMap::new()),
+            active: AtomicUsize::new(0),
+        }))
+    }
+
+    pub fn max_folder_concurrency(&self) -> usize {
+        self.0.max_folder_concurrency
+    }
+
     pub fn is_active(&self) -> bool {
         self.0.active.load(Ordering::Acquire) > 0
     }
@@ -141,6 +166,22 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
     use tokio::sync::{Barrier, Notify};
+
+    #[test]
+    fn write_concurrency_is_explicit_and_shared_across_clones() {
+        assert_eq!(WriteQueue::default().max_folder_concurrency(), 4);
+        assert_eq!(
+            WriteQueue::with_concurrency(Some(0)).max_folder_concurrency(),
+            4
+        );
+        assert_eq!(
+            WriteQueue::with_concurrency(Some(1)).max_folder_concurrency(),
+            1
+        );
+        let configured = WriteQueue::with_concurrency(Some(8));
+        assert_eq!(configured.max_folder_concurrency(), 8);
+        assert_eq!(configured.clone().max_folder_concurrency(), 8);
+    }
 
     /// Waiting operations count as active and execution stays serialized. This
     /// is what the quit guard needs: quitting with queued work is still unsafe.

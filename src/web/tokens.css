@@ -1,0 +1,166 @@
+/**
+ * Music Tag Web V2 parity tokens for the Soundrobe browser runtime.
+ *
+ * Colours are the reference's own computed values, read from the live
+ * Music Tag Web V2 DOM. The reference expresses colour in `oklch()`, so these
+ * tokens do too — converting to hex would drift from the reference. Roles that
+ * were read from screenshots rather than the DOM are marked "observed" and are
+ * approximations.
+ *
+ * Everything is scoped to `.sr-web` so the standalone desktop composition is
+ * never affected.
+ */
+.sr-web {
+  /* ---- Surfaces (DOM) ---- */
+  --sr-surface: oklch(1 0 0);
+  --sr-surface-soft: oklch(0.984152 0.003413 247.858);
+  /* Reference --b3 (base-300), the strong surface step. */
+  --sr-surface-strong: oklch(0.924169 0.00108 197.138);
+  --sr-surface-raised: oklch(1 0 0 / 0.98);
+  --sr-surface-tint: oklch(0.984152 0.003413 247.858 / 0.72);
+
+  /* ---- Accents (DOM) ---- */
+  --sr-primary: oklch(0.708969 0.159168 293.541);
+  --sr-primary-soft: oklch(0.708969 0.159168 293.541 / 0.1);
+  --sr-primary-tint: oklch(0.708969 0.159168 293.541 / 0.11);
+  /* Reference --s. Corrected from an "observed" screenshot approximation
+     (hue 321.4, chroma 0.132) to the measured theme value. Currently unused. */
+  --sr-secondary: oklch(0.894268 0.054882 293.283);
+  --sr-secondary-soft: oklch(0.833033 0.132193 321.434 / 0.11);
+  --sr-neutral: oklch(0.454793 0.03391 305.475);
+  /* Reference --nc (neutral-content), the content on the neutral fill. */
+  --sr-neutral-content: oklch(0.978315 0.006688 295.453);
+
+  /* ---- State roles (reference-derived) ---- */
+  /* Reference --b3 (base-300) is the hover surface. */
+  --sr-hover: var(--sr-surface-strong);
+  /* Reference --n (neutral) is the selected fill, with --nc as its text.
+     DIVERGENCE in application, not in value: the reference uses this solid fill for
+     compact nav and tab items, and paints a selected data ROW with a subtle --b2
+     fill instead. Soundrobe uses the solid fill for rows too, because the reference's
+     row fill is unusable here - --b2 is the shell background (1.00:1, invisible) and
+     --b3 is the hover colour (indistinguishable from hover). Recorded in
+     docs/mtw-parity.md section 21. */
+  --sr-selected: var(--sr-neutral);
+  --sr-selected-text: var(--sr-neutral-content);
+  /* Reference --p (primary) is the focus ring. */
+  --sr-focus-ring: var(--sr-primary);
+  /* Ours, NOT ported: the reference has no single disabled-opacity variable (its
+     disabled controls range from 0.2 to 0.6), so this only names the 0.5 that
+     web.css already applied to disabled buttons. */
+  --sr-disabled-opacity: 0.5;
+
+  /* Ours, NOT ported: the reference defines no --pf (primary-focus), so this hover
+     step is ours. It is a LIGHTER step of the same hue because the primary label is
+     now a dark colour (see web.css): darkening the fill would drop that label to
+     3.94:1, below the floor, whereas this step raises it to 5.82:1. */
+  --sr-primary-hover: oklch(0.73 0.159168 293.541);
+  /* Derived, NOT ported. Four rules paint --sr-primary as TEXT on --sr-primary-soft
+     (the brand mark, the brand badge, the chip and badge--info). That pair measures
+     2.49:1 - the same failing combination the primary button had. This darkens the
+     primary to 4.60:1 on that tint and 5.02:1 on a white card, mirroring the
+     --sr-<status>-text roles. Keep --sr-primary for fills and borders. */
+  --sr-primary-text: oklch(0.557 0.159168 293.541);
+
+  /* ---- Text (DOM) ---- */
+  --sr-text: oklch(0.278078 0.029596 256.848);
+  /* DELIBERATE DIVERGENCE, recorded in docs/mtw-parity.md section 19. The reference DOES
+     use 40% (var(--bc)/.4 appears six times), so 40% is reference-attested - an
+     earlier comment here claimed it never occurred, which was wrong. It is raised
+     anyway because it carries text in 12 rules of web.css and 2.33:1 fails the
+     4.5:1 floor that AGENTS.md requires for body text. 0.65 is the smallest alpha
+     clearing 4.5:1 on both the page and white (4.64:1 / 4.72:1). */
+  --sr-text-muted: oklch(0.278078 0.029596 256.848 / 0.65);
+  /* Reference-measured at 0.62 and kept as read. It reaches 4.24:1, so it is for
+     non-body use only; move any body-sized text to --sr-text-muted. No consumer today:
+     every previous user was body-sized and moved. Kept because it is a measured
+     reference value with a defined role, not a guess. */
+  --sr-text-soft: oklch(0.278078 0.029596 256.848 / 0.62);
+
+  /* ---- Status (DOM, from the reference's --su / --wa / --er) ---- */
+  --sr-border: #e3e7ed;
+  --sr-border-strong: #d9dee5;
+  --sr-success: oklch(0.648 0.15 160);
+  /* Reference-measured tints: the reference tints a status colour with its own
+     alpha rather than a hand-picked hex (bg-success/10, bg-warning/20,
+     bg-error/10), so these replace the screenshot approximations. */
+  --sr-success-soft: oklch(0.648 0.15 160 / 0.1);
+  /* Reference --wa / --er. No consumer today: every status TEXT role moved to the
+     -text roles below, and only --sr-success is still used as a fill. Kept because
+     they are the measured reference values that complete the status set. */
+  --sr-warning: oklch(0.8471 0.199 83.87);
+  --sr-warning-soft: oklch(0.8471 0.199 83.87 / 0.2);
+  --sr-danger: oklch(0.7176 0.221 22.18);
+  --sr-danger-soft: oklch(0.7176 0.221 22.18 / 0.1);
+  /* Derived, NOT ported. The reference does pair status colours with text (it ships
+     .text-warning, .text-error and a badge class that puts them on a tint), so the
+     earlier claim here that it never does was wrong. What it does not guarantee is
+     legibility: its own base status colours measure 1.46:1 to 2.67:1 as text on
+     these tints. Each of these darkens the same hue and chroma to clear 4.5:1, and
+     is used wherever a status colour is TEXT - on a tint or on a light surface.
+     Keep --sr-<status> for fills, borders and icons. */
+  --sr-success-text: oklch(0.51 0.15 160);
+  --sr-warning-text: oklch(0.539 0.199 83.87);
+  --sr-danger-text: oklch(0.564 0.221 22.18);
+
+  /* ---- Radius scale (DOM) ---- */
+  --sr-radius-pill: 999px;
+  --sr-radius-xl: 24px;
+  --sr-radius-lg: 20px;
+  --sr-radius-md: 16px;
+  --sr-radius: 12px;
+  --sr-radius-sm: 11px;
+  --sr-radius-xs: 8px;
+
+  /* ---- Type scale (DOM) ---- */
+  --sr-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --sr-fs-base: 16px;
+  --sr-fs-body: 14px;
+  --sr-fs-sm: 13.12px;
+  --sr-fs-xs: 12.48px;
+  --sr-fs-2xs: 11.52px;
+  /* The reference uses 0.625rem (10px) for its count badge, so this step is
+     measured rather than invented. It was previously a bare 10px literal on the
+     folder-tree twisty. */
+  --sr-fs-3xs: 10px;
+  --sr-fs-lg: 15px;
+  --sr-fs-title: 36px;
+  /* Line heights are each a pairing measured in the reference theme: 16px text on
+     24px, 14px on 20px, 12px on 16px, and 38px on 42.56px. The reference sets a
+     leading on every text size; before these tokens the workspace inherited the
+     font's `normal`, which is tighter than any of them. */
+  --sr-lh-display: 1.12;
+  --sr-lh-tight: 1.333;
+  --sr-lh-base: 1.43;
+  --sr-lh-relaxed: 1.5;
+  /* The reference pairs its 10px badge and its 22px icon button with a leading of
+     exactly 1. Glyph-only elements take this so their box stays the glyph height. */
+  --sr-lh-glyph: 1;
+  --sr-fw-normal: 400;
+  --sr-fw-medium: 500;
+  --sr-fw-semibold: 600;
+  --sr-fw-bold: 700;
+  --sr-fw-heavy: 800;
+
+  /* ---- Chrome geometry (DOM) ---- */
+  --sr-header-h: 64px;
+  --sr-header-inset: 8px;
+  --sr-side-w: 352px;
+  --sr-gutter: 16px;
+
+  /* ---- Workspace table geometry (DOM) ---- */
+  --sr-row-h: 73px;
+  --sr-head-h: 33px;
+
+  /* ---- Controls (DOM) ---- */
+  --sr-input-h: 32px;
+  --sr-control-h: 34px;
+  --sr-nav-h: 44px;
+
+  /* ---- Shell base ---- */
+  font-family: var(--sr-font);
+  font-size: var(--sr-fs-base);
+  color: var(--sr-text);
+  background: var(--sr-surface-soft);
+  -webkit-font-smoothing: antialiased;
+}

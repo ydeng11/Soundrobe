@@ -8,6 +8,7 @@ import type { TrackData, AlbumInfo, TaskProgress } from "../../src/shared/deskto
 afterEach(() => {
   cleanup();
   delete (window as unknown as Record<string, unknown>).api;
+  delete window.__SOUNDROBE_RUNTIME__;
 });
 
 function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
@@ -42,6 +43,16 @@ function makeTrack(path: string, overrides?: Partial<TrackData>): TrackData {
   };
 }
 
+function makeAlbum(path: string, name: string, trackCount = 0): AlbumInfo {
+  return {
+    path,
+    name,
+    artistHint: "",
+    albumHint: "",
+    trackCount,
+  };
+}
+
 beforeEach(() => {
   const disposer = vi.fn();
   window.api = {
@@ -52,6 +63,9 @@ beforeEach(() => {
       dev: false,
     }),
     openFolderDialog: vi.fn().mockResolvedValue("/music"),
+    listLibraryRoots: vi.fn().mockResolvedValue([
+      { id: "music", name: "music", path: "/libraries/music" },
+    ]),
     scanLibrary: vi.fn().mockResolvedValue([
       {
         path: "/music/Test Album",
@@ -153,6 +167,304 @@ describe("App — batch save progress", () => {
   it("renders the title bar and open-library button", async () => {
     render(<App />);
     expect(screen.getByText("Open Library")).toBeTruthy();
+  });
+
+  it("keeps the mounted-library picker visible until a web user chooses a root", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+
+    expect(await screen.findByText("Choose a library")).toBeTruthy();
+    expect(window.api.listLibraryRoots).toHaveBeenCalledTimes(1);
+    expect(window.api.openFolderDialog).not.toHaveBeenCalled();
+    expect(window.api.scanLibrary).not.toHaveBeenCalled();
+
+    fetchMock.mockRestore();
+  });
+
+  it("keeps Library, Activity, and Settings navigable before a web library opens", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    expect(screen.getByTestId("web-activity-view")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(await screen.findByRole("heading", { name: "Settings", level: 1 })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "Library" }).getAttribute("aria-current")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    expect(screen.getByText("Choose a library")).toBeTruthy();
+
+    fetchMock.mockRestore();
+  });
+
+  it("scans only the selected mounted root and refreshes that root", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "jazz", name: "jazz", path: "/libraries/jazz" },
+      { id: "classical", name: "classical", path: "/libraries/classical" },
+    ]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(await screen.findByRole("button", { name: /classical/ }));
+    await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/classical"));
+    expect(window.api.scanLibrary).not.toHaveBeenCalledWith("/libraries/jazz");
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => {
+      const calls = (window.api.scanLibrary as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.filter(([path]) => path === "/libraries/classical")).toHaveLength(2);
+    });
+
+    fetchMock.mockRestore();
+  });
+
+  it("uses the browser-only workspace instead of the desktop title bar after selecting a mounted root", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "Workspace settings" })).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+
+    const workspace = await screen.findByTestId("web-library-workspace");
+    expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Workspace settings" }).textContent).toContain("Settings");
+    expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
+    const filter = screen.getByRole("searchbox", { name: "Filter workspace" });
+    expect(filter).toBeTruthy();
+    expect(screen.getByLabelText("Workspace location")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Library" })).toBeNull();
+    expect(workspace.querySelector("aside")?.className).not.toMatch(/\bhidden\b/);
+    fireEvent.change(filter, { target: { value: "no matching track" } });
+    expect(workspace.querySelector('[data-testid^="file-row-"]')).toBeNull();
+    fetchMock.mockRestore();
+  });
+
+  it("opens workspace settings from the mounted browser toolbar and closes it when the workspace changes", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Workspace settings" }));
+    expect(await screen.findByRole("dialog", { name: "Workspace settings" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+    expect(screen.queryByRole("dialog", { name: "Workspace settings" })).toBeNull();
+    fetchMock.mockRestore();
+  });
+
+  it("ignores a late scan after switching roots while the selected root stays visible", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "first", name: "first", path: "/libraries/first" },
+      { id: "second", name: "second", path: "/libraries/second" },
+    ]);
+    let resolveFirstScan!: (albums: AlbumInfo[]) => void;
+    const firstScan = new Promise<AlbumInfo[]>((resolve) => { resolveFirstScan = resolve; });
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>)
+      .mockImplementationOnce(() => firstScan)
+      .mockResolvedValue([
+        makeAlbum("/libraries/second/New Album", "New Album"),
+      ] as AlbumInfo[]);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(await screen.findByRole("button", { name: /first/ }));
+    await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/first"));
+    fireEvent.click(await screen.findByRole("button", { name: "Change library" }));
+    fireEvent.click(screen.getByRole("button", { name: /second/ }));
+    await waitFor(() => expect(screen.getByText("New Album")).toBeTruthy());
+
+    await act(async () => {
+      resolveFirstScan([makeAlbum("/libraries/first/Stale Album", "Stale Album")]);
+    });
+    expect(screen.queryByText("Stale Album")).toBeNull();
+    expect(screen.getByText("New Album")).toBeTruthy();
+
+    fetchMock.mockRestore();
+  });
+
+  it("clears the loaded root while a replacement root is still scanning", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "first", name: "first", path: "/libraries/first" },
+      { id: "second", name: "second", path: "/libraries/second" },
+    ]);
+    let resolveSecondScan!: (albums: AlbumInfo[]) => void;
+    const secondScan = new Promise<AlbumInfo[]>((resolve) => { resolveSecondScan = resolve; });
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([makeAlbum("/libraries/first/Album A", "Album A", 2)])
+      .mockImplementationOnce(() => secondScan);
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(await screen.findByRole("button", { name: /first/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Album A")).toBeTruthy();
+      expect(screen.getByTestId("file-row-/libraries/first/Album A/01.mp3")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change library" }));
+    fireEvent.click(screen.getByRole("button", { name: /second/ }));
+    await waitFor(() => expect(window.api.scanLibrary).toHaveBeenCalledWith("/libraries/second"));
+    expect(screen.queryByText("Album A")).toBeNull();
+    expect(screen.queryByTestId("file-row-/libraries/first/Album A/01.mp3")).toBeNull();
+
+    await act(async () => {
+      resolveSecondScan([makeAlbum("/libraries/second/Album B", "Album B")]);
+    });
+    expect(await screen.findByText("Album B")).toBeTruthy();
+
+    fetchMock.mockRestore();
+  });
+
+  it("keeps the replacement root empty and reports its scan failure", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    window.api.listLibraryRoots = vi.fn().mockResolvedValue([
+      { id: "first", name: "first", path: "/libraries/first" },
+      { id: "second", name: "second", path: "/libraries/second" },
+    ]);
+    (window.api.scanLibrary as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce([makeAlbum("/libraries/first/Album A", "Album A", 2)])
+      .mockRejectedValueOnce(new Error("B unavailable"));
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    await screen.findByText("Choose a library");
+    fireEvent.click(await screen.findByRole("button", { name: /first/ }));
+    await waitFor(() => {
+      expect(screen.getByText("Album A")).toBeTruthy();
+      expect(screen.getByTestId("file-row-/libraries/first/Album A/01.mp3")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change library" }));
+    fireEvent.click(screen.getByRole("button", { name: /second/ }));
+    expect(await screen.findByText("B unavailable")).toBeTruthy();
+    expect(screen.queryByText("Album A")).toBeNull();
+    expect(screen.queryByTestId("file-row-/libraries/first/Album A/01.mp3")).toBeNull();
+    expect(screen.getByText("Mounted library: /libraries/second")).toBeTruthy();
+
+    fetchMock.mockRestore();
+  });
+
+  it("keeps the web workspace available without login or sign-out controls", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    expect(await screen.findAllByTestId(/^file-row-/)).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/auth/"))).toBe(false);
+
+    fetchMock.mockRestore();
+  });
+
+  it("preserves an editor draft while navigating web service tabs", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "Draft title" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Activity" }));
+    fireEvent.click(screen.getByRole("button", { name: "Library" }));
+
+    expect((screen.getByPlaceholderText("Track title") as HTMLInputElement).value).toBe("Draft title");
+    fetchMock.mockRestore();
+  });
+
+  it("restores the loaded workspace and editor draft after Change library then Workspace", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response(JSON.stringify({ authenticated: true })));
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    fireEvent.click((await screen.findAllByTestId(/^file-row-/))[0]);
+    const titleInput = await screen.findByPlaceholderText("Track title");
+    fireEvent.change(titleInput, { target: { value: "Draft title" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Change library" }));
+    expect(await screen.findByText("Choose a library")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+    const workspace = await screen.findByTestId("web-library-workspace");
+    expect(workspace.className).not.toContain("hidden");
+    expect(screen.queryByText("Choose a library")).toBeNull();
+    expect(screen.getByRole("button", { name: "Change library" })).toBeTruthy();
+    expect(workspace.parentElement?.getAttribute("aria-hidden")).toBe("false");
+    expect(workspace.querySelector('[placeholder="Track title"]')).toBeTruthy();
+    expect((screen.getByPlaceholderText("Track title") as HTMLInputElement).value).toBe(
+      "Draft title",
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("uploads a browser-selected cover without invoking the native picker", async () => {
+    window.__SOUNDROBE_RUNTIME__ = "web";
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify("data:image/jpeg;base64,uploaded")),
+      );
+
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: /music/ }));
+    const row = (await screen.findAllByTestId(/^file-row-/))[0];
+    fireEvent.click(row);
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    fireEvent.change(screen.getByLabelText("Cover artwork"), {
+      target: { files: [new File(["cover"], "cover.png", { type: "image/png" })] },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByAltText("Cover art").getAttribute("src")).toBe(
+        "data:image/jpeg;base64,uploaded",
+      );
+    });
+    expect(window.api.setCover).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][0]).toContain("/api/v1/covers?albumPath=");
+
+    fetchMock.mockRestore();
   });
 
   it("summarizes structured lyrics embedding results", async () => {
@@ -709,6 +1021,27 @@ describe("App — modification history", () => {
         name: "Undo latest modification",
       }) as HTMLButtonElement).disabled,
     ).toBe(true);
+  });
+
+  it("reopens native auto-tag evidence from the title bar", async () => {
+    const review = {
+      id: "offline-review",
+      albumPath: "/music/Offline Album",
+      outcome: "needs_review" as const,
+      decision: "pending" as const,
+      result: { reasonCode: "provider_unavailable" },
+      before: { tracks: [], artworks: [], errors: [] },
+      after: { tracks: [], artworks: [], errors: [] },
+      canRevert: false,
+      errors: [],
+    };
+    window.api.listAutoTagReviews = vi.fn().mockResolvedValue([review]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Results" }));
+
+    expect(await screen.findByText("Awaiting review")).toBeTruthy();
+    expect(window.api.listAutoTagReviews).toHaveBeenCalledOnce();
   });
 
   it("clears previous auto-tag results when opening another library", async () => {

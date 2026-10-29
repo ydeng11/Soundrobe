@@ -212,6 +212,57 @@ describe("SettingsModal", () => {
     expect((select as HTMLSelectElement).value).toBe("simplified");
   });
 
+  it("lets desktop users modify cleanup tags and see the kept list", async () => {
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    const suggestTagNames = vi.fn(async (query: string) => {
+      if (query.toLowerCase().includes("desc")) {
+        return [
+          {
+            id: "description",
+            label: "Description",
+            frame: "TXXX:DESCRIPTION",
+            source: "ID3 / Navidrome",
+          },
+        ];
+      }
+      return [
+        { id: "comment", label: "Comment", frame: "COMM", source: "ID3 / Navidrome" },
+        { id: "description", label: "Description", frame: "TXXX:DESCRIPTION", source: "ID3 / Navidrome" },
+        { id: "title", label: "Title", frame: "TIT2", source: "ID3 / Navidrome" },
+      ];
+    });
+    window.api = {
+      getConfig: vi.fn().mockResolvedValue({
+        llmModel: "model",
+        clearTagsEnabled: true,
+        clearTags: ["comment"],
+      }),
+      setConfig,
+      suggestTagNames,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+    await screen.findByDisplayValue("model");
+    clickTab("Metadata");
+
+    expect(screen.getByText("Selected tags will be cleared")).toBeTruthy();
+    expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
+    const input = screen.getByPlaceholderText("Type Comment or Description");
+    fireEvent.change(input, { target: { value: "desc" } });
+    fireEvent.click(await screen.findByRole("option", { name: "Description" }));
+
+    expect(screen.getByTestId("settings-clear-tag-list").textContent).toContain("Description");
+    expect(
+      screen.getByRole("button", { name: "Remove Description from clear list" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(setConfig).toHaveBeenCalledWith("clearTags", ["comment", "description"]),
+    );
+  });
+
   it("keeps settings usable when native version lookup fails", async () => {
     window.api.appInfo = vi.fn().mockRejectedValue(new Error("unavailable"));
 
@@ -280,7 +331,36 @@ describe("SettingsModal", () => {
       expect(setConfig).toHaveBeenCalledWith("chineseScript", null);
     });
 
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith("assistantAutonomous", false);
+    });
+
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears the provider base URL when the provider is reset", async () => {
+    const setConfig = vi.fn().mockResolvedValue(undefined);
+    window.api = {
+      getConfig: vi.fn().mockResolvedValue({
+        llmModel: "model",
+        llmProvider: "openrouter",
+        llmBaseUrl: "https://old.example/v1",
+      }),
+      setConfig,
+      setDebugMode: vi.fn().mockResolvedValue(undefined),
+      subscribeDebugLogs: vi.fn().mockResolvedValue(undefined),
+    } as any;
+
+    render(<SettingsModal open={true} onClose={() => {}} />);
+    await screen.findByDisplayValue("model");
+
+    const provider = screen.getByDisplayValue("OpenRouter") as HTMLSelectElement;
+    fireEvent.change(provider, { target: { value: "" } });
+    fireEvent.click(screen.getByText("Save"));
+
+    await waitFor(() => {
+      expect(setConfig).toHaveBeenCalledWith("llmBaseUrl", null);
+    });
   });
 
   it("saves chineseScript as simplified when Simplified Chinese is selected", async () => {

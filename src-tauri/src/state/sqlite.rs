@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use time::OffsetDateTime;
 
-use super::paths::canonical_path;
+use super::paths::app_dir;
 
 const CACHE_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS lookup_cache (
@@ -36,6 +36,28 @@ CREATE TABLE IF NOT EXISTS artist_release_cache (
   fetched_at TEXT NOT NULL,
   PRIMARY KEY (provider, artist_id, page)
 );
+CREATE TABLE IF NOT EXISTS artist_release_catalog_pages (
+  provider TEXT NOT NULL,
+  cache_version TEXT NOT NULL,
+  artist_id TEXT NOT NULL,
+  cursor INTEGER NOT NULL,
+  releases_json TEXT NOT NULL,
+  returned_count INTEGER NOT NULL,
+  total_count INTEGER,
+  next_cursor INTEGER,
+  fetched_at INTEGER NOT NULL,
+  PRIMARY KEY (provider, cache_version, artist_id, cursor)
+);
+CREATE TABLE IF NOT EXISTS artist_release_catalog_state (
+  provider TEXT NOT NULL,
+  cache_version TEXT NOT NULL,
+  artist_id TEXT NOT NULL,
+  next_cursor INTEGER,
+  total_count INTEGER,
+  complete INTEGER NOT NULL,
+  fetched_at INTEGER NOT NULL,
+  PRIMARY KEY (provider, cache_version, artist_id)
+);
 CREATE TABLE IF NOT EXISTS release_detail_cache (
   provider TEXT NOT NULL,
   release_id TEXT NOT NULL,
@@ -44,6 +66,21 @@ CREATE TABLE IF NOT EXISTS release_detail_cache (
   PRIMARY KEY (provider, release_id)
 );
 "#;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CatalogPage {
+    pub releases: Value,
+    pub returned: u32,
+    pub total: Option<u32>,
+    pub next_cursor: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogState {
+    pub next_cursor: Option<u32>,
+    pub total: Option<u32>,
+    pub complete: bool,
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AlbumState {
@@ -58,14 +95,18 @@ pub struct AlbumState {
 }
 
 pub struct CacheState {
-    home: PathBuf,
+    data_dir: PathBuf,
     inner: Mutex<Option<Connection>>,
 }
 
 impl CacheState {
     pub fn new(home: PathBuf) -> Self {
+        Self::new_in(app_dir(&home))
+    }
+
+    pub fn new_in(data_dir: PathBuf) -> Self {
         Self {
-            home,
+            data_dir,
             inner: Mutex::new(None),
         }
     }
@@ -79,7 +120,7 @@ impl CacheState {
         }
         let path = configured_path
             .map(PathBuf::from)
-            .unwrap_or_else(|| canonical_path(&self.home, "cache.db"));
+            .unwrap_or_else(|| self.data_dir.join("cache.db"));
         if let Some(parent) = path
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
@@ -166,6 +207,168 @@ impl CacheState {
             )
             .map(|_| ())
             .map_err(|error| error.to_string())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn set_artist_release_catalog_page(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+        cursor: u32,
+        releases: &Value,
+        returned: u32,
+        total: Option<u32>,
+        next_cursor: Option<u32>,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO artist_release_catalog_pages
+                 (provider, cache_version, artist_id, cursor, releases_json,
+                  returned_count, total_count, next_cursor, fetched_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    provider,
+                    cache_version,
+                    artist_id,
+                    cursor,
+                    releases.to_string(),
+                    returned,
+                    total,
+                    next_cursor,
+                    now_epoch(),
+                ],
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn artist_release_catalog_page(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+        cursor: u32,
+    ) -> Option<CatalogPage> {
+        let guard = self.inner.lock().ok()?;
+        let connection = guard.as_ref()?;
+        let (releases, returned, total, next_cursor, fetched_at): (
+            String,
+            u32,
+            Option<u32>,
+            Option<u32>,
+            i64,
+        ) = connection
+            .query_row(
+                "SELECT releases_json, returned_count, total_count, next_cursor, fetched_at
+                 FROM artist_release_catalog_pages
+                 WHERE provider = ?1 AND cache_version = ?2
+                   AND artist_id = ?3 AND cursor = ?4",
+                params![provider, cache_version, artist_id, cursor],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+            .ok()?;
+        let releases = serde_json::from_str(&releases).ok()?;
+        is_fresh(fetched_at).then_some(CatalogPage {
+            releases,
+            returned,
+            total,
+            next_cursor,
+        })
+    }
+
+    pub fn set_artist_release_catalog_state(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+        next_cursor: Option<u32>,
+        total: Option<u32>,
+        complete: bool,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        connection
+            .execute(
+                "INSERT OR REPLACE INTO artist_release_catalog_state
+                 (provider, cache_version, artist_id, next_cursor, total_count,
+                  complete, fetched_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    provider,
+                    cache_version,
+                    artist_id,
+                    next_cursor,
+                    total,
+                    if complete { 1_i64 } else { 0_i64 },
+                    now_epoch(),
+                ],
+            )
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn artist_release_catalog_state(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+    ) -> Option<CatalogState> {
+        let guard = self.inner.lock().ok()?;
+        let connection = guard.as_ref()?;
+        let (next_cursor, total, complete, fetched_at): (Option<u32>, Option<u32>, i64, i64) =
+            connection
+                .query_row(
+                    "SELECT next_cursor, total_count, complete, fetched_at
+                     FROM artist_release_catalog_state
+                     WHERE provider = ?1 AND cache_version = ?2 AND artist_id = ?3",
+                    params![provider, cache_version, artist_id],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .ok()?;
+        is_fresh(fetched_at).then_some(CatalogState {
+            next_cursor,
+            total,
+            complete: complete != 0,
+        })
+    }
+
+    pub fn clear_artist_release_catalog(
+        &self,
+        provider: &str,
+        cache_version: &str,
+        artist_id: &str,
+    ) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "cache state unavailable")?;
+        let connection = guard.as_ref().ok_or("cache state not initialized")?;
+        let transaction = connection
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM artist_release_catalog_pages
+                 WHERE provider = ?1 AND cache_version = ?2 AND artist_id = ?3",
+                params![provider, cache_version, artist_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM artist_release_catalog_state
+                 WHERE provider = ?1 AND cache_version = ?2 AND artist_id = ?3",
+                params![provider, cache_version, artist_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())
     }
 
     pub fn release_detail(&self, provider: &str, release_id: &str) -> Option<Value> {
@@ -357,6 +560,14 @@ fn sha256(value: &str) -> String {
     format!("{:x}", Sha256::digest(value.as_bytes()))
 }
 
+fn now_epoch() -> i64 {
+    OffsetDateTime::now_utc().unix_timestamp()
+}
+
+fn is_fresh(fetched_at: i64) -> bool {
+    now_epoch().saturating_sub(fetched_at) <= 24 * 60 * 60
+}
+
 fn now() -> String {
     let value = OffsetDateTime::now_utc();
     format!(
@@ -420,6 +631,8 @@ mod tests {
             "album_state",
             "artist_release_cache",
             "release_detail_cache",
+            "artist_release_catalog_pages",
+            "artist_release_catalog_state",
         ] {
             let exists: i64 = connection
                 .query_row(
@@ -441,6 +654,18 @@ mod tests {
         assert!(state.initialize(None));
         assert!(root.join(".soundrobe/cache.db").exists());
         assert!(!root.join(".auto-tagger/cache.db").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn server_cache_uses_exact_data_directory() {
+        let root = root();
+        let data_dir = root.join("config");
+        let state = CacheState::new_in(data_dir.clone());
+
+        assert!(state.initialize(None));
+        assert!(data_dir.join("cache.db").exists());
+        assert!(!data_dir.join(".soundrobe").exists());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -493,6 +718,54 @@ mod tests {
             .unwrap();
         assert!(state.clear_album_state(&album));
         assert_eq!(state.album_state(&album), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn catalog_pages_and_completion_checkpoint_round_trip_with_versioned_keys() {
+        let root = root();
+        let state = CacheState::new(root.clone());
+        assert!(state.initialize(None));
+        let page = serde_json::json!([{"id": "release-id", "title": "Album"}]);
+
+        state
+            .set_artist_release_catalog_page(
+                "musicbrainz",
+                "catalog-v1",
+                "artist-id",
+                0,
+                &page,
+                1,
+                Some(2),
+                Some(1),
+            )
+            .unwrap();
+        state
+            .set_artist_release_catalog_state(
+                "musicbrainz",
+                "catalog-v1",
+                "artist-id",
+                Some(1),
+                Some(2),
+                false,
+            )
+            .unwrap();
+
+        let cached = state
+            .artist_release_catalog_page("musicbrainz", "catalog-v1", "artist-id", 0)
+            .unwrap();
+        assert_eq!(cached.releases, page);
+        assert_eq!(cached.returned, 1);
+        assert_eq!(cached.total, Some(2));
+        let checkpoint = state
+            .artist_release_catalog_state("musicbrainz", "catalog-v1", "artist-id")
+            .unwrap();
+        assert_eq!(checkpoint.next_cursor, Some(1));
+        assert_eq!(checkpoint.total, Some(2));
+        assert!(!checkpoint.complete);
+        assert!(state
+            .artist_release_catalog_page("musicbrainz", "catalog-v2", "artist-id", 0)
+            .is_none());
         fs::remove_dir_all(root).unwrap();
     }
 

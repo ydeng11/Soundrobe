@@ -1,0 +1,580 @@
+/**
+ * Fetch-backed adapter for the renderer-neutral `DesktopAPI` contract.
+ *
+ * The browser keeps the same method names and payloads as the Tauri adapter;
+ * only the transport changes from `invoke` to JSON POSTs. Native
+ * dialogs, menus, and self-updates are intentionally explicit web-runtime
+ * errors because those affordances belong to the browser or the container.
+ */
+
+import type { DesktopAPI } from "./desktop-api";
+
+export interface WebDesktopApiOptions {
+  fetch?: typeof globalThis.fetch;
+  baseUrl?: string;
+  eventSource?: (url: string) => WebEventSource;
+}
+
+export interface WebRequestOptions {
+  fetch?: typeof globalThis.fetch;
+  baseUrl?: string;
+}
+
+export type WebTaskStatus =
+  | "running"
+  | "completed"
+  | "needs_review"
+  | "failed"
+  | "cancelled";
+
+export interface WebTask {
+  taskId: string;
+  status: WebTaskStatus;
+  progress: number;
+  total: number;
+  message: string;
+  result: unknown;
+}
+
+export interface WebEventSource {
+  addEventListener: (type: string, listener: (event: WebEventMessage) => void) => void;
+  close: () => void;
+}
+
+interface WebEventMessage {
+  data: string;
+  lastEventId?: string;
+}
+
+const WEB_EVENT_CHANNELS = [
+  "auto-tag:event",
+  "tracks:write-event",
+  "audit:event",
+  "assistant:event",
+  "debug:log",
+  "soundrobe:replay-gap",
+] as const;
+
+function toError(reason: unknown): Error {
+  if (reason instanceof Error) return reason;
+  if (typeof reason === "string" && reason.length > 0) return new Error(reason);
+  if (reason && typeof reason === "object" && "message" in reason) {
+    return new Error(String((reason as { message: unknown }).message || reason));
+  }
+  return new Error(String(reason ?? "Web command failed"));
+}
+
+function unsupportedWebAction(action: string): never {
+  throw new Error(`${action} is unavailable in the web runtime`);
+}
+
+class WebEventBus {
+  private source: WebEventSource | null = null;
+  private lastEventId: string | null = null;
+  private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
+
+  constructor(
+    private readonly url: string,
+    private readonly createSource: (url: string) => WebEventSource,
+  ) {}
+
+  subscribe<T>(channel: string, callback: (payload: T) => void): () => void {
+    let channelListeners = this.listeners.get(channel);
+    if (!channelListeners) {
+      channelListeners = new Set();
+      this.listeners.set(channel, channelListeners);
+    }
+    channelListeners.add(callback as (payload: unknown) => void);
+    this.ensureSource();
+
+    return () => {
+      channelListeners?.delete(callback as (payload: unknown) => void);
+      if (channelListeners?.size === 0) {
+        this.listeners.delete(channel);
+      }
+      if (this.listeners.size === 0) {
+        this.source?.close();
+        this.source = null;
+      }
+    };
+  }
+
+  private ensureSource(): void {
+    if (this.source) return;
+    const channels = encodeURIComponent(WEB_EVENT_CHANNELS.join(","));
+    const cursor = this.lastEventId
+      ? `&after=${encodeURIComponent(this.lastEventId)}`
+      : "";
+    this.source = this.createSource(
+      `${this.url}/api/v1/events?channels=${channels}${cursor}`,
+    );
+    for (const channel of WEB_EVENT_CHANNELS) {
+      this.source.addEventListener(channel, (event) => {
+        this.lastEventId = event.lastEventId ?? this.lastEventId;
+        let payload: unknown;
+        try {
+          payload = JSON.parse(event.data) as unknown;
+        } catch (reason) {
+          console.error(`[soundrobe] invalid SSE payload for "${channel}":`, reason);
+          return;
+        }
+        for (const listener of this.listeners.get(channel) ?? []) {
+          listener(payload);
+        }
+      });
+    }
+    this.source.addEventListener("soundrobe:replay-gap", (event) => {
+      this.lastEventId = event.lastEventId ?? this.lastEventId;
+      console.error("[soundrobe] SSE replay gap; refresh is required:", event.data);
+      const source = this.source;
+      this.source = null;
+      source?.close();
+    });
+  }
+}
+
+function commandUrl(baseUrl: string, channel: string): string {
+  return `${baseUrl}/api/v1/commands/${encodeURIComponent(channel)}`;
+}
+
+async function requestJson<T>(
+  fetchImpl: typeof globalThis.fetch,
+  url: string,
+  init: RequestInit,
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetchImpl(url, init);
+  } catch (reason) {
+    throw toError(reason);
+  }
+
+  const text = await response.text();
+  let body: unknown = undefined;
+  if (text.length > 0) {
+    try {
+      body = JSON.parse(text) as unknown;
+    } catch {
+      body = text;
+    }
+  }
+  if (!response.ok) {
+    const message =
+      body && typeof body === "object" && "error" in body
+        ? String((body as { error: unknown }).error)
+        : `Web request failed (${response.status})`;
+    throw new Error(message);
+  }
+  return body as T;
+}
+
+async function requestCommand<T>(
+  fetchImpl: typeof globalThis.fetch,
+  baseUrl: string,
+  channel: string,
+  payload: Record<string, unknown> = {},
+): Promise<T> {
+  return requestJson<T>(fetchImpl, commandUrl(baseUrl, channel), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+function webRequestOptions(options: WebRequestOptions): {
+  fetchImpl: typeof globalThis.fetch;
+  baseUrl: string;
+} {
+  return {
+    fetchImpl: options.fetch ?? globalThis.fetch.bind(globalThis),
+    baseUrl: (options.baseUrl ?? "").replace(/\/$/, ""),
+  };
+}
+
+export function listWebTasks(options: WebRequestOptions = {}): Promise<WebTask[]> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestJson<WebTask[]>(fetchImpl, `${baseUrl}/api/v1/tasks`, {
+    method: "GET",
+    credentials: "same-origin",
+  });
+}
+
+export function uploadWebCover(
+  albumPath: string,
+  file: Blob,
+  options: WebRequestOptions = {},
+): Promise<string | null> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  const query = new URLSearchParams({ albumPath });
+  return requestJson<string | null>(fetchImpl, `${baseUrl}/api/v1/covers?${query}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": file.type },
+    body: file,
+  });
+}
+
+/** Build the `DesktopAPI` facade backed by the headless HTTP service. */
+export function createWebDesktopApi(options: WebDesktopApiOptions = {}): DesktopAPI {
+  const fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
+  const baseUrl = (options.baseUrl ?? "").replace(/\/$/, "");
+  const createSource =
+    options.eventSource ??
+    ((url: string) => {
+      if (typeof globalThis.EventSource !== "function") {
+        throw new Error("EventSource is unavailable in the web runtime");
+      }
+      return new globalThis.EventSource(url) as unknown as WebEventSource;
+    });
+  const eventBus = new WebEventBus(baseUrl, createSource);
+  let debugDisposer: (() => void) | null = null;
+  const command = <T>(channel: string, payload?: Record<string, unknown>) =>
+    requestCommand<T>(fetchImpl, baseUrl, channel, payload);
+
+  return {
+    // App
+    appInfo: () => command("app:info"),
+    checkForUpdate: async () => null,
+    installUpdate: async () => unsupportedWebAction("installUpdate"),
+
+    // Library
+    listLibraryRoots: () => command("library:list-roots"),
+    scanLibrary: (dirPath) => command("library:scan", { dirPath }),
+    refreshAlbum: (albumPath) => command("album:refresh", { albumPath }),
+
+    // Browser replacements for native dialogs are supplied by the React UI.
+    openFolderDialog: async () => unsupportedWebAction("openFolderDialog"),
+
+    // Tracks
+    readAlbum: (albumPath) => command("album:read", { albumPath }),
+    writeTrack: (path, fields) => command("track:write", { path, fields }),
+    writeTracks: (updates) => command("tracks:batch-write", { updates }),
+    readExtraTags: (trackPath) => command("track:extra-tags:read", { trackPath }),
+    writeExtraTags: (trackPath, tags) =>
+      command("track:extra-tags:write", { trackPath, tags }),
+    writeExtraTagsBatch: (updates) =>
+      command("tracks:batch-write-extra-tags", { updates }),
+    renameTrack: (oldPath, newPath) => command("track:rename", { oldPath, newPath }),
+    checkFileExists: (filePath) => command("file:exists", { filePath }),
+    probeWriteVolume: (filePath) => command("volume:probe-write", { path: filePath }),
+    probeWriteVolumeReal: (filePath, patch) =>
+      command("volume:probe-write-real", { path: filePath, patchJson: patch }),
+    showTrackContextMenu: async () => unsupportedWebAction("showTrackContextMenu"),
+    deleteFiles: (filePaths) => command("track:delete-files", { filePaths }),
+
+    // Cover
+    getCoverDataUrl: (albumPath, preferredTrackPath) =>
+      command("cover:data-url", { albumPath, preferredTrackPath }),
+    setCover: (albumPath) => command("cover:set", { albumPath }),
+    removeCover: (albumPath) => command("cover:remove", { albumPath }),
+    downloadCoverArt: (albumPath) => command("cover:download", { albumPath }),
+    downloadArtistArt: (albumPath) =>
+      command("cover:download-artist-art", { albumPath }),
+
+    // Directory browser
+    listDirectory: (dirPath) => command("directory:list", { dirPath }),
+    readDirectory: (dirPath) => command("directory:read", { dirPath }),
+
+    // Lyrics
+    fetchLyrics: (trackName, artistName, albumName, duration) =>
+      command("lyrics:fetch", { trackName, artistName, albumName, duration }),
+
+    // Config
+    getConfig: () => command("config:get"),
+    setConfig: (key, value) => command("config:set", { key, value }),
+    suggestTagNames: (query) => command("tags:suggest", { query }),
+
+    // Auto-tag
+    autoTagAlbum: (albumPath) => command("album:auto-tag", { albumPath }),
+    // Server-side automatic tagging exposes terminal outcomes through the
+    // queue; desktop-only recovery journals remain unavailable in a browser.
+    clearAutoTagReviews: async () => unsupportedWebAction("clearAutoTagReviews"),
+    listAutoTagReviews: async () => unsupportedWebAction("listAutoTagReviews"),
+    getAutoTagReview: async () => unsupportedWebAction("getAutoTagReview"),
+    markAutoTagReviewed: async () => unsupportedWebAction("markAutoTagReviewed"),
+    revertAutoTagReview: async () => unsupportedWebAction("revertAutoTagReview"),
+    getAutoTagReviewArtwork: async () => unsupportedWebAction("getAutoTagReviewArtwork"),
+    downloadAlbumLyrics: (albumPath) =>
+      command("album:download-lyrics", { albumPath }),
+    onAutoTagEvent: (callback) => eventBus.subscribe("auto-tag:event", callback),
+    onTrackWriteEvent: (callback) =>
+      eventBus.subscribe("tracks:write-event", callback),
+    getTaskProgress: (taskId) => command("task:progress", { taskId }),
+    cancelTask: (taskId) => command("task:cancel", { taskId }),
+    getDatasetStatus: () => command("dataset:status"),
+
+    // Audit
+    runAudit: (libraryPath) => command("audit:run", { libraryPath }),
+    runAuditOnTracks: (trackPaths) =>
+      command("audit:run-specified", { trackPaths }),
+    runAuditOnAlbums: (albumPaths) =>
+      command("audit:run-specified", { albumPaths }),
+    runAlbumAudit: (albumPath) => command("audit:run-album", { albumPath }),
+    applyAuditFixes: (albumResults) =>
+      command("audit:apply-fixes", { albumResults }),
+    onAuditEvent: (callback) => eventBus.subscribe("audit:event", callback),
+    cancelAudit: () => command("audit:cancel"),
+
+    // Assistant
+    assistantSend: (input) => command("assistant:send", { input }),
+    assistantCancel: () => command("assistant:cancel"),
+    assistantClear: () => command("assistant:clear"),
+    assistantApplyActions: (actionBatchId) =>
+      command("assistant:apply-actions", { actionBatchId }),
+    assistantCompleteTaskActions: (actionBatchId, error) =>
+      command("assistant:complete-task-actions", {
+        actionBatchId,
+        error: error ?? null,
+      }),
+    assistantRejectActions: (actionBatchId) =>
+      command("assistant:reject-actions", { actionBatchId }),
+    assistantGetBatches: () => command("assistant:get-batches"),
+    assistantInitRuntime: () => command("assistant:init-runtime"),
+    assistantInitServices: (config) => command("assistant:init-services", { config }),
+    testLlmConnection: (apiKey, model, provider, baseUrl) =>
+      command("test-llm-connection", { apiKey, model, provider, baseUrl }),
+    onAssistantEvent: (callback) => eventBus.subscribe("assistant:event", callback),
+
+    // Debug logs use the shared SSE connection; focus is a browser no-op.
+    subscribeDebugLogs: async () => {
+      if (debugDisposer) return;
+      debugDisposer = eventBus.subscribe("debug:log", (entry) => {
+        console.debug("[soundrobe]", entry);
+      });
+    },
+    setDebugMode: (enabled) => command("debug:set-mode", { enabled }),
+    onFocus: async () => {},
+
+    // Manual search
+    searchReleases: (request) => command("album:search-releases", { request }),
+    releaseTrackCount: (provider, releaseId, kind) =>
+      command("album:release-track-count", { request: { provider, releaseId, kind } }),
+    resolveRelease: (provider, releaseId, kind) =>
+      command("album:resolve-release", {
+        request: { provider, releaseId, kind },
+      }),
+    previewReleaseMatch: (request) =>
+      command("album:preview-release-match", { request }),
+    searchApplyCandidate: (albumPath, candidate, selectedTrackIndices) =>
+      command("album:search-apply-candidate", {
+        request: { albumPath, candidate, selectedTrackIndices },
+      }),
+
+    // Organizer
+    sortByAlbum: (sourceDir, options) =>
+      command("files:sort-by-album", { sourceDir, options }),
+
+    // Conversation logs
+    listSessions: (limit) => command("assistant:list-sessions", { limit }),
+    getConversation: (sessionUuidOrNumber) =>
+      command("assistant:get-conversation", { sessionUuidOrNumber }),
+    getSession: (sessionUuidOrNumber) =>
+      command("assistant:get-session", { sessionUuidOrNumber }),
+    getCurrentSession: () => command("assistant:current-session"),
+  };
+}
+
+/* ---------------------------------------------------------------------------
+ * Background tagging and monitoring
+ *
+ * These channels are served by the self-hosted server process, which owns the
+ * schedule and the run history. The desktop composition runs its own
+ * interactive auto-tag flow and has no scheduler, so — like `listWebTasks` —
+ * these helpers live in the web adapter rather than the shared `DesktopAPI`
+ * contract, and the views receive them as injected functions.
+ * ------------------------------------------------------------------------- */
+
+/** What the operator can configure about background tagging. */
+export interface BackgroundTaggingSettings {
+  enabled: boolean;
+  /** Crontab expression, `minute hour day month weekday`. */
+  schedule: string;
+  directories: string[];
+  watchEnabled: boolean;
+  skipUnchanged: boolean;
+}
+
+export type BackgroundRunTrigger = "schedule" | "manual" | "watch";
+export type BackgroundRunStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "skipped";
+
+/**
+ * A release's outcome in one run, in the same vocabulary as the survey.
+ *
+ * The reference product keeps this per file in a database row; here it rides
+ * the run history, which is what makes "which release failed, and why"
+ * answerable after the run has finished.
+ */
+export interface BackgroundRunItem {
+  path: string;
+  status: ReleaseHealthStatus;
+  /** The reason code for a review, or the error for a failure. */
+  reason?: string;
+  /** Which source supplied the tags, when one did. */
+  authority?: string;
+}
+
+export interface BackgroundRun {
+  id: string;
+  trigger: BackgroundRunTrigger;
+  startedAt: string;
+  finishedAt: string | null;
+  status: BackgroundRunStatus;
+  tagged: number;
+  failed: number;
+  message: string;
+  taskId: string | null;
+  /** Per-release outcomes, oldest first. */
+  items: BackgroundRunItem[];
+  /** Whether `items` is a subset of what the run actually covered. */
+  itemsTruncated: boolean;
+}
+
+export interface MonitoringStatus extends BackgroundTaggingSettings {
+  /** Local wall-clock time of the next scheduled run, or null when disabled. */
+  nextRunAt: string | null;
+  /** Configured directories that exist, or the mounted library roots. */
+  effectiveDirectories: string[];
+  running: WebTask[];
+  recentRuns: BackgroundRun[];
+}
+
+export type ReleaseHealthStatus =
+  | "healthy"
+  | "needs_tagging"
+  | "unreadable"
+  | "tagging"
+  | "needs_review"
+  | "failed";
+
+export interface MonitoredRelease {
+  path: string;
+  status: ReleaseHealthStatus;
+}
+
+export interface MonitoringReviewAcknowledgement extends MonitoredRelease {
+  reviewed: true;
+}
+
+export interface MonitoringLog {
+  path: string;
+  totalLines: number;
+  lines: string[];
+}
+
+/** Log sources this app actually writes, mirroring the reference's selector. */
+export type MonitoringLogSource = "app" | "auto-tag";
+
+export function getBackgroundSettings(
+  options: WebRequestOptions = {},
+): Promise<BackgroundTaggingSettings> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<BackgroundTaggingSettings>(
+    fetchImpl,
+    baseUrl,
+    "background:get-settings",
+  );
+}
+
+/**
+ * Save a partial change. The service merges it into the stored settings, so an
+ * omitted field keeps its current value, and an unparseable crontab is refused
+ * with an error instead of leaving background tagging unable to ever run.
+ */
+export function setBackgroundSettings(
+  patch: Partial<BackgroundTaggingSettings>,
+  options: WebRequestOptions = {},
+): Promise<BackgroundTaggingSettings> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<BackgroundTaggingSettings>(
+    fetchImpl,
+    baseUrl,
+    "background:set-settings",
+    patch as Record<string, unknown>,
+  );
+}
+
+export function listBackgroundRuns(
+  options: WebRequestOptions = {},
+): Promise<BackgroundRun[]> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<BackgroundRun[]>(fetchImpl, baseUrl, "background:list-runs");
+}
+
+/**
+ * Start a run now. Rejects with the service's reason when tagging is disabled,
+ * already busy, or has no directory to cover.
+ */
+export function runBackgroundTagging(
+  options: WebRequestOptions = {},
+): Promise<{ taskId: string }> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<{ taskId: string }>(fetchImpl, baseUrl, "background:run-now");
+}
+
+/**
+ * Re-run the releases a finished run left needing action.
+ *
+ * Rejects when the named run is unknown, or when it has nothing left to retry -
+ * a healthy release is deliberately not re-tagged.
+ */
+export function retryFailedBackgroundTagging(
+  runId?: string,
+  options: WebRequestOptions = {},
+): Promise<{ taskId: string }> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<{ taskId: string }>(
+    fetchImpl,
+    baseUrl,
+    "background:retry-failed",
+    runId ? { runId } : {},
+  );
+}
+
+export function getMonitoringStatus(
+  options: WebRequestOptions = {},
+): Promise<MonitoringStatus> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<MonitoringStatus>(fetchImpl, baseUrl, "monitoring:status");
+}
+
+export function listMonitoringReleases(
+  options: WebRequestOptions = {},
+): Promise<{ releases: MonitoredRelease[] }> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<{ releases: MonitoredRelease[] }>(
+    fetchImpl,
+    baseUrl,
+    "monitoring:releases",
+  );
+}
+
+export function markMonitoringReleaseReviewed(
+  albumPath: string,
+  options: WebRequestOptions = {},
+): Promise<MonitoringReviewAcknowledgement> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<MonitoringReviewAcknowledgement>(
+    fetchImpl,
+    baseUrl,
+    "monitoring:mark-reviewed",
+    { albumPath },
+  );
+}
+
+export function readMonitoringLog(
+  source: MonitoringLogSource,
+  lines = 400,
+  options: WebRequestOptions = {},
+): Promise<MonitoringLog> {
+  const { fetchImpl, baseUrl } = webRequestOptions(options);
+  return requestCommand<MonitoringLog>(fetchImpl, baseUrl, "monitoring:logs", {
+    source,
+    lines,
+  });
+}
