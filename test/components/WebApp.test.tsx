@@ -1,11 +1,50 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import React from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { WebApp } from "../../src/web/WebApp";
 import { WebLibraryPicker } from "../../src/components/WebLibraryPicker";
+import type { DirectoryData, TrackData } from "../../src/shared/desktop-api";
 
 afterEach(cleanup);
+
+function track(path: string, title: string): TrackData {
+  return {
+    path,
+    title,
+    artist: "Artist",
+    artists: ["Artist"],
+    album: "Album",
+    albumArtist: "Artist",
+    albumArtists: ["Artist"],
+    trackNumber: 1,
+    trackTotal: 1,
+    discNumber: null,
+    discTotal: null,
+    year: "2024",
+    genre: "Rock",
+    composer: null,
+    comment: null,
+    description: null,
+    lyrics: null,
+    compilation: null,
+    musicbrainzTrackId: null,
+    musicbrainzAlbumId: null,
+    musicbrainzArtistId: null,
+    discogsArtistId: null,
+    discogsReleaseId: null,
+    hasCover: false,
+    sizeBytes: 1,
+    bitrate: 128000,
+    sampleRate: 44100,
+    codec: "mp3",
+    duration: 180,
+  };
+}
+
+function directory(path: string, subdirs: DirectoryData["subdirs"], tracks: TrackData[] = []): DirectoryData {
+  return { path, name: path.split("/").pop() ?? "", subdirs, tracks, audioCount: tracks.length };
+}
 
 describe("WebApp", () => {
   it("opens the browser workspace without a login request or sign-in screen", async () => {
@@ -23,6 +62,46 @@ describe("WebApp", () => {
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/auth/"))).toBe(false);
     fetchMock.mockRestore();
+  });
+
+  it("keeps the selected folder, filter, and track when the reader visits another page", async () => {
+    const rootPath = "/music/Artist";
+    const albumPath = `${rootPath}/Album`;
+    const albumTrack = track(`${albumPath}/01 - Needle.mp3`, "Needle");
+    const root = directory(rootPath, [{ name: "Album", path: albumPath, isDirectory: true }]);
+    const album = directory(albumPath, [], [albumTrack]);
+    const readDirectory = vi.fn(async (path: string) => path === rootPath ? root : album);
+    const api = {
+      listLibraryRoots: vi.fn().mockResolvedValue([{ id: "artist", name: "Artist", path: rootPath }]),
+      readDirectory,
+      listDirectory: vi.fn().mockResolvedValue([]),
+      getCoverDataUrl: vi.fn().mockResolvedValue(null),
+      getConfig: vi.fn().mockResolvedValue({}),
+    } as unknown as Window["api"];
+
+    render(<WebApp api={api} />);
+    await screen.findByTestId("workspace");
+
+    const tree = screen.getByTestId("directory-tree");
+    const rootFolder = within(tree).getByRole("button", { name: "Artist" });
+    if (rootFolder.getAttribute("aria-expanded") !== "true") fireEvent.click(rootFolder);
+    fireEvent.click(await within(tree).findByRole("button", { name: "Album" }));
+    fireEvent.click(await screen.findByRole("button", { name: "01 - Needle.mp3" }));
+    fireEvent.change(screen.getByLabelText("Filter tracks"), { target: { value: "Needle" } });
+    const loadsBeforeNavigation = readDirectory.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Tag sources" }));
+    await screen.findByTestId("tag-sources");
+    const workspaceHost = screen.getByTestId("workspace-host");
+    expect(workspaceHost.hasAttribute("hidden")).toBe(true);
+    expect(workspaceHost.hasAttribute("inert")).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Workspace" }));
+
+    expect(await screen.findByTestId("workspace-row")).toBeTruthy();
+    expect(screen.getByLabelText("Filter tracks")).toHaveProperty("value", "Needle");
+    expect(screen.getByTestId("workspace-row").getAttribute("aria-selected")).toBe("true");
+    expect(readDirectory).toHaveBeenCalledTimes(loadsBeforeNavigation);
   });
 });
 

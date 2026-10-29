@@ -52,6 +52,20 @@ function emptyLog(): MonitoringLog {
 }
 
 describe("Monitoring", () => {
+  it("orients an operator before they choose a monitoring view", async () => {
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Monitoring" })).toBeTruthy();
+    expect(screen.getByText(/Track background tagging and review albums that need attention/i)).toBeTruthy();
+  });
+
   it("keeps AI-written releases visible until the operator acknowledges review", async () => {
     const albumPath = "/library/Music/Artist/Album";
     let acknowledged = false;
@@ -174,6 +188,9 @@ describe("Monitoring", () => {
     expect(await screen.findByTestId("monitoring-schedule")).toBeTruthy();
     expect(screen.getByText("0 0 * * *")).toBeTruthy();
     expect(screen.getByText("/library/Music")).toBeTruthy();
+    expect(
+      screen.getByTestId("monitoring-schedule").querySelector(".sr-technical")?.classList,
+    ).toContain("sr-technical--monitoring");
   });
 
   it("surfaces a refused run instead of silently doing nothing", async () => {
@@ -469,6 +486,32 @@ describe("Monitoring", () => {
     expect(onOpenAlbum).toHaveBeenCalledWith("/library/Album One");
   });
 
+  it("keeps release identity, path, review state and actions together in a mobile-safe row", async () => {
+    const albumPath = "/library/Artist/Album One";
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [{ path: albumPath, status: "needs_review" }] })}
+        readLog={async () => emptyLog()}
+        onOpenAlbum={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-tab-releases"));
+    const panel = await screen.findByTestId("monitoring-releases");
+    const row = within(panel).getByRole("row", { name: /Album One/ });
+    expect(within(row).getByText("Album One")).toBeTruthy();
+    expect(within(row).getByText(albumPath)).toBeTruthy();
+    expect(within(row).getByText(albumPath).closest("td")).toBe(
+      within(row).getByText("Album One").closest("td"),
+    );
+    expect(within(row).getByText("Needs review")).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Acknowledge review" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Open" })).toBeTruthy();
+    expect(within(panel).queryByRole("columnheader", { name: "Path" })).toBeNull();
+  });
+
   it("bounds a large library instead of rendering all of it", async () => {
     // An unbounded list is both a UX problem and a rendering one; a real library
     // surveys into the thousands.
@@ -487,7 +530,7 @@ describe("Monitoring", () => {
 
     fireEvent.click(await screen.findByTestId("monitoring-tab-releases"));
     expect(screen.getByTestId("release-count").textContent).toContain("Showing 50 of 120");
-    expect(document.querySelectorAll('[data-testid="monitoring-releases"] tbody tr')).toHaveLength(50);
+    expect(document.querySelectorAll('[data-testid="monitoring-releases"] [data-testid="release-row"]')).toHaveLength(50);
 
     fireEvent.click(screen.getByTestId("release-show-more"));
     expect(screen.getByTestId("release-count").textContent).toContain("Showing 100 of 120");
@@ -605,6 +648,20 @@ describe("Monitoring", () => {
 });
 
 describe("Settings", () => {
+  it("explains which settings save immediately and which keep an explicit draft", async () => {
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({})}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
+    expect(screen.getByText(/Most toggles and preset choices save when changed/i)).toBeTruthy();
+    expect(screen.getByText(/Lyrics URL and a custom schedule keep a draft until you save/i)).toBeTruthy();
+  });
+
   it("gives every checkbox setting the whole row for its name", async () => {
     // A checkbox field's label *is* its control, and these labels are sentences:
     // inside the label gutter "Let the assistant apply its own actions without

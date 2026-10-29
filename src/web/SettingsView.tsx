@@ -536,14 +536,21 @@ export function SettingsView({
 
   return (
     <div className="sr-pane sr-pane--settings" data-testid="settings">
-      <div className="sr-toolbar">
-        <h2 className="sr-section__title">Settings</h2>
-        <div className="sr-header__spacer" />
-        {dirty && (
-          <span className="sr-freshness" data-testid="settings-dirty">
-            Unsaved changes
-          </span>
-        )}
+      <div className="sr-toolbar sr-page-header">
+        <div className="sr-page-heading">
+          <h1 className="sr-section__title">Settings</h1>
+          <p className="sr-page-subtitle">
+            Most toggles and preset choices save when changed. Lyrics URL and a custom schedule
+            keep a draft until you save.
+          </p>
+        </div>
+        <div className="sr-page-actions">
+          {dirty && (
+            <span className="sr-freshness" data-testid="settings-dirty">
+              Unsaved changes
+            </span>
+          )}
+        </div>
       </div>
 
       <nav className="sr-tabs sr-tabs--settings" aria-label="Settings sections" data-testid="settings-nav">

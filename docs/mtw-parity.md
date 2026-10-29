@@ -1087,3 +1087,71 @@ stacked. Reintroducing all three defects fails three of the five, which was chec
 The rendered sweep reports 0 focusables without a ring and 0 contrast failures on both
 Settings and the Search form; the tightest text on either page remains the brand badge
 at 4.60:1, so the new muted hints are not the constraint.
+
+## 26. Album-focused Workspace (2026-10-29)
+
+The selected direction is concept 2 from the audit: keep the horizontal primary
+navigation, reserve the left rail for folders, put the current library or album
+above the table, and dock the selected track editor below it. The actual folder
+tree remains hierarchical. A library root with tracks from multiple albums is
+identified as a library folder and reports its aggregate track count; only a
+loaded album folder is presented as an album. Artwork and metadata come from the
+loaded media and provider pipeline. Missing values stay absent, and a missing
+cover uses an explicit empty state.
+
+### Measured desktop geometry
+
+The live album view at 1920×1080 measured 240×240px artwork, a 273px hero,
+a 36px closed review summary, a 352px folder rail, the first table row at y=494,
+and a 199.8px editor dock starting at y=863.2 after the compact heading was removed. The review list remains closed by
+default, so its items do not push the table down. The reference palette, type
+tokens, and `columns.ts` widths are unchanged.
+
+### Deliberate layout divergences
+
+| Value | Existing/shared value | Workspace value | Scope and reason |
+| --- | --- | --- | --- |
+| Track row height | `--sr-row-h: 73px` | `--sr-album-row-h: 53px` | Workspace table only; the selected album-focused direction fits more tracks above the editor. Other tables retain the shared row height. |
+| Mobile artwork | — | `88px` | Keeps album identity visible beside the compact hero at narrow widths. |
+| Review list height | — | `264px` maximum | Bounds the expanded disclosure while preserving each Open and Acknowledge control. |
+| Editor dock height | — | `248px` maximum | Keeps the music table visible; the mobile Apply and Cancel row stays docked while editor fields scroll. |
+
+At the selected folder row, the reference-derived warning tint with warning text
+measured 1.03:1 after compositing over the selected surface. The selected-state
+badge now uses the existing solid warning fill and text roles, measuring 9.04:1.
+No new palette value was added.
+
+At widths up to 900px the folder disclosure closes on entry and when crossing
+the breakpoint, the four navigation labels remain visible, and workspace table
+columns retain their existing schema. Sources uses a container-safe column
+maximum, Monitoring's schedule becomes one column with long values wrapping,
+and Settings keeps its section links and per-field save behavior. At 390×844 the editor dock measured y=586–834 with its sticky action row at
+y=787–834, and the Monitoring schedule measured one 319px column with no
+overflow. The document width remained 390px. Keyboard focus on an editor input
+computed to a 2px primary-token outline, and draft Cancel restored the loaded
+value without writing media.
+
+## 27. Monitoring, Sources and Settings page hierarchy (2026-10-29)
+
+The three document pages now use a page-level title and short purpose statement.
+Monitoring's Releases table keeps the album name and full path in one identity
+cell, followed by tagging state and any review/open actions. Search still matches
+the release path, which contains the album folder name. The log source selector
+and Reload action share one control group. Source cards show provider status and
+purpose, the Save action remains sticky while the source list scrolls, and the
+Settings section links remain sticky while its readable-width content scrolls.
+The Settings introduction describes the existing behavior: most toggles and
+preset choices save immediately, while Lyrics URL and custom schedule edits wait
+for explicit Save.
+
+### Deliberate local layout values
+
+| Value | Previous value | Current value | Scope and reason |
+| --- | --- | --- | --- |
+| Source content maximum | `1040px` | `880px` | Narrows the provider list so purpose and credential controls remain an easy scan. |
+| Release table columns | Four columns with a separate Path column | Three columns; album name and path share Release | Keeps identity together and frees room for state/actions without changing the path-based search behavior. |
+| Mobile release columns | Unbounded table sizing | Album 46%, state 22%, actions 32% | Keeps acknowledgement/open controls within the viewport; long paths and labels wrap. |
+| Mobile summary cards | Flexible 3+1 wrapping | Two columns | Keeps Monitoring and Operations counts in a compact, even grid. |
+
+These page values are local layout choices. Palette, type roles, and the shared
+table column schema remain unchanged.

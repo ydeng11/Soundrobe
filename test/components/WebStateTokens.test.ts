@@ -93,4 +93,62 @@ describe("browser workspace state-token contract", () => {
     expect(web).toMatch(/\.sr-banner--notice\s*\{[^}]*var\(--sr-success-soft\)[^}]*var\(--sr-success-text\)/s);
     expect(web).toMatch(/\.sr-banner--error\s*\{[^}]*var\(--sr-danger-soft\)[^}]*var\(--sr-danger-text\)/s);
   });
+
+  it("keeps a review badge readable inside a selected folder row", () => {
+    expect(web).toMatch(
+      /\.sr-tree__node\.is-active \.sr-badge--warning\s*\{[^}]*background:\s*var\(--sr-warning\)[^}]*color:\s*var\(--sr-text\)/s,
+    );
+  });
+
+  it("keeps compact editor actions visible while the mobile dock scrolls", () => {
+    expect(web).toMatch(
+      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-editor--compact \.sr-editor__actions\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0[^}]*background:\s*var\(--sr-surface\)/s,
+    );
+    expect(web).toContain("scroll-padding-bottom: var(--sr-control-h)");
+  });
+
+  it("wraps Monitoring coverage without changing the editor's technical grid", () => {
+    expect(web).toMatch(
+      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-main--monitoring \.sr-technical--monitoring\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s,
+    );
+    expect(web).toMatch(
+      /\.sr-main--monitoring \.sr-technical--monitoring \.sr-technical__row > span:last-child\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/s,
+    );
+  });
+
+  it("keeps release actions within a narrow Monitoring row", () => {
+    expect(web).toMatch(
+      /\.sr-table--releases\s*\{[^}]*table-layout:\s*fixed/s,
+    );
+    expect(web).toMatch(
+      /\.sr-release-path\s*\{[^}]*overflow-wrap:\s*anywhere/s,
+    );
+    expect(web).toMatch(
+      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-release-actions \.sr-btn\s*\{[^}]*height:\s*auto[^}]*white-space:\s*normal/s,
+    );
+  });
+
+  it("keeps page actions and section navigation reachable while long pages scroll", () => {
+    expect(web).toMatch(
+      /\.sr-main--sources \.sr-page-header\s*\{[^}]*position:\s*sticky/s,
+    );
+    expect(web).toMatch(/\.sr-tabs--settings\s*\{[^}]*position:\s*sticky/s);
+    expect(web).toMatch(
+      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-summary\s*\{[^}]*grid-template-columns:\s*repeat\(2,/s,
+    );
+  });
+
+  it("uses a denser row height only for the album workspace table", () => {
+    expect(tokens).toMatch(/--sr-row-h:\s*73px/);
+    expect(tokens).toMatch(/--sr-album-row-h:\s*53px/);
+    expect(web).toMatch(
+      /\.sr-pane--workspace \.sr-table tbody tr,\s*\.sr-pane--workspace \.sr-table tbody td\s*\{[^}]*height:\s*var\(--sr-album-row-h\)/s,
+    );
+  });
+
+  it("aligns compact editor actions to the right on desktop", () => {
+    expect(web).toMatch(
+      /\.sr-editor--compact \.sr-editor__actions\s*\{[^}]*justify-content:\s*flex-end/s,
+    );
+  });
 });

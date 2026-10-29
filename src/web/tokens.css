@@ -147,6 +147,34 @@
   --sr-header-inset: 8px;
   --sr-side-w: 352px;
   --sr-gutter: 16px;
+  /* Local layout values for the selected album-focus direction; palette, type,
+     table columns and reference chrome values remain unchanged. */
+  --sr-workspace-filter-w: 240px;
+  --sr-workspace-filter-min-w: 120px;
+  --sr-album-art-size: 240px;
+  --sr-album-art-size-mobile: 88px;
+  --sr-album-hero-gap: 24px;
+  /* Local album-table density; the shared reference row token remains 73px. */
+  --sr-album-row-h: 53px;
+  --sr-folder-list-max-h: 40vh;
+  --sr-review-list-max-h: 264px;
+  --sr-editor-dock-max-h: 248px;
+  --sr-readable-content-max: 1120px;
+  /* A narrower provider column keeps the source list readable at desktop widths. */
+  --sr-source-content-max: 880px;
+  --sr-source-column-max: 480px;
+  --sr-settings-scroll-offset: 56px;
+  --sr-monitor-log-max-h: 320px;
+  --sr-log-source-w: 176px;
+  --sr-mobile-main-pad: 10px;
+  --sr-mobile-nav-hit-h: 48px;
+  --sr-summary-card-min-w: 96px;
+  --sr-space-2: 2px;
+  --sr-space-4: 4px;
+  --sr-space-6: 6px;
+  --sr-space-10: 10px;
+  --sr-space-12: 12px;
+  --sr-fs-hero-mobile: 24px;
 
   /* ---- Workspace table geometry (DOM) ---- */
   --sr-row-h: 73px;
