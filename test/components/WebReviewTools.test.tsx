@@ -163,8 +163,9 @@ function renderWorkspace(
 
 /** Load the album folder, which is where the tools act. */
 async function openAlbum(api: ReturnType<typeof fakeApi>) {
-  const banner = await screen.findByTestId("review-banner");
-  fireEvent.click(banner.querySelector("button") as HTMLButtonElement);
+  await screen.findByTestId("review-banner");
+  fireEvent.click(screen.getByTestId("review-queue-summary"));
+  fireEvent.click(screen.getByTestId(`review-open-${ALBUM}`));
   await waitFor(() => expect(api.readDirectory).toHaveBeenCalledWith(ALBUM));
   await waitFor(() => expect(screen.getAllByTestId("workspace-row")).toHaveLength(3));
 }
@@ -176,7 +177,10 @@ describe("albums the service left needing review", () => {
 
     const banner = await screen.findByTestId("review-banner");
     expect(banner.textContent).toContain("1 album needs review");
-    expect(banner.textContent).toContain("Reference Album One");
+    fireEvent.click(screen.getByTestId("review-queue-summary"));
+    expect(screen.getByTestId(`review-open-${ALBUM}`).textContent).toContain("Open album");
+    const row = screen.getByTestId(`review-open-${ALBUM}`).closest("li");
+    expect(row && within(row).getByText("Reference Album One")).toBeTruthy();
   });
 
   it("lets the workspace acknowledge a reviewed album", async () => {
@@ -184,7 +188,9 @@ describe("albums the service left needing review", () => {
     const markReviewed = vi.fn(async () => {});
     renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }], markReviewed);
 
-    await screen.findByTestId("review-banner");
+    const queue = await screen.findByTestId("review-queue");
+    expect((queue as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(screen.getByTestId("review-queue-summary"));
     fireEvent.click(screen.getByTestId(`review-acknowledge-${ALBUM}`));
     await waitFor(() => expect(markReviewed).toHaveBeenCalledWith(ALBUM));
     await waitFor(() => expect(screen.queryByTestId("review-banner")).toBeNull());
@@ -268,7 +274,8 @@ describe("albums the service left needing review", () => {
 
     // The badge only appears once the tree has rendered that node.
     const tree = within(screen.getByTestId("directory-tree"));
-    fireEvent.click(tree.getByRole("button", { name: /Music/ }));
+    const root = tree.getByRole("button", { name: /Music/ });
+    if (root.getAttribute("aria-expanded") !== "true") fireEvent.click(root);
     expect(await screen.findByTestId(`tree-review-${ALBUM}`)).toBeTruthy();
   });
 
@@ -280,7 +287,8 @@ describe("albums the service left needing review", () => {
     await screen.findAllByTestId("review-banner");
 
     const tree = within(screen.getByTestId("directory-tree"));
-    fireEvent.click(tree.getByRole("button", { name: /Music/ }));
+    const root = tree.getByRole("button", { name: /Music/ });
+    if (root.getAttribute("aria-expanded") !== "true") fireEvent.click(root);
     expect(await screen.findByTestId(`tree-review-${ALBUM}`)).toBeTruthy();
   });
 });

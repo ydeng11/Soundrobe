@@ -534,7 +534,7 @@ describe("workspace data flow", () => {
     render(<WorkspaceView api={api as unknown as Window["api"]} />);
     await waitFor(() => expect(screen.getAllByTestId("workspace-row")).toHaveLength(2));
 
-    fireEvent.change(screen.getByPlaceholderText("Search files or folders"), {
+    fireEvent.change(screen.getByPlaceholderText("Filter tracks in this folder"), {
       target: { value: "keep" },
     });
 

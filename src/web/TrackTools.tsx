@@ -67,7 +67,7 @@ export function TrackTools({
         title="Search MusicBrainz or Discogs for this album"
         onClick={() => setOpen("search")}
       >
-        Search
+        Find album metadata
       </button>
       <button
         type="button"

@@ -25,6 +25,11 @@ export interface TrackDetailEditorProps {
   onSetCover?: () => void;
   onRemoveCover?: () => void;
   saving?: boolean;
+  /** Compact layout used when the editor sits in the workspace bottom dock. */
+  compact?: boolean;
+  trackPosition?: number;
+  albumTrackCount?: number;
+  onClose?: () => void;
 }
 
 interface Draft {
@@ -133,6 +138,10 @@ export function TrackDetailEditor({
   onSetCover,
   onRemoveCover,
   saving = false,
+  compact = false,
+  trackPosition,
+  albumTrackCount,
+  onClose,
 }: TrackDetailEditorProps) {
   const [draft, setDraft] = React.useState<Draft>(() => draftFromTrack(track));
 
@@ -155,20 +164,39 @@ export function TrackDetailEditor({
     setDraft((current) => ({ ...current, [key]: value }));
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromTrack(track));
+  const position = trackPosition ?? track.trackNumber;
+  const total = albumTrackCount ?? track.trackTotal;
+  const heading = compact
+    ? position != null
+      ? `Edit track ${position}${total ? ` of ${total}` : ""}`
+      : "Edit track"
+    : "File details";
 
   return (
     <form
-      className="sr-editor"
+      className={`sr-editor${compact ? " sr-editor--compact" : ""}`}
       data-testid="track-editor"
       onSubmit={(event) => {
         event.preventDefault();
         void onApply(buildTrackPatch(draft));
       }}
     >
-      <h2 className="sr-editor__heading">File details</h2>
+      <div className="sr-editor__header">
+        <h2 className="sr-editor__heading">{heading}</h2>
+        {onClose && (
+          <button
+            type="button"
+            className="sr-editor__close"
+            aria-label="Close track editor"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        )}
+      </div>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Basic Information</h3>
+      <section className="sr-section sr-editor__basic">
+        <h3 className={`sr-section__title${compact ? " sr-sr-only" : ""}`}>Basic Information</h3>
 
         <Field label="Title">
           <input
@@ -217,155 +245,158 @@ export function TrackDetailEditor({
         </Field>
       </section>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Media Information</h3>
-        <div className="sr-field">
-          <span className="sr-field__label">Cover</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {coverDataUrl ? (
-              <img className="sr-cover" src={coverDataUrl} alt="" />
-            ) : (
-              <span aria-hidden="true" className="sr-cover" />
-            )}
-            {onSetCover && (
-              <button type="button" className="sr-btn" onClick={onSetCover}>
-                Set cover
-              </button>
-            )}
-            {onRemoveCover && (
-              <button
-                type="button"
-                className="sr-btn"
-                disabled={!track.hasCover}
-                onClick={onRemoveCover}
-              >
-                Remove cover
-              </button>
-            )}
+      <details className="sr-editor__advanced" open={!compact}>
+        <summary>More fields</summary>
+        <section className="sr-section">
+          <h3 className="sr-section__title">Media Information</h3>
+          <div className="sr-field">
+            <span className="sr-field__label">Cover</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {coverDataUrl ? (
+                <img className="sr-cover" src={coverDataUrl} alt="" />
+              ) : (
+                <span aria-hidden="true" className="sr-cover" />
+              )}
+              {onSetCover && (
+                <button type="button" className="sr-btn" onClick={onSetCover}>
+                  Set cover
+                </button>
+              )}
+              {onRemoveCover && (
+                <button
+                  type="button"
+                  className="sr-btn"
+                  disabled={!track.hasCover}
+                  onClick={onRemoveCover}
+                >
+                  Remove cover
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Lyric Information</h3>
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="sr-lyrics">
-            Lyrics
-          </label>
-          <textarea
-            id="sr-lyrics"
-            className="sr-textarea"
-            placeholder="One line per lyric. LRC timestamps are preserved."
-            value={draft.lyrics}
-            onChange={(event) => set("lyrics", event.target.value)}
-          />
-        </div>
-        <Field label="LRC sidecar">
-          <span className="sr-field__static" data-testid="editor-lrc-status">
-            {hasLrc ? "Present" : "None"}
-          </span>
-        </Field>
-      </section>
+        <section className="sr-section">
+          <h3 className="sr-section__title">Lyric Information</h3>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="sr-lyrics">
+              Lyrics
+            </label>
+            <textarea
+              id="sr-lyrics"
+              className="sr-textarea"
+              placeholder="One line per lyric. LRC timestamps are preserved."
+              value={draft.lyrics}
+              onChange={(event) => set("lyrics", event.target.value)}
+            />
+          </div>
+          <Field label="LRC sidecar">
+            <span className="sr-field__static" data-testid="editor-lrc-status">
+              {hasLrc ? "Present" : "None"}
+            </span>
+          </Field>
+        </section>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Category Information</h3>
+        <section className="sr-section">
+          <h3 className="sr-section__title">Category Information</h3>
 
-        <Field label="Genres">
-          <input
-            className="sr-input"
-            aria-label="Genres"
-            value={draft.genre}
-            onChange={(event) => set("genre", event.target.value)}
-          />
-        </Field>
+          <Field label="Genres">
+            <input
+              className="sr-input"
+              aria-label="Genres"
+              value={draft.genre}
+              onChange={(event) => set("genre", event.target.value)}
+            />
+          </Field>
 
-        <Field label="Composer">
-          <input
-            className="sr-input"
-            aria-label="Composer"
-            value={draft.composer}
-            onChange={(event) => set("composer", event.target.value)}
-          />
-        </Field>
-      </section>
+          <Field label="Composer">
+            <input
+              className="sr-input"
+              aria-label="Composer"
+              value={draft.composer}
+              onChange={(event) => set("composer", event.target.value)}
+            />
+          </Field>
+        </section>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Metadata Information</h3>
+        <section className="sr-section">
+          <h3 className="sr-section__title">Metadata Information</h3>
 
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="sr-comment">
-            Summary
-          </label>
-          <textarea
-            id="sr-comment"
-            className="sr-textarea"
-            value={draft.comment}
-            onChange={(event) => set("comment", event.target.value)}
-          />
-        </div>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="sr-comment">
+              Summary
+            </label>
+            <textarea
+              id="sr-comment"
+              className="sr-textarea"
+              value={draft.comment}
+              onChange={(event) => set("comment", event.target.value)}
+            />
+          </div>
 
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="sr-description">
-            Description
-          </label>
-          <textarea
-            id="sr-description"
-            className="sr-textarea"
-            value={draft.description}
-            onChange={(event) => set("description", event.target.value)}
-          />
-        </div>
-      </section>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="sr-description">
+              Description
+            </label>
+            <textarea
+              id="sr-description"
+              className="sr-textarea"
+              value={draft.description}
+              onChange={(event) => set("description", event.target.value)}
+            />
+          </div>
+        </section>
 
-      <section className="sr-section">
-        <h3 className="sr-section__title">Technical Information</h3>
+        <section className="sr-section">
+          <h3 className="sr-section__title">Technical Information</h3>
 
-        <Field label="Disc Number">
-          <input
-            className="sr-input"
-            aria-label="Disc Number"
-            value={draft.discNumber}
-            onChange={(event) => set("discNumber", event.target.value)}
-          />
-        </Field>
+          <Field label="Disc Number">
+            <input
+              className="sr-input"
+              aria-label="Disc Number"
+              value={draft.discNumber}
+              onChange={(event) => set("discNumber", event.target.value)}
+            />
+          </Field>
 
-        <Field label="Track No.">
-          <input
-            className="sr-input"
-            aria-label="Track No."
-            value={draft.trackNumber}
-            onChange={(event) => set("trackNumber", event.target.value)}
-          />
-        </Field>
+          <Field label="Track No.">
+            <input
+              className="sr-input"
+              aria-label="Track No."
+              value={draft.trackNumber}
+              onChange={(event) => set("trackNumber", event.target.value)}
+            />
+          </Field>
 
-        <Field label="Total Tracks">
-          <input
-            className="sr-input"
-            aria-label="Total Tracks"
-            value={draft.trackTotal}
-            onChange={(event) => set("trackTotal", event.target.value)}
-          />
-        </Field>
+          <Field label="Total Tracks">
+            <input
+              className="sr-input"
+              aria-label="Total Tracks"
+              value={draft.trackTotal}
+              onChange={(event) => set("trackTotal", event.target.value)}
+            />
+          </Field>
 
-        <Field label="Total Discs">
-          <input
-            className="sr-input"
-            aria-label="Total Discs"
-            value={draft.discTotal}
-            onChange={(event) => set("discTotal", event.target.value)}
-          />
-        </Field>
+          <Field label="Total Discs">
+            <input
+              className="sr-input"
+              aria-label="Total Discs"
+              value={draft.discTotal}
+              onChange={(event) => set("discTotal", event.target.value)}
+            />
+          </Field>
 
-        <div className="sr-technical" data-testid="editor-technical">
-          <TechnicalRow label="Duration" value={formatDuration(track.duration)} />
-          <TechnicalRow label="Bitrate" value={formatBitrate(track.bitrate)} />
-          <TechnicalRow label="Sample Rate" value={formatSampleRate(track.sampleRate)} />
-          <TechnicalRow label="Format" value={track.codec.toUpperCase()} />
-          <TechnicalRow label="File Size" value={formatBytes(track.sizeBytes)} />
-        </div>
-      </section>
+          <div className="sr-technical" data-testid="editor-technical">
+            <TechnicalRow label="Duration" value={formatDuration(track.duration)} />
+            <TechnicalRow label="Bitrate" value={formatBitrate(track.bitrate)} />
+            <TechnicalRow label="Sample Rate" value={formatSampleRate(track.sampleRate)} />
+            <TechnicalRow label="Format" value={track.codec.toUpperCase()} />
+            <TechnicalRow label="File Size" value={formatBytes(track.sizeBytes)} />
+          </div>
+        </section>
+      </details>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div className="sr-editor__actions">
         <button type="submit" className="sr-btn sr-btn--primary" disabled={!dirty || saving}>
           {saving ? "Applying…" : "Apply"}
         </button>

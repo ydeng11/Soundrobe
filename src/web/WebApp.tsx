@@ -26,15 +26,26 @@ export function WebApp({ api = window.api }: WebAppProps) {
   /** Set when Monitoring sends the reader to the album it flagged. */
   const [pendingAlbum, setPendingAlbum] = React.useState<string | null>(null);
 
+  React.useLayoutEffect(() => {
+    const main = document.querySelector<HTMLElement>(".sr-main");
+    if (main) main.scrollTop = 0;
+  }, [view]);
+
   return (
     <WebShell activeView={view} onViewChange={setView}>
-      {view === "workspace" && (
+      <div
+        className="sr-workspace-host"
+        data-testid="workspace-host"
+        hidden={view !== "workspace"}
+        inert={view !== "workspace"}
+      >
         <WorkspaceView
           api={api}
+          active={view === "workspace"}
           openAlbumPath={pendingAlbum}
           onAlbumOpened={() => setPendingAlbum(null)}
         />
-      )}
+      </div>
       {view === "sources" && <TagSourcesView api={api} />}
       {view === "monitoring" && (
         <MonitoringView

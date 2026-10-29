@@ -332,25 +332,31 @@ export function MonitoringView({
 
   return (
     <div className="sr-pane" data-testid="monitoring">
-      <div className="sr-toolbar">
-        <h2 className="sr-section__title">Monitoring</h2>
-        <div className="sr-header__spacer" />
-        {lastUpdated && (
-          <span className="sr-freshness" data-testid="monitoring-freshness">
-            Updated {relativeTime(lastUpdated.toISOString(), clock)}
-          </span>
-        )}
-        <button
-          type="button"
-          className="sr-btn sr-btn--primary"
-          disabled={busy || status?.enabled === false}
-          onClick={() => void handleRunNow()}
-        >
-          Tag now
-        </button>
-        <button type="button" className="sr-btn" onClick={() => void refresh()}>
-          Refresh
-        </button>
+      <div className="sr-toolbar sr-page-header">
+        <div className="sr-page-heading">
+          <h1 className="sr-section__title">Monitoring</h1>
+          <p className="sr-page-subtitle">
+            Track background tagging and review albums that need attention.
+          </p>
+        </div>
+        <div className="sr-page-actions">
+          {lastUpdated && (
+            <span className="sr-freshness" data-testid="monitoring-freshness">
+              Updated {relativeTime(lastUpdated.toISOString(), clock)}
+            </span>
+          )}
+          <button
+            type="button"
+            className="sr-btn sr-btn--primary"
+            disabled={busy || status?.enabled === false}
+            onClick={() => void handleRunNow()}
+          >
+            Tag now
+          </button>
+          <button type="button" className="sr-btn" onClick={() => void refresh()}>
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/*
@@ -445,7 +451,7 @@ export function MonitoringView({
             </div>
             {status ? (
               <>
-                <div className="sr-technical">
+                <div className="sr-technical sr-technical--monitoring">
                   <TechnicalRow label="State" value={status.enabled ? "Enabled" : "Disabled"} />
                   <TechnicalRow label="Crontab" value={status.schedule} mono />
                   <TechnicalRow
@@ -628,13 +634,13 @@ export function MonitoringView({
                 ))}
               </div>
               <label className="sr-sr-only" htmlFor="release-search">
-                Search releases by path
+                Search albums or paths
               </label>
               <input
                 id="release-search"
                 className="sr-input"
                 type="search"
-                placeholder="Search by path…"
+                placeholder="Search album or path…"
                 value={releaseQuery}
                 data-testid="release-search"
                 onChange={(event) => {
@@ -675,64 +681,69 @@ export function MonitoringView({
             ) : (
               <>
                 <div className="sr-table-wrap">
-                  <table className="sr-table sr-table--log">
+                  <table className="sr-table sr-table--log sr-table--releases">
                     <thead>
                       <tr>
                         <th scope="col">Release</th>
                         <th scope="col">Tagging state</th>
-                        <th scope="col">Path</th>
                         {releaseActions && <th scope="col">Actions</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {visibleReleases.map((release) => (
-                        <tr key={release.path}>
-                          <td>
-                            <span
-                              role={onOpenAlbum ? "button" : undefined}
-                              tabIndex={onOpenAlbum ? 0 : undefined}
-                              className="sr-cell--primary"
-                              onClick={() => onOpenAlbum?.(release.path)}
-                              onKeyDown={(event) => {
-                                if (!onOpenAlbum) return;
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  onOpenAlbum(release.path);
-                                }
-                              }}
-                            >
-                              {albumNameOf(release.path)}
+                        <tr key={release.path} data-testid="release-row">
+                          <td className="sr-release-identity">
+                            <span className="sr-release-name-wrap">
+                              <span
+                                role={onOpenAlbum ? "button" : undefined}
+                                tabIndex={onOpenAlbum ? 0 : undefined}
+                                className="sr-cell--primary"
+                                onClick={() => onOpenAlbum?.(release.path)}
+                                onKeyDown={(event) => {
+                                  if (!onOpenAlbum) return;
+                                  if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    onOpenAlbum(release.path);
+                                  }
+                                }}
+                              >
+                                {albumNameOf(release.path)}
+                              </span>
+                              <span className="sr-cell--muted sr-release-path" title={release.path}>
+                                {release.path}
+                              </span>
                             </span>
                           </td>
-                          <td>
+                          <td className="sr-release-state">
                             <span className={`sr-badge ${RELEASE_CLASS[release.status]}`}>
                               {RELEASE_LABEL[release.status] ?? release.status}
                             </span>
                           </td>
-                          <td className="sr-cell--muted">{release.path}</td>
                           {releaseActions && (
-                            <td>
-                              {release.status === "needs_review" && (
-                                <button
-                                  type="button"
-                                  className="sr-btn"
-                                  disabled={busy}
-                                  data-testid={`release-review-${release.path}`}
-                                  onClick={() => void handleMarkReviewed(release.path)}
-                                >
-                                  Acknowledge review
-                                </button>
-                              )}
-                              {onOpenAlbum && (
-                                <button
-                                  type="button"
-                                  className="sr-btn"
-                                  data-testid={`release-open-${release.path}`}
-                                  onClick={() => onOpenAlbum(release.path)}
-                                >
-                                  Open
-                                </button>
-                              )}
+                            <td className="sr-release-actions">
+                              <div>
+                                {release.status === "needs_review" && (
+                                  <button
+                                    type="button"
+                                    className="sr-btn"
+                                    disabled={busy}
+                                    data-testid={`release-review-${release.path}`}
+                                    onClick={() => void handleMarkReviewed(release.path)}
+                                  >
+                                    Acknowledge review
+                                  </button>
+                                )}
+                                {onOpenAlbum && (
+                                  <button
+                                    type="button"
+                                    className="sr-btn"
+                                    data-testid={`release-open-${release.path}`}
+                                    onClick={() => onOpenAlbum(release.path)}
+                                  >
+                                    Open
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           )}
                         </tr>
@@ -773,29 +784,31 @@ export function MonitoringView({
             <div className="sr-toolbar">
               <h3 className="sr-section__title">Service logs</h3>
               <div className="sr-header__spacer" />
-              <label className="sr-field__label" htmlFor="monitoring-log-source">
-                Source
-              </label>
-              <select
-                id="monitoring-log-source"
-                className="sr-input"
-                value={source}
-                onChange={(event) => setSource(event.target.value as MonitoringLogSource)}
-              >
-                {LOG_SOURCES.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                className="sr-btn"
-                data-testid="log-reload"
-                onClick={() => void loadLog(source, LOG_PAGE)}
-              >
-                Reload
-              </button>
+              <div className="sr-log-controls">
+                <label className="sr-log-source" htmlFor="monitoring-log-source">
+                  <span className="sr-field__label">Source</span>
+                  <select
+                    id="monitoring-log-source"
+                    className="sr-input"
+                    value={source}
+                    onChange={(event) => setSource(event.target.value as MonitoringLogSource)}
+                  >
+                    {LOG_SOURCES.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="sr-btn"
+                  data-testid="log-reload"
+                  onClick={() => void loadLog(source, LOG_PAGE)}
+                >
+                  Reload
+                </button>
+              </div>
             </div>
 
             {log ? (

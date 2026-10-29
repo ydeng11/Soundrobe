@@ -52,6 +52,20 @@ function emptyLog(): MonitoringLog {
 }
 
 describe("Monitoring", () => {
+  it("orients an operator before they choose a monitoring view", async () => {
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [] })}
+        readLog={async () => emptyLog()}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Monitoring" })).toBeTruthy();
+    expect(screen.getByText(/Track background tagging and review albums that need attention/i)).toBeTruthy();
+  });
+
   it("keeps AI-written releases visible until the operator acknowledges review", async () => {
     const albumPath = "/library/Music/Artist/Album";
     let acknowledged = false;
@@ -174,6 +188,9 @@ describe("Monitoring", () => {
     expect(await screen.findByTestId("monitoring-schedule")).toBeTruthy();
     expect(screen.getByText("0 0 * * *")).toBeTruthy();
     expect(screen.getByText("/library/Music")).toBeTruthy();
+    expect(
+      screen.getByTestId("monitoring-schedule").querySelector(".sr-technical")?.classList,
+    ).toContain("sr-technical--monitoring");
   });
 
   it("surfaces a refused run instead of silently doing nothing", async () => {
@@ -469,6 +486,32 @@ describe("Monitoring", () => {
     expect(onOpenAlbum).toHaveBeenCalledWith("/library/Album One");
   });
 
+  it("keeps release identity, path, review state and actions together in a mobile-safe row", async () => {
+    const albumPath = "/library/Artist/Album One";
+    render(
+      <MonitoringView
+        refreshMs={0}
+        loadStatus={async () => status()}
+        loadReleases={async () => ({ releases: [{ path: albumPath, status: "needs_review" }] })}
+        readLog={async () => emptyLog()}
+        onOpenAlbum={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(await screen.findByTestId("monitoring-tab-releases"));
+    const panel = await screen.findByTestId("monitoring-releases");
+    const row = within(panel).getByRole("row", { name: /Album One/ });
+    expect(within(row).getByText("Album One")).toBeTruthy();
+    expect(within(row).getByText(albumPath)).toBeTruthy();
+    expect(within(row).getByText(albumPath).closest("td")).toBe(
+      within(row).getByText("Album One").closest("td"),
+    );
+    expect(within(row).getByText("Needs review")).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Acknowledge review" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Open" })).toBeTruthy();
+    expect(within(panel).queryByRole("columnheader", { name: "Path" })).toBeNull();
+  });
+
   it("bounds a large library instead of rendering all of it", async () => {
     // An unbounded list is both a UX problem and a rendering one; a real library
     // surveys into the thousands.
@@ -487,7 +530,7 @@ describe("Monitoring", () => {
 
     fireEvent.click(await screen.findByTestId("monitoring-tab-releases"));
     expect(screen.getByTestId("release-count").textContent).toContain("Showing 50 of 120");
-    expect(document.querySelectorAll('[data-testid="monitoring-releases"] tbody tr')).toHaveLength(50);
+    expect(document.querySelectorAll('[data-testid="monitoring-releases"] [data-testid="release-row"]')).toHaveLength(50);
 
     fireEvent.click(screen.getByTestId("release-show-more"));
     expect(screen.getByTestId("release-count").textContent).toContain("Showing 100 of 120");
@@ -605,6 +648,20 @@ describe("Monitoring", () => {
 });
 
 describe("Settings", () => {
+  it("explains which settings save immediately and which keep an explicit draft", async () => {
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({})}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
+    expect(screen.getByText(/Most toggles and preset choices save when changed/i)).toBeTruthy();
+    expect(screen.getByText(/Lyrics URL and a custom schedule keep a draft until you save/i)).toBeTruthy();
+  });
+
   it("gives every checkbox setting the whole row for its name", async () => {
     // A checkbox field's label *is* its control, and these labels are sentences:
     // inside the label gutter "Let the assistant apply its own actions without
@@ -618,16 +675,17 @@ describe("Settings", () => {
     );
 
     await screen.findByTestId("settings");
-    for (const id of [
-      "setting-remote-lookup",
-      "setting-discogs",
-      "setting-lyrics",
-      "setting-background-enabled",
-      "setting-watch",
-      "setting-skip-unchanged",
-      "setting-assistant",
-      "setting-debug",
+    for (const [group, id] of [
+      ["sources", "setting-remote-lookup"],
+      ["sources", "setting-discogs"],
+      ["lyrics", "setting-lyrics"],
+      ["automation", "setting-background-enabled"],
+      ["automation", "setting-watch"],
+      ["automation", "setting-skip-unchanged"],
+      ["assistant", "setting-assistant"],
+      ["system", "setting-debug"],
     ]) {
+      fireEvent.click(screen.getByTestId(`settings-nav-${group}`));
       const box = document.getElementById(id) as HTMLInputElement;
       expect(box, id).toBeTruthy();
       expect(box.closest(".sr-field")?.className, id).toContain("sr-field--stacked");
@@ -656,6 +714,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-writing"));
+
     const input = await screen.findByRole("combobox", { name: "Selected tags will be cleared" });
     expect(screen.getByText("Selected tags will be cleared")).toBeTruthy();
     expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
@@ -681,6 +741,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1.2.3", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     const preset = (await screen.findByLabelText("Schedule")) as HTMLSelectElement;
     expect(preset.value).toBe("0 0 * * *");
@@ -714,6 +776,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Schedule"), {
       target: { value: "*/10 * * * *" },
     });
@@ -736,6 +800,7 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
     fireEvent.change(await screen.findByLabelText("Schedule"), {
       target: { value: "custom" },
     });
@@ -767,6 +832,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/music/rock" },
     });
@@ -794,6 +861,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/elsewhere/rock" },
     });
@@ -818,6 +887,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/music/typo" },
@@ -865,6 +936,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+
     const input = (await screen.findByLabelText("Lyrics service URL")) as HTMLInputElement;
     expect(input.value).toBe("https://lrclib.net");
 
@@ -891,6 +964,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+
     fireEvent.change(await screen.findByLabelText("Lyrics service URL"), {
       target: { value: "not a url" },
     });
@@ -902,7 +977,7 @@ describe("Settings", () => {
     expect(saveConfig).not.toHaveBeenCalled();
   });
 
-  it("groups the settings so each one can be found without reading the page", async () => {
+  it("shows only the settings page selected in the submenu", async () => {
     render(
       <SettingsView
         loadBackground={async () => SETTINGS}
@@ -913,13 +988,40 @@ describe("Settings", () => {
 
     for (const id of ["sources", "writing", "lyrics", "automation", "assistant", "system"]) {
       const nav = await screen.findByTestId(`settings-nav-${id}`);
-      // Every nav entry must point at a group that actually exists, which is the
-      // whole contract of the navigation.
-      const target = document.getElementById(`settings-group-${id}`);
-      expect(target).toBeTruthy();
-      // And clicking it must not throw, so a dead entry cannot ship.
       fireEvent.click(nav);
+      const pages = screen.getAllByRole("region");
+      expect(pages).toHaveLength(1);
+      expect(pages[0].id).toBe(`settings-group-${id}`);
+      expect(nav.getAttribute("aria-current")).toBe("page");
     }
+  });
+
+  it("keeps unsaved drafts when switching settings pages without saving them", async () => {
+    const saveConfig = vi.fn(async () => undefined);
+    const saveBackground = vi.fn(async () => SETTINGS);
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({ lyricsApiUrl: "https://lrclib.net" })}
+        saveConfig={saveConfig}
+        saveBackground={saveBackground}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+    fireEvent.change(await screen.findByLabelText("Lyrics service URL"), {
+      target: { value: "https://example.org/draft" },
+    });
+    fireEvent.click(screen.getByTestId("settings-nav-automation"));
+    expect(screen.queryByRole("textbox", { name: "Lyrics service URL" })).toBeNull();
+    fireEvent.change(await screen.findByLabelText("Schedule"), { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("Crontab expression"), { target: { value: "0 3 * * *" } });
+    fireEvent.click(screen.getByTestId("settings-nav-lyrics"));
+    expect((screen.getByLabelText("Lyrics service URL") as HTMLInputElement).value).toBe("https://example.org/draft");
+    fireEvent.click(screen.getByTestId("settings-nav-automation"));
+    expect((screen.getByLabelText("Crontab expression") as HTMLInputElement).value).toBe("0 3 * * *");
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(saveBackground).not.toHaveBeenCalled();
   });
 
   it("keeps the settings pane scrollable with its section nav visible", async () => {
@@ -955,15 +1057,15 @@ describe("Settings", () => {
 
     const sourcesNav = await screen.findByTestId("settings-nav-sources");
     const automationNav = screen.getByTestId("settings-nav-automation");
-    const automationHeading = screen.getByRole("heading", { name: "Automation" });
 
-    expect(sourcesNav.getAttribute("aria-current")).toBe("location");
+    expect(sourcesNav.getAttribute("aria-current")).toBe("page");
     expect(automationNav.getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(automationNav);
 
-    expect(automationNav.getAttribute("aria-current")).toBe("location");
+    expect(automationNav.getAttribute("aria-current")).toBe("page");
     expect(sourcesNav.getAttribute("aria-current")).toBeNull();
+    const automationHeading = screen.getByRole("heading", { name: "Automation" });
     expect(automationHeading.getAttribute("tabindex")).toBe("-1");
     expect(document.activeElement).toBe(automationHeading);
   });
@@ -976,6 +1078,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     expect((await screen.findByTestId("settings-schedule-words")).textContent).toContain(
       "Every day at 03:00",
@@ -990,6 +1094,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
     expect(await screen.findByTestId("settings-directories-empty")).toBeTruthy();
   });
 
@@ -1006,6 +1112,8 @@ describe("Settings", () => {
 
     fireEvent.click(await screen.findByLabelText(/Allow online metadata lookups/));
     await waitFor(() => expect(saveConfig).toHaveBeenCalledWith("remoteLookupEnabled", true));
+
+    fireEvent.click(screen.getByTestId("settings-nav-writing"));
 
     // Clearing the script must send null, which is what "leave unchanged" means
     // to the service; an empty string would be an invalid value.
@@ -1025,6 +1133,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-system"));
 
     fireEvent.click(await screen.findByLabelText(/Verbose debug logging/));
     await waitFor(() => expect(setDebugMode).toHaveBeenCalledWith(true));

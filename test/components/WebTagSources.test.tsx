@@ -92,11 +92,16 @@ describe("tag sources view", () => {
   it("lists the metadata sources and the AI fallback", async () => {
     render(<TagSourcesView api={fakeApi() as unknown as Window["api"]} />);
 
+    expect(await screen.findByRole("heading", { level: 1, name: "Tag sources" })).toBeTruthy();
+    expect(screen.getByText(/Manage metadata and artwork providers/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save" }).closest(".sr-toolbar")).toBeTruthy();
     expect(await screen.findByText("MusicBrainz")).toBeTruthy();
     expect(screen.getByText("Discogs")).toBeTruthy();
     expect(screen.getByText("TheAudioDB")).toBeTruthy();
     expect(screen.getByText("AI fallback")).toBeTruthy();
     expect(screen.getByText("Always on")).toBeTruthy();
+    expect(screen.getByText(/Secondary metadata source, tried after MusicBrainz/i)).toBeTruthy();
+    expect(screen.getByText(/Remote artwork lookup after local artwork/i)).toBeTruthy();
   });
 
   it("reports which sources are already configured", async () => {

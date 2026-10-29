@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Browser Workspace now keeps its folder, filter and track selection while navigating. It identifies a library folder separately from an album, keeps review albums in a closed bounded list, and docks the selected track editor below the table.
+- Browser pages now keep their primary navigation labels visible on narrow screens and reset the active page's scroll position when navigation changes. Monitoring, Sources and Settings content can scroll to the bottom on mobile.
+- Monitoring, Tag sources and Settings now lead with a clear page title and purpose. Release rows pair album names with their full paths and keep status and actions reachable on phones; source saving and Settings section links stay available while scrolling.
+- Each Settings submenu item now opens its own settings page, with unsaved drafts preserved when switching categories.
 - Auto-tagging now ranks locally discovered editions by total track count before fetching release details, continues discovery when pagination totals are missing, honors provider retry delays, and asks for review when a folder has no usable artist or album identity.
 - Background tagging now resumes provider catalog discovery and queued album work from SQLite after a restart; provider outages or incomplete catalogs remain deferred instead of triggering guessed AI tags, cancelled work stays stopped until retried, interrupted runs are closed visibly, and AI-written metadata is durably marked for review before files change and remains flagged until acknowledged in Monitoring or Workspace.
 - The browser service no longer prompts for a password or maintains a login session; access is controlled by the deployment boundary instead.

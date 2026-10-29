@@ -63,7 +63,7 @@ export function WebShell({ activeView = "workspace", onViewChange, children }: W
         <div className="sr-header__spacer" />
       </header>
 
-      <main className={`sr-main ${activeView === "settings" ? "sr-main--settings" : ""}`}>{children}</main>
+      <main className={`sr-main sr-main--${activeView}`}>{children}</main>
     </div>
   );
 }

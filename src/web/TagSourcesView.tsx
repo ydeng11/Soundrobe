@@ -184,17 +184,24 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
   return (
     <div className="sr-pane" data-testid="tag-sources">
-      <div className="sr-toolbar">
-        <h2 className="sr-section__title">Tag sources</h2>
-        <div className="sr-header__spacer" />
-        <button
-          type="button"
-          className="sr-btn sr-btn--primary"
-          disabled={!loaded || saving}
-          onClick={() => void save()}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
+      <div className="sr-toolbar sr-page-header">
+        <div className="sr-page-heading">
+          <h1 className="sr-section__title">Tag sources</h1>
+          <p className="sr-page-subtitle">
+            Manage metadata and artwork providers. The optional AI fallback runs only after folder
+            and provider evidence.
+          </p>
+        </div>
+        <div className="sr-page-actions">
+          <button
+            type="button"
+            className="sr-btn sr-btn--primary"
+            disabled={!loaded || saving}
+            onClick={() => void save()}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -210,7 +217,7 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <span className="sr-source__name">MusicBrainz</span>
+              <h4 className="sr-source__name">MusicBrainz</h4>
               <span className="sr-badge sr-badge--success">Always on</span>
             </div>
             <p className="sr-source__note">
@@ -220,13 +227,16 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <span className="sr-source__name">Discogs</span>
+              <h4 className="sr-source__name">Discogs</h4>
               <span
                 className={`sr-badge ${settings.discogsToken ? "sr-badge--success" : "sr-badge--muted"}`}
               >
                 {settings.discogsToken ? "Configured" : "Not configured"}
               </span>
             </div>
+            <p className="sr-source__note">
+              Secondary metadata source, tried after MusicBrainz. A token is required for lookups.
+            </p>
             <label className="sr-field sr-field--stacked">
               <span className="sr-field__label">Personal access token</span>
               <input
@@ -241,13 +251,16 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <span className="sr-source__name">TheAudioDB</span>
+              <h4 className="sr-source__name">TheAudioDB</h4>
               <span
                 className={`sr-badge ${settings.theAudioDbApiKey ? "sr-badge--success" : "sr-badge--muted"}`}
               >
                 {settings.theAudioDbApiKey ? "Configured" : "Not configured"}
               </span>
             </div>
+            <p className="sr-source__note">
+              Remote artwork lookup after local artwork, Cover Art Archive and Discogs.
+            </p>
             <label className="sr-field sr-field--stacked">
               <span className="sr-field__label">API key</span>
               <input
