@@ -157,6 +157,7 @@ export function SettingsView({
   /** Per-field pending state, so saving one field does not lock the page. */
   const [pending, setPending] = React.useState<Record<string, boolean>>({});
   const [activeGroup, setActiveGroup] = React.useState(GROUPS[0].id);
+  const pageRef = React.useRef<HTMLDivElement>(null);
 
   const timers = React.useRef<number[]>([]);
   React.useEffect(
@@ -526,16 +527,16 @@ export function SettingsView({
       </p>
     ) : null;
 
-  const jumpTo = (id: string) => {
-    setActiveGroup(id);
-    const target = document.getElementById(`settings-group-${id}`);
-    // Optional call: a non-browser render has the element but no scrolling.
-    target?.scrollIntoView?.({ block: "start" });
-    target?.querySelector<HTMLElement>(".sr-section__title")?.focus({ preventScroll: true });
-  };
+  React.useLayoutEffect(() => {
+    const main = pageRef.current?.closest<HTMLElement>(".sr-main");
+    if (main) main.scrollTop = 0;
+    pageRef.current
+      ?.querySelector<HTMLElement>(`#settings-heading-${activeGroup}`)
+      ?.focus({ preventScroll: true });
+  }, [activeGroup]);
 
   return (
-    <div className="sr-pane sr-pane--settings" data-testid="settings">
+    <div ref={pageRef} className="sr-pane sr-pane--settings" data-testid="settings">
       <div className="sr-toolbar sr-page-header">
         <div className="sr-page-heading">
           <h1 className="sr-section__title">Settings</h1>
@@ -560,8 +561,9 @@ export function SettingsView({
             type="button"
             className="sr-tab"
             data-testid={`settings-nav-${group.id}`}
-            aria-current={activeGroup === group.id ? "location" : undefined}
-            onClick={() => jumpTo(group.id)}
+            aria-current={activeGroup === group.id ? "page" : undefined}
+            aria-controls={`settings-group-${group.id}`}
+            onClick={() => setActiveGroup(group.id)}
           >
             {group.label}
           </button>
@@ -577,6 +579,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-sources"
+        hidden={activeGroup !== "sources"}
         aria-labelledby="settings-heading-sources"
         data-testid="settings-sources"
       >
@@ -637,6 +640,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-writing"
+        hidden={activeGroup !== "writing"}
         aria-labelledby="settings-heading-writing"
         data-testid="settings-writing"
       >
@@ -787,6 +791,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-lyrics"
+        hidden={activeGroup !== "lyrics"}
         aria-labelledby="settings-heading-lyrics"
         data-testid="settings-lyrics"
       >
@@ -863,6 +868,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-automation"
+        hidden={activeGroup !== "automation"}
         aria-labelledby="settings-heading-automation"
         data-testid="settings-automation"
       >
@@ -1078,6 +1084,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-assistant"
+        hidden={activeGroup !== "assistant"}
         aria-labelledby="settings-heading-assistant"
         data-testid="settings-assistant"
       >
@@ -1114,6 +1121,7 @@ export function SettingsView({
       <section
         className="sr-section"
         id="settings-group-system"
+        hidden={activeGroup !== "system"}
         aria-labelledby="settings-heading-system"
         data-testid="settings-system"
       >

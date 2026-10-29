@@ -1155,3 +1155,14 @@ for explicit Save.
 
 These page values are local layout choices. Palette, type roles, and the shared
 table column schema remain unchanged.
+
+## 28. Separate Settings category pages (2026-10-29)
+
+The user clarified that each Settings submenu must open its own page rather than
+jump to a section in a single document. This supersedes the stacked-section
+behavior described above. Only the selected category is visible and accessible;
+the submenu marks it with `aria-current="page"`. Category changes return the
+content to the top and focus its heading. Existing state remains mounted so
+switching categories preserves Lyrics URL and custom schedule drafts without
+saving them. Immediate-save controls and explicit Save/Cancel behavior remain
+unchanged. No palette or geometry token changed.

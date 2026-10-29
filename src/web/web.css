@@ -1753,13 +1753,14 @@
   margin-inline: auto;
 }
 .sr-pane--settings > .sr-section { scroll-margin-top: var(--sr-settings-scroll-offset); }
+.sr-pane--settings > .sr-section[hidden] { display: none; }
 .sr-tabs--settings {
   position: sticky;
   top: 0;
   z-index: 2;
   background: var(--sr-surface);
 }
-.sr-tabs--settings .sr-tab[aria-current="location"] {
+.sr-tabs--settings .sr-tab[aria-current="page"] {
   background: var(--sr-primary-soft);
   color: var(--sr-primary-text);
 }

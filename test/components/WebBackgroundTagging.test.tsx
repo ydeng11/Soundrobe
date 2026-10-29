@@ -675,16 +675,17 @@ describe("Settings", () => {
     );
 
     await screen.findByTestId("settings");
-    for (const id of [
-      "setting-remote-lookup",
-      "setting-discogs",
-      "setting-lyrics",
-      "setting-background-enabled",
-      "setting-watch",
-      "setting-skip-unchanged",
-      "setting-assistant",
-      "setting-debug",
+    for (const [group, id] of [
+      ["sources", "setting-remote-lookup"],
+      ["sources", "setting-discogs"],
+      ["lyrics", "setting-lyrics"],
+      ["automation", "setting-background-enabled"],
+      ["automation", "setting-watch"],
+      ["automation", "setting-skip-unchanged"],
+      ["assistant", "setting-assistant"],
+      ["system", "setting-debug"],
     ]) {
+      fireEvent.click(screen.getByTestId(`settings-nav-${group}`));
       const box = document.getElementById(id) as HTMLInputElement;
       expect(box, id).toBeTruthy();
       expect(box.closest(".sr-field")?.className, id).toContain("sr-field--stacked");
@@ -713,6 +714,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-writing"));
+
     const input = await screen.findByRole("combobox", { name: "Selected tags will be cleared" });
     expect(screen.getByText("Selected tags will be cleared")).toBeTruthy();
     expect(screen.getByTestId("settings-kept-tags").textContent).toContain("Description");
@@ -738,6 +741,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1.2.3", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     const preset = (await screen.findByLabelText("Schedule")) as HTMLSelectElement;
     expect(preset.value).toBe("0 0 * * *");
@@ -771,6 +776,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Schedule"), {
       target: { value: "*/10 * * * *" },
     });
@@ -793,6 +800,7 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
     fireEvent.change(await screen.findByLabelText("Schedule"), {
       target: { value: "custom" },
     });
@@ -824,6 +832,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/music/rock" },
     });
@@ -851,6 +861,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/elsewhere/rock" },
     });
@@ -875,6 +887,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     fireEvent.change(await screen.findByLabelText("Covered folders"), {
       target: { value: "/music/typo" },
@@ -922,6 +936,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+
     const input = (await screen.findByLabelText("Lyrics service URL")) as HTMLInputElement;
     expect(input.value).toBe("https://lrclib.net");
 
@@ -948,6 +964,8 @@ describe("Settings", () => {
       />,
     );
 
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+
     fireEvent.change(await screen.findByLabelText("Lyrics service URL"), {
       target: { value: "not a url" },
     });
@@ -959,7 +977,7 @@ describe("Settings", () => {
     expect(saveConfig).not.toHaveBeenCalled();
   });
 
-  it("groups the settings so each one can be found without reading the page", async () => {
+  it("shows only the settings page selected in the submenu", async () => {
     render(
       <SettingsView
         loadBackground={async () => SETTINGS}
@@ -970,13 +988,40 @@ describe("Settings", () => {
 
     for (const id of ["sources", "writing", "lyrics", "automation", "assistant", "system"]) {
       const nav = await screen.findByTestId(`settings-nav-${id}`);
-      // Every nav entry must point at a group that actually exists, which is the
-      // whole contract of the navigation.
-      const target = document.getElementById(`settings-group-${id}`);
-      expect(target).toBeTruthy();
-      // And clicking it must not throw, so a dead entry cannot ship.
       fireEvent.click(nav);
+      const pages = screen.getAllByRole("region");
+      expect(pages).toHaveLength(1);
+      expect(pages[0].id).toBe(`settings-group-${id}`);
+      expect(nav.getAttribute("aria-current")).toBe("page");
     }
+  });
+
+  it("keeps unsaved drafts when switching settings pages without saving them", async () => {
+    const saveConfig = vi.fn(async () => undefined);
+    const saveBackground = vi.fn(async () => SETTINGS);
+    render(
+      <SettingsView
+        loadBackground={async () => SETTINGS}
+        loadConfig={async () => ({ lyricsApiUrl: "https://lrclib.net" })}
+        saveConfig={saveConfig}
+        saveBackground={saveBackground}
+        loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
+      />,
+    );
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+    fireEvent.change(await screen.findByLabelText("Lyrics service URL"), {
+      target: { value: "https://example.org/draft" },
+    });
+    fireEvent.click(screen.getByTestId("settings-nav-automation"));
+    expect(screen.queryByRole("textbox", { name: "Lyrics service URL" })).toBeNull();
+    fireEvent.change(await screen.findByLabelText("Schedule"), { target: { value: "custom" } });
+    fireEvent.change(screen.getByLabelText("Crontab expression"), { target: { value: "0 3 * * *" } });
+    fireEvent.click(screen.getByTestId("settings-nav-lyrics"));
+    expect((screen.getByLabelText("Lyrics service URL") as HTMLInputElement).value).toBe("https://example.org/draft");
+    fireEvent.click(screen.getByTestId("settings-nav-automation"));
+    expect((screen.getByLabelText("Crontab expression") as HTMLInputElement).value).toBe("0 3 * * *");
+    expect(saveConfig).not.toHaveBeenCalled();
+    expect(saveBackground).not.toHaveBeenCalled();
   });
 
   it("keeps the settings pane scrollable with its section nav visible", async () => {
@@ -1012,15 +1057,15 @@ describe("Settings", () => {
 
     const sourcesNav = await screen.findByTestId("settings-nav-sources");
     const automationNav = screen.getByTestId("settings-nav-automation");
-    const automationHeading = screen.getByRole("heading", { name: "Automation" });
 
-    expect(sourcesNav.getAttribute("aria-current")).toBe("location");
+    expect(sourcesNav.getAttribute("aria-current")).toBe("page");
     expect(automationNav.getAttribute("aria-current")).toBeNull();
 
     fireEvent.click(automationNav);
 
-    expect(automationNav.getAttribute("aria-current")).toBe("location");
+    expect(automationNav.getAttribute("aria-current")).toBe("page");
     expect(sourcesNav.getAttribute("aria-current")).toBeNull();
+    const automationHeading = screen.getByRole("heading", { name: "Automation" });
     expect(automationHeading.getAttribute("tabindex")).toBe("-1");
     expect(document.activeElement).toBe(automationHeading);
   });
@@ -1033,6 +1078,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
 
     expect((await screen.findByTestId("settings-schedule-words")).textContent).toContain(
       "Every day at 03:00",
@@ -1047,6 +1094,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
     expect(await screen.findByTestId("settings-directories-empty")).toBeTruthy();
   });
 
@@ -1063,6 +1112,8 @@ describe("Settings", () => {
 
     fireEvent.click(await screen.findByLabelText(/Allow online metadata lookups/));
     await waitFor(() => expect(saveConfig).toHaveBeenCalledWith("remoteLookupEnabled", true));
+
+    fireEvent.click(screen.getByTestId("settings-nav-writing"));
 
     // Clearing the script must send null, which is what "leave unchanged" means
     // to the service; an empty string would be an invalid value.
@@ -1082,6 +1133,8 @@ describe("Settings", () => {
         loadAppInfo={async () => ({ identifier: "app", version: "1", runtime: "web", dev: false })}
       />,
     );
+
+    fireEvent.click(await screen.findByTestId("settings-nav-system"));
 
     fireEvent.click(await screen.findByLabelText(/Verbose debug logging/));
     await waitFor(() => expect(setDebugMode).toHaveBeenCalledWith(true));
