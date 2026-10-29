@@ -1023,6 +1023,27 @@ describe("App — modification history", () => {
     ).toBe(true);
   });
 
+  it("reopens native auto-tag evidence from the title bar", async () => {
+    const review = {
+      id: "offline-review",
+      albumPath: "/music/Offline Album",
+      outcome: "needs_review" as const,
+      decision: "pending" as const,
+      result: { reasonCode: "provider_unavailable" },
+      before: { tracks: [], artworks: [], errors: [] },
+      after: { tracks: [], artworks: [], errors: [] },
+      canRevert: false,
+      errors: [],
+    };
+    window.api.listAutoTagReviews = vi.fn().mockResolvedValue([review]);
+
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Results" }));
+
+    expect(await screen.findByText("Awaiting review")).toBeTruthy();
+    expect(window.api.listAutoTagReviews).toHaveBeenCalledOnce();
+  });
+
   it("clears previous auto-tag results when opening another library", async () => {
     const openFolderDialog = window.api.openFolderDialog as ReturnType<typeof vi.fn>;
     const clearAutoTagReviews = window.api.clearAutoTagReviews as ReturnType<typeof vi.fn>;

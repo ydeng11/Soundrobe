@@ -255,6 +255,7 @@ pub fn run() {
             app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
+            app.manage(commands::auto_tag_review::ReviewStore::default());
             app.manage(WriteQueue::with_concurrency(write_concurrency));
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
@@ -317,6 +318,12 @@ pub fn run() {
             commands::album_search::album_preview_release_match,
             commands::album_search::album_search_apply_candidate,
             commands::auto_tag::album_auto_tag,
+            commands::auto_tag_review::auto_tag_reviews_clear,
+            commands::auto_tag_review::auto_tag_reviews_list,
+            commands::auto_tag_review::auto_tag_review_get,
+            commands::auto_tag_review::auto_tag_review_keep,
+            commands::auto_tag_review::auto_tag_review_revert,
+            commands::auto_tag_review::auto_tag_review_artwork,
             commands::lyrics::lyrics_fetch,
             commands::lyrics::album_download_lyrics,
             commands::conversation::assistant_init_runtime,

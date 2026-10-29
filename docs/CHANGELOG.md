@@ -86,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Desktop library loading, auto-tag results, and review actions now work in the native app instead of being unavailable after the tagging migration.
 - Browser Settings section links no longer trap the page at the selected section. The main pane remains scrollable, and the sticky navigation can focus another section.
 - Background tagging no longer loses music added while a run is in progress. A watched album that could not start because another tagging operation held the lock is queued and retried on the next poll, instead of being remembered as seen and never tagged until its folder changed again.
 - Field hints in the browser workspace were laid out in the label gutter instead of

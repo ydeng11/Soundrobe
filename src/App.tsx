@@ -80,6 +80,7 @@ import {
 import { isWebRuntime } from "./shared/install-desktop-api";
 import {
   runAutoTagBatch,
+  summaryFromReviews,
   type AutoTagBatchSummary,
 } from "./state/auto-tag-batch";
 
@@ -904,6 +905,18 @@ export default function App() {
   );
 
   // --- Auto-Tag ---
+
+  const openAutoTagResults = useCallback(async () => {
+    try {
+      const reviews = await window.api.listAutoTagReviews();
+      setAutoTagSummary(summaryFromReviews(reviews));
+    } catch (error) {
+      dispatch({
+        type: "SET_ERROR",
+        error: error instanceof Error ? error.message : "Could not load auto-tag results",
+      });
+    }
+  }, []);
 
   const handleAutoTagReviewChanged = useCallback(
     async (review: AutoTagReviewDetail) => {
@@ -2598,6 +2611,7 @@ export default function App() {
         onRefresh={handleRefresh}
         onConvert={handleConvert}
         onAutoTag={handleAutoTag}
+        onAutoTagResults={() => void openAutoTagResults()}
         onSearch={handleSearch}
         onGetLyrics={handleGetLyrics}
         onAudit={handleAudit}
