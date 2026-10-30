@@ -16,6 +16,8 @@ interface SettingsState {
   llmProvider: string;
   llmBaseUrl: string;
   discogsToken: string;
+  acoustidApiKey: string;
+  acoustidEnabled: boolean;
   debug: boolean;
   lyricsDownloadEnabled: boolean;
   lyricsApiUrl: string;
@@ -49,6 +51,8 @@ export function SettingsModal({
     llmProvider: "",
     llmBaseUrl: "",
     discogsToken: "",
+  acoustidApiKey: "",
+  acoustidEnabled: false,
     debug: false,
     lyricsDownloadEnabled: false,
     lyricsApiUrl: "",
@@ -102,6 +106,8 @@ export function SettingsModal({
           lyricsDownloadEnabled: (cfg.lyricsDownloadEnabled as boolean) ?? false,
           lyricsApiUrl: (cfg.lyricsApiUrl as string) ?? "",
           discogsToken: (cfg.discogsToken as string) ?? "",
+          acoustidApiKey: (cfg.acoustidApiKey as string) ?? "",
+          acoustidEnabled: cfg.acoustidEnabled === true,
           debug: (cfg.debug as boolean) ?? false,
           assistantAutonomous: (cfg.assistantAutonomous as boolean) ?? false,
           theAudioDbApiKey: (cfg.theAudioDbApiKey as string) ?? "",
@@ -163,6 +169,10 @@ export function SettingsModal({
           window.api.setConfig("theAudioDbApiKey", settings.theAudioDbApiKey),
         );
       }
+      if (settings.acoustidApiKey && !settings.acoustidApiKey.startsWith("****")) {
+        promises.push(window.api.setConfig("acoustidApiKey", settings.acoustidApiKey));
+      }
+      promises.push(window.api.setConfig("acoustidEnabled", settings.acoustidEnabled));
       promises.push(window.api.setConfig("llmModel", settings.llmModel));
       promises.push(window.api.setConfig("llmProvider", settings.llmProvider || null));
       promises.push(window.api.setConfig("llmBaseUrl", settings.llmBaseUrl || null));
@@ -359,6 +369,14 @@ export function SettingsModal({
                       keyConfigured={keyConfigured}
                     />
                   </div>
+
+                  <label className="flex items-center gap-2 text-text-primary">
+                    <input type="checkbox" checked={settings.acoustidEnabled} disabled={saving} onChange={(event) => setSettings({ ...settings, acoustidEnabled: event.target.checked })} />
+                    Enable AcoustID recognition
+                  </label>
+                  <FieldRow label="AcoustID application key" description="Registered application key; install fpcalc to recognize complete albums from audio.">
+                    <input type="password" aria-label="AcoustID application key" autoComplete="off" value={settings.acoustidApiKey} disabled={saving} onChange={(event) => setSettings({ ...settings, acoustidApiKey: event.target.value })} className={INPUT_CLASS} />
+                  </FieldRow>
 
                   <FieldRow label="Discogs Token" description="Personal access token for Discogs API">
                     <InputField

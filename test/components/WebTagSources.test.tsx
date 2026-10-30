@@ -180,3 +180,19 @@ describe("tag sources view", () => {
     expect((await screen.findByText("401 unauthorized")).textContent).toBe("401 unauthorized");
   });
 });
+
+
+describe("AcoustID settings", () => {
+  it("preserves masked keys while saving opt-in and accepts a replacement key", async () => {
+    const api = { getConfig: vi.fn(async () => ({ acoustidApiKey: "****abcd", acoustidEnabled: false })), setConfig: vi.fn(async () => undefined) };
+    render(<TagSourcesView api={api as unknown as Window["api"]} />);
+    const key = await screen.findByLabelText("AcoustID application key");
+    fireEvent.click(screen.getByLabelText("Enable AcoustID recognition"));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.setConfig).toHaveBeenCalledWith("acoustidEnabled", true));
+    expect(api.setConfig).not.toHaveBeenCalledWith("acoustidApiKey", "****abcd");
+    fireEvent.change(key, { target: { value: "new-application-key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(api.setConfig).toHaveBeenCalledWith("acoustidApiKey", "new-application-key"));
+  });
+});

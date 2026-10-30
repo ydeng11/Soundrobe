@@ -18,7 +18,7 @@ RUN cargo build --release --manifest-path src-tauri/Cargo.toml \
 FROM debian:bookworm-slim
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl \
+    && apt-get install --no-install-recommends -y ca-certificates curl libchromaprint-tools \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/dist /config /libraries /tmp \
     && chown -R 65532:65532 /app /config /libraries \

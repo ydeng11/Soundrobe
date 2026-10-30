@@ -43,6 +43,8 @@ const AI_PROVIDERS: Record<string, ProviderDefinition> = {
 
 export interface TagSourceSettings {
   discogsToken: string;
+  acoustidApiKey: string;
+  acoustidEnabled: boolean;
   theAudioDbApiKey: string;
   llmProvider: string;
   llmModel: string;
@@ -52,6 +54,8 @@ export interface TagSourceSettings {
 
 export const EMPTY_TAG_SOURCES: TagSourceSettings = {
   discogsToken: "",
+  acoustidApiKey: "",
+  acoustidEnabled: false,
   theAudioDbApiKey: "",
   llmProvider: "",
   llmModel: "",
@@ -81,6 +85,7 @@ export function buildTagSourceWrites(
   const writes: Array<[string, unknown]> = [];
   for (const [key, value] of [
     ["discogsToken", settings.discogsToken],
+    ["acoustidApiKey", settings.acoustidApiKey],
     ["theAudioDbApiKey", settings.theAudioDbApiKey],
     ["llmApiKey", settings.llmApiKey],
   ] as const) {
@@ -88,6 +93,7 @@ export function buildTagSourceWrites(
       writes.push([key, value]);
     }
   }
+  writes.push(["acoustidEnabled", settings.acoustidEnabled]);
   writes.push(["llmProvider", settings.llmProvider || null]);
   writes.push(["llmModel", settings.llmModel || null]);
   writes.push(["llmBaseUrl", settings.llmBaseUrl || null]);
@@ -122,6 +128,8 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
       const config = (await api.getConfig()) as Record<string, unknown>;
       setSettings({
         discogsToken: settingString(config.discogsToken),
+        acoustidApiKey: settingString(config.acoustidApiKey),
+        acoustidEnabled: config.acoustidEnabled === true,
         theAudioDbApiKey: settingString(config.theAudioDbApiKey),
         llmProvider: settingString(config.llmProvider),
         llmModel: settingString(config.llmModel),
@@ -138,7 +146,7 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
     void load();
   }, [load]);
 
-  const update = (key: keyof TagSourceSettings, value: string) => {
+  const update = <K extends keyof TagSourceSettings>(key: K, value: TagSourceSettings[K]) => {
     setSettings((current) => ({ ...current, [key]: value }));
     setMessage(null);
     setConnection("idle");
@@ -223,6 +231,18 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
             <p className="sr-source__note">
               Free release data with no credentials required.
             </p>
+          </div>
+
+          <div className="sr-source">
+            <div className="sr-source__head"><h4 className="sr-source__name">AcoustID</h4></div>
+            <p className="sr-source__note">Recognize complete albums from audio when other providers cannot identify them. Requires a registered application key and fpcalc on the service host. Ambiguous matches need review.</p>
+            <label className="sr-field sr-field--stacked">
+              <span className="sr-field__label"><input type="checkbox" checked={settings.acoustidEnabled} disabled={!loaded || saving} onChange={(event) => update("acoustidEnabled", event.target.checked)} /> Enable AcoustID recognition</span>
+            </label>
+            <label className="sr-field sr-field--stacked">
+              <span className="sr-field__label">Application key</span>
+              <input className="sr-input" type="password" autoComplete="off" aria-label="AcoustID application key" value={settings.acoustidApiKey} disabled={!loaded || saving} onChange={(event) => update("acoustidApiKey", event.target.value)} />
+            </label>
           </div>
 
           <div className="sr-source">

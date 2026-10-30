@@ -32,6 +32,8 @@ pub mod audit;
 /// `album:auto-tag` candidate normalization and orchestration.
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod auto_tag;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub(crate) mod auto_tag_acoustid;
 /// Auto-tag review records and recovery helpers shared by desktop and server
 /// tagging flows.
 #[cfg(any(feature = "desktop", feature = "server"))]

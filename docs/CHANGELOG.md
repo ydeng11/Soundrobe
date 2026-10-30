@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Optional AcoustID audio recognition can identify complete albums and track positions when ordinary metadata lookups cannot. Ambiguous or incomplete matches remain marked for review. Configure its application key in Tag sources or provider settings.
+
 ### Changed
 
 - Browser Workspace now keeps its folder, filter and track selection while navigating. It identifies a library folder separately from an album, keeps review albums in a closed bounded list, and docks the selected track editor below the table.

@@ -32,6 +32,8 @@ pub struct AutoTagConfig {
     pub dataset_path: Option<String>,
     pub cache_path: Option<String>,
     pub discogs_token: Option<String>,
+    pub acoustid_enabled: Option<bool>,
+    pub acoustid_api_key: Option<String>,
     pub remote_lookup_enabled: Option<bool>,
     pub discogs_enabled: Option<bool>,
     pub debug: Option<bool>,
@@ -100,6 +102,7 @@ pub fn load_from(text: &str, env: &dyn Env) -> AutoTagConfig {
     let mut config = AutoTagConfig {
         remote_lookup_enabled: Some(true),
         discogs_enabled: Some(true),
+        acoustid_enabled: Some(false),
         ..Default::default()
     };
 
@@ -139,6 +142,14 @@ pub fn load_from(text: &str, env: &dyn Env) -> AutoTagConfig {
     }
     if let Some(v) = env.get("AUTO_TAG_DISCOGS_TOKEN") {
         config.discogs_token = Some(v);
+    }
+    if let Some(v) = env.get("AUTO_TAG_ACOUSTID_ENABLED") {
+        if let Some(enabled) = parse_bool_or_null(&v) {
+            config.acoustid_enabled = Some(enabled);
+        }
+    }
+    if let Some(v) = env.get("AUTO_TAG_ACOUSTID_API_KEY") {
+        config.acoustid_api_key = parse_string_or_null(&v);
     }
     if env.get("AUTO_TAG_REMOTE_LOOKUP").as_deref() == Some("false") {
         config.remote_lookup_enabled = Some(false);
@@ -199,6 +210,12 @@ fn apply_yaml_key(config: &mut AutoTagConfig, key: &str, value: &str) {
         "llm_provider" => config.llm_provider = parse_string_or_null(value),
         "llm_base_url" => config.llm_base_url = parse_string_or_null(value),
         "discogs_token" => config.discogs_token = parse_string_or_null(value),
+        "acoustid_enabled" => {
+            if let Some(enabled) = parse_bool_or_null(value) {
+                config.acoustid_enabled = Some(enabled);
+            }
+        }
+        "acoustid_api_key" => config.acoustid_api_key = parse_string_or_null(value),
         "dataset_path" => config.dataset_path = parse_string_or_null(value),
         "remote_lookup_enabled" => {
             if let Some(b) = parse_bool_or_null(value) {
@@ -267,6 +284,8 @@ pub fn yaml_key_for(camel_key: &str) -> Option<&'static str> {
         "llmProvider" => Some("llm_provider"),
         "llmBaseUrl" => Some("llm_base_url"),
         "discogsToken" => Some("discogs_token"),
+        "acoustidEnabled" => Some("acoustid_enabled"),
+        "acoustidApiKey" => Some("acoustid_api_key"),
         "remoteLookupEnabled" => Some("remote_lookup_enabled"),
         "discogsEnabled" => Some("discogs_enabled"),
         "debug" => Some("debug"),
@@ -403,6 +422,9 @@ pub fn redacted(config: &AutoTagConfig) -> Value {
         "llmProvider": config.llm_provider.clone().map(Value::String).unwrap_or(Value::Null),
         "llmBaseUrl": config.llm_base_url.clone().map(Value::String).unwrap_or(Value::Null),
         "discogsToken": mask(&config.discogs_token),
+        "acoustidEnabled": config.acoustid_enabled.unwrap_or(false),
+        "acoustidApiKey": mask(&config.acoustid_api_key),
+        "acoustidApiKeyConfigured": config.acoustid_api_key.as_deref().is_some_and(|key| !key.is_empty()),
         "remoteLookupEnabled": config.remote_lookup_enabled.unwrap_or(true),
         "discogsEnabled": config.discogs_enabled.unwrap_or(true),
         "debug": config.debug.unwrap_or(false),
@@ -574,6 +596,13 @@ impl ConfigState {
     pub fn try_set(&self, camel_key: &str, value: &Value) -> Result<(), ConfigSetError> {
         yaml_key_for(camel_key)
             .ok_or_else(|| ConfigSetError::UnsupportedKey(camel_key.to_string()))?;
+        if camel_key == "acoustidApiKey"
+            && value
+                .as_str()
+                .is_some_and(|key| key.is_empty() || key.starts_with("****"))
+        {
+            return Ok(());
+        }
         let value = match camel_key {
             "clearTagsEnabled" if !value.is_boolean() => {
                 return Err(ConfigSetError::InvalidValue(
@@ -602,6 +631,16 @@ impl ConfigState {
                 let canonical =
                     canonicalize_clear_tags(&values).map_err(ConfigSetError::InvalidValue)?;
                 Value::Array(canonical.into_iter().map(Value::String).collect())
+            }
+            "acoustidEnabled" if !value.is_boolean() => {
+                return Err(ConfigSetError::InvalidValue(
+                    "acoustidEnabled must be a boolean".to_string(),
+                ));
+            }
+            "acoustidApiKey" if !value.is_string() && !value.is_null() => {
+                return Err(ConfigSetError::InvalidValue(
+                    "acoustidApiKey must be a string or null".to_string(),
+                ));
             }
             _ => value.clone(),
         };
@@ -647,7 +686,45 @@ mod tests {
         let c = load_from("", &EnvMap::new());
         assert_eq!(c.remote_lookup_enabled, Some(true));
         assert_eq!(c.discogs_enabled, Some(true));
+        assert_eq!(redacted(&c)["acoustidEnabled"], json!(false));
+        assert_eq!(redacted(&c)["acoustidApiKey"], Value::Null);
+        assert_eq!(redacted(&c)["acoustidApiKeyConfigured"], json!(false));
         assert_eq!(c.debug, None);
+    }
+
+    /// Intent: AcoustID stays off until configured, and its native application
+    /// key follows environment precedence without ever entering renderer JSON.
+    #[test]
+    fn acoustid_config_defaults_env_and_redaction() {
+        let from_yaml = load_from(
+            "acoustid_enabled: true\nacoustid_api_key: file-key\n",
+            &EnvMap::new(),
+        );
+        assert_eq!(from_yaml.acoustid_enabled, Some(true));
+        assert_eq!(from_yaml.acoustid_api_key.as_deref(), Some("file-key"));
+
+        let overridden = load_from(
+            "acoustid_enabled: true\nacoustid_api_key: file-key\n",
+            &EnvMap::new()
+                .set("AUTO_TAG_ACOUSTID_ENABLED", "false")
+                .set("AUTO_TAG_ACOUSTID_API_KEY", "environment-secret"),
+        );
+        assert_eq!(overridden.acoustid_enabled, Some(false));
+        assert_eq!(
+            overridden.acoustid_api_key.as_deref(),
+            Some("environment-secret")
+        );
+        let view = redacted(&overridden);
+        assert_eq!(view["acoustidEnabled"], json!(false));
+        assert_eq!(view["acoustidApiKey"], json!("****cret"));
+        assert_eq!(view["acoustidApiKeyConfigured"], json!(true));
+        assert!(!view.to_string().contains("environment-secret"));
+    }
+
+    #[test]
+    fn acoustid_renderer_keys_map_to_native_yaml_keys() {
+        assert_eq!(yaml_key_for("acoustidEnabled"), Some("acoustid_enabled"));
+        assert_eq!(yaml_key_for("acoustidApiKey"), Some("acoustid_api_key"));
     }
 
     /// Intent: comments and blank lines must not parse, and quoted values are
@@ -862,6 +939,36 @@ mod tests {
         assert_eq!(raw.llm_api_key.as_deref(), Some("sk-or-v1-1234567890"));
     }
 
+    #[test]
+    fn acoustid_settings_round_trip_without_erasing_masked_or_blank_secrets() {
+        let home = cfg_home();
+        let state = ConfigState::init_with_env(home.clone(), Arc::new(EnvMap::new()));
+        state.try_set("acoustidEnabled", &json!(true)).unwrap();
+        state
+            .try_set("acoustidApiKey", &json!("registered-client-key"))
+            .unwrap();
+        assert_eq!(state.raw().acoustid_enabled, Some(true));
+        assert_eq!(
+            state.raw().acoustid_api_key.as_deref(),
+            Some("registered-client-key")
+        );
+
+        for unchanged in ["****-key", ""] {
+            state.try_set("acoustidApiKey", &json!(unchanged)).unwrap();
+            assert_eq!(
+                state.raw().acoustid_api_key.as_deref(),
+                Some("registered-client-key")
+            );
+        }
+        let yaml = fs::read_to_string(config_file_path(&home)).unwrap();
+        assert!(yaml.contains("acoustid_api_key: registered-client-key"));
+        assert!(!yaml.contains("****-key"));
+        assert!(!state
+            .redacted()
+            .to_string()
+            .contains("registered-client-key"));
+    }
+
     /// Intent: cleanup settings persist only canonical catalog IDs, so aliases
     /// entered by the renderer cannot cause an unsupported tag write later.
     #[test]
@@ -1046,6 +1153,9 @@ mod tests {
             "llmProvider": null,
             "llmBaseUrl": null,
             "discogsToken": "****1234",
+            "acoustidEnabled": false,
+            "acoustidApiKey": null,
+            "acoustidApiKeyConfigured": false,
             "remoteLookupEnabled": true,
             "discogsEnabled": true,
             "debug": true,

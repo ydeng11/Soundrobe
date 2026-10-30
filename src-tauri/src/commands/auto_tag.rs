@@ -71,6 +71,11 @@ pub struct TrackCandidate {
     #[serde(default)]
     pub artists: Vec<String>,
     pub track_number: Option<u32>,
+    /// Embedded track position supplied by local tags. Filename numbering
+    /// and list order are useful hints for ordinary matching, but not evidence
+    /// against an AcoustID recording assignment.
+    #[serde(skip)]
+    pub tagged_track_number: Option<u32>,
     pub track_total: Option<u32>,
     pub disc_number: Option<u32>,
     pub disc_total: Option<u32>,
@@ -256,6 +261,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
                 .file_stem()
                 .and_then(|stem| stem.to_str());
             let filename_number = filename_stem.and_then(filename_track_number);
+            let tagged_track_number = track.track_number;
             TrackCandidate {
                 title: track
                     .title
@@ -270,6 +276,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
                 track_number: filename_number
                     .or(track.track_number)
                     .or_else(|| u32::try_from(index + 1).ok()),
+                tagged_track_number,
                 track_total: total,
                 disc_number: track.disc_number,
                 disc_total: track.disc_total,
@@ -999,7 +1006,7 @@ pub fn query_hash(request: &LookupRequest) -> String {
     format!("{:x}", Sha256::digest(payload))
 }
 
-pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
+pub(crate) fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
     let artist = album.artist.clone();
     AlbumCandidate {
         artist: artist.clone(),
@@ -1035,6 +1042,164 @@ pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
         source: LookupSource::Musicbrainz,
         ..AlbumCandidate::default()
     }
+}
+
+/// Attach an AcoustID-backed recording map only after the complete MusicBrainz
+/// release has been checked against every local file and explicit identity.
+/// The mapping is intentionally in-memory only (`accepted_match` is skipped by
+/// serde), so a cached candidate can never restore prior acceptance.
+pub(crate) fn accept_acoustid_release(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+    recording_ids: &[String],
+) -> Result<AlbumCandidate, String> {
+    let reject =
+        || "AcoustID evidence does not identify one complete MusicBrainz release".to_string();
+    if candidate.source != LookupSource::Musicbrainz
+        || candidate.musicbrainz_album_id.is_none()
+        || request.tracks.is_empty()
+        || request.tracks.len() != recording_ids.len()
+    {
+        return Err(reject());
+    }
+    if request
+        .musicbrainz_album_id
+        .as_deref()
+        .is_some_and(|local| candidate.musicbrainz_album_id.as_deref() != Some(local))
+        || request
+            .musicbrainz_artist_id
+            .as_deref()
+            .is_some_and(|local| candidate.musicbrainz_artist_id.as_deref() != Some(local))
+        || request
+            .discogs_artist_id
+            .as_deref()
+            .is_some_and(|local| candidate.discogs_artist_id.as_deref() != Some(local))
+        || request.discogs_release_id.as_deref().is_some_and(|local| {
+            candidate.linked_discogs_release_id.as_deref() != Some(local)
+                && candidate.discogs_release_id.as_deref() != Some(local)
+        })
+    {
+        return Err("MusicBrainz release conflicts with an explicit provider ID".to_string());
+    }
+    if let Some(hint) = request
+        .tagged_album_hint
+        .as_deref()
+        .or(request.album_hint.as_deref())
+    {
+        if !candidate
+            .album
+            .as_deref()
+            .is_some_and(|album| exact_album_identity(hint, album))
+        {
+            return Err("MusicBrainz album title conflicts with local evidence".to_string());
+        }
+    }
+    let provider_artist = candidate
+        .album_artist
+        .as_deref()
+        .or(candidate.artist.as_deref())
+        .filter(|artist| !artist.trim().is_empty());
+    if let Some(hint) = request.artist_hint.as_deref() {
+        if !provider_artist.is_some_and(|artist| {
+            exact_artist_identity(hint, artist)
+                || request
+                    .artist_aliases
+                    .iter()
+                    .any(|alias| exact_artist_identity(alias, artist))
+        }) {
+            return Err("MusicBrainz artist conflicts with local evidence".to_string());
+        }
+    }
+    if let (Some(local), Some(remote)) = (request.year_hint.as_deref(), candidate.year.as_deref()) {
+        if local != remote {
+            return Err("MusicBrainz year conflicts with local evidence".to_string());
+        }
+    }
+    if let (Some(local), Some(remote)) = (
+        request.country_hint.as_deref(),
+        candidate.country.as_deref(),
+    ) {
+        if !countries_match(local, remote) {
+            return Err("MusicBrainz country conflicts with local evidence".to_string());
+        }
+    }
+
+    let local_ids = recording_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    if local_ids.len() != request.tracks.len() {
+        return Err("AcoustID matched a repeated or ambiguous recording".to_string());
+    }
+    let scoped = candidate_tracks_for_request(request, candidate);
+    if scoped.len() != request.tracks.len() {
+        return Err(reject());
+    }
+    let mut provider_by_id = HashMap::new();
+    for (index, track) in scoped.iter().enumerate() {
+        let id = track.musicbrainz_track_id.as_deref().ok_or_else(reject)?;
+        if provider_by_id.insert(id, index).is_some() {
+            return Err("MusicBrainz release repeats an ambiguous recording".to_string());
+        }
+    }
+    if provider_by_id.len() != request.tracks.len()
+        || provider_by_id.keys().any(|id| !local_ids.contains(id))
+    {
+        return Err(reject());
+    }
+
+    let mut mapped = Vec::with_capacity(request.tracks.len());
+    for (local, id) in request.tracks.iter().zip(recording_ids) {
+        if local
+            .musicbrainz_track_id
+            .as_deref()
+            .is_some_and(|existing| existing != id)
+        {
+            return Err("MusicBrainz recording ID conflicts with local evidence".to_string());
+        }
+        let provider_index = *provider_by_id.get(id.as_str()).ok_or_else(reject)?;
+        let mut track = scoped[provider_index].clone();
+        if local.tagged_track_number.is_some() && local.tagged_track_number != track.track_number {
+            return Err("MusicBrainz track position conflicts with local evidence".to_string());
+        }
+        if local.disc_number.is_some() && local.disc_number != track.disc_number {
+            return Err("MusicBrainz disc position conflicts with local evidence".to_string());
+        }
+        let local_duration = local
+            .length
+            .filter(|duration| duration.is_finite() && *duration > 0.0)
+            .ok_or_else(reject)?;
+        let provider_duration = track
+            .length
+            .filter(|duration| duration.is_finite() && *duration > 0.0)
+            // The AcoustID route obtains provider tracks from MusicBrainz,
+            // whose API encodes recording length in milliseconds.
+            .map(|duration| duration / 1000.0)
+            .ok_or_else(reject)?;
+        if (local_duration - provider_duration).abs() > 5.0_f64.max(local_duration * 0.03) {
+            return Err("MusicBrainz track duration conflicts with local audio".to_string());
+        }
+        track.length = Some(local_duration);
+        track.filename = local.filename.clone();
+        mapped.push(track);
+    }
+    editions::preserve_collaborators(&request.tracks, &mut mapped);
+    let mut accepted = candidate.clone();
+    if let Some(local_discogs_release_id) = request.discogs_release_id.as_ref() {
+        accepted.discogs_release_id = Some(local_discogs_release_id.clone());
+    }
+    if let Some(local_discogs_artist_id) = request.discogs_artist_id.as_ref() {
+        accepted.discogs_artist_id = Some(local_discogs_artist_id.clone());
+    }
+    accepted.provider_tracks_for_evaluation = Some(candidate.tracks.clone());
+    accepted.accepted_match = Some(editions::AcceptedMatch {
+        tracks: mapped,
+        coverage: request.tracks.len(),
+        local_year: request.year_hint.clone(),
+        release_year: candidate.year.clone(),
+        duration_exception: None,
+    });
+    Ok(accepted)
 }
 
 pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
@@ -2234,6 +2399,60 @@ impl Default for AutoTagRunResult {
     }
 }
 
+fn acoustid_provider_attempt(
+    result: &super::auto_tag_acoustid::AcoustidResolution,
+) -> ProviderAttempt {
+    use super::auto_tag_acoustid::AcoustidResolution;
+    let (status, diagnostic) = match result {
+        AcoustidResolution::Candidate { .. } => (ProviderAttemptStatus::Matched, None),
+        AcoustidResolution::NoMatch => (ProviderAttemptStatus::NoMatch, None),
+        AcoustidResolution::Unavailable(reason) => {
+            (ProviderAttemptStatus::Unavailable, Some(reason.clone()))
+        }
+        AcoustidResolution::Incomplete(reason) => {
+            (ProviderAttemptStatus::Incomplete, Some(reason.clone()))
+        }
+    };
+    ProviderAttempt {
+        provider: "acoustid",
+        status,
+        diagnostic,
+        retry_count: 0,
+        retry_after_seconds: None,
+    }
+}
+
+fn acoustid_needs_review(
+    reason_code: &str,
+    reason: &str,
+    attempt: ProviderAttempt,
+    config: &AutoTagConfig,
+) -> AutoTagRunResult {
+    AutoTagRunResult {
+        outcome: AutoTagOutcome::NeedsReview,
+        authority: None,
+        candidate: None,
+        written: 0,
+        reason_code: Some(reason_code.to_string()),
+        diagnostics: vec![serde_json::json!({"stage":"acoustid", "reason":reason})],
+        provider_attempts: vec![attempt],
+        cleared_tags: configured_clear_tag_labels(config),
+        kept_tags: configured_kept_tag_labels(config),
+        ..AutoTagRunResult::default()
+    }
+}
+
+/// AI may run only after authoritative providers and the optional fingerprint
+/// provider have all established a genuine no-match. A timeout, malformed
+/// response, tied identity, or partial album is missing evidence instead.
+fn providers_confirmed_no_match(
+    provider_decision: &ProviderAuthorityDecision,
+    acoustid_attempt: Option<&ProviderAttempt>,
+) -> bool {
+    matches!(provider_decision, ProviderAuthorityDecision::Providerless)
+        && acoustid_attempt.is_none_or(|attempt| attempt.status == ProviderAttemptStatus::NoMatch)
+}
+
 pub struct AutoTagServices<'a> {
     pub providers: &'a ProviderState,
     pub cache: &'a CacheState,
@@ -2909,14 +3128,129 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     services: AutoTagServices<'_>,
     cancelled: &AtomicBool,
     retry_contexts: Option<AutoTagRetryContexts>,
+    review_intent: impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
+    progress: impl FnMut(u64, &str),
+    report: impl FnMut(&'static str, String, Option<serde_json::Value>),
+) -> Result<AutoTagRunResult, ApiError> {
+    resolve_and_apply_album_with_acoustid_override(
+        album_path,
+        config,
+        services,
+        cancelled,
+        retry_contexts,
+        review_intent,
+        None,
+        progress,
+        report,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn resolve_and_apply_album_with_acoustid_override(
+    album_path: &Path,
+    config: &AutoTagConfig,
+    services: AutoTagServices<'_>,
+    cancelled: &AtomicBool,
+    retry_contexts: Option<AutoTagRetryContexts>,
     mut review_intent: impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
+    acoustid_override: Option<(&crate::infra::acoustid::AcoustidClient, &Path)>,
     mut progress: impl FnMut(u64, &str),
     mut report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
     let mut request = build_lookup_request(album_path)?;
     check_cancelled(cancelled)?;
-    if !has_tagging_identity(&request) {
+    let identity_available = has_tagging_identity(&request);
+    let use_acoustid =
+        config.acoustid_enabled == Some(true) && config.remote_lookup_enabled != Some(false);
+    let mut early_acoustid_candidate = None;
+    let mut early_acoustid_attempt = None;
+    let mut early_acoustid_evidence = None;
+    if !identity_available && use_acoustid {
+        progress(3, "Fingerprinting album tracks...");
+        let result = if let Some((client, fpcalc)) = acoustid_override {
+            super::auto_tag_acoustid::resolve_with(
+                &request,
+                config.acoustid_api_key.as_deref(),
+                services.providers,
+                cancelled,
+                client,
+                fpcalc,
+            )
+            .await
+        } else {
+            super::auto_tag_acoustid::resolve(
+                &request,
+                config.acoustid_api_key.as_deref(),
+                services.providers,
+                cancelled,
+            )
+            .await
+        };
+        check_cancelled(cancelled)?;
+        let attempt = acoustid_provider_attempt(&result);
+        progress(7, "Checking complete MusicBrainz release coverage...");
+        match result {
+            super::auto_tag_acoustid::AcoustidResolution::Candidate {
+                candidate,
+                evidence,
+            } => {
+                early_acoustid_candidate = Some(*candidate);
+                early_acoustid_evidence = Some(evidence);
+                early_acoustid_attempt = Some(attempt);
+            }
+            super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
+                let reason =
+                    "AcoustID found no complete release for this album; user review is required";
+                progress(9, "Needs review — no complete AcoustID release");
+                report(
+                    "needs_review",
+                    format!("Needs review: {reason}"),
+                    Some(serde_json::json!({"reasonCode":"missing_identity", "source":"acoustid"})),
+                );
+                return Ok(acoustid_needs_review(
+                    "missing_identity",
+                    reason,
+                    attempt,
+                    config,
+                ));
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Unavailable(reason) => {
+                progress(9, "Needs review — AcoustID is unavailable");
+                report(
+                    "needs_review",
+                    format!("Needs review: {reason}"),
+                    Some(
+                        serde_json::json!({"reasonCode":"acoustid_unavailable", "source":"acoustid"}),
+                    ),
+                );
+                return Ok(acoustid_needs_review(
+                    "acoustid_unavailable",
+                    &reason,
+                    attempt,
+                    config,
+                ));
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Incomplete(reason) => {
+                progress(9, "Needs review — AcoustID evidence is incomplete");
+                report(
+                    "needs_review",
+                    format!("Needs review: {reason}"),
+                    Some(
+                        serde_json::json!({"reasonCode":"acoustid_incomplete", "source":"acoustid"}),
+                    ),
+                );
+                return Ok(acoustid_needs_review(
+                    "acoustid_incomplete",
+                    &reason,
+                    attempt,
+                    config,
+                ));
+            }
+        }
+    }
+    if !identity_available && early_acoustid_candidate.is_none() {
         let reason = "no artist or album identity is available; user review is required";
         progress(9, "Needs review — artist or album identity is missing");
         report(
@@ -3072,7 +3406,7 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     };
     check_cancelled(cancelled)?;
 
-    if config.remote_lookup_enabled != Some(false) {
+    if config.remote_lookup_enabled != Some(false) && identity_available {
         progress(5, "Searching MusicBrainz...");
         let mut provider_candidates = cached
             .iter()
@@ -3141,7 +3475,7 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     }
     check_cancelled(cancelled)?;
 
-    if config.discogs_enabled != Some(false) {
+    if config.discogs_enabled != Some(false) && identity_available {
         progress(6, "Searching Discogs releases...");
         match discogs_artist_candidates(
             &discogs,
@@ -3212,13 +3546,106 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     let mut provider_diagnostics =
         provider_selection_diagnostics(&request, &fresh, &provider_attempts);
     provider_diagnostics.extend(discogs_discovery.diagnostics);
-    let providers_confirmed_no_match = provider_decision == ProviderAuthorityDecision::Providerless;
-    let mut candidate = match provider_decision {
-        ProviderAuthorityDecision::Selected(candidate) => Some(*candidate),
+    if let Some(evidence) = early_acoustid_evidence {
+        provider_diagnostics.push(serde_json::json!({
+            "stage":"acoustid",
+            "status":"matched",
+            "releaseId":evidence.release_id,
+            "trackMatches":evidence.track_matches,
+            "acceptedMappingIsCurrentRunOnly":true,
+        }));
+    }
+    let mut candidate = match &provider_decision {
+        ProviderAuthorityDecision::Selected(candidate) => Some((**candidate).clone()),
         ProviderAuthorityDecision::Providerless
         | ProviderAuthorityDecision::Incomplete
         | ProviderAuthorityDecision::Unavailable => None,
     };
+    let mut acoustid_attempt = early_acoustid_attempt;
+    if candidate.is_none() {
+        if let Some(fingerprint_candidate) = early_acoustid_candidate {
+            candidate = Some(fingerprint_candidate);
+        } else if use_acoustid {
+            progress(7, "Fingerprinting album tracks...");
+            let result = if let Some((client, fpcalc)) = acoustid_override {
+                super::auto_tag_acoustid::resolve_with(
+                    &request,
+                    config.acoustid_api_key.as_deref(),
+                    services.providers,
+                    cancelled,
+                    client,
+                    fpcalc,
+                )
+                .await
+            } else {
+                super::auto_tag_acoustid::resolve(
+                    &request,
+                    config.acoustid_api_key.as_deref(),
+                    services.providers,
+                    cancelled,
+                )
+                .await
+            };
+            check_cancelled(cancelled)?;
+            let attempt = acoustid_provider_attempt(&result);
+            let evidence = match &result {
+                super::auto_tag_acoustid::AcoustidResolution::Candidate { evidence, .. } => {
+                    serde_json::json!({
+                        "stage":"acoustid",
+                        "status":"matched",
+                        "releaseId":evidence.release_id,
+                        "trackMatches":evidence.track_matches,
+                        "acceptedMappingIsCurrentRunOnly":true,
+                    })
+                }
+                super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
+                    serde_json::json!({"stage":"acoustid", "status":"no_match"})
+                }
+                super::auto_tag_acoustid::AcoustidResolution::Unavailable(reason) => {
+                    serde_json::json!({"stage":"acoustid", "status":"unavailable", "reason":reason})
+                }
+                super::auto_tag_acoustid::AcoustidResolution::Incomplete(reason) => {
+                    serde_json::json!({"stage":"acoustid", "status":"incomplete", "reason":reason})
+                }
+            };
+            provider_diagnostics.push(evidence);
+            report(
+                "source",
+                match &result {
+                    super::auto_tag_acoustid::AcoustidResolution::Candidate { .. } => {
+                        "AcoustID: complete release identified".to_string()
+                    }
+                    super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
+                        "AcoustID: no matching recordings".to_string()
+                    }
+                    super::auto_tag_acoustid::AcoustidResolution::Unavailable(_) => {
+                        "AcoustID: lookup unavailable".to_string()
+                    }
+                    super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {
+                        "AcoustID: evidence needs review".to_string()
+                    }
+                },
+                Some(serde_json::json!({"source":"acoustid", "status":attempt.status})),
+            );
+            match result {
+                super::auto_tag_acoustid::AcoustidResolution::Candidate {
+                    candidate: acoustid_candidate,
+                    ..
+                } => {
+                    candidate = Some(*acoustid_candidate);
+                }
+                super::auto_tag_acoustid::AcoustidResolution::NoMatch
+                | super::auto_tag_acoustid::AcoustidResolution::Unavailable(_)
+                | super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {}
+            }
+            acoustid_attempt = Some(attempt);
+        }
+    }
+    if let Some(attempt) = acoustid_attempt.as_ref() {
+        provider_attempts.push(attempt.clone());
+    }
+    let providers_confirmed_no_match =
+        providers_confirmed_no_match(&provider_decision, acoustid_attempt.as_ref());
     let mut ai_failure = None;
     if candidate.is_none() && providers_confirmed_no_match {
         match resolve_tags_via_llm(&request, config, cancelled).await {
@@ -4041,6 +4468,139 @@ mod tests {
             .join("../test/fixtures/tauri/media-corpus/minimal.wav")
     }
 
+    #[cfg(unix)]
+    fn wav_audio_payload(path: &Path) -> Vec<u8> {
+        let bytes = fs::read(path).unwrap();
+        assert_eq!(&bytes[..4], b"RIFF");
+        let mut offset = 12;
+        while offset + 8 <= bytes.len() {
+            let chunk = &bytes[offset..offset + 4];
+            let length =
+                u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
+            let start = offset + 8;
+            let end = start + length;
+            if chunk == b"data" {
+                return bytes[start..end].to_vec();
+            }
+            offset = end + (length % 2);
+        }
+        panic!("fixture has no RIFF data chunk");
+    }
+
+    #[cfg(unix)]
+    fn acoustid_release_server() -> (String, thread::JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let release_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let first_recording = "11111111-1111-4111-8111-111111111111";
+        let second_recording = "22222222-2222-4222-8222-222222222222";
+        let release = serde_json::json!({
+            "id": release_id,
+            "title": "Canonical Album",
+            "date": "2001-02-03",
+            "artist-credit": [{"name": "Test Artist", "artist": {"id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}}],
+            "media": [{
+                "position": 1,
+                "format": "CD",
+                "tracks": [
+                    {"position": "1", "title": "Recording One", "recording": {
+                        "id": first_recording, "title": "Recording One", "length": 10,
+                        "artist-credit": [{"name": "Lead One"}, {"joinphrase": " feat. "}, {"name": "Guest One"}]
+                    }},
+                    {"position": "2", "title": "Recording Two", "recording": {
+                        "id": second_recording, "title": "Recording Two", "length": 10,
+                        "artist-credit": [{"name": "Lead Two"}, {"joinphrase": " feat. "}, {"name": "Guest Two"}]
+                    }}
+                ]
+            }]
+        })
+        .to_string();
+        let task = thread::spawn(move || {
+            for lookup_index in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let request = read_http_request(&mut stream);
+                let recording_id = if lookup_index == 0 {
+                    second_recording
+                } else {
+                    first_recording
+                };
+                let body = serde_json::json!({
+                    "status": "ok",
+                    "results": [{"score": 0.98, "recordings": [{
+                        "id": recording_id,
+                        "releases": [{"id": release_id}]
+                    }]}]
+                })
+                .to_string();
+                assert!(request.starts_with("POST /lookup "));
+                write_http_response(&mut stream, "200 OK", &body);
+            }
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_http_request(&mut stream);
+            assert!(request.starts_with("GET /mb/release/"));
+            write_http_response(&mut stream, "200 OK", &release);
+        });
+        (base, task)
+    }
+
+    #[cfg(unix)]
+    fn read_http_request(stream: &mut std::net::TcpStream) -> String {
+        let mut request = Vec::new();
+        let mut buffer = [0_u8; 4096];
+        let mut expected_body_size = None;
+        loop {
+            let count = stream.read(&mut buffer).unwrap();
+            assert!(count > 0, "client closed before completing HTTP request");
+            request.extend_from_slice(&buffer[..count]);
+            if let Some(headers_end) = request.windows(4).position(|window| window == b"\r\n\r\n") {
+                if expected_body_size.is_none() {
+                    let headers = String::from_utf8_lossy(&request[..headers_end]);
+                    expected_body_size = Some(
+                        headers
+                            .lines()
+                            .find_map(|header| {
+                                let (name, value) = header.split_once(':')?;
+                                name.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse::<usize>().ok())
+                                    .flatten()
+                            })
+                            .unwrap_or_default(),
+                    );
+                }
+                if request.len() >= headers_end + 4 + expected_body_size.unwrap() {
+                    break;
+                }
+            }
+        }
+        String::from_utf8(request).unwrap()
+    }
+
+    #[cfg(unix)]
+    fn write_http_response(stream: &mut std::net::TcpStream, status: &str, body: &str) {
+        write!(
+            stream,
+            "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+    }
+
+    #[cfg(unix)]
+    fn fake_fpcalc(path: &Path) {
+        fs::write(
+            path,
+            "#!/bin/sh\nprintf '%s' '{\"duration\":1,\"fingerprint\":\"fixture-fingerprint\"}'\n",
+        )
+        .unwrap();
+        let mut permissions = fs::metadata(path).unwrap().permissions();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            permissions.set_mode(0o755);
+        }
+        fs::set_permissions(path, permissions).unwrap();
+    }
+
     fn track(title: &str, artist: &str) -> TrackCandidate {
         TrackCandidate {
             title: Some(title.into()),
@@ -4048,6 +4608,368 @@ mod tests {
             artists: vec![artist.into()],
             ..TrackCandidate::default()
         }
+    }
+
+    fn fingerprint_release(request: &LookupRequest) -> AlbumCandidate {
+        let first_duration = request.tracks[0].length.unwrap() * 1000.0;
+        let second_duration = request.tracks[1].length.unwrap() * 1000.0;
+        AlbumCandidate {
+            album: Some("Test Album".into()),
+            album_artist: Some("Test Artist".into()),
+            artist: Some("Test Artist".into()),
+            musicbrainz_album_id: Some("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into()),
+            source: LookupSource::Musicbrainz,
+            tracks: vec![
+                TrackCandidate {
+                    title: Some("Disc one recording".into()),
+                    artists: vec!["Lead One".into(), "Guest One".into()],
+                    artist: Some("Lead One feat. Guest One".into()),
+                    track_number: Some(1),
+                    disc_number: Some(1),
+                    track_total: Some(1),
+                    musicbrainz_track_id: Some("11111111-1111-4111-8111-111111111111".into()),
+                    length: Some(first_duration),
+                    ..TrackCandidate::default()
+                },
+                TrackCandidate {
+                    title: Some("Disc two recording".into()),
+                    artists: vec!["Lead Two".into(), "Guest Two".into()],
+                    artist: Some("Lead Two feat. Guest Two".into()),
+                    track_number: Some(1),
+                    disc_number: Some(2),
+                    track_total: Some(1),
+                    musicbrainz_track_id: Some("22222222-2222-4222-8222-222222222222".into()),
+                    length: Some(second_duration),
+                    ..TrackCandidate::default()
+                },
+            ],
+            ..AlbumCandidate::default()
+        }
+    }
+
+    #[test]
+    fn acoustid_maps_shuffled_untagged_files_without_treating_names_as_positions() {
+        for filenames in [
+            ["01 - first.wav", "02 - second.wav"],
+            ["side-b.wav", "side-a.wav"],
+        ] {
+            let root = temp_root();
+            let album_path = root.join("Test Artist").join("Test Album");
+            fs::create_dir_all(&album_path).unwrap();
+            for filename in filenames {
+                fs::copy(corpus_wav(), album_path.join(filename)).unwrap();
+            }
+
+            let mut request = build_lookup_request(&album_path).unwrap();
+            request.artist_hint = Some("Test Artist".into());
+            request.album_hint = Some("Test Album".into());
+            assert_eq!(request.tracks.len(), 2);
+            assert!(request
+                .tracks
+                .iter()
+                .all(|track| track.tagged_track_number.is_none()));
+            let candidate = fingerprint_release(&request);
+            let mapped = accept_acoustid_release(
+                &request,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .expect("recording identity overrides filename/index ordering for untagged files");
+
+            let accepted = mapped.accepted_match.clone().unwrap();
+            assert_eq!(
+                accepted
+                    .tracks
+                    .iter()
+                    .map(|track| track.musicbrainz_track_id.as_deref().unwrap())
+                    .collect::<Vec<_>>(),
+                [
+                    "22222222-2222-4222-8222-222222222222",
+                    "11111111-1111-4111-8111-111111111111"
+                ]
+            );
+            assert_eq!(accepted.tracks[0].disc_number, Some(2));
+            assert_eq!(accepted.tracks[1].disc_number, Some(1));
+            assert_eq!(accepted.tracks[0].artists, ["Lead Two", "Guest Two"]);
+            assert_eq!(accepted.tracks[1].artists, ["Lead One", "Guest One"]);
+            let cached =
+                serde_json::from_value::<AlbumCandidate>(serde_json::to_value(&mapped).unwrap())
+                    .unwrap();
+            assert!(
+                cached.accepted_match.is_none(),
+                "a cached candidate cannot recover this run's AcoustID acceptance"
+            );
+
+            let mut conflicting_identity = candidate.clone();
+            conflicting_identity.album = Some("Different Album".into());
+            assert!(accept_acoustid_release(
+                &request,
+                &conflicting_identity,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+
+            let mut conflicting_provider_id = request.clone();
+            conflicting_provider_id.musicbrainz_album_id =
+                Some("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb".into());
+            assert!(accept_acoustid_release(
+                &conflicting_provider_id,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+            let mut unverified_discogs_id = request.clone();
+            unverified_discogs_id.discogs_release_id = Some("12345".into());
+            assert!(accept_acoustid_release(
+                &unverified_discogs_id,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+
+            assert!(accept_acoustid_release(
+                &request,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "22222222-2222-4222-8222-222222222222".into(),
+                ],
+            )
+            .is_err());
+            let mut partial_release = candidate.clone();
+            partial_release.tracks.pop();
+            assert!(accept_acoustid_release(
+                &request,
+                &partial_release,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+            let mut duration_conflict = candidate.clone();
+            duration_conflict.tracks[0].length = Some(60_000.0);
+            assert!(accept_acoustid_release(
+                &request,
+                &duration_conflict,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+            let mut tagged_over_filename = request.clone();
+            tagged_over_filename.tracks[0].tagged_track_number = Some(1);
+            tagged_over_filename.tracks[0].track_number = Some(99);
+            assert!(accept_acoustid_release(
+                &tagged_over_filename,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into()
+                ]
+            )
+            .is_ok());
+            let mut tagged_position_conflict = request.clone();
+            tagged_position_conflict.tracks[0].tagged_track_number = Some(99);
+            tagged_position_conflict.tracks[0].track_number = Some(1);
+            assert!(accept_acoustid_release(
+                &tagged_position_conflict,
+                &candidate,
+                &[
+                    "22222222-2222-4222-8222-222222222222".into(),
+                    "11111111-1111-4111-8111-111111111111".into(),
+                ],
+            )
+            .is_err());
+            fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn acoustid_resolver_writes_complete_musicbrainz_mapping_through_write_queue() {
+        let root = temp_root();
+        let album_path = root.join("Unknown/Unknown");
+        fs::create_dir_all(&album_path).unwrap();
+        for filename in ["01 - first.wav", "02 - second.wav"] {
+            fs::copy(corpus_wav(), album_path.join(filename)).unwrap();
+        }
+        let original_payloads = ["01 - first.wav", "02 - second.wav"]
+            .map(|filename| wav_audio_payload(&album_path.join(filename)));
+        // Local artwork makes the established post-write cover pass resolve
+        // locally, keeping this integration test network-isolated.
+        let art = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/library-scan/Artist One/Album A/cover.jpg");
+        fs::copy(&art, album_path.join("cover.jpg")).unwrap();
+        fs::copy(&art, album_path.parent().unwrap().join("artist.jpg")).unwrap();
+
+        let fpcalc = root.join("fpcalc");
+        fake_fpcalc(&fpcalc);
+        let (base, server) = acoustid_release_server();
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let cache = CacheState::new_in(root.join("cache"));
+        assert!(cache.initialize(None));
+        let queue = WriteQueue::default();
+        let alias_file = root.join("aliases.json");
+        let services = AutoTagServices {
+            providers: &providers,
+            cache: &cache,
+            queue: &queue,
+            alias_file: &alias_file,
+        };
+        let config = AutoTagConfig {
+            acoustid_enabled: Some(true),
+            acoustid_api_key: Some("integration-test-client-key".into()),
+            remote_lookup_enabled: Some(true),
+            discogs_enabled: Some(false),
+            lyrics_download_enabled: Some(false),
+            ..AutoTagConfig::default()
+        };
+        let client =
+            crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+        let cancelled = AtomicBool::new(false);
+        let result = resolve_and_apply_album_with_acoustid_override(
+            &album_path,
+            &config,
+            services,
+            &cancelled,
+            None,
+            |_| Ok(()),
+            Some((&client, &fpcalc)),
+            |_, _| {},
+            |_, _, _| {},
+        )
+        .await
+        .unwrap();
+        server.join().unwrap();
+
+        assert_eq!(result.outcome, AutoTagOutcome::Applied);
+        assert_eq!(result.authority, Some(LookupSource::Musicbrainz));
+        assert_eq!(result.written, 2);
+        let candidate = result.candidate.as_ref().unwrap();
+        assert_eq!(candidate.source, LookupSource::Musicbrainz);
+        assert_eq!(
+            candidate
+                .tracks
+                .iter()
+                .map(|track| track.musicbrainz_track_id.as_deref().unwrap())
+                .collect::<Vec<_>>(),
+            [
+                "22222222-2222-4222-8222-222222222222",
+                "11111111-1111-4111-8111-111111111111"
+            ]
+        );
+        assert!(candidate.provider_tracks_for_evaluation.is_some());
+        assert!(result.diagnostics.iter().any(|diagnostic| {
+            diagnostic["stage"] == "acoustid"
+                && diagnostic["trackMatches"]
+                    .as_array()
+                    .is_some_and(|matches| matches.len() == 2)
+        }));
+        let written_tracks = read_album(&album_path).unwrap().tracks;
+        assert_eq!(written_tracks.len(), 2);
+        assert_eq!(
+            written_tracks[0].musicbrainz_track_id.as_deref(),
+            Some("22222222-2222-4222-8222-222222222222")
+        );
+        assert_eq!(
+            written_tracks[0].artist.as_deref(),
+            Some("Lead Two & Guest Two")
+        );
+        assert_eq!(written_tracks[0].artists, ["Lead Two", "Guest Two"]);
+        assert_eq!(
+            written_tracks[1].artist.as_deref(),
+            Some("Lead One & Guest One")
+        );
+        assert_eq!(written_tracks[1].artists, ["Lead One", "Guest One"]);
+        for (filename, payload) in ["01 - first.wav", "02 - second.wav"]
+            .into_iter()
+            .zip(original_payloads)
+        {
+            assert_eq!(wav_audio_payload(&album_path.join(filename)), payload);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn acoustid_missing_key_and_remote_opt_out_stop_before_ai_or_writes() {
+        let root = temp_root();
+        let album_path = root.join("Unknown/Unknown");
+        fs::create_dir_all(&album_path).unwrap();
+        fs::copy(corpus_wav(), album_path.join("track.wav")).unwrap();
+        let providers = ProviderState::new();
+        let cache = CacheState::new_in(root.join("cache"));
+        let queue = WriteQueue::default();
+        let alias_file = root.join("aliases.json");
+        let services = AutoTagServices {
+            providers: &providers,
+            cache: &cache,
+            queue: &queue,
+            alias_file: &alias_file,
+        };
+
+        for (config, reason) in [
+            (
+                AutoTagConfig {
+                    acoustid_enabled: Some(true),
+                    acoustid_api_key: None,
+                    remote_lookup_enabled: Some(true),
+                    ..AutoTagConfig::default()
+                },
+                "acoustid_unavailable",
+            ),
+            (
+                AutoTagConfig {
+                    acoustid_enabled: Some(true),
+                    acoustid_api_key: Some("unused-test-key".into()),
+                    remote_lookup_enabled: Some(false),
+                    ..AutoTagConfig::default()
+                },
+                "missing_identity",
+            ),
+        ] {
+            let result = resolve_and_apply_album_with_review_intent(
+                &album_path,
+                &config,
+                AutoTagServices {
+                    providers: services.providers,
+                    cache: services.cache,
+                    queue: services.queue,
+                    alias_file: services.alias_file,
+                },
+                &AtomicBool::new(false),
+                None,
+                |_| Ok(()),
+                |_, _| {},
+                |_, _, _| {},
+            )
+            .await
+            .unwrap();
+
+            assert_eq!(result.outcome, AutoTagOutcome::NeedsReview);
+            assert_eq!(result.reason_code.as_deref(), Some(reason));
+            assert!(result.ai_status.is_none());
+            assert_eq!(result.written, 0);
+        }
+        assert!(read_album(&album_path).unwrap().tracks[0].title.is_none());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -4081,6 +5003,48 @@ mod tests {
         .unwrap();
 
         assert!(!called);
+    }
+
+    #[test]
+    fn acoustid_incomplete_or_unavailable_evidence_cannot_enable_ai_fallback() {
+        let no_match = ProviderAuthorityDecision::Providerless;
+        assert!(providers_confirmed_no_match(&no_match, None));
+        for status in [
+            ProviderAttemptStatus::Incomplete,
+            ProviderAttemptStatus::Unavailable,
+            ProviderAttemptStatus::Matched,
+        ] {
+            let acoustid = ProviderAttempt {
+                provider: "acoustid",
+                status,
+                diagnostic: None,
+                retry_count: 0,
+                retry_after_seconds: None,
+            };
+            assert!(
+                !providers_confirmed_no_match(&no_match, Some(&acoustid)),
+                "AcoustID {status:?} is not an authoritative no-match"
+            );
+        }
+        let acoustid_no_match = ProviderAttempt {
+            provider: "acoustid",
+            status: ProviderAttemptStatus::NoMatch,
+            diagnostic: None,
+            retry_count: 0,
+            retry_after_seconds: None,
+        };
+        assert!(providers_confirmed_no_match(
+            &no_match,
+            Some(&acoustid_no_match)
+        ));
+        assert!(!providers_confirmed_no_match(
+            &ProviderAuthorityDecision::Incomplete,
+            Some(&acoustid_no_match)
+        ));
+        assert!(!providers_confirmed_no_match(
+            &ProviderAuthorityDecision::Unavailable,
+            Some(&acoustid_no_match)
+        ));
     }
 
     #[test]

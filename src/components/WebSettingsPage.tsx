@@ -6,6 +6,8 @@ type WebSettingsState = {
   llmProvider: string;
   llmBaseUrl: string;
   discogsToken: string;
+  acoustidApiKey: string;
+  acoustidEnabled: boolean;
   theAudioDbApiKey: string;
   lyricsDownloadEnabled: boolean;
   lyricsApiUrl: string;
@@ -62,6 +64,8 @@ const DEFAULT_SETTINGS: WebSettingsState = {
   llmProvider: "",
   llmBaseUrl: "",
   discogsToken: "",
+  acoustidApiKey: "",
+  acoustidEnabled: false,
   theAudioDbApiKey: "",
   lyricsDownloadEnabled: false,
   lyricsApiUrl: "",
@@ -128,6 +132,8 @@ export function WebSettingsPage({
         llmProvider: settingString(config.llmProvider),
         llmBaseUrl: settingString(config.llmBaseUrl),
         discogsToken: settingString(config.discogsToken),
+        acoustidApiKey: settingString(config.acoustidApiKey),
+        acoustidEnabled: settingBoolean(config.acoustidEnabled),
         theAudioDbApiKey: settingString(config.theAudioDbApiKey),
         lyricsDownloadEnabled: settingBoolean(config.lyricsDownloadEnabled),
         lyricsApiUrl: settingString(config.lyricsApiUrl),
@@ -193,12 +199,14 @@ export function WebSettingsPage({
       for (const [key, value] of [
         ["llmApiKey", settings.llmApiKey],
         ["discogsToken", settings.discogsToken],
+        ["acoustidApiKey", settings.acoustidApiKey],
         ["theAudioDbApiKey", settings.theAudioDbApiKey],
       ] as const) {
         if (value && !value.startsWith("****")) {
           writes.push(window.api.setConfig(key, value));
         }
       }
+      writes.push(window.api.setConfig("acoustidEnabled", settings.acoustidEnabled));
       writes.push(window.api.setConfig("llmModel", settings.llmModel));
       writes.push(window.api.setConfig("llmProvider", settings.llmProvider || null));
       writes.push(window.api.setConfig("llmBaseUrl", settings.llmBaseUrl || null));
@@ -329,6 +337,8 @@ export function WebSettingsPage({
                   <input id="web-settings-base-url" value={settings.llmBaseUrl} onChange={(event) => updateSetting("llmBaseUrl", event.target.value)} placeholder={PROVIDERS[settings.llmProvider]?.baseUrl ?? "https://api.openai.com/v1"} className={INPUT_CLASS} />
                 </Field>
                 <SecretField id="web-settings-llm-key" label="LLM API key" value={settings.llmApiKey} onChange={(value) => updateSetting("llmApiKey", value)} />
+                <ToggleField id="web-settings-acoustid-enabled" label="Enable AcoustID recognition" description="Recognize complete albums from audio. Requires fpcalc on the service host and a registered application key; ambiguous matches need review." checked={settings.acoustidEnabled} onChange={(checked) => updateSetting("acoustidEnabled", checked)} />
+                <SecretField id="web-settings-acoustid" label="AcoustID application key" value={settings.acoustidApiKey} onChange={(value) => updateSetting("acoustidApiKey", value)} />
                 <SecretField id="web-settings-discogs" label="Discogs token" value={settings.discogsToken} onChange={(value) => updateSetting("discogsToken", value)} />
                 <SecretField id="web-settings-audiodb" label="TheAudioDB API key" value={settings.theAudioDbApiKey} onChange={(value) => updateSetting("theAudioDbApiKey", value)} />
               </div>
