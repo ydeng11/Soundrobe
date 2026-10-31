@@ -32,6 +32,7 @@ import {
   TRIGGER_LABEL,
   describeCron,
   describeRunItemReason,
+  runEvidenceLines,
   describeRunItems,
   facetCounts,
   filterLog,
@@ -947,6 +948,18 @@ function Tile({
  * The counts above say a run failed; this says which releases it failed on and
  * why, and offers the one action that follows from knowing: run those again.
  */
+function RunEvidence({ item }: { item: BackgroundRun["items"][number] }) {
+  const [expanded, setExpanded] = React.useState(false);
+  return (
+    <div className="sr-run-evidence">
+      <button type="button" className="sr-btn" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
+        {expanded ? "Hide evidence" : "Show evidence"}
+      </button>
+      {expanded && <ul>{runEvidenceLines(item).map((line, index) => <li key={index}>{line}</li>)}</ul>}
+    </div>
+  );
+}
+
 function RunLedger({
   run,
   busy,
@@ -1001,7 +1014,10 @@ function RunLedger({
                   {RELEASE_LABEL[item.status] ?? item.status}
                 </span>
               </td>
-              <td className="sr-cell--muted">{describeRunItemReason(item)}</td>
+              <td className="sr-cell--muted">
+                {describeRunItemReason(item)}
+                <RunEvidence item={item} />
+              </td>
               {onOpenAlbum && (
                 <td>
                   <button

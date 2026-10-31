@@ -3,6 +3,9 @@
 //! Providers own no mutable request state; the managed client is cheaply cloneable,
 //! so no state lock is held while a request is in flight.
 
+#[cfg(test)]
+use crate::infra::http::parse_retry_after;
+use crate::infra::http::retry_after_seconds;
 use opencc_fmmseg::OpenCC;
 use regex::Regex;
 use reqwest::Client;
@@ -28,10 +31,22 @@ const AUTO_TAG_MAX_PROVIDER_ATTEMPTS: u8 = 3;
 #[derive(Clone, Default)]
 pub(crate) struct ProviderRetryMetrics {
     retry_count: Arc<AtomicU32>,
+    transient_failure: Arc<AtomicBool>,
     max_retry_after_seconds: Arc<AtomicU64>,
 }
 
 impl ProviderRetryMetrics {
+    pub(crate) fn transient_failure(&self) -> bool {
+        self.transient_failure.load(Ordering::Acquire)
+    }
+    pub(crate) fn observe_transient_failure(&self, retry_after: Option<u64>) {
+        self.transient_failure.store(true, Ordering::Release);
+        if let Some(value) = retry_after {
+            self.max_retry_after_seconds
+                .fetch_max(value, Ordering::AcqRel);
+        }
+    }
+
     pub(crate) fn retry_count(&self) -> u32 {
         self.retry_count.load(Ordering::Acquire)
     }
@@ -72,6 +87,19 @@ impl ProviderRetryContext {
     fn with_retry_delays(mut self, delays: Vec<Duration>) -> Self {
         self.retry_delays = Arc::new(delays);
         self
+    }
+
+    fn inline_retry_delay(
+        &self,
+        retry_index: usize,
+        retry_after: Option<u64>,
+    ) -> Result<Duration, String> {
+        let delay = self.retry_delay(retry_index, retry_after);
+        if delay > Duration::from_secs(30) {
+            self.metrics.observe_transient_failure(retry_after);
+            return Err("transient provider request deferred until Retry-After deadline".into());
+        }
+        Ok(delay)
     }
 
     fn retry_delay(&self, retry_index: usize, retry_after_seconds: Option<u64>) -> Duration {
@@ -167,14 +195,6 @@ async fn sleep_with_cancellation(duration: Duration, cancelled: Option<&AtomicBo
         tokio::time::sleep(remaining.min(Duration::from_millis(50))).await;
     }
     !cancelled.load(Ordering::Acquire)
-}
-
-fn retry_after_seconds(response: &reqwest::Response) -> Option<u64> {
-    response
-        .headers()
-        .get(reqwest::header::RETRY_AFTER)
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.parse::<u64>().ok())
 }
 
 fn retryable_status(status: reqwest::StatusCode) -> bool {
@@ -590,7 +610,14 @@ impl MusicBrainzClient {
                     let retryable =
                         self.retry_context.is_some() && (error.is_timeout() || error.is_connect());
                     if !retryable || attempt + 1 >= attempts {
-                        return Err(format!("MusicBrainz request failed: {error}"));
+                        if retryable {
+                            self.retry_context
+                                .as_ref()
+                                .unwrap()
+                                .metrics
+                                .observe_transient_failure(None);
+                        }
+                        return Err("MusicBrainz request failed: transport error".to_string());
                     }
                     let context = self.retry_context.as_ref().expect("retry context exists");
                     let retry_index = usize::from(attempt);
@@ -612,7 +639,7 @@ impl MusicBrainzClient {
             let retryable = self.retry_context.is_some() && retryable_status(status);
             if retryable && attempt + 1 < attempts {
                 let context = self.retry_context.as_ref().expect("retry context exists");
-                let delay = context.retry_delay(usize::from(attempt), retry_after);
+                let delay = context.inline_retry_delay(usize::from(attempt), retry_after)?;
                 context.metrics.record_retry(retry_after);
                 tracing::warn!(
                     attempt = attempt + 1,
@@ -624,6 +651,13 @@ impl MusicBrainzClient {
                     return Err("MusicBrainz request cancelled".to_string());
                 }
                 continue;
+            }
+            if retryable {
+                self.retry_context
+                    .as_ref()
+                    .unwrap()
+                    .metrics
+                    .observe_transient_failure(retry_after);
             }
             return Ok(response);
         }
@@ -656,6 +690,28 @@ impl MusicBrainzClient {
             .await
             .map_err(|error| format!("MusicBrainz count response could not be parsed: {error}"))?;
         Ok(musicbrainz_track_count(&value))
+    }
+
+    /// Recording identity is independent of an edition or album track position.
+    pub(crate) async fn recording_by_id_result(
+        &self,
+        id: &str,
+    ) -> Result<ProviderRecording, String> {
+        let response = self
+            .send_with_retry(
+                format!("{}/recording/{id}", self.base_url),
+                &[("fmt", "json".into()), ("inc", "artist-credits".into())],
+            )
+            .await?;
+        if !response.status().is_success() {
+            return Err(format!("MusicBrainz recording HTTP {}", response.status()));
+        }
+        let value: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|_| "MusicBrainz recording response invalid")?;
+        parse_musicbrainz_recording(&value, id)
+            .ok_or_else(|| "MusicBrainz recording identity incomplete".into())
     }
 
     /// Like [`Self::release_by_id`], but returns the failure reason instead of
@@ -1132,7 +1188,13 @@ async fn request_musicbrainz_json(
                 let retryable =
                     retry_context.is_some() && (error.is_timeout() || error.is_connect());
                 if !retryable || attempt + 1 >= attempts {
-                    return Err(format!("{label} request failed: {error}"));
+                    if retryable {
+                        retry_context
+                            .unwrap()
+                            .metrics
+                            .observe_transient_failure(None);
+                    }
+                    return Err(format!("{label} request failed: transport error"));
                 }
                 let retry_context = retry_context.expect("retry context exists");
                 let delay = retry_context.retry_delay(usize::from(attempt), None);
@@ -1159,7 +1221,7 @@ async fn request_musicbrainz_json(
         };
         if should_retry && attempt + 1 < attempts {
             if let Some(retry_context) = retry_context {
-                let delay = retry_context.retry_delay(usize::from(attempt), retry_after);
+                let delay = retry_context.inline_retry_delay(usize::from(attempt), retry_after)?;
                 retry_context.metrics.record_retry(retry_after);
                 tracing::warn!(
                     provider = "musicbrainz",
@@ -1179,6 +1241,11 @@ async fn request_musicbrainz_json(
             continue;
         }
         if !status.is_success() {
+            if retryable_status(status) {
+                if let Some(context) = retry_context {
+                    context.metrics.observe_transient_failure(retry_after);
+                }
+            }
             let retry_hint = response
                 .headers()
                 .get(reqwest::header::RETRY_AFTER)
@@ -1649,6 +1716,45 @@ fn parse_musicbrainz_release(
                     .map(str::to_string)
             }),
         tracks,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ProviderRecording {
+    pub id: String,
+    pub title: String,
+    pub artist: String,
+    pub artists: Vec<String>,
+    pub duration: f64,
+}
+
+fn parse_musicbrainz_recording(
+    value: &serde_json::Value,
+    expected_id: &str,
+) -> Option<ProviderRecording> {
+    let id = value.get("id")?.as_str()?;
+    if id != expected_id {
+        return None;
+    }
+    let title = value.get("title")?.as_str()?.trim();
+    let credit = non_empty_credit(value.get("artist-credit"))?;
+    let artist = format_artist_credit(credit);
+    let artists = artist_names(Some(credit));
+    let duration = value.get("length")?.as_f64()? / 1000.0;
+    if title.is_empty()
+        || artist.trim().is_empty()
+        || artists.is_empty()
+        || !duration.is_finite()
+        || duration <= 0.0
+    {
+        return None;
+    }
+    Some(ProviderRecording {
+        id: id.into(),
+        title: title.into(),
+        artist,
+        artists,
+        duration,
     })
 }
 
@@ -2781,7 +2887,14 @@ impl DiscogsClient {
                     let retryable =
                         self.retry_context.is_some() && (error.is_timeout() || error.is_connect());
                     if !retryable || attempt + 1 >= attempts {
-                        return Err(format!("Discogs request failed: {error}"));
+                        if retryable {
+                            self.retry_context
+                                .as_ref()
+                                .unwrap()
+                                .metrics
+                                .observe_transient_failure(None);
+                        }
+                        return Err("Discogs request failed: transport error".to_string());
                     }
                     let context = self.retry_context.as_ref().expect("retry context exists");
                     let delay = context.retry_delay(usize::from(attempt), None);
@@ -2807,7 +2920,7 @@ impl DiscogsClient {
                     Some(context) => context,
                     None => unreachable!("retry context is required for a retry"),
                 };
-                let delay = context.retry_delay(usize::from(attempt), retry_after);
+                let delay = context.inline_retry_delay(usize::from(attempt), retry_after)?;
                 context.metrics.record_retry(retry_after);
                 tracing::warn!(
                     attempt = attempt + 1,
@@ -2819,6 +2932,11 @@ impl DiscogsClient {
                     return Err("Discogs request cancelled".to_string());
                 }
                 continue;
+            }
+            if retryable_status(status) {
+                if let Some(context) = &self.retry_context {
+                    context.metrics.observe_transient_failure(retry_after);
+                }
             }
             let response = response
                 .error_for_status()
@@ -3202,6 +3320,8 @@ fn lookup_variants(input: &str) -> BTreeSet<String> {
 }
 
 fn normalize_lookup(input: &str) -> String {
+    let prepared = crate::infra::text::comparison_text(input);
+    let input = prepared.as_str();
     let decomposed = input
         .replace('斉', "齊")
         .replace('妳', "你")
@@ -3264,7 +3384,7 @@ fn normalized_variants(input: &str) -> BTreeSet<String> {
 }
 
 fn normalize(input: &str) -> String {
-    input
+    crate::infra::text::comparison_text(input)
         .nfkc()
         .flat_map(char::to_lowercase)
         .map(|character| {
@@ -5952,6 +6072,34 @@ mod tests {
         );
 
         assert_eq!(limiter.maximum.load(Ordering::Acquire), 25);
+    }
+
+    #[test]
+    fn long_provider_deadline_is_deferred_without_waiting_or_losing_transient_evidence() {
+        let metrics = ProviderRetryMetrics::default();
+        let context = ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone());
+        assert!(context.inline_retry_delay(0, Some(300)).is_err());
+        assert!(metrics.transient_failure());
+        assert_eq!(metrics.max_retry_after_seconds(), Some(300));
+        assert_eq!(
+            metrics.retry_count(),
+            0,
+            "a deferred retry has not sent another request"
+        );
+    }
+
+    #[test]
+    fn retry_after_supports_http_dates_without_shortening_provider_deadlines() {
+        assert_eq!(parse_retry_after("120", 0), Some(120));
+        assert_eq!(
+            parse_retry_after("Wed, 21 Oct 2015 07:28:00 GMT", 1445412420),
+            Some(60)
+        );
+        assert_eq!(
+            parse_retry_after("Wed, 21 Oct 2015 07:28:00 GMT", 1445412600),
+            Some(0)
+        );
+        assert_eq!(parse_retry_after("invalid", 0), None);
     }
 
     #[test]

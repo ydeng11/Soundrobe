@@ -47,7 +47,7 @@ use crate::state::providers::ProviderRetryMetrics;
 use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
 
 #[path = "auto_tag_editions.rs"]
-mod editions;
+pub(super) mod editions;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -61,9 +61,61 @@ pub enum LookupSource {
     Musicbrainz,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct RecordingSource {
+    path: PathBuf,
+    fingerprint: String,
+}
+
+impl RecordingSource {
+    fn capture(path: &Path) -> Result<Self, ApiError> {
+        use std::io::Read;
+        let path = path.canonicalize()?;
+        let mut file = std::fs::File::open(&path)?;
+        let mut hasher = Sha256::new();
+        let mut buffer = [0; 64 * 1024];
+        loop {
+            let count = file.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            hasher.update(&buffer[..count]);
+        }
+        Ok(Self {
+            path,
+            fingerprint: format!("{:x}", hasher.finalize()),
+        })
+    }
+}
+
+fn validate_recording_sources(files: &[String], tracks: &[TrackCandidate]) -> Result<(), ApiError> {
+    if !tracks.iter().any(|track| track.source.is_some()) {
+        return Ok(());
+    }
+    if files.len() != tracks.len() {
+        return Err(ApiError::Message(
+            "audio source coverage changed during lookup".into(),
+        ));
+    }
+    for (file, track) in files.iter().zip(tracks) {
+        let source = track
+            .source
+            .as_ref()
+            .ok_or_else(|| ApiError::Message("audio source identity is missing".into()))?;
+        if RecordingSource::capture(Path::new(file))? != *source {
+            return Err(ApiError::Message(
+                "audio source changed during lookup; recognition must be repeated".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct TrackCandidate {
+    #[serde(skip)]
+    pub source: Option<RecordingSource>,
     pub title: Option<String>,
     #[serde(default)]
     pub match_titles: Vec<String>,
@@ -1179,6 +1231,19 @@ pub(crate) fn accept_acoustid_release(
         if (local_duration - provider_duration).abs() > 5.0_f64.max(local_duration * 0.03) {
             return Err("MusicBrainz track duration conflicts with local audio".to_string());
         }
+        if local
+            .title
+            .iter()
+            .chain(local.filename.iter())
+            .any(|title| {
+                !super::auto_tag_acoustid::versions_compatible(
+                    title,
+                    track.title.as_deref().unwrap_or_default(),
+                )
+            })
+        {
+            return Err("MusicBrainz recording version conflicts with local evidence".into());
+        }
         track.length = Some(local_duration);
         track.filename = local.filename.clone();
         mapped.push(track);
@@ -1667,8 +1732,10 @@ fn provider_authority_decision(
 }
 
 fn normalized_release_identity(value: &str) -> String {
+    let prepared = crate::infra::text::comparison_text(value);
+    let value = prepared.as_str();
     let without_annotations = Regex::new(
-        r"(?i)[\[【(（][^\]】)）]*(?:edition|version|pressing|remaster|deluxe|digibook|shm(?:[- ]?cd)?|maxi[- ]?single|cd\s*\d+|disc\s*\d+|disk\s*\d+|日本|japan|精選|精选)[^\]】)）]*[\]】)）]",
+        r"(?i)[\[【(（][^\]】)）]*(?:edition|pressing|remaster|deluxe|explicit|digibook|shm(?:[- ]?cd)?|maxi[- ]?single|cd\s*\d+|disc\s*\d+|disk\s*\d+|日本|japan|精選|精选)[^\]】)）]*[\]】)）]",
     )
     .expect("valid release annotation regex")
     .replace_all(value, " ");
@@ -2051,6 +2118,30 @@ const DISCOGS_CATALOG_CACHE_VERSION: &str = "artist-catalog-v1";
 const ARTIST_CATALOG_PAGE_LIMIT: u32 = 100;
 const ARTIST_DETAIL_LIMIT: usize = 40;
 
+fn ranked_detail_window(
+    releases: Vec<ProviderReleaseSummary>,
+    mut cached: impl FnMut(&ProviderReleaseSummary) -> bool,
+) -> (Vec<ProviderReleaseSummary>, usize) {
+    let mut pending = 0;
+    let mut remaining = 0;
+    let window = releases
+        .into_iter()
+        .filter(|release| {
+            if cached(release) {
+                true
+            } else if pending < ARTIST_DETAIL_LIMIT {
+                pending += 1;
+                true
+            } else {
+                remaining += 1;
+                false
+            }
+        })
+        .collect();
+    (window, remaining)
+}
+
+#[cfg(test)]
 fn detail_limit_error(provider: &str, candidate_count: usize) -> Option<String> {
     (candidate_count > ARTIST_DETAIL_LIMIT)
         .then(|| format!("{provider} discovery incomplete: release detail limit reached"))
@@ -2204,8 +2295,11 @@ async fn musicbrainz_artist_candidates(
         request.release_type_hint.as_deref(),
         u32::try_from(request.tracks.len()).ok(),
     );
-    let limit_error = detail_limit_error("MusicBrainz", ranked_releases.len());
-    for release in ranked_releases.into_iter().take(ARTIST_DETAIL_LIMIT) {
+    let (window, unexamined) = ranked_detail_window(ranked_releases, |release| {
+        cached_release_detail(cache, "musicbrainz-v4", &release.id).is_some()
+    });
+    let limit_error = (unexamined > 0).then(|| format!("MusicBrainz discovery incomplete: release detail limit reached; {unexamined} unexamined"));
+    for release in window {
         let album = cached_release_detail(cache, "musicbrainz-v4", &release.id);
         let album = match album {
             Some(album) => Some(album),
@@ -2269,8 +2363,15 @@ async fn discogs_artist_candidates(
         request.release_type_hint.as_deref(),
         u32::try_from(request.tracks.len()).ok(),
     );
-    let detail_error = detail_limit_error("Discogs", ranked_releases.len());
-    for release in ranked_releases.into_iter().take(ARTIST_DETAIL_LIMIT) {
+    let (window, unexamined) = ranked_detail_window(ranked_releases, |release| {
+        cached_release_detail(cache, "discogs-v4", &release.id).is_some()
+    });
+    let detail_error = (unexamined > 0).then(|| {
+        format!(
+            "Discogs discovery incomplete: release detail limit reached; {unexamined} unexamined"
+        )
+    });
+    for release in window {
         check_cancelled(cancelled).map_err(|error| error.to_string())?;
         candidates.push(discovery.detail(&release.id).await?);
     }
@@ -2318,6 +2419,7 @@ pub enum ProviderAttemptStatus {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderAttempt {
+    pub retryable: bool,
     pub provider: &'static str,
     pub status: ProviderAttemptStatus,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -2399,12 +2501,113 @@ impl Default for AutoTagRunResult {
     }
 }
 
+fn diagnostic_configuration(config: &AutoTagConfig) -> serde_json::Value {
+    // Whitelist effective settings; never serialize config or hash keys/URLs.
+    let mut settings = serde_json::json!({
+        "schemaVersion": 1,
+        "llmModel": config.llm_model,
+        "llmProvider": config.llm_provider,
+        "llmConfigured": config.llm_api_key.as_deref().is_some_and(|key| !key.is_empty()),
+        "acoustidEnabled": config.acoustid_enabled == Some(true),
+        "acoustidConfigured": config.acoustid_api_key.as_deref().is_some_and(|key| !key.is_empty()),
+        "remoteLookupEnabled": config.remote_lookup_enabled != Some(false),
+        "discogsEnabled": config.discogs_enabled != Some(false),
+        "discogsConfigured": config.discogs_token.as_deref().is_some_and(|key| !key.is_empty()),
+        "chineseScript": config.chinese_script,
+        "clearTagsEnabled": config.clear_tags_enabled,
+        "clearTags": config.clear_tags,
+    });
+    settings["fingerprint"] =
+        format!("{:x}", Sha256::digest(settings.to_string().as_bytes())).into();
+    settings
+}
+
+fn album_coverage(
+    request: &LookupRequest,
+    candidate: Option<&AlbumCandidate>,
+    written: usize,
+) -> serde_json::Value {
+    let local = request.tracks.len();
+    let verified = candidate
+        .map(|candidate| {
+            candidate
+                .tracks
+                .iter()
+                .filter(|track| track.title.is_some())
+                .count()
+        })
+        .unwrap_or(0);
+    let release_tracks = candidate
+        .filter(|candidate| candidate.verification.as_deref() != Some("recording_only"))
+        .map(|candidate| {
+            let mut full = candidate.clone();
+            if let Some(tracks) = &candidate.provider_tracks_for_evaluation {
+                full.tracks = tracks.clone();
+            }
+            let tracks = candidate_tracks_for_request(request, &full);
+            let mut disc_totals = HashMap::<u32, usize>::new();
+            for track in &tracks {
+                disc_totals
+                    .entry(track.disc_number.unwrap_or(1))
+                    .and_modify(|total| {
+                        *total = (*total).max(track.track_total.unwrap_or(0) as usize)
+                    })
+                    .or_insert(track.track_total.unwrap_or(0) as usize);
+            }
+            tracks.len().max(disc_totals.values().sum())
+        });
+    let unique_recordings = candidate
+        .map(|candidate| {
+            candidate
+                .tracks
+                .iter()
+                .filter_map(|track| track.musicbrainz_track_id.as_ref())
+                .collect::<HashSet<_>>()
+                .len()
+        })
+        .unwrap_or(0);
+    let covered = if unique_recordings > 0 {
+        unique_recordings
+    } else {
+        verified
+    };
+    serde_json::json!({"stage":"coverage", "localFiles":local, "verifiedTracks":verified, "uniqueVerifiedRecordings":unique_recordings,
+        "writtenFiles":written, "releaseTracks":release_tracks,
+        "fieldCoverage": {
+            "title":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some()).count()).unwrap_or(0),
+            "artist":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.artist.is_some()).count()).unwrap_or(0),
+            "recordingId":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.musicbrainz_track_id.is_some()).count()).unwrap_or(0),
+            "album":candidate.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
+            "editionId":candidate.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0)
+        },
+        "completeAlbum":local > 0 && verified == local && release_tracks == Some(covered) && written == local})
+}
+
+fn provider_attempt(
+    provider: &'static str,
+    status: ProviderAttemptStatus,
+    diagnostic: Option<String>,
+    metrics: &ProviderRetryMetrics,
+) -> ProviderAttempt {
+    ProviderAttempt {
+        provider,
+        status,
+        diagnostic,
+        retry_count: metrics.retry_count(),
+        retry_after_seconds: metrics.max_retry_after_seconds(),
+        retryable: metrics.transient_failure(),
+    }
+}
+
 fn acoustid_provider_attempt(
     result: &super::auto_tag_acoustid::AcoustidResolution,
 ) -> ProviderAttempt {
     use super::auto_tag_acoustid::AcoustidResolution;
     let (status, diagnostic) = match result {
         AcoustidResolution::Candidate { .. } => (ProviderAttemptStatus::Matched, None),
+        AcoustidResolution::Recordings { reason_code, .. } => {
+            (ProviderAttemptStatus::Incomplete, Some(reason_code.clone()))
+        }
         AcoustidResolution::NoMatch => (ProviderAttemptStatus::NoMatch, None),
         AcoustidResolution::Unavailable(reason) => {
             (ProviderAttemptStatus::Unavailable, Some(reason.clone()))
@@ -2419,6 +2622,7 @@ fn acoustid_provider_attempt(
         diagnostic,
         retry_count: 0,
         retry_after_seconds: None,
+        retryable: false,
     }
 }
 
@@ -2524,6 +2728,24 @@ fn candidate_apply_outcome(source: LookupSource) -> (AutoTagOutcome, Option<&'st
     }
 }
 
+pub(crate) type EvidenceCheckpoint =
+    Arc<dyn Fn(serde_json::Value) -> Result<(), String> + Send + Sync>;
+tokio::task_local! { pub(crate) static EVIDENCE_CHECKPOINT: EvidenceCheckpoint; }
+
+pub(crate) fn checkpoint_evidence(value: serde_json::Value) -> Result<(), String> {
+    EVIDENCE_CHECKPOINT
+        .try_with(|checkpoint| checkpoint(value))
+        .unwrap_or(Ok(()))
+}
+
+tokio::task_local! { pub(crate) static AI_RUN_CIRCUIT: Arc<AtomicBool>; }
+
+fn ai_circuit_open() -> bool {
+    AI_RUN_CIRCUIT
+        .try_with(|blocked| blocked.load(Ordering::Acquire))
+        .unwrap_or(false)
+}
+
 const AI_TAG_CONFIDENCE_THRESHOLD: f64 = 0.85;
 const AUTO_TAG_LLM_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -2554,6 +2776,19 @@ fn ai_validation_failure_from_error(error: &OpenRouterError) -> AiValidationFail
             "ai_timeout",
             format!("AI request timed out after {milliseconds}ms"),
         ),
+        OpenRouterError::Http { status: 402, .. } => {
+            let _ = AI_RUN_CIRCUIT.try_with(|blocked| blocked.store(true, Ordering::Release));
+            if let Err(error) = checkpoint_evidence(serde_json::json!({"aiCircuitOpen":true})) {
+                return ai_failure(
+                    "ai_circuit_checkpoint_failed",
+                    format!("AI billing circuit could not be persisted: {error}"),
+                );
+            }
+            ai_failure(
+                "ai_payment_required",
+                "AI billing unavailable (HTTP 402); check service credits before an explicit retry",
+            )
+        }
         OpenRouterError::Http { status, .. } => {
             ai_failure("ai_failed", format!("AI provider returned HTTP {status}"))
         }
@@ -2938,6 +3173,12 @@ async fn resolve_tags_via_llm(
     config: &AutoTagConfig,
     cancelled: &AtomicBool,
 ) -> Result<AlbumCandidate, AiValidationFailure> {
+    if ai_circuit_open() {
+        return Err(ai_failure(
+            "ai_circuit_open",
+            "AI billing circuit is open for this run; check credits before retrying",
+        ));
+    }
     let client = tag_correction_client(config, request.tracks.len())?;
     let (messages, schema) = tag_correction_request(request);
     let result = client
@@ -2961,6 +3202,14 @@ async fn fill_genre_if_missing(
     config: &AutoTagConfig,
     cancelled: &AtomicBool,
 ) -> (AlbumCandidate, Option<GenreFillOutcome>) {
+    if ai_circuit_open() {
+        return (
+            candidate.clone(),
+            Some(GenreFillOutcome::Failed(
+                "AI billing circuit is open for this run".into(),
+            )),
+        );
+    }
     if candidate.genre.is_some() {
         return (candidate.clone(), None);
     }
@@ -3132,7 +3381,9 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     progress: impl FnMut(u64, &str),
     report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
-    resolve_and_apply_album_with_acoustid_override(
+    let request = build_lookup_request(album_path)?;
+    checkpoint_evidence(serde_json::json!({"configuration": diagnostic_configuration(config), "localFiles":request.tracks.len()})).map_err(ApiError::Message)?;
+    let mut result = resolve_and_apply_album_with_acoustid_override(
         album_path,
         config,
         services,
@@ -3143,7 +3394,17 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
         progress,
         report,
     )
-    .await
+    .await?;
+    let coverage = album_coverage(&request, result.candidate.as_ref(), result.written);
+    if result.outcome == AutoTagOutcome::Applied && coverage["completeAlbum"] != true {
+        result.outcome = AutoTagOutcome::NeedsReview;
+        result.reason_code = Some("partial_collection".into());
+    }
+    result.diagnostics.push(coverage);
+    result.diagnostics.push(
+        serde_json::json!({"stage":"configuration", "settings":diagnostic_configuration(config)}),
+    );
+    Ok(result)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3160,6 +3421,15 @@ async fn resolve_and_apply_album_with_acoustid_override(
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
     let mut request = build_lookup_request(album_path)?;
+    let sources = collect_audio_files(album_path);
+    if sources.len() != request.tracks.len() {
+        return Err(ApiError::Message(
+            "audio source coverage changed before lookup".into(),
+        ));
+    }
+    for (file, track) in sources.iter().zip(&mut request.tracks) {
+        track.source = Some(RecordingSource::capture(Path::new(file))?);
+    }
     check_cancelled(cancelled)?;
     let identity_available = has_tagging_identity(&request);
     let use_acoustid =
@@ -3167,7 +3437,8 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let mut early_acoustid_candidate = None;
     let mut early_acoustid_attempt = None;
     let mut early_acoustid_evidence = None;
-    if !identity_available && use_acoustid {
+    let mut early_acoustid_diagnostics = Vec::new();
+    if (!identity_available || recording_collection_hint(&request)) && use_acoustid {
         progress(3, "Fingerprinting album tracks...");
         let result = if let Some((client, fpcalc)) = acoustid_override {
             super::auto_tag_acoustid::resolve_with(
@@ -3192,12 +3463,38 @@ async fn resolve_and_apply_album_with_acoustid_override(
         let attempt = acoustid_provider_attempt(&result);
         progress(7, "Checking complete MusicBrainz release coverage...");
         match result {
+            super::auto_tag_acoustid::AcoustidResolution::Recordings { evidence, .. }
+                if identity_available
+                    && evidence
+                        .track_matches
+                        .iter()
+                        .all(|track| track.recording_id.is_empty()) =>
+            {
+                early_acoustid_diagnostics.push(serde_json::json!({"stage":"acoustid", "status":"unavailable", "trackMatches":evidence.track_matches}));
+                early_acoustid_attempt = Some(attempt);
+            }
+            result @ super::auto_tag_acoustid::AcoustidResolution::Recordings { .. } => {
+                return apply_recording_resolution(
+                    album_path,
+                    &request,
+                    result,
+                    services.queue,
+                    &mut review_intent,
+                )
+                .await;
+            }
             super::auto_tag_acoustid::AcoustidResolution::Candidate {
                 candidate,
                 evidence,
             } => {
                 early_acoustid_candidate = Some(*candidate);
                 early_acoustid_evidence = Some(evidence);
+                early_acoustid_attempt = Some(attempt);
+            }
+            super::auto_tag_acoustid::AcoustidResolution::NoMatch if identity_available => {
+                early_acoustid_attempt = Some(attempt);
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Unavailable(_) if identity_available => {
                 early_acoustid_attempt = Some(attempt);
             }
             super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
@@ -3456,13 +3753,14 @@ async fn resolve_and_apply_album_with_acoustid_override(
         } else {
             ProviderAttemptStatus::NoMatch
         };
-        provider_attempts.push(ProviderAttempt {
-            provider: "musicbrainz",
+        provider_attempts.push(provider_attempt(
+            "musicbrainz",
             status,
             diagnostic,
-            retry_count: musicbrainz_metrics.retry_count(),
-            retry_after_seconds: musicbrainz_metrics.max_retry_after_seconds(),
-        });
+            &musicbrainz_metrics,
+        ));
+        checkpoint_evidence(serde_json::json!({"providerAttempts":provider_attempts}))
+            .map_err(ApiError::Message)?;
         #[cfg(feature = "desktop")]
         if let Some(review) = super::auto_tag_review::active_review() {
             review.evidence("providerAttempts", serde_json::json!(provider_attempts));
@@ -3521,13 +3819,14 @@ async fn resolve_and_apply_album_with_acoustid_override(
         } else {
             ProviderAttemptStatus::NoMatch
         };
-        provider_attempts.push(ProviderAttempt {
-            provider: "discogs",
+        provider_attempts.push(provider_attempt(
+            "discogs",
             status,
             diagnostic,
-            retry_count: discogs_metrics.retry_count(),
-            retry_after_seconds: discogs_metrics.max_retry_after_seconds(),
-        });
+            &discogs_metrics,
+        ));
+        checkpoint_evidence(serde_json::json!({"providerAttempts":provider_attempts}))
+            .map_err(ApiError::Message)?;
         #[cfg(feature = "desktop")]
         if let Some(review) = super::auto_tag_review::active_review() {
             review.evidence("providerAttempts", serde_json::json!(provider_attempts));
@@ -3546,6 +3845,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let mut provider_diagnostics =
         provider_selection_diagnostics(&request, &fresh, &provider_attempts);
     provider_diagnostics.extend(discogs_discovery.diagnostics);
+    provider_diagnostics.extend(early_acoustid_diagnostics);
     if let Some(evidence) = early_acoustid_evidence {
         provider_diagnostics.push(serde_json::json!({
             "stage":"acoustid",
@@ -3561,85 +3861,118 @@ async fn resolve_and_apply_album_with_acoustid_override(
         | ProviderAuthorityDecision::Incomplete
         | ProviderAuthorityDecision::Unavailable => None,
     };
+    // A current-run acoustic map has already verified every physical file.
+    // Title-based provider selection must never replace its recording IDs.
+    if let Some(fingerprint_candidate) = early_acoustid_candidate {
+        candidate = Some(fingerprint_candidate);
+    }
     let mut acoustid_attempt = early_acoustid_attempt;
-    if candidate.is_none() {
-        if let Some(fingerprint_candidate) = early_acoustid_candidate {
-            candidate = Some(fingerprint_candidate);
-        } else if use_acoustid {
-            progress(7, "Fingerprinting album tracks...");
-            let result = if let Some((client, fpcalc)) = acoustid_override {
-                super::auto_tag_acoustid::resolve_with(
-                    &request,
-                    config.acoustid_api_key.as_deref(),
-                    services.providers,
-                    cancelled,
-                    client,
-                    fpcalc,
-                )
-                .await
-            } else {
-                super::auto_tag_acoustid::resolve(
-                    &request,
-                    config.acoustid_api_key.as_deref(),
-                    services.providers,
-                    cancelled,
-                )
-                .await
-            };
-            check_cancelled(cancelled)?;
-            let attempt = acoustid_provider_attempt(&result);
-            let evidence = match &result {
-                super::auto_tag_acoustid::AcoustidResolution::Candidate { evidence, .. } => {
-                    serde_json::json!({
-                        "stage":"acoustid",
-                        "status":"matched",
-                        "releaseId":evidence.release_id,
-                        "trackMatches":evidence.track_matches,
-                        "acceptedMappingIsCurrentRunOnly":true,
-                    })
+    if use_acoustid
+        && acoustid_attempt.is_none()
+        && (candidate.is_none()
+            || album_coverage(&request, candidate.as_ref(), 0)["releaseTracks"]
+                .as_u64()
+                .is_some_and(|count| count as usize > request.tracks.len()))
+    {
+        // A provider subset does not establish an album edition. Retain
+        // only independently verified recording fields from this fallback.
+        candidate = None;
+        progress(7, "Fingerprinting album tracks...");
+        let result = if let Some((client, fpcalc)) = acoustid_override {
+            super::auto_tag_acoustid::resolve_with(
+                &request,
+                config.acoustid_api_key.as_deref(),
+                services.providers,
+                cancelled,
+                client,
+                fpcalc,
+            )
+            .await
+        } else {
+            super::auto_tag_acoustid::resolve(
+                &request,
+                config.acoustid_api_key.as_deref(),
+                services.providers,
+                cancelled,
+            )
+            .await
+        };
+        check_cancelled(cancelled)?;
+        if matches!(
+            &result,
+            super::auto_tag_acoustid::AcoustidResolution::Recordings { .. }
+        ) {
+            let mut partial = apply_recording_resolution(
+                album_path,
+                &request,
+                result,
+                services.queue,
+                &mut review_intent,
+            )
+            .await?;
+            partial.provider_attempts.splice(0..0, provider_attempts);
+            partial.diagnostics.splice(0..0, provider_diagnostics);
+            return Ok(partial);
+        }
+        let attempt = acoustid_provider_attempt(&result);
+        let evidence = match &result {
+            super::auto_tag_acoustid::AcoustidResolution::Candidate { evidence, .. } => {
+                serde_json::json!({
+                    "stage":"acoustid",
+                    "status":"matched",
+                    "releaseId":evidence.release_id,
+                    "trackMatches":evidence.track_matches,
+                    "acceptedMappingIsCurrentRunOnly":true,
+                })
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Recordings { evidence, .. } => {
+                serde_json::json!({"stage":"acoustid", "evidence":evidence})
+            }
+            super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
+                serde_json::json!({"stage":"acoustid", "status":"no_match"})
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Unavailable(reason) => {
+                serde_json::json!({"stage":"acoustid", "status":"unavailable", "reason":reason})
+            }
+            super::auto_tag_acoustid::AcoustidResolution::Incomplete(reason) => {
+                serde_json::json!({"stage":"acoustid", "status":"incomplete", "reason":reason})
+            }
+        };
+        provider_diagnostics.push(evidence);
+        report(
+            "source",
+            match &result {
+                super::auto_tag_acoustid::AcoustidResolution::Candidate { .. } => {
+                    "AcoustID: complete release identified".to_string()
+                }
+                super::auto_tag_acoustid::AcoustidResolution::Recordings { .. } => {
+                    "AcoustID: recording fields verified; album needs review".to_string()
                 }
                 super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
-                    serde_json::json!({"stage":"acoustid", "status":"no_match"})
+                    "AcoustID: no matching recordings".to_string()
                 }
-                super::auto_tag_acoustid::AcoustidResolution::Unavailable(reason) => {
-                    serde_json::json!({"stage":"acoustid", "status":"unavailable", "reason":reason})
+                super::auto_tag_acoustid::AcoustidResolution::Unavailable(_) => {
+                    "AcoustID: lookup unavailable".to_string()
                 }
-                super::auto_tag_acoustid::AcoustidResolution::Incomplete(reason) => {
-                    serde_json::json!({"stage":"acoustid", "status":"incomplete", "reason":reason})
+                super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {
+                    "AcoustID: evidence needs review".to_string()
                 }
-            };
-            provider_diagnostics.push(evidence);
-            report(
-                "source",
-                match &result {
-                    super::auto_tag_acoustid::AcoustidResolution::Candidate { .. } => {
-                        "AcoustID: complete release identified".to_string()
-                    }
-                    super::auto_tag_acoustid::AcoustidResolution::NoMatch => {
-                        "AcoustID: no matching recordings".to_string()
-                    }
-                    super::auto_tag_acoustid::AcoustidResolution::Unavailable(_) => {
-                        "AcoustID: lookup unavailable".to_string()
-                    }
-                    super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {
-                        "AcoustID: evidence needs review".to_string()
-                    }
-                },
-                Some(serde_json::json!({"source":"acoustid", "status":attempt.status})),
-            );
-            match result {
-                super::auto_tag_acoustid::AcoustidResolution::Candidate {
-                    candidate: acoustid_candidate,
-                    ..
-                } => {
-                    candidate = Some(*acoustid_candidate);
-                }
-                super::auto_tag_acoustid::AcoustidResolution::NoMatch
-                | super::auto_tag_acoustid::AcoustidResolution::Unavailable(_)
-                | super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {}
+            },
+            Some(serde_json::json!({"source":"acoustid", "status":attempt.status})),
+        );
+        match result {
+            super::auto_tag_acoustid::AcoustidResolution::Candidate {
+                candidate: acoustid_candidate,
+                ..
+            } => {
+                candidate = Some(*acoustid_candidate);
             }
-            acoustid_attempt = Some(attempt);
+            super::auto_tag_acoustid::AcoustidResolution::Recordings { .. }
+            | super::auto_tag_acoustid::AcoustidResolution::NoMatch
+            | super::auto_tag_acoustid::AcoustidResolution::Unavailable(_)
+            | super::auto_tag_acoustid::AcoustidResolution::Incomplete(_) => {}
         }
+        acoustid_attempt = Some(attempt);
     }
     if let Some(attempt) = acoustid_attempt.as_ref() {
         provider_attempts.push(attempt.clone());
@@ -3656,41 +3989,61 @@ async fn resolve_and_apply_album_with_acoustid_override(
     }
 
     let Some(mut candidate) = candidate else {
-        let (reason_code, reason, ai_status, ai_confidence) = if provider_attempts
-            .iter()
-            .any(|attempt| attempt.status == ProviderAttemptStatus::Incomplete)
-        {
-            (
-                "provider_incomplete",
-                "provider discovery was incomplete and can be resumed".to_string(),
-                None,
-                None,
-            )
-        } else if provider_attempts
-            .iter()
-            .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
-        {
-            (
-                "provider_unavailable",
-                "no credible provider release and a provider was unavailable".to_string(),
-                None,
-                None,
-            )
-        } else if let Some(error) = ai_failure {
-            (
-                error.code,
-                error.detail,
-                Some(error.code.to_string()),
-                error.confidence,
-            )
-        } else {
-            (
-                "ai_validation_failed",
-                "no authoritative metadata candidate was available".to_string(),
-                Some("ai_validation_failed".to_string()),
-                None,
-            )
-        };
+        let (reason_code, reason, ai_status, ai_confidence) =
+            if provider_attempts.iter().any(|attempt| attempt.retryable) {
+                (
+                    "provider_retryable",
+                    "provider temporarily unavailable; deferred retry is needed".to_string(),
+                    None,
+                    None,
+                )
+            } else if provider_attempts.iter().any(|attempt| {
+                attempt.diagnostic.as_deref().is_some_and(|reason| {
+                    reason.contains("limit reached") || reason.contains("budget")
+                })
+            }) {
+                (
+                    "discovery_budget_limited",
+                    "provider discovery budget exhausted; additional release evidence is needed"
+                        .to_string(),
+                    None,
+                    None,
+                )
+            } else if provider_attempts
+                .iter()
+                .any(|attempt| attempt.status == ProviderAttemptStatus::Incomplete)
+            {
+                (
+                    "provider_incomplete",
+                    "provider discovery was incomplete and can be resumed".to_string(),
+                    None,
+                    None,
+                )
+            } else if provider_attempts
+                .iter()
+                .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
+            {
+                (
+                    "provider_unavailable",
+                    "no credible provider release and a provider was unavailable".to_string(),
+                    None,
+                    None,
+                )
+            } else if let Some(error) = ai_failure {
+                (
+                    error.code,
+                    error.detail,
+                    Some(error.code.to_string()),
+                    error.confidence,
+                )
+            } else {
+                (
+                    "ai_validation_failed",
+                    "no authoritative metadata candidate was available".to_string(),
+                    Some("ai_validation_failed".to_string()),
+                    None,
+                )
+            };
         progress(9, "Needs review — no authoritative metadata match");
         report(
             "needs_review",
@@ -3715,6 +4068,68 @@ async fn resolve_and_apply_album_with_acoustid_override(
             kept_tags: configured_kept_tag_labels(config),
         });
     };
+
+    if album_coverage(&request, Some(&candidate), 0)["releaseTracks"]
+        .as_u64()
+        .is_some_and(|count| count as usize > request.tracks.len())
+    {
+        return Ok(AutoTagRunResult { reason_code:Some("partial_collection".into()), provider_attempts, diagnostics:provider_diagnostics.into_iter().chain(std::iter::once(serde_json::json!({"reason":"partial collection requires recording evidence before changing an album edition"}))).collect(), ..AutoTagRunResult::default() });
+    }
+
+    if request.musicbrainz_album_id.is_none() && request.discogs_release_id.is_none() {
+        let credible = fresh
+            .iter()
+            .filter(|other| {
+                other.source == candidate.source
+                    && provider_candidate_credibility(&request, other).is_ok()
+            })
+            .map(|other| protect_candidate_tracks(&request, other))
+            .collect::<Vec<_>>();
+        let editions = credible
+            .iter()
+            .map(provider_stable_id)
+            .collect::<HashSet<_>>();
+        if editions.len() > 1 {
+            // Only examined, complete discovery may establish unanimous fields.
+            if provider_attempts
+                .iter()
+                .any(|attempt| attempt.diagnostic.is_some())
+            {
+                return Ok(AutoTagRunResult {
+                    reason_code: Some(
+                        if provider_attempts.iter().any(|attempt| attempt.retryable) {
+                            "provider_retryable"
+                        } else {
+                            "discovery_budget_limited"
+                        }
+                        .into(),
+                    ),
+                    provider_attempts,
+                    diagnostics: provider_diagnostics,
+                    ..AutoTagRunResult::default()
+                });
+            }
+            if let Some(mut shared) = common_recording_fields(&credible) {
+                for (track, local) in shared.tracks.iter_mut().zip(&request.tracks) {
+                    track.source = local.source.clone();
+                }
+                review_intent(&shared)?;
+                let written =
+                    apply_recording_tags(album_path, &shared.tracks, Some(&shared), services.queue)
+                        .await?;
+                provider_diagnostics.push(serde_json::json!({"stage":"shared_edition_fields", "reason":"recording fields agree across editions; edition-specific fields remain unchanged", "releaseIds":editions}));
+                return Ok(AutoTagRunResult {
+                    written,
+                    authority: Some(candidate.source),
+                    candidate: Some(shared),
+                    reason_code: Some("ambiguous_edition".into()),
+                    provider_attempts,
+                    diagnostics: provider_diagnostics,
+                    ..AutoTagRunResult::default()
+                });
+            }
+        }
+    }
 
     let cache_payload = fresh
         .iter()
@@ -3746,6 +4161,9 @@ async fn resolve_and_apply_album_with_acoustid_override(
         "coverage": request.tracks.len(), "editionEvidence": candidate.accepted_match,
     }));
     candidate = protect_candidate_tracks(&request, &candidate);
+    for (track, local) in candidate.tracks.iter_mut().zip(&request.tracks) {
+        track.source = local.source.clone();
+    }
     report(
         "source",
         format!(
@@ -3790,6 +4208,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
             );
         }
         Some(GenreFillOutcome::Failed(error)) => {
+            provider_diagnostics.push(serde_json::json!({"stage":"genre", "reason":error}));
             tracing::warn!(%error, "auto-tag genre fill failed");
             report(
                 "warning",
@@ -4203,6 +4622,194 @@ impl CandidateApplyScope<'_> {
     }
 }
 
+fn common_recording_fields(candidates: &[AlbumCandidate]) -> Option<AlbumCandidate> {
+    let first = candidates.first()?;
+    if candidates.len() < 2
+        || candidates
+            .iter()
+            .any(|candidate| candidate.tracks.len() != first.tracks.len())
+    {
+        return None;
+    }
+    let shared_album = candidates.iter().all(|candidate| {
+        candidate.album == first.album && candidate.album_artists == first.album_artists
+    });
+    let tracks = first
+        .tracks
+        .iter()
+        .enumerate()
+        .map(|(index, track)| TrackCandidate {
+            title: candidates
+                .iter()
+                .all(|candidate| candidate.tracks[index].title == track.title)
+                .then(|| track.title.clone())
+                .flatten(),
+            artist: candidates
+                .iter()
+                .all(|candidate| candidate.tracks[index].artist == track.artist)
+                .then(|| track.artist.clone())
+                .flatten(),
+            artists: if candidates
+                .iter()
+                .all(|candidate| candidate.tracks[index].artists == track.artists)
+            {
+                track.artists.clone()
+            } else {
+                Vec::new()
+            },
+            musicbrainz_track_id: candidates
+                .iter()
+                .all(|candidate| {
+                    candidate.tracks[index].musicbrainz_track_id == track.musicbrainz_track_id
+                })
+                .then(|| track.musicbrainz_track_id.clone())
+                .flatten(),
+            filename: track.filename.clone(),
+            length: track.length,
+            ..TrackCandidate::default()
+        })
+        .collect();
+    Some(AlbumCandidate {
+        tracks,
+        album: shared_album.then(|| first.album.clone()).flatten(),
+        album_artist: shared_album.then(|| first.album_artist.clone()).flatten(),
+        album_artists: if shared_album {
+            first.album_artists.clone()
+        } else {
+            Vec::new()
+        },
+        source: first.source,
+        verification: Some("recording_only".into()),
+        ..AlbumCandidate::default()
+    })
+}
+
+fn recording_collection_hint(request: &LookupRequest) -> bool {
+    let titles: Vec<_> = request
+        .tracks
+        .iter()
+        .filter_map(|track| track.title.as_deref())
+        .map(normalized_release_identity)
+        .collect();
+    request.tracks.len() == 1
+        || titles.iter().collect::<HashSet<_>>().len() < titles.len()
+        || request
+            .tracks
+            .iter()
+            .filter_map(|track| track.artist.as_deref())
+            .map(normalized_release_identity)
+            .collect::<HashSet<_>>()
+            .len()
+            > 1
+}
+
+async fn apply_recording_resolution(
+    album_path: &Path,
+    request: &LookupRequest,
+    resolution: super::auto_tag_acoustid::AcoustidResolution,
+    queue: &WriteQueue,
+    review_intent: &mut impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
+) -> Result<AutoTagRunResult, ApiError> {
+    let super::auto_tag_acoustid::AcoustidResolution::Recordings {
+        tracks,
+        shared_album,
+        evidence,
+        reason_code,
+        retryable,
+        retry_after_seconds,
+    } = resolution
+    else {
+        unreachable!("recording resolution required")
+    };
+    let shared_album = shared_album.filter(|_| tracks.iter().all(|track| track.title.is_some()));
+    let candidate = AlbumCandidate {
+        tracks,
+        verification: Some("recording_only".into()),
+        source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    };
+    if candidate.tracks.iter().any(|track| track.title.is_some()) {
+        review_intent(&candidate)?;
+    }
+    let written = apply_recording_tags(
+        album_path,
+        &candidate.tracks,
+        shared_album.as_deref(),
+        queue,
+    )
+    .await?;
+    let coverage = album_coverage(request, Some(&candidate), written);
+    Ok(AutoTagRunResult {
+        written,
+        authority: (written > 0).then_some(LookupSource::Musicbrainz),
+        candidate: Some(candidate),
+        reason_code: Some(reason_code.clone()),
+        diagnostics: vec![
+            serde_json::json!({"stage":"acoustid", "reason":reason_code,"trackMatches":evidence.track_matches,"candidateCount":evidence.candidate_count,"checkedCandidates":evidence.checked_candidates,"rejections":evidence.rejections,"sharedAlbumFields":shared_album}),
+            coverage,
+        ],
+        provider_attempts: vec![ProviderAttempt {
+            provider: "acoustid",
+            status: ProviderAttemptStatus::Incomplete,
+            diagnostic: Some(reason_code),
+            retry_count: 0,
+            retryable,
+            retry_after_seconds,
+        }],
+        ..AutoTagRunResult::default()
+    })
+}
+
+/// Recording evidence never authorizes clearing or changing an album edition.
+async fn apply_recording_tags(
+    album_path: &Path,
+    tracks: &[TrackCandidate],
+    shared_album: Option<&AlbumCandidate>,
+    queue: &WriteQueue,
+) -> Result<usize, ApiError> {
+    let files = collect_audio_files(album_path);
+    if files.len() != tracks.len() {
+        return Err(ApiError::Message(
+            "recording/file coverage changed before writing".into(),
+        ));
+    }
+    validate_recording_sources(&files, tracks)?;
+    let mut written = 0;
+    for (path, track) in files.into_iter().zip(tracks) {
+        if track.musicbrainz_track_id.is_none() && (track.title.is_none() || track.artist.is_none())
+        {
+            continue;
+        }
+        let mut fields = serde_json::json!({});
+        if let Some(title) = &track.title {
+            fields["title"] = title.clone().into();
+        }
+        if let Some(artist) = &track.artist {
+            fields["artist"] = artist.clone().into();
+        }
+        if !track.artists.is_empty() {
+            fields["artists"] = serde_json::json!(track.artists);
+        }
+        if let Some(id) = &track.musicbrainz_track_id {
+            fields["musicbrainzTrackId"] = id.clone().into();
+        }
+        if let Some(shared) = shared_album {
+            if let Some(album) = &shared.album {
+                fields["album"] = album.clone().into();
+            }
+            if !shared.album_artists.is_empty() {
+                fields["albumArtist"] = shared.album_artists.join(" & ").into();
+                fields["albumArtists"] = serde_json::json!(shared.album_artists);
+            }
+        }
+        let patch = serde_json::from_value(fields)
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?;
+        write_track_queued(queue, path.into(), patch).await?;
+        written += 1;
+    }
+    Ok(written)
+}
+
 fn has_writable_track_fields(track: &TrackCandidate) -> bool {
     track.title.is_some()
         || track.artist.is_some()
@@ -4267,9 +4874,11 @@ async fn apply_candidate_tags_reported(
         &candidate.discogs_artist_id,
     );
 
+    let files = collect_audio_files(album_path);
+    validate_recording_sources(&files, &candidate.tracks)?;
     let mut written = 0;
     let mut failures = Vec::new();
-    for (index, file_path) in collect_audio_files(album_path).into_iter().enumerate() {
+    for (index, file_path) in files.into_iter().enumerate() {
         let track = candidate.tracks.get(index);
         if !scope.includes(index) {
             continue;
@@ -4438,7 +5047,7 @@ mod tests {
 
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-    fn temp_root() -> PathBuf {
+    pub(super) fn temp_root() -> PathBuf {
         let root = std::env::temp_dir().join(format!(
             "soundrobe-auto-tag-{}-{}",
             std::process::id(),
@@ -4463,13 +5072,13 @@ mod tests {
             .join("../test/fixtures/tauri/media-corpus/minimal.flac")
     }
 
-    fn corpus_wav() -> PathBuf {
+    pub(super) fn corpus_wav() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus/minimal.wav")
     }
 
     #[cfg(unix)]
-    fn wav_audio_payload(path: &Path) -> Vec<u8> {
+    pub(super) fn wav_audio_payload(path: &Path) -> Vec<u8> {
         let bytes = fs::read(path).unwrap();
         assert_eq!(&bytes[..4], b"RIFF");
         let mut offset = 12;
@@ -4488,6 +5097,233 @@ mod tests {
     }
 
     #[cfg(unix)]
+    #[tokio::test]
+    async fn billing_failure_opens_run_circuit_and_blocks_tagging_and_genre_requests() {
+        let blocked = Arc::new(AtomicBool::new(false));
+        AI_RUN_CIRCUIT.scope(Arc::clone(&blocked), async {
+            assert_eq!(ai_validation_failure_from_error(&OpenRouterError::Http { status: 402, body: "secret body".into() }).code, "ai_payment_required");
+            assert!(blocked.load(Ordering::Acquire));
+            let config = AutoTagConfig { llm_api_key: Some("must-not-send".into()), llm_base_url: Some("http://127.0.0.1:1".into()), ..AutoTagConfig::default() };
+            let request = LookupRequest::default();
+            let cancelled = AtomicBool::new(false);
+            assert_eq!(resolve_tags_via_llm(&request, &config, &cancelled).await.unwrap_err().code, "ai_circuit_open");
+            let (_, genre) = fill_genre_if_missing(&AlbumCandidate::default(), &request, &config, &cancelled).await;
+            assert!(matches!(genre, Some(GenreFillOutcome::Failed(reason)) if reason.contains("billing")));
+        }).await;
+    }
+
+    #[tokio::test]
+    async fn recording_only_write_preserves_unresolved_album_positions_versions_and_audio() {
+        let root = temp_root();
+        let album = root.join("Collection");
+        fs::create_dir_all(&album).unwrap();
+        let file = album.join("01.wav");
+        fs::copy(corpus_wav(), &file).unwrap();
+        let queue = WriteQueue::default();
+        let original: TrackPatch = serde_json::from_value(serde_json::json!({"title":"Song (Demo)","artist":"Singer feat. Guest","album":"Personal Collection","albumArtist":"Collector","year":"1999","trackNumber":7,"musicbrainzAlbumId":"kept-release"})).unwrap();
+        write_track_queued(&queue, file.clone(), original)
+            .await
+            .unwrap();
+        let before = read_album(&album).unwrap();
+        let tracks = vec![TrackCandidate {
+            title: Some("Song (Demo)".into()),
+            artist: Some("Singer feat. Guest".into()),
+            artists: vec!["Singer".into(), "Guest".into()],
+            musicbrainz_track_id: Some("verified-recording".into()),
+            ..TrackCandidate::default()
+        }];
+        let first = apply_recording_tags(&album, &tracks, None, &queue)
+            .await
+            .unwrap();
+        assert_eq!(first, 1);
+        let after = read_album(&album).unwrap();
+        assert_eq!(after.tracks[0].album, before.tracks[0].album);
+        assert_eq!(after.tracks[0].album_artist, before.tracks[0].album_artist);
+        assert_eq!(after.tracks[0].year, before.tracks[0].year);
+        assert_eq!(after.tracks[0].track_number, Some(7));
+        assert_eq!(
+            after.tracks[0].musicbrainz_album_id.as_deref(),
+            Some("kept-release")
+        );
+        assert_eq!(after.tracks[0].title.as_deref(), Some("Song (Demo)"));
+        let once = fs::read(&file).unwrap();
+        apply_recording_tags(&album, &tracks, None, &queue)
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(&file).unwrap(),
+            once,
+            "repeat recognition must be byte stable"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn recording_write_rejects_same_count_rename_and_replacement_before_any_write() {
+        let root = temp_root();
+        let album = root.join("Collection");
+        fs::create_dir_all(&album).unwrap();
+        let first = album.join("first.wav");
+        fs::copy(corpus_wav(), &first).unwrap();
+        let source = RecordingSource::capture(&first).unwrap();
+        let track = TrackCandidate {
+            title: Some("Verified".into()),
+            artist: Some("Singer".into()),
+            musicbrainz_track_id: Some("recording".into()),
+            source: Some(source),
+            ..TrackCandidate::default()
+        };
+        let renamed = album.join("other.wav");
+        fs::rename(&first, &renamed).unwrap();
+        let queue = WriteQueue::default();
+        assert!(
+            apply_recording_tags(&album, std::slice::from_ref(&track), None, &queue)
+                .await
+                .is_err()
+        );
+        fs::rename(&renamed, &first).unwrap();
+        let patch =
+            serde_json::from_value(serde_json::json!({"title":"A different source file"})).unwrap();
+        write_track_queued(&queue, first.clone(), patch)
+            .await
+            .unwrap();
+        let replacement = fs::read(&first).unwrap();
+        assert!(apply_recording_tags(&album, &[track], None, &queue)
+            .await
+            .is_err());
+        assert_eq!(fs::read(&first).unwrap(), replacement);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn a_credible_candidate_does_not_erase_transient_evidence_needed_for_edition_review() {
+        let metrics = ProviderRetryMetrics::default();
+        metrics.observe_transient_failure(Some(90));
+        let attempt = provider_attempt(
+            "musicbrainz",
+            ProviderAttemptStatus::Matched,
+            Some("HTTP 503 while checking another edition".into()),
+            &metrics,
+        );
+        assert!(attempt.retryable, "an unresolved edition still needs outage recovery even when one recording candidate matched");
+        assert_eq!(attempt.retry_after_seconds, Some(90));
+    }
+
+    #[test]
+    fn common_recording_fields_never_choose_an_edition_or_track_position() {
+        let first = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            album: Some("Album".into()),
+            album_artists: vec!["Lead".into()],
+            musicbrainz_album_id: Some("a".into()),
+            year: Some("2008".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("Song (Demo)".into()),
+                artist: Some("Lead feat. Guest".into()),
+                artists: vec!["Lead".into(), "Guest".into()],
+                musicbrainz_track_id: Some("recording".into()),
+                track_number: Some(7),
+                ..TrackCandidate::default()
+            }],
+            ..AlbumCandidate::default()
+        };
+        let mut second = first.clone();
+        second.musicbrainz_album_id = Some("b".into());
+        second.year = Some("2012".into());
+        let shared = common_recording_fields(&[first.clone(), second.clone()]).unwrap();
+        assert_eq!(shared.album, first.album);
+        assert!(shared.musicbrainz_album_id.is_none() && shared.year.is_none());
+        assert_eq!(shared.tracks[0].title, first.tracks[0].title);
+        assert!(shared.tracks[0].track_number.is_none());
+        second.tracks[0].title = Some("Song (Other Demo)".into());
+        let conflict = common_recording_fields(&[first, second]).unwrap();
+        assert!(
+            conflict.tracks[0].title.is_none(),
+            "agreement on an ID cannot erase a conflicting version label"
+        );
+    }
+
+    #[test]
+    fn ranked_detail_resume_reuses_checked_candidates_without_spending_network_budget() {
+        let releases = (0..45)
+            .map(|index| ProviderReleaseSummary {
+                id: index.to_string(),
+                title: "Album".into(),
+                ..ProviderReleaseSummary::default()
+            })
+            .collect();
+        let (window, remaining) = ranked_detail_window(releases, |release| {
+            release.id.parse::<usize>().unwrap() < 40
+        });
+        assert_eq!(
+            window.len(),
+            45,
+            "cached first window must not permanently hide later editions"
+        );
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn diagnostic_configuration_never_contains_secrets_or_endpoint_credentials() {
+        let config = AutoTagConfig {
+            llm_api_key: Some("secret-one".into()),
+            acoustid_api_key: Some("secret-two".into()),
+            llm_base_url: Some("https://user:password@example.test?key=secret-three".into()),
+            llm_model: Some("runtime-model".into()),
+            ..AutoTagConfig::default()
+        };
+        let evidence = diagnostic_configuration(&config);
+        let text = evidence.to_string();
+        for secret in [
+            "secret-one",
+            "secret-two",
+            "password",
+            "secret-three",
+            "example.test",
+        ] {
+            assert!(!text.contains(secret));
+        }
+        assert_eq!(evidence["llmModel"], "runtime-model");
+        let mut rotated = config.clone();
+        rotated.llm_api_key = Some("rotated-key".into());
+        assert_eq!(
+            diagnostic_configuration(&rotated),
+            evidence,
+            "key rotation must not create a secret-derived fingerprint"
+        );
+        rotated.llm_model = Some("other-model".into());
+        assert_ne!(
+            diagnostic_configuration(&rotated)["fingerprint"],
+            evidence["fingerprint"]
+        );
+    }
+
+    #[test]
+    fn album_coverage_distinguishes_a_verified_subset_from_a_complete_album() {
+        let request = LookupRequest {
+            tracks: vec![TrackCandidate::default()],
+            ..LookupRequest::default()
+        };
+        let mut candidate = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            tracks: vec![TrackCandidate {
+                title: Some("Song".into()),
+                track_total: Some(12),
+                ..TrackCandidate::default()
+            }],
+            ..AlbumCandidate::default()
+        };
+        let coverage = album_coverage(&request, Some(&candidate), 1);
+        assert_eq!(coverage["localFiles"], 1);
+        assert_eq!(coverage["releaseTracks"], 12);
+        assert_eq!(coverage["completeAlbum"], false);
+        candidate.tracks[0].track_total = Some(1);
+        assert_eq!(
+            album_coverage(&request, Some(&candidate), 1)["completeAlbum"],
+            true
+        );
+    }
+
     fn acoustid_release_server() -> (String, thread::JoinHandle<()>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -4544,7 +5380,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn read_http_request(stream: &mut std::net::TcpStream) -> String {
+    pub(super) fn read_http_request(stream: &mut std::net::TcpStream) -> String {
         let mut request = Vec::new();
         let mut buffer = [0_u8; 4096];
         let mut expected_body_size = None;
@@ -4576,7 +5412,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn write_http_response(stream: &mut std::net::TcpStream, status: &str, body: &str) {
+    pub(super) fn write_http_response(stream: &mut std::net::TcpStream, status: &str, body: &str) {
         write!(
             stream,
             "HTTP/1.1 {status}\r\nContent-Length: {}\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n{body}",
@@ -4586,7 +5422,7 @@ mod tests {
     }
 
     #[cfg(unix)]
-    fn fake_fpcalc(path: &Path) {
+    pub(super) fn fake_fpcalc(path: &Path) {
         fs::write(
             path,
             "#!/bin/sh\nprintf '%s' '{\"duration\":1,\"fingerprint\":\"fixture-fingerprint\"}'\n",
@@ -5020,6 +5856,7 @@ mod tests {
                 diagnostic: None,
                 retry_count: 0,
                 retry_after_seconds: None,
+                retryable: false,
             };
             assert!(
                 !providers_confirmed_no_match(&no_match, Some(&acoustid)),
@@ -5032,6 +5869,7 @@ mod tests {
             diagnostic: None,
             retry_count: 0,
             retry_after_seconds: None,
+            retryable: false,
         };
         assert!(providers_confirmed_no_match(
             &no_match,
@@ -7810,6 +8648,7 @@ mod tests {
                 diagnostic: None,
                 retry_count: 0,
                 retry_after_seconds: None,
+                retryable: false,
             }],
         );
 
@@ -7920,6 +8759,7 @@ mod tests {
             diagnostic: Some("network failure".into()),
             retry_count: 0,
             retry_after_seconds: None,
+            retryable: false,
         };
 
         assert!(matches!(
@@ -7940,6 +8780,7 @@ mod tests {
                     diagnostic: Some("catalog budget reached".into()),
                     retry_count: 0,
                     retry_after_seconds: None,
+                    retryable: false,
                 }],
             ),
             ProviderAuthorityDecision::Incomplete
@@ -7954,6 +8795,7 @@ mod tests {
                     diagnostic: None,
                     retry_count: 0,
                     retry_after_seconds: None,
+                    retryable: false,
                 }],
             ),
             ProviderAuthorityDecision::Providerless
@@ -8136,3 +8978,7 @@ mod tests {
         assert!(!malformed_failure.detail.contains("model-private-output"));
     }
 }
+
+#[cfg(test)]
+#[path = "auto_tag_collections_tests.rs"]
+mod collection_tests;

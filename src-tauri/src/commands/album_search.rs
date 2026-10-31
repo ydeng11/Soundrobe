@@ -805,6 +805,7 @@ pub async fn album_preview_release_match(
     // transport type, so convert at the boundary instead of maintaining a
     // second matching algorithm.
     let matcher_track = |track: &TrackCandidate| crate::commands::auto_tag::TrackCandidate {
+        source: None,
         title: track.title.clone(),
         match_titles: track.match_titles.clone(),
         artist: track.artist.clone(),

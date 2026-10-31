@@ -239,6 +239,27 @@ struct ServerState {
 fn release_is_healthy(path: &Path) -> Result<bool, String> {
     let album = read_album(path).map_err(|error| error.to_string())?;
     let tracks = album.tracks;
+    let mut discs = HashMap::<u32, (u32, HashSet<u32>)>::new();
+    for track in &tracks {
+        let (Some(number), Some(total)) = (track.track_number, track.track_total) else {
+            return Ok(false);
+        };
+        if number == 0 || total == 0 || number > total {
+            return Ok(false);
+        }
+        let entry = discs
+            .entry(track.disc_number.unwrap_or(1))
+            .or_insert_with(|| (total, HashSet::new()));
+        if entry.0 != total || !entry.1.insert(number) {
+            return Ok(false);
+        }
+    }
+    if discs
+        .values()
+        .any(|(total, numbers)| *total as usize != numbers.len())
+    {
+        return Ok(false);
+    }
     Ok(!tracks.is_empty()
         && tracks.iter().all(|track| {
             let has_identity = track
@@ -455,6 +476,18 @@ fn start_background_batch(
             return;
         };
 
+        if let Err(error) = worker.bind_run(&albums, &run_id) {
+            tasks.finish(
+                &task_id_for_work,
+                TaskStatus::Failed,
+                format!("worker run lineage checkpoint failed: {error}"),
+                serde_json::json!({"error":error}),
+            );
+            let _ =
+                background.finish_run_checked(&run_id, RunStatus::Failed, 0, 0, &error, Vec::new());
+            operations.finish(token);
+            return;
+        }
         let config_values = config.raw();
         let alias_file = config.alias_file_path();
         let mut tagged = 0u64;
@@ -465,6 +498,7 @@ fn start_background_batch(
         // database row per file so an operator can see which file failed and
         // why after the fact; the run history is where that lives here.
         let mut items = Vec::new();
+        let run_ai_blocked = Arc::new(AtomicBool::new(false));
 
         for (index, album) in albums.iter().enumerate() {
             if cancelled.load(Ordering::Acquire) {
@@ -480,6 +514,7 @@ fn start_background_batch(
                 failed += 1;
                 last_message = format!("worker checkpoint failed: {error}");
                 items.push(ReleaseOutcome {
+                    evidence: None,
                     path: key.clone(),
                     status: ReleaseHealth::Failed,
                     reason: Some(last_message.clone()),
@@ -509,33 +544,130 @@ fn start_background_batch(
             let review_worker = worker.clone();
             let review_album = album.clone();
             let review_run_id = run_id.clone();
-            let result = resolve_and_apply_album_with_review_intent(
-                album,
-                &config_values,
-                AutoTagServices {
-                    providers: providers.as_ref(),
-                    cache: cache.as_ref(),
-                    queue: &queue,
-                    alias_file: &alias_file,
-                },
-                &cancelled,
-                Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
-                move |_candidate| {
-                    review_worker
-                        .record_review_flag(&review_album, "ai_fallback", &review_run_id)
-                        .map_err(|error| {
-                            ApiError::Message(format!(
-                                "AI review checkpoint failed before tag writes: {error}"
-                            ))
-                        })
-                },
-                move |_step, message| {
-                    progress_tasks.update(&progress_task_id, index as u64, message);
-                },
-                |_kind, _message, _data| {},
-            )
-            .await;
+            let origin = match worker.retry_origin(album) {
+                Ok(origin) => origin.unwrap_or_else(|| run_id.clone()),
+                Err(error) => {
+                    failed += 1;
+                    last_message = error;
+                    break;
+                }
+            };
+            match worker.ai_circuit_open(&origin) {
+                Ok(true) => run_ai_blocked.store(true, Ordering::Release),
+                Ok(false) => {}
+                Err(error) => {
+                    failed += 1;
+                    last_message = error;
+                    break;
+                }
+            }
+            let mut reports = Vec::new();
+            let mut report_checkpoint_error = None;
+            let checkpoint_worker = worker.clone();
+            let checkpoint_album = album.clone();
+            let checkpoint_run = run_id.clone();
+            let checkpoint_origin = origin.clone();
+            let checkpoint: crate::commands::auto_tag::EvidenceCheckpoint =
+                Arc::new(move |evidence| {
+                    if evidence["aiCircuitOpen"] == true {
+                        checkpoint_worker.open_ai_circuit(&checkpoint_origin)?;
+                        checkpoint_worker.open_ai_circuit(&checkpoint_run)?;
+                    }
+                    checkpoint_worker.checkpoint_evidence(
+                        &checkpoint_album,
+                        &checkpoint_run,
+                        &evidence,
+                    )
+                });
+            let result = crate::commands::auto_tag::EVIDENCE_CHECKPOINT
+                .scope(
+                    checkpoint,
+                    crate::commands::auto_tag::AI_RUN_CIRCUIT.scope(
+                        Arc::clone(&run_ai_blocked),
+                        resolve_and_apply_album_with_review_intent(
+                            album,
+                            &config_values,
+                            AutoTagServices {
+                                providers: providers.as_ref(),
+                                cache: cache.as_ref(),
+                                queue: &queue,
+                                alias_file: &alias_file,
+                            },
+                            &cancelled,
+                            Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+                            move |candidate| {
+                                review_worker
+                                    .record_review_flag(
+                                        &review_album,
+                                        if candidate.source
+                                            == crate::commands::auto_tag::LookupSource::Llm
+                                        {
+                                            "ai_fallback"
+                                        } else {
+                                            "recording_identity"
+                                        },
+                                        &review_run_id,
+                                    )
+                                    .map_err(|error| {
+                                        ApiError::Message(format!(
+                                            "Review checkpoint failed before tag writes: {error}"
+                                        ))
+                                    })
+                            },
+                            move |_step, message| {
+                                progress_tasks.update(&progress_task_id, index as u64, message);
+                            },
+                            |kind, message, data| {
+                                reports.push(
+                                    serde_json::json!({"type":kind,"message":message,"data":data}),
+                                );
+                                if let Err(error) = worker.checkpoint_evidence(
+                                    album,
+                                    &run_id,
+                                    &serde_json::json!({"reports":reports}),
+                                ) {
+                                    report_checkpoint_error = Some(error);
+                                }
+                                let _ = events.publish(
+                                    "auto-tag:event",
+                                    &auto_tag_event(
+                                        &task_id_for_work,
+                                        kind,
+                                        message,
+                                        index as u64,
+                                        data,
+                                    ),
+                                );
+                            },
+                        ),
+                    ),
+                )
+                .await;
+            if run_ai_blocked.load(Ordering::Acquire) {
+                if let Err(error) = worker.open_ai_circuit(&origin) {
+                    report_checkpoint_error = Some(error);
+                }
+                if let Err(error) = worker.open_ai_circuit(&run_id) {
+                    report_checkpoint_error = Some(error);
+                }
+            }
 
+            let mut evidence = match &result {
+                Ok(result) => serde_json::to_value(result).unwrap_or_default(),
+                Err(error) => serde_json::json!({"error":error.to_string(), "reports":reports}),
+            };
+            let result = match report_checkpoint_error.map(Err).unwrap_or_else(|| {
+                worker.checkpoint_evidence(album, &run_id, &evidence)?;
+                evidence = worker
+                    .evidence(album, &run_id)?
+                    .ok_or("diagnostic checkpoint missing after persistence")?;
+                Ok(())
+            }) {
+                Ok(()) => result,
+                Err(error) => Err(ApiError::Message(format!(
+                    "diagnostic checkpoint failed: {error}"
+                ))),
+            };
             let mut release_health = match &result {
                 Ok(result) if result.outcome == AutoTagOutcome::Applied => {
                     tagged += 1;
@@ -572,18 +704,53 @@ fn start_background_batch(
                     ReleaseHealth::NeedsTagging => "pending",
                     ReleaseHealth::Unreadable | ReleaseHealth::Failed => "failed",
                 };
-                if let Err(error) = worker.mark_finished(
-                    album,
-                    worker_status,
-                    reason.as_deref(),
-                    authority.as_deref(),
-                ) {
-                    failed += 1;
-                    last_message = format!("worker completion checkpoint failed: {error}");
-                    release_health = ReleaseHealth::Failed;
+                let retryable = result.as_ref().is_ok_and(|result| {
+                    result.outcome == AutoTagOutcome::NeedsReview
+                        && result
+                            .provider_attempts
+                            .iter()
+                            .any(|attempt| attempt.retryable)
+                });
+                let completion = if retryable {
+                    let retry_after = result
+                        .as_ref()
+                        .unwrap()
+                        .provider_attempts
+                        .iter()
+                        .filter(|attempt| attempt.retryable)
+                        .filter_map(|attempt| attempt.retry_after_seconds)
+                        .max();
+                    worker.finish_deferred_with_evidence(
+                        album,
+                        &run_id,
+                        &origin,
+                        retry_after,
+                        authority.as_deref(),
+                        &evidence,
+                    )
+                } else {
+                    worker
+                        .finish_with_evidence(
+                            album,
+                            &run_id,
+                            worker_status,
+                            reason.as_deref(),
+                            authority.as_deref(),
+                            &evidence,
+                        )
+                        .map(|()| evidence.clone())
+                };
+                match completion {
+                    Ok(saved) => evidence = saved,
+                    Err(error) => {
+                        failed += 1;
+                        last_message = format!("worker completion checkpoint failed: {error}");
+                        release_health = ReleaseHealth::Failed;
+                    }
                 }
             }
             items.push(ReleaseOutcome {
+                evidence: Some(evidence),
                 path: key.clone(),
                 status: release_health,
                 reason,
@@ -605,7 +772,7 @@ fn start_background_batch(
             last_message = error.clone();
         }
 
-        let (status, message) = if let Some(error) = cancellation_error {
+        let (status, mut message) = if let Some(error) = cancellation_error {
             (RunStatus::Failed, error)
         } else if cancelled.load(Ordering::Acquire) {
             (RunStatus::Cancelled, "Cancelled".to_string())
@@ -625,6 +792,9 @@ fn start_background_batch(
             (RunStatus::Completed, format!("Tagged {tagged} of {total}"))
         };
 
+        if run_ai_blocked.load(Ordering::Acquire) {
+            message.push_str("; AI billing unavailable (HTTP 402): check service credits before an explicit retry");
+        }
         let task_status = match status {
             RunStatus::Cancelled => TaskStatus::Cancelled,
             RunStatus::Failed => TaskStatus::Failed,
@@ -1456,9 +1626,40 @@ const MAX_LOG_LINES: usize = 2000;
 
 /// Settings, schedule state, and recent runs in one payload — what the
 /// Monitoring and Settings views both need to render.
+fn background_runs_with_evidence(state: &ServerState) -> Result<Vec<BackgroundRun>, String> {
+    let mut runs = state.background.runs();
+    for run in &mut runs {
+        for (path, evidence) in state.worker.run_evidence(&run.id)? {
+            if let Some(item) = run.items.iter_mut().find(|item| item.path == path) {
+                if item.evidence.is_none() {
+                    item.evidence = Some(evidence);
+                }
+            } else if run.items.len() < 500 {
+                run.items.push(ReleaseOutcome {
+                    path,
+                    status: if run.status == RunStatus::Running {
+                        ReleaseHealth::Tagging
+                    } else {
+                        ReleaseHealth::NeedsReview
+                    },
+                    reason: Some("interrupted_checkpoint".into()),
+                    authority: None,
+                    evidence: Some(evidence),
+                });
+            } else {
+                run.items_truncated = true;
+            }
+        }
+    }
+    Ok(runs)
+}
+
 async fn background_status(state: &ServerState) -> serde_json::Value {
     let settings = state.background.settings();
     let now = wall_clock(local_now());
+    let runs = background_runs_with_evidence(state);
+    let diagnostics_error = runs.as_ref().err().cloned();
+    let runs = runs.unwrap_or_else(|_| state.background.runs());
     serde_json::json!({
         "enabled": settings.enabled,
         "schedule": settings.schedule,
@@ -1476,7 +1677,8 @@ async fn background_status(state: &ServerState) -> serde_json::Value {
             .into_iter()
             .filter(|task| task.status == TaskStatus::Running)
             .collect::<Vec<_>>(),
-        "recentRuns": state.background.runs(),
+        "recentRuns": runs,
+        "diagnosticsError": diagnostics_error,
     })
 }
 
@@ -1765,12 +1967,20 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
             },
             &cancelled,
             Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
-            move |_candidate| {
+            move |candidate| {
                 review_worker
-                    .record_review_flag(&review_album, "ai_fallback", &review_run_id)
+                    .record_review_flag(
+                        &review_album,
+                        if candidate.source == crate::commands::auto_tag::LookupSource::Llm {
+                            "ai_fallback"
+                        } else {
+                            "recording_identity"
+                        },
+                        &review_run_id,
+                    )
                     .map_err(|error| {
                         ApiError::Message(format!(
-                            "AI review checkpoint failed before tag writes: {error}"
+                            "Review checkpoint failed before tag writes: {error}"
                         ))
                     })
             },
@@ -1795,6 +2005,18 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
         )
         .await;
 
+        let result = result.and_then(|result| {
+            worker
+                .record_evidence(
+                    &album_path,
+                    &task_id_for_work,
+                    &serde_json::to_value(&result).unwrap_or_default(),
+                )
+                .map_err(|error| {
+                    ApiError::Message(format!("diagnostic checkpoint failed: {error}"))
+                })?;
+            Ok(result)
+        });
         match result {
             Ok(result) if result.outcome == AutoTagOutcome::Applied => {
                 let candidate = result
@@ -2811,7 +3033,10 @@ async fn command(
                 Err(error) => error_response(StatusCode::BAD_REQUEST, &error),
             }
         }
-        "background:list-runs" => Json(state.background.runs()).into_response(),
+        "background:list-runs" => match background_runs_with_evidence(&state) {
+            Ok(runs) => Json(runs).into_response(),
+            Err(error) => error_response(StatusCode::INTERNAL_SERVER_ERROR, error),
+        },
         "background:run-now" => match start_background_run(&state, RunTrigger::Manual) {
             Ok(task_id) => Json(serde_json::json!({ "taskId": task_id })).into_response(),
             Err(error) => error_response(StatusCode::CONFLICT, &error),
@@ -6828,6 +7053,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn populated_tags_and_a_release_id_do_not_make_a_partial_album_healthy() {
+        let mut config = isolated_config("partial-health");
+        config.library_root_dir = config.data_dir.join("libraries");
+        let album = config.library_root_dir.join("Library/Partial");
+        fs::create_dir_all(&album).unwrap();
+        let file = album.join("01.mp3");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &file,
+        )
+        .unwrap();
+        let queue = WriteQueue::default();
+        let patch = serde_json::from_value(json!({"title":"Song", "artist":"Singer", "album":"Album", "musicbrainzAlbumId":"release", "trackNumber":1, "trackTotal":12})).unwrap();
+        crate::commands::mutations::write_track_queued(&queue, file.clone(), patch)
+            .await
+            .unwrap();
+        assert!(
+            !release_is_healthy(&album).unwrap(),
+            "one of twelve recordings remains a partial collection even after successful tags"
+        );
+        let patch = serde_json::from_value(json!({"trackTotal":1})).unwrap();
+        crate::commands::mutations::write_track_queued(&queue, file, patch)
+            .await
+            .unwrap();
+        assert!(
+            release_is_healthy(&album).unwrap(),
+            "single-track complete fixture: {:?}",
+            read_album(&album).unwrap().tracks
+        );
+        fs::remove_dir_all(config.library_root_dir).unwrap();
+    }
+
+    #[tokio::test]
     async fn monitoring_releases_restore_provider_deferrals_from_worker_state() {
         let config = isolated_config("provider-review-state");
         let album = config.library_root_dir.join("Library/Artist/Album");
@@ -6997,24 +7256,28 @@ mod tests {
             task_id: None,
             items: vec![
                 ReleaseOutcome {
+                    evidence: None,
                     path: present.to_string_lossy().into_owned(),
                     status: ReleaseHealth::Failed,
                     reason: Some("permission denied".to_string()),
                     authority: None,
                 },
                 ReleaseOutcome {
+                    evidence: None,
                     path: gone.to_string_lossy().into_owned(),
                     status: ReleaseHealth::Failed,
                     reason: Some("permission denied".to_string()),
                     authority: None,
                 },
                 ReleaseOutcome {
+                    evidence: None,
                     path: review.to_string_lossy().into_owned(),
                     status: ReleaseHealth::NeedsReview,
                     reason: Some("no_authoritative_match".to_string()),
                     authority: None,
                 },
                 ReleaseOutcome {
+                    evidence: None,
                     path: root.join("Album D").to_string_lossy().into_owned(),
                     status: ReleaseHealth::Healthy,
                     reason: None,

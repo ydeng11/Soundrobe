@@ -1,0 +1,4704 @@
+{
+  "schemaVersion": 1,
+  "note": "Post-run local metadata observations; structural safety fixture, not catalog identity ground truth. No absolute source paths.",
+  "albums": [
+    {
+      "id": "album-000",
+      "folder": "4 (Deluxe Edition)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-1+1.flac",
+          "tags": {
+            "title": "1+1",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Best Thing I Never Had.flac",
+          "tags": {
+            "title": "I Miss You",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "3",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Countdown.flac",
+          "tags": {
+            "title": "Best Thing I Never Had",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Dance For You.flac",
+          "tags": {
+            "title": "Party",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-End Of Time.flac",
+          "tags": {
+            "title": "Rather Die Young",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Care.mp3",
+          "tags": {
+            "title": "Start Over",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "7/17",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Miss You.flac",
+          "tags": {
+            "title": "Love On Top",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Was Here.flac",
+          "tags": {
+            "title": "Countdown",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Lay Up Under Me.flac",
+          "tags": {
+            "title": "End of Time",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "10",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Love On Top.flac",
+          "tags": {
+            "title": "I Was Here",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Rather Die Young.mp3",
+          "tags": {
+            "title": "Run the World (Girls)",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "12/17",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Run the World (Girls).flac",
+          "tags": {
+            "title": "Dance for You",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "13",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Schoolin&#39; Life.flac",
+          "tags": {
+            "title": "Lay Up Under Me",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "14",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Schoolin' Life.flac",
+          "tags": {
+            "title": "Schoolin' Life",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Start Over.flac",
+          "tags": {
+            "title": "Schoolin' Life",
+            "artist": "Beyoncé",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_André 3000-Party.mp3",
+          "tags": {
+            "title": "Party",
+            "artist": "Beyoncé & André 3000",
+            "album": "4",
+            "album_artist": "Beyoncé",
+            "track": "17/17",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-001",
+      "folder": "A Gift From A Virgo",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Cater 2 U.flac",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Cater 2 U"
+          }
+        },
+        {
+          "file": "Beyoncé-Flaws and All.mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Flaws and All"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo.mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Halo"
+          }
+        },
+        {
+          "file": "Beyoncé-Hello.mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Hello"
+          }
+        },
+        {
+          "file": "Beyoncé-Satellites.flac",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Satellites"
+          }
+        },
+        {
+          "file": "Beyoncé-Still In Love (Kissing You).mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Still In Love (Kissing You)"
+          }
+        },
+        {
+          "file": "Beyoncé-T-Shirt.mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "T-Shirt"
+          }
+        },
+        {
+          "file": "Beyoncé-That&#39;s Why You&#39;re Beautiful.flac",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "That's Why You're Beautiful"
+          }
+        },
+        {
+          "file": "Beyoncé-Until The End Of Time.mp3",
+          "tags": {
+            "album": "A Gift From A Virgo",
+            "artist": "Beyoncé",
+            "title": "Until The End Of Time"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-002",
+      "folder": "Above And Beyoncé Dance Mixes",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Broken-Hearted Girl(Catalyst Remix).mp3",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Broken-Hearted Girl(Catalyst Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Diva(Karmatronic Club Remix).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Diva(Karmatronic Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Ego(OK DAC Club Remix).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Ego(OK DAC Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Dave Audé Club Remix).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Dave Audé Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were a Boy(Maurice Joshua Mojo UK Remix - Main).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "If I Were a Boy(Maurice Joshua Mojo UK Remix - Main)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It).mp3",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams(Harlan Pepper _ AG III Remix).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé",
+            "title": "Sweet Dreams(Harlan Pepper & AG III Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé_Kanye West-Ego(Remix).flac",
+          "tags": {
+            "album": "Above And Beyoncé Dance Mixes",
+            "artist": "Beyoncé&Kanye West",
+            "title": "Ego(Remix)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-003",
+      "folder": "B'Day (Deluxe Edition)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Beautiful Liar (Bello Embustero).flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar (Bello Embustero)"
+          }
+        },
+        {
+          "file": "Beyoncé-Déjà-vu.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Déjà-vu"
+          }
+        },
+        {
+          "file": "Beyoncé-Encore for the Fans.mp3",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Encore for the Fans"
+          }
+        },
+        {
+          "file": "Beyoncé-Flaws and All.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Flaws and All"
+          }
+        },
+        {
+          "file": "Beyoncé-Freakum Dress.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Freakum Dress"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied(Extended Mix).flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Get Me Bodied(Extended Mix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Get Me Bodied"
+          }
+        },
+        {
+          "file": "Beyoncé-If.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "If"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable(Nortena Remix).flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Irreplaceable(Nortena Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Irreplaceable"
+          }
+        },
+        {
+          "file": "Beyoncé-Kitty Kat.mp3",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Kitty Kat"
+          }
+        },
+        {
+          "file": "Beyoncé-Listen (Oye).flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Listen (Oye)"
+          }
+        },
+        {
+          "file": "Beyoncé-Listen.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Listen"
+          }
+        },
+        {
+          "file": "Beyoncé-Lost Yo Mind.mp3",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Lost Yo Mind"
+          }
+        },
+        {
+          "file": "Beyoncé-Resentment.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Resentment"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring the Alarm.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Ring the Alarm"
+          }
+        },
+        {
+          "file": "Beyoncé-Suga Mama.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Suga Mama"
+          }
+        },
+        {
+          "file": "Beyoncé-Welcome to Hollywood.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "Welcome to Hollywood"
+          }
+        },
+        {
+          "file": "Beyoncé-World Wide Woman.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé",
+            "title": "World Wide Woman"
+          }
+        },
+        {
+          "file": "Beyoncé_Alejandro Fernandez-Amor Gitano.mp3",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé&Alejandro Fernandez",
+            "title": "Amor Gitano"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Upgrade U.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé&Jay-Z",
+            "title": "Upgrade U"
+          }
+        },
+        {
+          "file": "Beyoncé_Shakira-Beautiful Liar(Remix).flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé&Shakira",
+            "title": "Beautiful Liar(Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé_Shakira-Beautiful Liar.flac",
+          "tags": {
+            "album": "B'Day (Deluxe Edition)",
+            "artist": "Beyoncé&Shakira",
+            "title": "Beautiful Liar"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-004",
+      "folder": "B'day",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Beautiful Liar.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar"
+          }
+        },
+        {
+          "file": "Beyoncé-Deja Vu.flac",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Deja Vu"
+          }
+        },
+        {
+          "file": "Beyoncé-Encore For The Fans.mp3",
+          "tags": {
+            "title": "Encore For The Fans",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Flaws And All.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Flaws And All"
+          }
+        },
+        {
+          "file": "Beyoncé-Freakum Dress(Album Version).mp3",
+          "tags": {
+            "title": "Freakum Dress(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Freakum Dress.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Freakum Dress"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied(Album Version).mp3",
+          "tags": {
+            "title": "Get Me Bodied(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied(Extended Mix).mp3",
+          "tags": {
+            "title": "Get Me Bodied(Extended Mix)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Green Light(Album Version).mp3",
+          "tags": {
+            "title": "Green Light(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-If.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "If"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable.flac",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Irreplaceable"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable.mp3",
+          "tags": {
+            "album": "B'Day",
+            "artist": "Beyoncé",
+            "title": "Irreplaceable"
+          }
+        },
+        {
+          "file": "Beyoncé-Kitty Kat(Album Version).mp3",
+          "tags": {
+            "title": "Kitty Kat(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Kitty Kat.flac",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Kitty Kat"
+          }
+        },
+        {
+          "file": "Beyoncé-Listen.mp3",
+          "tags": {
+            "album": "B'Day",
+            "artist": "Beyoncé",
+            "title": "Listen"
+          }
+        },
+        {
+          "file": "Beyoncé-Resentment(Album Version).mp3",
+          "tags": {
+            "title": "Resentment(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Resentment.flac",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Resentment"
+          }
+        },
+        {
+          "file": "Beyoncé-Resentment.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Resentment"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring The Alarm(Album Version).mp3",
+          "tags": {
+            "title": "Ring The Alarm(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring the Alarm.mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Ring the Alarm"
+          }
+        },
+        {
+          "file": "Beyoncé-Still In Love (Kissing You).mp3",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Still In Love (Kissing You)"
+          }
+        },
+        {
+          "file": "Beyoncé-Suga Mama(Album Version).mp3",
+          "tags": {
+            "title": "Suga Mama(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Suga Mama.flac",
+          "tags": {
+            "album": "B'day",
+            "artist": "Beyoncé",
+            "title": "Suga Mama"
+          }
+        },
+        {
+          "file": "Beyoncé_Bun B_Slim Thug-Check On It (feat. Bun B and Slim Thug).mp3",
+          "tags": {
+            "title": "Check On It (feat. Bun B and Slim Thug)",
+            "album": "B'Day",
+            "artist": "Beyoncé&Bun B&Slim Thug"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Deja Vu(Album Version).mp3",
+          "tags": {
+            "album": "B'Day",
+            "artist": "Beyoncé&Jay-Z",
+            "title": "Deja Vu(Album Version)"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Upgrade U(Album Version).mp3",
+          "tags": {
+            "title": "Upgrade U(Album Version)",
+            "album": "B'Day",
+            "artist": "Beyoncé&Jay-Z"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-005",
+      "folder": "Beautiful Liar",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Beautiful Liar (Bello Embustero) (Spanish Version).flac",
+          "tags": {
+            "album": "Beautiful Liar",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar (Bello Embustero) (Spanish Version)"
+          }
+        },
+        {
+          "file": "Beyoncé-Beautiful Liar (Instrumental).mp3",
+          "tags": {
+            "album": "Beautiful Liar",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Beautiful Liar (Main Version 、 Album Version).flac",
+          "tags": {
+            "album": "Beautiful Liar",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar (Main Version / Album Version)"
+          }
+        },
+        {
+          "file": "Beyoncé-Beautiful Liar.flac",
+          "tags": {
+            "album": "Beautiful Liar",
+            "artist": "Beyoncé",
+            "title": "Beautiful Liar"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-006",
+      "folder": "Best Thing I Never Had",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Best Thing I Never Had(Billionaire Remix).mp3",
+          "tags": {
+            "title": "Best Thing I Never Had (Billionaire Remix)",
+            "artist": "Beyoncé",
+            "album": "Best Thing I Never Had",
+            "album_artist": "Beyoncé",
+            "track": "1/5",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Best Thing I Never Had(Gareth Wyn Remix).mp3",
+          "tags": {
+            "title": "Best Thing I Never Had (Gareth Wyn Remix)",
+            "artist": "Beyoncé",
+            "album": "Best Thing I Never Had",
+            "album_artist": "Beyoncé",
+            "track": "2/5",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Best Thing I Never Had(Moguai Remix).mp3",
+          "tags": {
+            "title": "Best Thing I Never Had (Moguai Remix)",
+            "artist": "Beyoncé",
+            "album": "Best Thing I Never Had",
+            "album_artist": "Beyoncé",
+            "track": "3/5",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Best Thing I Never Had(Olli Collins _ Fred Portelli Remix).mp3",
+          "tags": {
+            "title": "Best Thing I Never Had (Olli Collins & Fred Portelli Remix)",
+            "artist": "Beyoncé",
+            "album": "Best Thing I Never Had",
+            "album_artist": "Beyoncé",
+            "track": "4/5",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Best Thing I Never Had.mp3",
+          "tags": {
+            "title": "Best Thing I Never Had",
+            "artist": "Beyoncé",
+            "album": "Best Thing I Never Had",
+            "album_artist": "Beyoncé",
+            "track": "5/5",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-007",
+      "folder": "Beyoncé",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Blow.flac",
+          "tags": {
+            "title": "Pretty Hurts",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Haunted.flac",
+          "tags": {
+            "title": "Haunted",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "2",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Haunted.mp3",
+          "tags": {
+            "title": "Drunk in Love",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "3/16",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Heaven.flac",
+          "tags": {
+            "title": "Blow",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Heaven.mp3",
+          "tags": {
+            "title": "No Angel",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "5/16",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Jealous.flac",
+          "tags": {
+            "title": "Partition",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-No Angel.flac",
+          "tags": {
+            "title": "Jealous",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "7",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Partition.flac",
+          "tags": {
+            "title": "Rocket",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Pretty Hurts.flac",
+          "tags": {
+            "title": "Mine",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Rocket.flac",
+          "tags": {
+            "title": "XO",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "10",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-XO.flac",
+          "tags": {
+            "title": "***Flawless",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Blue Ivy-Blue.flac",
+          "tags": {
+            "title": "Superpower",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "12",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Chimamanda Ngozi Adiche-...Flawless.flac",
+          "tags": {
+            "title": "Heaven",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "13",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Drake-Mine.flac",
+          "tags": {
+            "title": "Blue",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "14",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Frank Ocean-Superpower.flac",
+          "tags": {
+            "title": "Haunted",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Drunk In Love.flac",
+          "tags": {
+            "title": "Heaven",
+            "artist": "Beyoncé",
+            "album": "BEYONCÉ",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-008",
+      "folder": "Check On It",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_Bun B_Slim Thug-Check On It(Bama Boyz Remix featuring Bun B and Slim Thug).mp3",
+          "tags": {
+            "title": "Check On It(Bama Boyz Remix featuring Bun B and Slim Thug)",
+            "album": "Check On It",
+            "artist": "Beyoncé&Bun B&Slim Thug"
+          }
+        },
+        {
+          "file": "Beyoncé_Bun B_Slim Thug-Check On It(feat. Bun B and Slim Thug).flac",
+          "tags": {
+            "album": "Check On It",
+            "artist": "Beyoncé&Bun B&Slim Thug",
+            "title": "Check On It(feat. Bun B and Slim Thug)"
+          }
+        },
+        {
+          "file": "Beyoncé_Slim Thug-Check On It(Junior Vasquez Club Mix).mp3",
+          "tags": {
+            "title": "Check On It(Junior Vasquez Club Mix)",
+            "album": "Check On It",
+            "artist": "Beyoncé&Slim Thug"
+          }
+        },
+        {
+          "file": "Beyoncé_Slim Thug-Check On It(King Klub Mix).mp3",
+          "tags": {
+            "title": "Check On It(King Klub Mix)",
+            "album": "Check On It",
+            "artist": "Beyoncé&Slim Thug"
+          }
+        },
+        {
+          "file": "Beyoncé_Slim Thug-Check On It(Maurice&#39;s Nu Soul Mix).mp3",
+          "tags": {
+            "title": "Check On It(Maurice's Nu Soul Mix)",
+            "album": "Check On It",
+            "artist": "Beyoncé&Slim Thug"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-009",
+      "folder": "Crazy In Love",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Beyoncé-Crazy In Love(No Rap Version).mp3",
+          "tags": {
+            "title": "Crazy In Love(Single Version)",
+            "artist": "Beyoncé",
+            "album": "Crazy In Love",
+            "album_artist": "Beyoncé",
+            "track": "2/2"
+          }
+        },
+        {
+          "file": "Beyoncé-Crazy In Love.flac",
+          "tags": {
+            "title": "Crazy In Love",
+            "artist": "Beyoncé & Jay-Z",
+            "album": "Crazy In Love",
+            "album_artist": "Beyoncé",
+            "track": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-010",
+      "folder": "DELRESTO (ECHOES)",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Beyoncé_Travis Scott-DELRESTO (ECHOES).mp3",
+          "tags": {
+            "title": "DELRESTO (ECHOES)",
+            "artist": "Beyoncé & Travis Scott",
+            "album": "Delresto (Echoes)",
+            "album_artist": "Beyoncé & Travis Scott",
+            "track": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-011",
+      "folder": "Daddy Lessons (Remix)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_Dixie Chicks-Daddy Lessons.flac",
+          "tags": {
+            "album": "Daddy Lessons (Remix)",
+            "artist": "Beyoncé&Dixie Chicks",
+            "title": "Daddy Lessons"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-012",
+      "folder": "Dangerously In Love",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Be With You(Album Version).flac",
+          "tags": {
+            "title": "Be with You",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Beyoncé Interlude(Album Version).flac",
+          "tags": {
+            "title": "Beyoncé Interlude",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "2",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Daddy(Album Version).flac",
+          "tags": {
+            "title": "Daddy",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "3",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Dangerously In Love.flac",
+          "tags": {
+            "title": "Dangerously in Love 2",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Gift from Virgo(Album Version).flac",
+          "tags": {
+            "title": "Gift from Virgo",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Me， Myself and I.flac",
+          "tags": {
+            "title": "Me, Myself and I",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Naughty Girl.flac",
+          "tags": {
+            "title": "Naughty Girl",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "7",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Speechless(Album Version).flac",
+          "tags": {
+            "title": "Speechless",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Yes(Album Version).flac",
+          "tags": {
+            "title": "Yes",
+            "artist": "Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Big Boi_Sleepy Brown-Hip Hop Star(Album Version).flac",
+          "tags": {
+            "title": "Hip Hop Star",
+            "artist": "Beyoncé feat. Big Boi & Sleepy Brown",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "10",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Crazy In Love.flac",
+          "tags": {
+            "title": "Crazy in Love",
+            "artist": "Beyoncé feat. Jay-Z",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-That&#39;s How You Like It(Album Version).flac",
+          "tags": {
+            "title": "That's How You Like It",
+            "artist": "Beyoncé feat. Jay-Z",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "12",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-That's How You Like It(Album Version).flac",
+          "tags": {
+            "title": "That's How You Like It",
+            "artist": "Beyoncé feat. Jay-Z",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "13",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Missy Elliott-Signs(Album Version).flac",
+          "tags": {
+            "title": "Signs",
+            "artist": "Beyoncé feat. Missy Elliott",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "14",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Sean P-Baby Boy.flac",
+          "tags": {
+            "title": "Baby Boy",
+            "artist": "Beyoncé feat. Sean Paul",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Luther Vandross_Beyoncé-The Closer I Get to You.flac",
+          "tags": {
+            "title": "The Closer I Get to You",
+            "artist": "Luther Vandross & Beyoncé",
+            "album": "Dangerously in Love",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-013",
+      "folder": "Diva",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Diva(Maurice Joshua Mojo Remix).mp3",
+          "tags": {
+            "title": "Diva (Maurice Joshua Mojo Remix)",
+            "artist": "Beyoncé",
+            "album": "Diva",
+            "album_artist": "Beyoncé",
+            "track": "1/1",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-014",
+      "folder": "Drunk in Love (The Weeknd Remix)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Drunk in Love(The Weeknd Remix).mp3",
+          "tags": {
+            "title": "Drunk in Love (The Weeknd Remix)",
+            "artist": "Beyoncé",
+            "album": "Drunk in Love (The Weeknd Remix)",
+            "album_artist": "Beyoncé",
+            "track": "1/1",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-015",
+      "folder": "Ego _ Sweet Dreams Singles & Dance Mixes",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Ego(DJ Escape _ Johnny Vicious Club Remix).mp3",
+          "tags": {
+            "title": "Ego (DJ Escape & Johnny Vicious Club Remix)",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "1/6",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ego(Slang &#39;Big Ego&#39; Club Remix).mp3",
+          "tags": {
+            "title": "Ego (Slang 'Big Ego' Club Remix)",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "2/6",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ego(Slang 'Big Ego' Club Remix).mp3",
+          "tags": {
+            "title": "Ego (Slang 'Big Ego' Club Remix)",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "3/6",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams(Karmatronic Club Remix).flac",
+          "tags": {
+            "title": "Sweet Dreams (Karmatronic Club Remix)",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams(OK DAC Club Remix).flac",
+          "tags": {
+            "title": "Sweet Dreams (OK DAC Club Remix)",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams.flac",
+          "tags": {
+            "title": "Sweet Dreams",
+            "artist": "Beyoncé",
+            "album": "Ego / Sweet Dreams Singles & Dance Mixes",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-016",
+      "folder": "End of Time (London Sounds 2012 club-house remix)",
+      "observedStatus": "needs_review",
+      "observedReason": "ai_failed",
+      "tracks": [
+        {
+          "file": "Fran London_Beyoncé-End of Time(London Sounds 2012 club-house remix).mp3",
+          "tags": {
+            "title": "End of Time(London Sounds 2012 club-house remix)",
+            "album": "End of Time (London Sounds 2012 club-house remix)",
+            "artist": "Fran London&Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-017",
+      "folder": "God Bless The USA!",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-God Bless The USA.mp3",
+          "tags": {
+            "album": "God Bless The USA!",
+            "artist": "Beyoncé",
+            "title": "God Bless The USA"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-018",
+      "folder": "Green Light Freemasons",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Beautiful Liar.mp3",
+          "tags": {
+            "title": "Beautiful Liar",
+            "album": "Green Light Freemasons",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Deja Vu.mp3",
+          "tags": {
+            "album": "Green Light Freemasons",
+            "artist": "Beyoncé",
+            "title": "Deja Vu"
+          }
+        },
+        {
+          "file": "Beyoncé-Green Light.mp3",
+          "tags": {
+            "album": "Green Light Freemasons",
+            "artist": "Beyoncé",
+            "title": "Green Light"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring The Alarm.mp3",
+          "tags": {
+            "title": "Ring The Alarm",
+            "album": "Green Light Freemasons",
+            "artist": "Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-019",
+      "folder": "HOMECOMING_ THE LIVE ALBUM (Explicit)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-7、11(Homecoming Live丨Explicit).mp3",
+          "tags": {
+            "title": "7/11 (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "1/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Baby Boy(Homecoming Live).flac",
+          "tags": {
+            "title": "Baby Boy (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "2",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Before I Let Go(Homecoming Live Bonus Track).flac",
+          "tags": {
+            "title": "Before I Let Go (Homecoming Live Bonus Track)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "3",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Bow Down(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Bow Down (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Bug A Boo Roll Call (Interlude).flac",
+          "tags": {
+            "title": "Bug A Boo Roll Call (Interlude)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Check On It(Homecoming Live).flac",
+          "tags": {
+            "title": "Check On It (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Countdown(Homecoming Live).flac",
+          "tags": {
+            "title": "Countdown (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "7",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Crazy In Love(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Crazy In Love (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Diva(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Diva (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Don&#39;t Hurt Yourself(Homecoming Live丨Explicit).mp3",
+          "tags": {
+            "title": "Don't Hurt Yourself (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "10/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Don't Hurt Yourself(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Don't Hurt Yourself (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Drunk in Love(Homecoming Live丨Explicit).mp3",
+          "tags": {
+            "title": "Drunk in Love (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "12/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Drunk in Love(Homecoming Live丨Explicit)1.mp3",
+          "tags": {
+            "title": "Drunk in Love (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "13/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Flawless 、 Feeling Myself(Homecoming Live丨Explicit).mp3",
+          "tags": {
+            "title": "Flawless / Feeling Myself (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "14/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Formation(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Formation (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Freedom(Homecoming Live).flac",
+          "tags": {
+            "title": "Freedom (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied(Homecoming Live).flac",
+          "tags": {
+            "title": "Get Me Bodied (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "17",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Hold Up(Homecoming Live).flac",
+          "tags": {
+            "title": "Hold Up (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "18",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Been On(Homecoming Live Bonus Track丨Explicit).flac",
+          "tags": {
+            "title": "I Been On (Homecoming Live Bonus Track)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "19",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Been On(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "I Been On (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "20",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Care(Homecoming Live).flac",
+          "tags": {
+            "title": "I Care (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "21",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Kitty Kat(Homecoming Live).flac",
+          "tags": {
+            "title": "Kitty Kat (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "22",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Lift Ev&#39;ry Voice and Sing(Homecoming Live).mp3",
+          "tags": {
+            "title": "Lift Ev'ry Voice and Sing (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "23/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Lift Ev'ry Voice and Sing(Homecoming Live).flac",
+          "tags": {
+            "title": "Lift Ev'ry Voice and Sing (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "24",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Love On Top(Homecoming Live).flac",
+          "tags": {
+            "title": "Love On Top (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "25",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Partition(Homecoming Live).flac",
+          "tags": {
+            "title": "Partition (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "26",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Party(Homecoming Live).flac",
+          "tags": {
+            "title": "Party (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "27",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Run the World (Girls).flac",
+          "tags": {
+            "title": "Run the World (Girls)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "28",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Shining (Thank You).flac",
+          "tags": {
+            "title": "Shining (Thank You)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "29",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It).flac",
+          "tags": {
+            "title": "Single Ladies (Put a Ring on It)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "30",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-So Much Damn Swag (Interlude).mp3",
+          "tags": {
+            "title": "So Much Damn Swag (Interlude)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "31/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Sorry(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Sorry (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "32",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Top Off(Homecoming Live丨Explicit).flac",
+          "tags": {
+            "title": "Top Off (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "33",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Welcome(Homecoming Live).flac",
+          "tags": {
+            "title": "Welcome (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "34",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Yoncé(Homecoming Live).flac",
+          "tags": {
+            "title": "Yoncé (Homecoming Live)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "35",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-You Don&#39;t Love Me (No， No， No).mp3",
+          "tags": {
+            "title": "You Don't Love Me (No, No, No)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "36/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-You Don't Love Me (No， No， No).flac",
+          "tags": {
+            "title": "You Don't Love Me (No, No, No)",
+            "artist": "Beyoncé",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "37",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Blue Ivy-Lift Ev&#39;ry Voice and Sing(Blue&#39;s Version丨Homecoming Live).mp3",
+          "tags": {
+            "title": "Lift Ev'ry Voice and Sing (Blue's Version) (Homecoming Live)",
+            "artist": "Beyoncé & Blue Ivy",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "38/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé_Blue Ivy-Lift Ev'ry Voice and Sing(Blue's Version丨Homecoming Live).mp3",
+          "tags": {
+            "title": "Lift Ev'ry Voice and Sing (Blue's Version) (Homecoming Live)",
+            "artist": "Beyoncé & Blue Ivy",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "39/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé_Bzzzz Drumline-The Bzzzz Drumline (Interlude).flac",
+          "tags": {
+            "title": "The Bzzzz Drumline (Interlude)",
+            "artist": "Beyoncé & Bzzzz Drumline",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "40",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Bzzzz Drumline-The Bzzzz Drumline (Interlude).mp3",
+          "tags": {
+            "title": "The Bzzzz Drumline (Interlude)",
+            "artist": "Beyoncé & Bzzzz Drumline",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "41/46",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé_J Balvin_willy william-Mi Gente(Homecoming Live).flac",
+          "tags": {
+            "title": "Mi Gente (Homecoming Live)",
+            "artist": "Beyoncé & J Balvin & Willy William",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "42",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z-Deja Vu(Homecoming Live).flac",
+          "tags": {
+            "title": "Deja Vu (Homecoming Live)",
+            "artist": "Beyoncé & Jay-Z",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "43",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Kelly Rowland_Michelle Williams-Lose My Breath(Homecoming Live).flac",
+          "tags": {
+            "title": "Lose My Breath (Homecoming Live)",
+            "artist": "Beyoncé & Kelly Rowland & Michelle Williams",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "44",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Kelly Rowland_Michelle Williams-Say My Name(Homecoming Live).flac",
+          "tags": {
+            "title": "Say My Name (Homecoming Live)",
+            "artist": "Beyoncé & Kelly Rowland & Michelle Williams",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "45",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Kelly Rowland_Michelle Williams-Soldier(Homecoming Live).flac",
+          "tags": {
+            "title": "Soldier (Homecoming Live)",
+            "artist": "Beyoncé & Kelly Rowland & Michelle Williams",
+            "album": "HOMECOMING: THE LIVE ALBUM",
+            "album_artist": "Beyoncé",
+            "track": "46",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-020",
+      "folder": "Halo",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Beyoncé-Halo(混音丨My Digital Enemy Remix).mp3",
+          "tags": {
+            "title": "Halo(混音|My Digital Enemy Remix)",
+            "artist": "Beyoncé",
+            "album": "Halo",
+            "album_artist": "Beyoncé",
+            "track": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-021",
+      "folder": "Halo - Single & Remixes",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Halo(Dave Audé Club Remix).flac",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Dave Audé Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Dave Audé Club Remix).mp3",
+          "tags": {
+            "title": "Halo(Dave Audé Club Remix)",
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Gomi Club Remix).flac",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Gomi Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Gomi Club Remix).mp3",
+          "tags": {
+            "title": "Halo(Gomi Club Remix)",
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Karmatronic Club Remix).flac",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Karmatronic Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Karmatronic Club Remix).mp3",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Karmatronic Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Lost Daze Club Remix).flac",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Lost Daze Club Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Lost Daze Club Remix).mp3",
+          "tags": {
+            "title": "Halo(Lost Daze Club Remix)",
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Radio Edit).flac",
+          "tags": {
+            "album": "Halo - Single & Remixes",
+            "artist": "Beyoncé",
+            "title": "Halo(Radio Edit)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-022",
+      "folder": "Here I Stand (Deluxe Version)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Usher_Jeezy-Love in This Club.mp3",
+          "tags": {
+            "album": "Here I Stand (Deluxe Version)",
+            "artist": "Usher&Jeezy",
+            "title": "Love in This Club"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-023",
+      "folder": "I AM...SASHA FIERCE",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Ave Maria.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Ave Maria"
+          }
+        },
+        {
+          "file": "Beyoncé-Broken-Hearted Girl.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Broken-Hearted Girl"
+          }
+        },
+        {
+          "file": "Beyoncé-Disappear.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Disappear"
+          }
+        },
+        {
+          "file": "Beyoncé-Diva.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Diva"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Halo"
+          }
+        },
+        {
+          "file": "Beyoncé-Honesty(Single Version).flac",
+          "tags": {
+            "album": "I Am...Sasha Fierce",
+            "artist": "Beyoncé",
+            "title": "Honesty(Single Version)"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were A Boy(Single Version).flac",
+          "tags": {
+            "album": "I Am...Sasha Fierce",
+            "artist": "Beyoncé",
+            "title": "If I Were A Boy(Single Version)"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were a Boy.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "If I Were a Boy"
+          }
+        },
+        {
+          "file": "Beyoncé-Radio.flac",
+          "tags": {
+            "album": "I Am...Sasha Fierce",
+            "artist": "Beyoncé",
+            "title": "Radio"
+          }
+        },
+        {
+          "file": "Beyoncé-Satellites.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Satellites"
+          }
+        },
+        {
+          "file": "Beyoncé-Satellites.mp3",
+          "tags": {
+            "title": "Satellites",
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Save The Hero.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Save The Hero"
+          }
+        },
+        {
+          "file": "Beyoncé-Save The Hero.mp3",
+          "tags": {
+            "title": "Save The Hero",
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It).flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single ladies.flac",
+          "tags": {
+            "album": "I Am...Sasha Fierce",
+            "artist": "Beyoncé",
+            "title": "Single ladies"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Sweet Dreams"
+          }
+        },
+        {
+          "file": "Beyoncé-Video Phone.flac",
+          "tags": {
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé",
+            "title": "Video Phone"
+          }
+        },
+        {
+          "file": "Beyoncé-Why Don&#39;t You Love Me.mp3",
+          "tags": {
+            "title": "Why Don't You Love Me",
+            "album": "I AM...SASHA FIERCE",
+            "artist": "Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-024",
+      "folder": "I Am... Yours_ An Intimate Performance at Wynn Las Vegas",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Crazy In Love (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Crazy In Love (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Deja Vu Jazz Medley (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Deja Vu Jazz Medley (live)"
+          }
+        },
+        {
+          "file": "Beyoncé-Destiny&#39;s Child Medley (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Destiny's Child Medley (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Destiny&#39;s Child Medley (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Destiny's Child Medley (live)"
+          }
+        },
+        {
+          "file": "Beyoncé-Déjà Vu (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Déjà Vu (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Finale (It Don&#39;t Mean A Thing If It Ain&#39;t Got That Swing) [Instrumental].mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Finale (It Don't Mean A Thing If It Ain't Got That Swing) [Instrumental]"
+          }
+        },
+        {
+          "file": "Beyoncé-Hello (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Hello (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Hello (live) - live.mp3",
+          "tags": {
+            "artist": "Beyoncé",
+            "title": "Hello (live) - live",
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were A Boy (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "If I Were A Boy (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Scared Of Lonely (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Scared Of Lonely (Instrumental)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put A Ring On It) [Instrumental].mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put A Ring On It) [Instrumental]"
+          }
+        },
+        {
+          "file": "Beyoncé-Sweet Dreams Medley (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "Sweet Dreams Medley (live)"
+          }
+        },
+        {
+          "file": "Beyoncé-That&#39;s Why You Are Beautiful (Instrumental) - instrumental.mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "That's Why You Are Beautiful (Instrumental) - instrumental"
+          }
+        },
+        {
+          "file": "Beyoncé-That&#39;s Why You&#39;re Beautiful (live) - live.mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Beyoncé",
+            "title": "That's Why You're Beautiful (live) - live"
+          }
+        },
+        {
+          "file": "Unknown Singer-03 Bonnie _ Clyde (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Unknown Singer",
+            "title": "03 Bonnie & Clyde (live)"
+          }
+        },
+        {
+          "file": "Unknown Singer-Finale (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Unknown Singer",
+            "title": "Finale (live)"
+          }
+        },
+        {
+          "file": "Unknown Singer-Get Me Bodied (live).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Unknown Singer",
+            "title": "Get Me Bodied (live)"
+          }
+        },
+        {
+          "file": "Unknown Singer-Irreplaceable (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Unknown Singer",
+            "title": "Irreplaceable (Instrumental)"
+          }
+        },
+        {
+          "file": "Unknown Singer-Sweet Dreams (Instrumental).mp3",
+          "tags": {
+            "album": "I Am... Yours: An Intimate Performance at Wynn Las Vegas",
+            "artist": "Unknown Singer",
+            "title": "Sweet Dreams (Instrumental)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-025",
+      "folder": "I Am...World Tour",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-At Last(Live).flac",
+          "tags": {
+            "title": "At Last (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-At Last(Live).mp3",
+          "tags": {
+            "title": "At Last (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "2/28",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ave Maria(Live).flac",
+          "tags": {
+            "title": "Ave Maria (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "3",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Baby Boy(Live).flac",
+          "tags": {
+            "title": "Baby Boy (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Bootylicious(Live).flac",
+          "tags": {
+            "title": "Bootylicious (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Broken-hearted Girl(Live).flac",
+          "tags": {
+            "title": "Broken-hearted Girl (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Check On It(Live).flac",
+          "tags": {
+            "title": "Check On It (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "7",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Crazy In Love(Live).flac",
+          "tags": {
+            "title": "Crazy In Love (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Diva(Live).flac",
+          "tags": {
+            "title": "Diva (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Freakum Dress(Live).flac",
+          "tags": {
+            "title": "Freakum Dress (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "10",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Get Me Bodied(Live).flac",
+          "tags": {
+            "title": "Get Me Bodied (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Halo(Live).flac",
+          "tags": {
+            "title": "Halo (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "12",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Hello(Live).flac",
+          "tags": {
+            "title": "Hello (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "13",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were a Boy 、 You Oughta Know(Live).flac",
+          "tags": {
+            "title": "If I Were a Boy / You Oughta Know (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "14",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Intro(Live).flac",
+          "tags": {
+            "title": "Intro (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable(Live).flac",
+          "tags": {
+            "title": "Irreplaceable (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Listen(Live).flac",
+          "tags": {
+            "title": "Listen (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "17",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Naughty Girl(Live).flac",
+          "tags": {
+            "title": "Naughty Girl (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "18",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Outro(Live).flac",
+          "tags": {
+            "title": "Outro (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "19",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Radio(Live).flac",
+          "tags": {
+            "title": "Radio (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "20",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Say My Name(Live).flac",
+          "tags": {
+            "title": "Say My Name (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "21",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies.flac",
+          "tags": {
+            "title": "Single Ladies",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "22",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Smash Into You(Live).flac",
+          "tags": {
+            "title": "Smash Into You (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "23",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Upgrade U(Live).flac",
+          "tags": {
+            "title": "Upgrade U (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "24",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Upgrade U(Live).mp3",
+          "tags": {
+            "title": "Upgrade U (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "25/28",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-You Don&#39;t Love Me， No No No(Live).mp3",
+          "tags": {
+            "title": "You Don't Love Me, No No No (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "26/28",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-You Don't Love Me， No No No(Live).flac",
+          "tags": {
+            "title": "You Don't Love Me, No No No (Live)",
+            "artist": "Beyoncé",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "27",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Kanye West-Ego.flac",
+          "tags": {
+            "title": "Ego",
+            "artist": "Beyoncé & Kanye West",
+            "album": "I Am... World Tour",
+            "album_artist": "Beyoncé",
+            "track": "28",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-026",
+      "folder": "I Was Here Remix Single",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-I Was Here(Album Version).flac",
+          "tags": {
+            "title": "I Was Here (Album Version)",
+            "artist": "Beyoncé",
+            "album": "I Was Here Remix Single",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Was Here(J-C Main Club Mix).mp3",
+          "tags": {
+            "title": "I Was Here (J-C Main Club Mix)",
+            "artist": "Beyoncé",
+            "album": "I Was Here Remix Single",
+            "album_artist": "Beyoncé",
+            "track": "2/4",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Was Here(StrictLove Beach House Club Mix).mp3",
+          "tags": {
+            "title": "I Was Here (StrictLove Beach House Club Mix)",
+            "artist": "Beyoncé",
+            "album": "I Was Here Remix Single",
+            "album_artist": "Beyoncé",
+            "track": "3/4",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-I Was Here(WAWA Anthem Mix).mp3",
+          "tags": {
+            "title": "I Was Here (WAWA Anthem Mix)",
+            "artist": "Beyoncé",
+            "album": "I Was Here Remix Single",
+            "album_artist": "Beyoncé",
+            "track": "4/4",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-027",
+      "folder": "I'm Worth It - Single",
+      "observedStatus": "needs_review",
+      "observedReason": "ai_failed",
+      "tracks": [
+        {
+          "file": "Famous Kels_Beyoncé-I&#39;m Worth It.mp3",
+          "tags": {
+            "title": "I'm Worth It",
+            "album": "I'm Worth It - Single",
+            "artist": "Famous Kels&Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-028",
+      "folder": "Irreemplazable- EP",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Amor Gitano.flac",
+          "tags": {
+            "title": "Amor Gitano",
+            "artist": "Beyoncé",
+            "album": "Irreemplazable",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Beautiful Liar(Bello Embustero，Spanish Version).flac",
+          "tags": {
+            "title": "Beautiful Liar (Bello Embustero, Spanish Version)",
+            "artist": "Beyoncé",
+            "album": "Irreemplazable",
+            "album_artist": "Beyoncé",
+            "track": "2",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-Irreplaceable(Irreemplazable丨Spanish Version).mp3",
+          "tags": {
+            "title": "Irreplaceable (Irreemplazable, Spanish Version)",
+            "artist": "Beyoncé",
+            "album": "Irreemplazable",
+            "album_artist": "Beyoncé",
+            "track": "3/5",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Listen Oye(Spanish Version).flac",
+          "tags": {
+            "title": "Listen (Oye, Spanish Version)",
+            "artist": "Beyoncé",
+            "album": "Irreemplazable",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé_Voltio-Get Me Bodied(Timbaland Remix featuring Voltio).mp3",
+          "tags": {
+            "title": "Get Me Bodied (Timbaland Remix featuring Voltio)",
+            "artist": "Beyoncé & Voltio",
+            "album": "Irreemplazable",
+            "album_artist": "Beyoncé",
+            "track": "5/5",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-029",
+      "folder": "Lemonade (Explicit)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-All Night.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "All Night"
+          }
+        },
+        {
+          "file": "Beyoncé-Daddy Lessons.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Daddy Lessons"
+          }
+        },
+        {
+          "file": "Beyoncé-Formation(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Formation(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Hold Up(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Hold Up(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Love Drought.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Love Drought"
+          }
+        },
+        {
+          "file": "Beyoncé-Pray You Catch Me.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Pray You Catch Me"
+          }
+        },
+        {
+          "file": "Beyoncé-Sandcastles(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Sandcastles(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Sorry(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Sorry(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Sorry(Original Demo丨Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé",
+            "title": "Sorry(Original Demo|Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé_Jack White-Don&#39;t Hurt Yourself(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&Jack White",
+            "title": "Don't Hurt Yourself(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé_Jack White-Don't Hurt Yourself(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&Jack White",
+            "title": "Don't Hurt Yourself(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé_James Blake-Forward.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&James Blake",
+            "title": "Forward"
+          }
+        },
+        {
+          "file": "Beyoncé_James Blake-Forward.mp3",
+          "tags": {
+            "title": "Forward",
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&James Blake"
+          }
+        },
+        {
+          "file": "Beyoncé_Kendrick Lamar-Freedom.flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&Kendrick Lamar",
+            "title": "Freedom"
+          }
+        },
+        {
+          "file": "Beyoncé_The Weeknd-6 Inch(Explicit).flac",
+          "tags": {
+            "album": "Lemonade (Explicit)",
+            "artist": "Beyoncé&The Weeknd",
+            "title": "6 Inch(Explicit)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-030",
+      "folder": "Life Is But A Dream",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-God Made You Beautiful.mp3",
+          "tags": {
+            "title": "God Made You Beautiful",
+            "artist": "Beyoncé",
+            "album": "Life Is But A Dream",
+            "album_artist": "Beyoncé",
+            "track": "1/1",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-031",
+      "folder": "Live At Wembley",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Beyoncé-Naughty Girl(Calderone Quayle Club Mix).mp3",
+          "tags": {
+            "title": "Naughty Girl",
+            "artist": "Beyoncé",
+            "album": "Live At Wembley",
+            "album_artist": "Beyoncé",
+            "track": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-032",
+      "folder": "Make Me Say It Again, Girl",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Ronald Isley_The Isley Brothers_Beyoncé-Make Me Say It Again， Girl.mp3",
+          "tags": {
+            "title": "Make Me Say It Again, Girl",
+            "artist": "Ronald Isley & The Isley Brothers & Beyoncé",
+            "album": "Make Me Say It Again, Girl",
+            "album_artist": "Ronald Isley & The Isley Brothers & Beyoncé",
+            "track": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-033",
+      "folder": "Me, Myself And I (Urban Mixes)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Me， Myself And I(Radio Edit).mp3",
+          "tags": {
+            "title": "Me, Myself And I(Radio Edit)",
+            "album": "Me, Myself And I (Urban Mixes)",
+            "artist": "Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-034",
+      "folder": "Mi Gente featuring Beyoncé",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "J Balvin_willy william_Beyoncé-Mi Gente.flac",
+          "tags": {
+            "album": "Mi Gente featuring Beyoncé",
+            "artist": "J Balvin&willy william&Beyoncé",
+            "title": "Mi Gente"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-035",
+      "folder": "Naughty Girl",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Naughty Girl(Calderone Quayle Club Mix Edit).mp3",
+          "tags": {
+            "album": "Naughty Girl",
+            "artist": "Beyoncé",
+            "title": "Naughty Girl(Calderone Quayle Club Mix Edit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Naughty Girl(Calderone Quayle Club Mix).mp3",
+          "tags": {
+            "title": "Naughty Girl(Calderone Quayle Club Mix)",
+            "album": "Naughty Girl",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Naughty Girl(Calderone Quayle Naughty Dub).mp3",
+          "tags": {
+            "album": "Naughty Girl",
+            "artist": "Beyoncé",
+            "title": "Naughty Girl(Calderone Quayle Naughty Dub)"
+          }
+        },
+        {
+          "file": "Beyoncé-Naughty Girl(Single Version).flac",
+          "tags": {
+            "album": "Naughty Girl",
+            "artist": "Beyoncé",
+            "title": "Naughty Girl(Single Version)"
+          }
+        },
+        {
+          "file": "Beyoncé_Lil&#39; Flip-Naughty Girl.mp3",
+          "tags": {
+            "album": "Naughty Girl",
+            "artist": "Beyoncé&Lil' Flip",
+            "title": "Naughty Girl"
+          }
+        },
+        {
+          "file": "Beyoncé_Lil&#39; Kim-Naughty Girl.mp3",
+          "tags": {
+            "album": "Naughty Girl",
+            "artist": "Beyoncé&Lil' Kim",
+            "title": "Naughty Girl"
+          }
+        },
+        {
+          "file": "Beyoncé_Lil&#39; Kim-Naughty Girl1.mp3",
+          "tags": {
+            "title": "Naughty Girl",
+            "album": "Naughty Girl",
+            "artist": "Beyoncé&Lil' Kim"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-036",
+      "folder": "Part II (On The Run) [Solo Version] - Single",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Part II (On The Run).mp3",
+          "tags": {
+            "album": "Part II (On The Run) [Solo Version] - Single",
+            "artist": "Beyoncé",
+            "title": "Part II (On The Run)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-037",
+      "folder": "Party",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_André 3000-Party.mp3",
+          "tags": {
+            "album": "Party",
+            "artist": "Beyoncé&André 3000",
+            "title": "Party"
+          }
+        },
+        {
+          "file": "Beyoncé_J. Cole-Party.mp3",
+          "tags": {
+            "album": "Party",
+            "artist": "Beyoncé&J. Cole",
+            "title": "Party"
+          }
+        },
+        {
+          "file": "Chris Brown-Yeah X3 (Robots With Rayguns Remix).mp3",
+          "tags": {
+            "album": "Party",
+            "artist": "Chris Brown",
+            "title": "Yeah X3 (Robots With Rayguns Remix)"
+          }
+        },
+        {
+          "file": "Far East Movement_Justin Bieber-Live My Life (PO Clean Edit).flac",
+          "tags": {
+            "album": "Party",
+            "artist": "Far East Movement&Justin Bieber",
+            "title": "Live My Life (PO Clean Edit)"
+          }
+        },
+        {
+          "file": "Rihanna_Chris Brown-Birthday Cake (Remix).mp3",
+          "tags": {
+            "album": "Party",
+            "artist": "Rihanna&Chris Brown",
+            "title": "Birthday Cake (Remix)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-038",
+      "folder": "Perfect Duet",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Ed Sheeran_Beyoncé-Perfect Duet.flac",
+          "tags": {
+            "title": "Perfect Duet",
+            "artist": "Ed Sheeran & Beyoncé",
+            "album": "Perfect Duet",
+            "album_artist": "Ed Sheeran & Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-039",
+      "folder": "RENAISSANCE (Explicit)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-ALIEN SUPERSTAR(Explicit).flac",
+          "tags": {
+            "title": "ALIEN SUPERSTAR",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "1",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-ALL UP IN YOUR MIND(Explicit).flac",
+          "tags": {
+            "title": "ALL UP IN YOUR MIND",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "2",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-AMERICA HAS A PROBLEM(Explicit).flac",
+          "tags": {
+            "title": "AMERICA HAS A PROBLEM",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "3",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-BREAK MY SOUL.flac",
+          "tags": {
+            "title": "BREAK MY SOUL",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "4",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-CHURCH GIRL(Explicit).flac",
+          "tags": {
+            "title": "CHURCH GIRL",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "5",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-COZY(Explicit).flac",
+          "tags": {
+            "title": "COZY",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "6",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-CUFF IT(Explicit).flac",
+          "tags": {
+            "title": "CUFF IT",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "7",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-ENERGY.flac",
+          "tags": {
+            "title": "ENERGY",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "8",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-HEATED(Explicit).flac",
+          "tags": {
+            "title": "HEATED",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "9",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I&#39;M THAT GIRL(Explicit).flac",
+          "tags": {
+            "title": "I'M THAT GIRL",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "10",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-I'M THAT GIRL(Explicit).flac",
+          "tags": {
+            "title": "I'M THAT GIRL",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "11",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-MOVE.flac",
+          "tags": {
+            "title": "MOVE",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "12",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-PLASTIC OFF THE SOFA.flac",
+          "tags": {
+            "title": "PLASTIC OFF THE SOFA",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "13",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-PURE、HONEY(Explicit).flac",
+          "tags": {
+            "title": "PURE/HONEY",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "14",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-SUMMER RENAISSANCE(Explicit).flac",
+          "tags": {
+            "title": "SUMMER RENAISSANCE",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "15",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-THIQUE(Explicit).flac",
+          "tags": {
+            "title": "THIQUE",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "16",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-VIRGO&#39;S GROOVE(Explicit).flac",
+          "tags": {
+            "title": "VIRGO'S GROOVE",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "17",
+            "disc": "1"
+          }
+        },
+        {
+          "file": "Beyoncé-VIRGO'S GROOVE(Explicit).flac",
+          "tags": {
+            "title": "VIRGO'S GROOVE",
+            "artist": "Beyoncé",
+            "album": "RENAISSANCE",
+            "album_artist": "Beyoncé",
+            "track": "18",
+            "disc": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-040",
+      "folder": "Remixed",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Freemasons Club Megamix.mp3",
+          "tags": {
+            "title": "Freemasons Club Megamix",
+            "album": "Remixed",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-If I Were a Boy(Karmatronic Radio Edit).mp3",
+          "tags": {
+            "album": "Remixed",
+            "artist": "Beyoncé",
+            "title": "If I Were a Boy(Karmatronic Radio Edit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Oye (Listen).mp3",
+          "tags": {
+            "album": "Remixed",
+            "artist": "Beyoncé",
+            "title": "Oye (Listen)"
+          }
+        },
+        {
+          "file": "Beyoncé-Si Yo Fuera Un Chico (If I Were A Boy) Bonus Track.mp3",
+          "tags": {
+            "title": "Si Yo Fuera Un Chico (If I Were A Boy) Bonus Track",
+            "album": "Remixed",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put A Ring On It) Dave Aude Radio Edit.mp3",
+          "tags": {
+            "album": "Remixed",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put A Ring On It) Dave Aude Radio Edit"
+          }
+        },
+        {
+          "file": "Beyoncé-Until The End Of Time (Groove Connection Radio Mix).mp3",
+          "tags": {
+            "title": "Until The End Of Time (Groove Connection Radio Mix)",
+            "album": "Remixed",
+            "artist": "Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-041",
+      "folder": "Ring The Alarm",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Ring The Alarm(Album Version).mp3",
+          "tags": {
+            "title": "Ring the Alarm (Album Version)",
+            "artist": "Beyoncé",
+            "album": "Ring the Alarm",
+            "album_artist": "Beyoncé",
+            "track": "1/4",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring The Alarm(Instrumental).mp3",
+          "tags": {
+            "title": "Ring the Alarm (Instrumental)",
+            "artist": "Beyoncé",
+            "album": "Ring the Alarm",
+            "album_artist": "Beyoncé",
+            "track": "2/4",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring The Alarm(Radio Edit).mp3",
+          "tags": {
+            "title": "Ring the Alarm (Radio Edit)",
+            "artist": "Beyoncé",
+            "album": "Ring the Alarm",
+            "album_artist": "Beyoncé",
+            "track": "3/4",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-Ring the Alarm(Grizz Remix).mp3",
+          "tags": {
+            "title": "Ring the Alarm (Grizz Remix)",
+            "artist": "Beyoncé",
+            "album": "Ring the Alarm",
+            "album_artist": "Beyoncé",
+            "track": "4/4",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-042",
+      "folder": "Rise Up (feat. Jonatha Brooke & Ben Butler) - Single",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_Jonatha Brooke_Ben Butler-Rise Up.mp3",
+          "tags": {
+            "album": "Rise Up (feat. Jonatha Brooke & Ben Butler) - Single",
+            "artist": "Beyoncé&Jonatha Brooke&Ben Butler",
+            "title": "Rise Up"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-043",
+      "folder": "Run The World (Girls)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Run The World (Girls).mp3",
+          "tags": {
+            "album": "Run The World (Girls)",
+            "artist": "Beyoncé",
+            "title": "Run The World (Girls)"
+          }
+        },
+        {
+          "file": "Beyoncé-Run The World (Girls)1.mp3",
+          "tags": {
+            "album": "Run The World (Girls)",
+            "artist": "Beyoncé",
+            "title": "Run The World (Girls)"
+          }
+        },
+        {
+          "file": "Beyoncé-Run The World (Girls)2.mp3",
+          "tags": {
+            "album": "Run The World (Girls)",
+            "artist": "Beyoncé",
+            "title": "Run The World (Girls)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-044",
+      "folder": "Run the World (Girls) [Remix]",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Run The World (Girls).flac",
+          "tags": {
+            "album": "Run the World (Girls) [Remix]",
+            "artist": "Beyoncé",
+            "title": "Run The World (Girls)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-045",
+      "folder": "Runnin' (Lose It All) [The Remixes]",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Naughty Boy_Beyoncé_Arrow Benjamin-Runnin&#39; (Lose It All).flac",
+          "tags": {
+            "album": "Runnin' (Lose It All) [The Remixes]",
+            "artist": "Naughty Boy&Beyoncé&Arrow Benjamin",
+            "title": "Runnin' (Lose It All)"
+          }
+        },
+        {
+          "file": "Naughty Boy_Beyoncé_Arrow Benjamin-Runnin' (Lose It All).flac",
+          "tags": {
+            "album": "Runnin' (Lose It All) [The Remixes]",
+            "artist": "Naughty Boy&Beyoncé&Arrow Benjamin",
+            "title": "Runnin' (Lose It All)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-046",
+      "folder": "Savage Remix (Clean) [feat. Beyoncé]",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Megan Thee Stallion_Beyoncé-Savage Remix (feat. Beyoncé).flac",
+          "tags": {
+            "album": "Savage Remix (Clean) [feat. Beyoncé]",
+            "artist": "Megan Thee Stallion&Beyoncé",
+            "title": "Savage Remix (feat. Beyoncé)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-047",
+      "folder": "Savage Remix (feat. Beyoncé) [Explicit]",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Megan Thee Stallion_Beyoncé-Savage Remix (feat. Beyoncé).flac",
+          "tags": {
+            "album": "Savage Remix (feat. Beyoncé) [Explicit]",
+            "artist": "Megan Thee Stallion&Beyoncé",
+            "title": "Savage Remix (feat. Beyoncé)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-048",
+      "folder": "Sex Kitten",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Kitten Kay Sera_Beyoncé-Sex Kitten.flac",
+          "tags": {
+            "album": "Sex Kitten",
+            "artist": "Kitten Kay Sera&Beyoncé",
+            "title": "Sex Kitten"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-049",
+      "folder": "Single Ladies (Put A Ring On It)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Unknown Singer-Single Ladies (Put A Ring On It Escape _ Dom Capello Dub).mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It)",
+            "artist": "Unknown Singer",
+            "title": "Single Ladies (Put A Ring On It Escape & Dom Capello Dub)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-050",
+      "folder": "Single Ladies (Put A Ring On It) Dance Remixes",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It).mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It)1.mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It)2.mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It)3.mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It)4.mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        },
+        {
+          "file": "Beyoncé-Single Ladies (Put a Ring on It)5.mp3",
+          "tags": {
+            "album": "Single Ladies (Put A Ring On It) Dance Remixes",
+            "artist": "Beyoncé",
+            "title": "Single Ladies (Put a Ring on It)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-051",
+      "folder": "Speak My Mind",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Check On It.mp3",
+          "tags": {
+            "title": "Check On It",
+            "artist": "Beyoncé & Slim Thug",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "1/7"
+          }
+        },
+        {
+          "file": "Beyoncé-Fever.mp3",
+          "tags": {
+            "title": "Fever",
+            "artist": "Beyoncé",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "2/7"
+          }
+        },
+        {
+          "file": "Beyoncé-I Cant Take No More.mp3",
+          "tags": {
+            "title": "I Cant Take No More",
+            "artist": "Beyoncé",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "3/7"
+          }
+        },
+        {
+          "file": "Beyoncé-I&#39;m Leaving.mp3",
+          "tags": {
+            "title": "I'm Leaving",
+            "artist": "Beyoncé",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "4/7"
+          }
+        },
+        {
+          "file": "Beyoncé-Me，Myself _ I(Remix).mp3",
+          "tags": {
+            "title": "Me,Myself & I(Remix)",
+            "artist": "Beyoncé",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "5/7"
+          }
+        },
+        {
+          "file": "Beyoncé-Sexy Lil’Thug.mp3",
+          "tags": {
+            "title": "Sexy Lil’Thug",
+            "artist": "Beyoncé & 50 Cent",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "6/7"
+          }
+        },
+        {
+          "file": "Beyoncé-Work It Out.mp3",
+          "tags": {
+            "title": "Work It Out",
+            "artist": "Beyoncé",
+            "album": "Speak My Mind",
+            "album_artist": "Beyoncé",
+            "track": "7/7"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-052",
+      "folder": "Standing on the Sun Remix",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_Mr. Vegas-Standing on the Sun(Remix).mp3",
+          "tags": {
+            "artist": "Beyoncé&Mr. Vegas",
+            "title": "Standing on the Sun(Remix)",
+            "album": "Standing on the Sun Remix",
+            "track": "1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-053",
+      "folder": "Summertime",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Summertime(A Capella).mp3",
+          "tags": {
+            "album": "Summertime",
+            "artist": "Beyoncé",
+            "title": "Summertime(A Capella)"
+          }
+        },
+        {
+          "file": "Beyoncé-Summertime(Album Version Instrumental).mp3",
+          "tags": {
+            "artist": "Beyoncé",
+            "title": "Summertime(Album Version Instrumental)",
+            "album": "Summertime"
+          }
+        },
+        {
+          "file": "Beyoncé_Ghostface Killah-Summertime (Remix).mp3",
+          "tags": {
+            "album": "Summertime",
+            "artist": "Beyoncé&Ghostface Killah",
+            "title": "Summertime (Remix)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-054",
+      "folder": "TEXAS HOLD 'EM (Explicit)",
+      "observedStatus": "healthy",
+      "observedReason": null,
+      "tracks": [
+        {
+          "file": "Beyoncé-TEXAS HOLD &#39;EM(Acapella丨Explicit).mp3",
+          "tags": {
+            "title": "TEXAS HOLD 'EM (Acapella)",
+            "artist": "Beyoncé",
+            "album": "Texas Hold 'Em",
+            "album_artist": "Beyoncé",
+            "track": "3/3",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-TEXAS HOLD &#39;EM(Explicit).mp3",
+          "tags": {
+            "title": "TEXAS HOLD 'EM",
+            "artist": "Beyoncé",
+            "album": "Texas Hold 'Em",
+            "album_artist": "Beyoncé",
+            "track": "1/3",
+            "disc": "1/1"
+          }
+        },
+        {
+          "file": "Beyoncé-TEXAS HOLD &#39;EM(Instrumental).mp3",
+          "tags": {
+            "title": "TEXAS HOLD 'EM (Instrumental)",
+            "artist": "Beyoncé",
+            "album": "Texas Hold 'Em",
+            "album_artist": "Beyoncé",
+            "track": "2/3",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-055",
+      "folder": "Telephone (Official Instrumental with Background Vocals)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Lady Gaga_Beyoncé-Telephone(Official Instrumental with Background Vocals).mp3",
+          "tags": {
+            "title": "Telephone(Official Instrumental with Background Vocals)",
+            "album": "Telephone (Official Instrumental with Background Vocals)",
+            "artist": "Lady Gaga&Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-056",
+      "folder": "The Beyonce Karaoke Songbook",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Yes.mp3",
+          "tags": {
+            "title": "Yes",
+            "artist": "Beyoncé",
+            "album": "The Beyoncé Karaoke Songbook",
+            "album_artist": "Beyoncé",
+            "track": "1/1",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-057",
+      "folder": "The Don Divas (Unofficial B-side+Outtake)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-I&#39;m Alone Now.mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Beyoncé",
+            "title": "I'm Alone Now"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Bad Girl (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Bad Girl (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Cinderella[Unofficial B-side+Outtake](Umbrella Remix).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Cinderella[Unofficial B-side+Outtake](Umbrella Remix)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Hatin&#39; On The Club (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Hatin' On The Club (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Poison (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Poison (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Proud To Be An American (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Proud To Be An American (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Run This Town (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Run This Town (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Russian Roulette (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Russian Roulette (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Save The Hero (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Save The Hero (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Settle 4 U (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Settle 4 U (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Stop Sign (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Stop Sign (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Te Amo (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Te Amo (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-The Wait Is Ova (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "The Wait Is Ova (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Trust In Me (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Trust In Me (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Whipping My Hair (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Whipping My Hair (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Why Don&#39;t You Love Me (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "Why Don't You Love Me (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-Winning Woman (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "album": "The Don Divas (Unofficial B-side+Outtake)",
+            "artist": "Rihanna&Beyoncé",
+            "title": "Winning Woman (Unofficial B-side+Outtake)"
+          }
+        },
+        {
+          "file": "Rihanna_Beyoncé-You Are My Rock (Unofficial B-side+Outtake).mp3",
+          "tags": {
+            "artist": "Rihanna&Beyoncé",
+            "title": "You Are My Rock (Unofficial B-side+Outtake)",
+            "album": "The Don Divas (Unofficial B-side+Outtake)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-058",
+      "folder": "The Lion King_ The Gift",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "070 Shake_Jessie Reyez-SCAR.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "070 Shake&Jessie Reyez",
+            "title": "SCAR"
+          }
+        },
+        {
+          "file": "Beyoncé-BIGGER.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "BIGGER"
+          }
+        },
+        {
+          "file": "Beyoncé-BLACK PARADE(Explicit).flac",
+          "tags": {
+            "album": "The Lion King: The Gift (Deluxe Edition) [Explicit]",
+            "artist": "Beyoncé",
+            "title": "BLACK PARADE(Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-BLACK PARADE(Extended Version丨Explicit).flac",
+          "tags": {
+            "album": "The Lion King: The Gift (Deluxe Edition) [Explicit]",
+            "artist": "Beyoncé",
+            "title": "BLACK PARADE(Extended Version|Explicit)"
+          }
+        },
+        {
+          "file": "Beyoncé-FIND YOUR WAY BACK(MELO-X Remix).flac",
+          "tags": {
+            "album": "The Lion King: The Gift (Deluxe Edition) [Explicit]",
+            "artist": "Beyoncé",
+            "title": "FIND YOUR WAY BACK(MELO-X Remix)"
+          }
+        },
+        {
+          "file": "Beyoncé-FIND YOUR WAY BACK.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "FIND YOUR WAY BACK"
+          }
+        },
+        {
+          "file": "Beyoncé-OTHERSIDE.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "OTHERSIDE"
+          }
+        },
+        {
+          "file": "Beyoncé-SPIRIT(From Disney&#39;s &#39;The Lion King&#39;).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "SPIRIT(From Disney's \"The Lion King\")"
+          }
+        },
+        {
+          "file": "Beyoncé-SPIRIT(From Disney's 'The Lion King').flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "SPIRIT(From Disney's \"The Lion King\")"
+          }
+        },
+        {
+          "file": "Beyoncé-come home (nala interlude).mp3",
+          "tags": {
+            "title": "come home (nala interlude)",
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé"
+          }
+        },
+        {
+          "file": "Beyoncé-war (nala interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé",
+            "title": "war (nala interlude)"
+          }
+        },
+        {
+          "file": "Beyoncé_Donald Glover-reunited (nala _ simba interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé&Donald Glover",
+            "title": "reunited (nala & simba interlude)"
+          }
+        },
+        {
+          "file": "Beyoncé_Jay-Z_Childish Gambino_Oumou Sangaré-MOOD 4 EVA.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé&Jay-Z&Childish Gambino&Oumou Sangaré",
+            "title": "MOOD 4 EVA"
+          }
+        },
+        {
+          "file": "Beyoncé_Kendrick Lamar-NILE.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé&Kendrick Lamar",
+            "title": "NILE"
+          }
+        },
+        {
+          "file": "Beyoncé_Shatta Wale_Major Lazer-ALREADY.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Beyoncé&Shatta Wale&Major Lazer",
+            "title": "ALREADY"
+          }
+        },
+        {
+          "file": "Billy Eichner_Seth Rogan_JD McCrary-new lesson (timon， pumbaa _ young simba interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Billy Eichner&Seth Rogan&JD McCrary",
+            "title": "new lesson (timon, pumbaa & young simba interlude)"
+          }
+        },
+        {
+          "file": "Blue Ivy_Saint Jhn_Beyoncé_WizKid-BROWN SKIN GIRL.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Blue Ivy&Saint Jhn&Beyoncé&WizKid",
+            "title": "BROWN SKIN GIRL"
+          }
+        },
+        {
+          "file": "Burna Boy-JA ARA E.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Burna Boy",
+            "title": "JA ARA E"
+          }
+        },
+        {
+          "file": "Chiwetel Ejiofor-uncle scar (scar interlude).mp3",
+          "tags": {
+            "title": "uncle scar (scar interlude)",
+            "album": "The Lion King: The Gift",
+            "artist": "Chiwetel Ejiofor"
+          }
+        },
+        {
+          "file": "Donald Glover_Chiwetel Ejiofor-surrender (simba _ scar interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Donald Glover&Chiwetel Ejiofor",
+            "title": "surrender (simba & scar interlude)"
+          }
+        },
+        {
+          "file": "JD McCrary_Chiwetel Ejiofor-run away (scar _ young simba interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "JD McCrary&Chiwetel Ejiofor",
+            "title": "run away (scar & young simba interlude)"
+          }
+        },
+        {
+          "file": "JD McCrary_Shahadi Wright Joseph-danger (young simba _ young nala interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "JD McCrary&Shahadi Wright Joseph",
+            "title": "danger (young simba & young nala interlude)"
+          }
+        },
+        {
+          "file": "James Earl Jones-balance (mufasa interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "James Earl Jones",
+            "title": "balance (mufasa interlude)"
+          }
+        },
+        {
+          "file": "James Earl Jones-remember (mufasa interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "James Earl Jones",
+            "title": "remember (mufasa interlude)"
+          }
+        },
+        {
+          "file": "James Earl Jones-the stars (mufasa interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "James Earl Jones",
+            "title": "the stars (mufasa interlude)"
+          }
+        },
+        {
+          "file": "James Earl Jones_Alfre Woodard_Donald Glover-i&#39;m home (mufasa， sarabi _ simba interlude).mp3",
+          "tags": {
+            "title": "i'm home (mufasa, sarabi & simba interlude)",
+            "album": "The Lion King: The Gift",
+            "artist": "James Earl Jones&Alfre Woodard&Donald Glover"
+          }
+        },
+        {
+          "file": "James Earl Jones_Alfre Woodard_Donald Glover-i'm home (mufasa， sarabi _ simba interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "James Earl Jones&Alfre Woodard&Donald Glover",
+            "title": "i'm home (mufasa, sarabi & simba interlude)"
+          }
+        },
+        {
+          "file": "John Kani-follow me (simba _ rafiki interlude).flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "John Kani",
+            "title": "follow me (simba & rafiki interlude)"
+          }
+        },
+        {
+          "file": "John Kani-follow me (simba _ rafiki interlude).mp3",
+          "tags": {
+            "title": "follow me (simba & rafiki interlude)",
+            "album": "The Lion King: The Gift",
+            "artist": "John Kani"
+          }
+        },
+        {
+          "file": "Nija_Beyoncé_Busiswa_Yemi Alade_Tierra Whack_Moonchild Sanelly_DJ Lag-MY POWER.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Nija&Beyoncé&Busiswa&Yemi Alade&Tierra Whack&Moonchild Sanelly&DJ Lag",
+            "title": "MY POWER"
+          }
+        },
+        {
+          "file": "Salatiel_Pharrell Williams_Beyoncé-WATER.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Salatiel&Pharrell Williams&Beyoncé",
+            "title": "WATER"
+          }
+        },
+        {
+          "file": "TEKNO_Lord Afrixana_Mr Eazi_Yemi Alade-DON'T JEALOUS ME.flac",
+          "tags": {
+            "album": "The Lion King: The Gift (Deluxe Edition) [Explicit]",
+            "artist": "TEKNO&Lord Afrixana&Mr Eazi&Yemi Alade",
+            "title": "DON'T JEALOUS ME"
+          }
+        },
+        {
+          "file": "TEKNO_Yemi Alade_Mr Eazi-DON&#39;T JEALOUS ME.mp3",
+          "tags": {
+            "title": "DON'T JEALOUS ME",
+            "album": "The Lion King: The Gift",
+            "artist": "TEKNO&Yemi Alade&Mr Eazi"
+          }
+        },
+        {
+          "file": "TEKNO_Yemi Alade_Mr Eazi-DON'T JEALOUS ME.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "TEKNO&Yemi Alade&Mr Eazi",
+            "title": "DON'T JEALOUS ME"
+          }
+        },
+        {
+          "file": "Tiwa Savage_Mr Eazi-KEYS TO THE KINGDOM.flac",
+          "tags": {
+            "album": "The Lion King: The Gift",
+            "artist": "Tiwa Savage&Mr Eazi",
+            "title": "KEYS TO THE KINGDOM"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-059",
+      "folder": "The Soundtracks Collection",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyonce-I&#39;d Rather Go Blind.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyonce",
+            "title": "I'd Rather Go Blind"
+          }
+        },
+        {
+          "file": "Beyonce-Stimulate Me.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyonce",
+            "title": "Stimulate Me"
+          }
+        },
+        {
+          "file": "Beyoncé-A Woman Like Me.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "A Woman Like Me"
+          }
+        },
+        {
+          "file": "Beyoncé-After All Is Said And Done.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "After All Is Said And Done"
+          }
+        },
+        {
+          "file": "Beyoncé-All I Could Do Was Cry.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "All I Could Do Was Cry"
+          }
+        },
+        {
+          "file": "Beyoncé-Big Momma&#39;s Theme.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Big Momma's Theme"
+          }
+        },
+        {
+          "file": "Beyoncé-Daddy.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Daddy"
+          }
+        },
+        {
+          "file": "Beyoncé-Dot.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Dot"
+          }
+        },
+        {
+          "file": "Beyoncé-Everything I Do.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Everything I Do"
+          }
+        },
+        {
+          "file": "Beyoncé-Flaws And All.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Flaws And All"
+          }
+        },
+        {
+          "file": "Beyoncé-Hey Goldmember.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Hey Goldmember"
+          }
+        },
+        {
+          "file": "Beyoncé-I&#39;m Somebody.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "I'm Somebody"
+          }
+        },
+        {
+          "file": "Beyoncé-Independent Woman.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Independent Woman"
+          }
+        },
+        {
+          "file": "Beyoncé-Once In A Lifetime.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Once In A Lifetime"
+          }
+        },
+        {
+          "file": "Beyoncé-Smash Into You.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Smash Into You"
+          }
+        },
+        {
+          "file": "Beyoncé-Step On Over.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Step On Over"
+          }
+        },
+        {
+          "file": "Beyoncé-Time to Come Home.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Time to Come Home"
+          }
+        },
+        {
+          "file": "Beyoncé-Trust In Me.mp3",
+          "tags": {
+            "album": "The Soundtracks Collection",
+            "artist": "Beyoncé",
+            "title": "Trust In Me"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-060",
+      "folder": "The Star Spangled Banner",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-The Star Spangled Banner(A Cappella).mp3",
+          "tags": {
+            "album": "The Star Spangled Banner",
+            "artist": "Beyoncé",
+            "title": "The Star Spangled Banner(A Cappella)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-061",
+      "folder": "Top Off (Explicit)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "DJ Khaled_Jay-Z_Future_Beyoncé-Top Off(Explicit).mp3",
+          "tags": {
+            "album": "Top Off (Explicit)",
+            "artist": "DJ Khaled&Jay-Z&Future&Beyoncé",
+            "title": "Top Off(Explicit)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-062",
+      "folder": "Video Phone",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Poison.mp3",
+          "tags": {
+            "album": "Video Phone",
+            "artist": "Beyoncé",
+            "title": "Poison"
+          }
+        },
+        {
+          "file": "Beyoncé-Video Phone(Original Edit).flac",
+          "tags": {
+            "album": "Video Phone (Remixes)",
+            "artist": "Beyoncé",
+            "title": "Video Phone(Original Edit)"
+          }
+        },
+        {
+          "file": "Beyoncé-Video Phone.mp3",
+          "tags": {
+            "album": "Video Phone",
+            "artist": "Beyoncé",
+            "title": "Video Phone"
+          }
+        },
+        {
+          "file": "Beyoncé_Lady Gaga-Video Phone(Extended Remix featuring Lady Gaga).mp3",
+          "tags": {
+            "album": "Video Phone",
+            "artist": "Beyoncé&Lady Gaga",
+            "title": "Video Phone(Extended Remix featuring Lady Gaga)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-063",
+      "folder": "XO (Cella Remix)",
+      "observedStatus": "needs_review",
+      "observedReason": "ai_failed",
+      "tracks": [
+        {
+          "file": "Cella_Beyoncé-XO.mp3",
+          "tags": {
+            "title": "XO",
+            "album": "XO (Cella Remix)",
+            "artist": "Cella&Beyoncé"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-064",
+      "folder": "Yoncé (Electric Bodega Trap Remix) - Single",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé-Yoncé(Electric Bodega Trap Remix).mp3",
+          "tags": {
+            "title": "Yoncé (Electric Bodega Trap Remix)",
+            "artist": "Beyoncé",
+            "album": "Yoncé (Electric Bodega Trap Remix)",
+            "album_artist": "Beyoncé",
+            "track": "1/1",
+            "disc": "1/1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "album-065",
+      "folder": "今夜我属于爱情 (电影《狮子王》主题曲)",
+      "observedStatus": "needs_review",
+      "observedReason": "provider_incomplete",
+      "tracks": [
+        {
+          "file": "Beyoncé_张学友-今夜我属于爱情(电影《狮子王》主题曲).flac",
+          "tags": {
+            "album": "今夜我属于爱情 (电影《狮子王》主题曲)",
+            "artist": "Beyoncé&张学友",
+            "title": "今夜我属于爱情(电影《狮子王》主题曲)"
+          }
+        }
+      ]
+    }
+  ]
+}

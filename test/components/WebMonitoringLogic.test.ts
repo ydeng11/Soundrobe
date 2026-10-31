@@ -12,6 +12,7 @@ import type { BackgroundRun, MonitoredRelease } from "../../src/shared/web-adapt
 import {
   describeCron,
   describeRunItemReason,
+  runEvidenceLines,
   describeRunItems,
   itemsNeedingAction,
   facetCounts,
@@ -239,5 +240,22 @@ describe("run ledger", () => {
     expect(
       describeRunItems(runWith([{ path: "/music/A", status: "healthy" }], true)),
     ).toContain("dropped");
+  });
+});
+
+
+describe("durable auto-tag evidence", () => {
+  it("separates written files from complete release coverage and explains provider outages", () => {
+    const lines = runEvidenceLines({
+      path: "/music/Partial", status: "needs_review",
+      evidence: {
+        written: 1,
+        providerAttempts: [{provider: "musicbrainz", status: "unavailable", diagnostic: "HTTP 503", retryAfterSeconds: 90}],
+        diagnostics: [{stage: "coverage", localFiles: 1, verifiedTracks: 1, writtenFiles: 1, releaseTracks: 12, completeAlbum: false}],
+      },
+    });
+    expect(lines.join("\n")).toContain("musicbrainz: unavailable (HTTP 503)");
+    expect(lines.join("\n")).toContain("1/1 files verified; 1 written; 12 release tracks; album incomplete");
+    expect(runEvidenceLines({path: "/old", status: "needs_review"})).toEqual(["No diagnostic evidence was retained for this run."]);
   });
 });

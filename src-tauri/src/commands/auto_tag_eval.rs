@@ -2446,6 +2446,7 @@ fn native_outcome_classification_keeps_safety_and_provider_failures_distinct() {
             diagnostic: Some("rate limited".into()),
             retry_count: 1,
             retry_after_seconds: Some(60),
+            retryable: true,
         }],
         ..needs_review.clone()
     };

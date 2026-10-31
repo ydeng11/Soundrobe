@@ -1,7 +1,8 @@
 //! Bounded AcoustID fingerprint lookup support.
 //!
-//! AcoustID returns MusicBrainz recording and release identities. Callers must
-//! validate full release coverage before using those identities as evidence.
+//! AcoustID returns MusicBrainz recording and release identities. Callers verify
+//! recording confidence, duration and version before tagging, and require
+//! complete release coverage before assigning an album edition.
 
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
@@ -44,7 +45,10 @@ pub enum AcoustidError {
     Cancelled,
     RateLimitCancelled,
     RequestFailed,
-    HttpStatus,
+    HttpStatus {
+        status: u16,
+        retry_after_seconds: Option<u64>,
+    },
     ResponseTooLarge,
     InvalidResponse,
     ApiRejected,
@@ -52,6 +56,17 @@ pub enum AcoustidError {
 }
 
 impl AcoustidError {
+    pub fn retryable(self) -> bool {
+        matches!(
+            self,
+            Self::RequestFailed
+                | Self::HttpStatus {
+                    status: 408 | 425 | 429 | 500 | 502 | 503 | 504,
+                    ..
+                }
+        )
+    }
+
     pub fn kind(self) -> AcoustidFailureKind {
         match self {
             Self::Cancelled | Self::RateLimitCancelled => AcoustidFailureKind::Cancelled,
@@ -75,7 +90,7 @@ impl std::fmt::Display for AcoustidError {
             Self::InvalidFingerprint => "fpcalc returned invalid fingerprint data",
             Self::Cancelled | Self::RateLimitCancelled => "AcoustID lookup was cancelled",
             Self::RequestFailed => "AcoustID request could not be completed",
-            Self::HttpStatus => "AcoustID returned an unsuccessful HTTP response",
+            Self::HttpStatus { .. } => "AcoustID returned an unsuccessful HTTP response",
             Self::ResponseTooLarge => "AcoustID response exceeded the safety limit",
             Self::InvalidResponse => "AcoustID returned an invalid response",
             Self::ApiRejected => "AcoustID rejected the lookup request",
@@ -336,7 +351,10 @@ impl AcoustidClient {
             _ = wait_for_cancel(cancelled) => return Err(AcoustidError::Cancelled),
         };
         if !response.status().is_success() {
-            return Err(AcoustidError::HttpStatus);
+            return Err(AcoustidError::HttpStatus {
+                status: response.status().as_u16(),
+                retry_after_seconds: crate::infra::http::retry_after_seconds(&response),
+            });
         }
         if response
             .content_length()
@@ -587,10 +605,33 @@ mod tests {
     }
 
     #[test]
+    fn transient_status_is_retryable_but_rejected_credentials_are_not() {
+        assert!(AcoustidError::HttpStatus {
+            status: 503,
+            retry_after_seconds: Some(90)
+        }
+        .retryable());
+        assert!(AcoustidError::HttpStatus {
+            status: 429,
+            retry_after_seconds: None
+        }
+        .retryable());
+        assert!(!AcoustidError::HttpStatus {
+            status: 401,
+            retry_after_seconds: None
+        }
+        .retryable());
+        assert!(!AcoustidError::InvalidResponse.retryable());
+    }
+
+    #[test]
     fn api_failures_do_not_embed_credentials_or_fingerprint_material() {
         for error in [
             AcoustidError::ApiRejected,
-            AcoustidError::HttpStatus,
+            AcoustidError::HttpStatus {
+                status: 503,
+                retry_after_seconds: None,
+            },
             AcoustidError::RequestFailed,
             AcoustidError::InvalidResponse,
         ] {
@@ -711,7 +752,10 @@ mod tests {
                 .lookup("client", &test_fingerprint(), &AtomicBool::new(false))
                 .await
                 .unwrap_err(),
-            AcoustidError::HttpStatus
+            AcoustidError::HttpStatus {
+                status: 503,
+                retry_after_seconds: None
+            }
         );
 
         let (endpoint, _) = response_server(

@@ -2305,3 +2305,16 @@
     overflow-wrap: anywhere;
   }
 }
+
+
+/* Diagnostic prose wraps inside the existing dense run tables. */
+.sr-run-evidence {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 720px) {
+  .sr-run-evidence {
+    max-inline-size: var(--sr-log-source-w);
+  }
+}

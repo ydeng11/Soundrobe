@@ -342,3 +342,36 @@ export function describeCron(expression: string): string | null {
 
   return null;
 }
+
+
+/** Evidence is absent for historical runs; never infer it from today's tags. */
+export function runEvidenceLines(item: BackgroundRunItem): string[] {
+  const evidence = item.evidence;
+  if (!evidence) return ["No diagnostic evidence was retained for this run."];
+  const lines = (evidence.providerAttempts ?? []).map((attempt) =>
+    `${attempt.provider}: ${attempt.status}${attempt.diagnostic ? ` (${attempt.diagnostic})` : ""}`,
+  );
+  const diagnostics = [...(evidence.diagnostics ?? [])];
+  if (evidence.acoustid && !diagnostics.some((diagnostic) => Array.isArray(diagnostic.trackMatches))) diagnostics.push(evidence.acoustid);
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.stage === "coverage") {
+      lines.push(`${diagnostic.verifiedTracks}/${diagnostic.localFiles} files verified; ${diagnostic.writtenFiles} written; ${diagnostic.releaseTracks ?? "unknown"} release tracks; album ${diagnostic.completeAlbum ? "complete" : "incomplete"}`);
+    } else if (typeof diagnostic.reason === "string") {
+      lines.push(diagnostic.reason);
+    }
+    if (typeof diagnostic.candidateCount === "number") lines.push(`${diagnostic.checkedCandidates ?? 0}/${diagnostic.candidateCount} candidate editions checked`);
+    if (Array.isArray(diagnostic.rejections)) lines.push(...diagnostic.rejections.filter((reason): reason is string => typeof reason === "string"));
+    if (Array.isArray(diagnostic.trackMatches)) {
+      for (const track of diagnostic.trackMatches) {
+        lines.push(`${track.fileName}: ${track.reason ?? track.recordingId ?? "unresolved"}${typeof track.score === "number" ? ` (${Math.round(track.score * 100)}%)` : ""}`);
+      }
+    }
+    if (diagnostic.stage === "configuration" && diagnostic.settings && typeof diagnostic.settings === "object") {
+      const settings = diagnostic.settings as Record<string, unknown>;
+      lines.push(`Model: ${settings.llmModel ?? "default"}; configuration: ${settings.fingerprint ?? "unavailable"}`);
+    }
+  }
+  if (evidence.retry?.exhausted) lines.push("Automatic retries exhausted; check provider availability before an explicit retry.");
+  else if (evidence.retry?.nextAttemptAt) lines.push(`Retry scheduled for ${new Date(evidence.retry.nextAttemptAt * 1000).toISOString()}`);
+  return lines.length ? lines : ["No detailed provider evidence was retained."];
+}

@@ -740,7 +740,7 @@ fn normalize_title(value: &str) -> String {
     PUNCTUATION
         .get_or_init(|| Regex::new(r"[\p{P}\p{S}]+").expect("valid title punctuation regex"))
         .replace_all(
-            &value
+            &crate::infra::text::comparison_text(value)
                 .nfkc()
                 .collect::<String>()
                 .to_lowercase()

@@ -134,6 +134,8 @@ impl ReleaseHealth {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseOutcome {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub evidence: Option<serde_json::Value>,
     pub path: String,
     pub status: ReleaseHealth,
     /// The reason code for a review, or the error for a failure.
@@ -769,12 +771,14 @@ mod tests {
             "Tagged 1, 1 failed",
             vec![
                 ReleaseOutcome {
+                    evidence: None,
                     path: "/music/Album A".to_string(),
                     status: ReleaseHealth::Healthy,
                     reason: None,
                     authority: Some("discogs".to_string()),
                 },
                 ReleaseOutcome {
+                    evidence: None,
                     path: "/music/Album B".to_string(),
                     status: ReleaseHealth::Failed,
                     reason: Some("permission denied".to_string()),
@@ -800,6 +804,7 @@ mod tests {
         let run = state.record_run(RunTrigger::Schedule, None);
         let mut items = (0..MAX_RUN_ITEMS)
             .map(|index| ReleaseOutcome {
+                evidence: None,
                 path: format!("/music/ok-{index}"),
                 status: ReleaseHealth::Healthy,
                 reason: None,
@@ -807,6 +812,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         items.push(ReleaseOutcome {
+            evidence: None,
             path: "/music/broken".to_string(),
             status: ReleaseHealth::Failed,
             reason: Some("boom".to_string()),

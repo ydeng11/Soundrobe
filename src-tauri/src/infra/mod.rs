@@ -33,6 +33,7 @@ pub mod openrouter;
 pub mod sqlite;
 pub mod tag_catalog;
 pub mod tag_io;
+pub mod text;
 
 #[cfg(test)]
 mod tests {

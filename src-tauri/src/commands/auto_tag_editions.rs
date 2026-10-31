@@ -35,7 +35,7 @@ fn edition_title(title: &str) -> String {
 }
 
 fn normalized_track_title(title: &str) -> String {
-    title
+    crate::infra::text::comparison_text(title)
         .nfkc()
         .flat_map(char::to_lowercase)
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
@@ -134,7 +134,10 @@ pub(super) fn accept_edition(
     })
 }
 
-pub(super) fn preserve_collaborators(local: &[TrackCandidate], mapped: &mut [TrackCandidate]) {
+pub(in crate::commands) fn preserve_collaborators(
+    local: &[TrackCandidate],
+    mapped: &mut [TrackCandidate],
+) {
     for (local, mapped) in local.iter().zip(mapped) {
         let existing = split_collaborative_artists(&local.artist, &local.artists)
             .into_iter()

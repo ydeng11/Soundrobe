@@ -410,7 +410,16 @@ export type BackgroundRunStatus =
  * the run history, which is what makes "which release failed, and why"
  * answerable after the run has finished.
  */
+export interface AutoTagEvidence {
+  written?: number;
+  providerAttempts?: { provider: string; status: string; diagnostic?: string; retryAfterSeconds?: number }[];
+  diagnostics?: Record<string, unknown>[];
+  retry?: { attempt?: number; nextAttemptAt?: number; exhausted?: boolean };
+  acoustid?: Record<string, unknown>;
+}
+
 export interface BackgroundRunItem {
+  evidence?: AutoTagEvidence;
   path: string;
   status: ReleaseHealthStatus;
   /** The reason code for a review, or the error for a failure. */

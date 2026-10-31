@@ -9,9 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Auto-tag run history now retains provider failures, recording evidence, effective configuration fingerprints and separate file/release coverage for review after restart.
+- Strong recording recognition can enrich partial albums and personal collections while preserving unresolved editions, versions and credits. Compatible duplicate encodings can share a verified release mapping.
+
 - Optional AcoustID audio recognition can identify complete albums and track positions when ordinary metadata lookups cannot. Ambiguous or incomplete matches remain marked for review. Configure its application key in Tag sources or provider settings.
 
 ### Changed
+
+- Temporary provider outages now defer affected background albums with bounded retries. An AI billing failure stops further AI requests in that run, including genre requests, and explains the required service action.
+- Incomplete albums and ambiguous editions remain marked for review; shared verified fields can be written without choosing a release ID or track positions. HTML entities and Unicode are normalized for comparison while display text and recording versions remain intact.
 
 - Browser Workspace now keeps its folder, filter and track selection while navigating. It identifies a library folder separately from an album, keeps review albums in a closed bounded list, and docks the selected track editor below the table.
 - Browser pages now keep their primary navigation labels visible on narrow screens and reset the active page's scroll position when navigation changes. Monitoring, Sources and Settings content can scroll to the bottom on mobile.
