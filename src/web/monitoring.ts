@@ -16,6 +16,7 @@
 
 import type {
   BackgroundRun,
+  RunFileCoverage,
   BackgroundRunItem,
   BackgroundRunStatus,
   BackgroundRunTrigger,
@@ -374,4 +375,34 @@ export function runEvidenceLines(item: BackgroundRunItem): string[] {
   if (evidence.retry?.exhausted) lines.push("Automatic retries exhausted; check provider availability before an explicit retry.");
   else if (evidence.retry?.nextAttemptAt) lines.push(`Retry scheduled for ${new Date(evidence.retry.nextAttemptAt * 1000).toISOString()}`);
   return lines.length ? lines : ["No detailed provider evidence was retained."];
+}
+
+/** Old runs can be summarized only when their entire per-file ledger survives. */
+export function runFileCoverage(run: BackgroundRun): RunFileCoverage | null {
+  if (run.fileCoverage) return run.fileCoverage;
+  if (run.itemsTruncated || run.items.length === 0) return null;
+  const total: RunFileCoverage = {
+    filesConsidered: 0,
+    filesWritten: 0,
+    foldersWithWrites: 0,
+    providerVerifiedCoreTracks: 0,
+    albumVerifiedTracks: 0,
+    editionVerifiedTracks: 0,
+  };
+  const count = (value: unknown): value is number =>
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+  for (const item of run.items) {
+    const row = item.evidence?.diagnostics?.slice().reverse().find((row) => row.stage === "coverage");
+    if (!row || !count(row.localFiles) || !count(row.writtenFiles)) return null;
+    total.filesConsidered += row.localFiles;
+    total.filesWritten += row.writtenFiles;
+    total.foldersWithWrites += Number(row.writtenFiles > 0);
+    total.providerVerifiedCoreTracks = total.providerVerifiedCoreTracks !== null && count(row.providerVerifiedCoreTracks)
+      ? total.providerVerifiedCoreTracks + row.providerVerifiedCoreTracks : null;
+    total.albumVerifiedTracks = total.albumVerifiedTracks !== null && count(row.providerVerifiedAlbumTracks)
+      ? total.albumVerifiedTracks + row.providerVerifiedAlbumTracks : null;
+    total.editionVerifiedTracks = total.editionVerifiedTracks !== null && count(row.providerVerifiedEditionTracks)
+      ? total.editionVerifiedTracks + row.providerVerifiedEditionTracks : null;
+  }
+  return total;
 }

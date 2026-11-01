@@ -62,6 +62,8 @@ async fn duplicate_encodings_preserve_each_files_own_collaborators() {
         let (base, stop, server) = review_fixture_server(move |request| {
             let body = if request.starts_with("POST /lookup ") {
                 serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":recording,"releases":[{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}]}]}]}).to_string()
+            } else if request.starts_with("GET /mb/recording/") {
+                serde_json::json!({"id":recording,"title":"Song","length":2000,"artist-credit":[{"name":"Lead"}]}).to_string()
             } else {
                 review_fixture_release(recording)
             };
@@ -195,6 +197,8 @@ async fn identified_single_track_case(
             } else {
                 r#"{"status":"ok","results":[]}"#.into()
             }
+        } else if request.starts_with("GET /mb/recording/") {
+            serde_json::json!({"id":recording,"title":"Song","length":2000,"artist-credit":[{"name":"Lead"}]}).to_string()
         } else if request.starts_with("GET /mb/release/") {
             release_requests += 1;
             review_fixture_release(if fingerprint_match && release_requests > 1 {
@@ -633,4 +637,528 @@ async fn acoustic_long_retry_after_returns_a_durable_deferral_without_spending_t
         }
     ));
     fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_candidate_details_resolve_duration_but_not_unknown_or_true_ties() {
+    for mode in [
+        "duration",
+        "unavailable",
+        "genuine_tie",
+        "near_threshold",
+        "near_threshold_loser",
+    ] {
+        let root = super::tests::temp_root();
+        let album = root.join("Collection");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(super::tests::corpus_wav(), album.join("Song (Live).wav")).unwrap();
+        let mut request = build_lookup_request(&album).unwrap();
+        request.tracks[0].length = Some(125.0);
+        request.tracks[0].title = None;
+        request.tracks[0].artist = None;
+        request.tracks[0].artists.clear();
+        request.tracks[0].musicbrainz_track_id = None;
+        let a = "11111111-1111-4111-8111-111111111111";
+        let b = "22222222-2222-4222-8222-222222222222";
+        let (base, stop, server) = review_fixture_server(move |request| {
+            if request.starts_with("POST /lookup ") {
+                let results = if mode.starts_with("near_threshold") {
+                    serde_json::json!([{"id":"acoustic-cluster","score":0.905,"recordings":[{"id":a}]},{"id":"competitor-cluster","score":0.895,"recordings":[{"id":b}]}])
+                } else {
+                    serde_json::json!([{"id":"acoustic-cluster","score":0.99,"recordings":[{"id":b},{"id":a}]}])
+                };
+                return (
+                    "200 OK".into(),
+                    serde_json::json!({"status":"ok","results":results}).to_string(),
+                );
+            }
+            let second = request.contains(b);
+            if second && mode == "unavailable" {
+                return ("503 Unavailable".into(), "{}".into());
+            }
+            ("200 OK".into(), serde_json::json!({"id":if second {b} else {a},"title":"Song","disambiguation":"live, from Tour","length":if (second && mode == "duration") || (!second && mode == "near_threshold_loser") {300000} else {125000},"artist-credit":[{"name":"Singer"}]}).to_string())
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let client =
+            crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+        let fpcalc = root.join("fpcalc");
+        super::tests::fake_fpcalc(&fpcalc);
+        fs::write(
+            &fpcalc,
+            "#!/bin/sh\nprintf '%s' '{\"duration\":125,\"fingerprint\":\"fixture-fingerprint\"}'\n",
+        )
+        .unwrap();
+        let result = super::super::auto_tag_acoustid::resolve_with(
+            &request,
+            Some("fixture"),
+            &providers,
+            &AtomicBool::new(false),
+            &client,
+            &fpcalc,
+        )
+        .await;
+        stop.store(true, Ordering::Release);
+        let requests = server.join().unwrap();
+        let super::super::auto_tag_acoustid::AcoustidResolution::Recordings {
+            tracks,
+            evidence,
+            ..
+        } = result
+        else {
+            panic!("recording-only outcome required");
+        };
+        if mode == "duration" {
+            assert_eq!(tracks[0].musicbrainz_track_id.as_deref(), Some(a));
+            assert_eq!(tracks[0].title.as_deref(), Some("Song (Live)"));
+            assert_eq!(
+                requests
+                    .iter()
+                    .filter(|r| r.contains(&format!("/recording/{a}")))
+                    .count(),
+                1,
+                "authoritative details reused for patch construction"
+            );
+        } else {
+            assert!(
+                tracks[0].musicbrainz_track_id.is_none(),
+                "unknown competitor or two genuine identities cannot be guessed"
+            );
+        }
+        assert_eq!(evidence.track_matches[0].candidates.len(), 2);
+        assert_eq!(
+            evidence.track_matches[0].candidates[0]["resultIds"][0],
+            "acoustic-cluster"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_editions_resume_eight_uncached_details_per_pass() {
+    let root = super::tests::temp_root();
+    let album = root.join("Lead/Album");
+    fs::create_dir_all(&album).unwrap();
+    fs::copy(super::tests::corpus_wav(), album.join("Song.wav")).unwrap();
+    let mut request = build_lookup_request(&album).unwrap();
+    request.artist_hint = None;
+    request.album_hint = Some("Album".into());
+    let recording = "11111111-1111-4111-8111-111111111111";
+    let release_ids: Vec<_> = (0..20)
+        .map(|i| format!("aaaaaaaa-aaaa-4aaa-8aaa-{i:012x}"))
+        .collect();
+    let (base, stop, server) = review_fixture_server(move |request| {
+        let body = if request.starts_with("POST /lookup ") {
+            serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":recording,"releases":release_ids.iter().map(|id|serde_json::json!({"id":id})).collect::<Vec<_>>()}]}]}).to_string()
+        } else if request.contains("/release/") {
+            let id = request
+                .split("/release/")
+                .nth(1)
+                .unwrap()
+                .split('?')
+                .next()
+                .unwrap();
+            let mut release: serde_json::Value =
+                serde_json::from_str(&review_fixture_release(recording)).unwrap();
+            release["id"] = id.into();
+            release.to_string()
+        } else {
+            serde_json::json!({"id":recording,"title":"Song","length":2000,"artist-credit":[{"name":"Lead"}]}).to_string()
+        };
+        ("200 OK".into(), body)
+    });
+    let providers = ProviderState::at(
+        ProviderState::new().http(),
+        &format!("{base}/mb"),
+        &format!("{base}/discogs"),
+    );
+    let client =
+        crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+    let fpcalc = root.join("fpcalc");
+    super::tests::fake_fpcalc(&fpcalc);
+    let cache_dir = root.join("cache");
+    let cache = CacheState::new_in(cache_dir.clone());
+    assert!(cache.initialize(None));
+    for (pass, remaining) in [12, 4, 0].into_iter().enumerate() {
+        let reopened = CacheState::new_in(cache_dir.clone());
+        assert!(reopened.initialize(None));
+        let result = super::super::auto_tag_acoustid::resolve_with_cache(
+            &request,
+            Some("fixture"),
+            &providers,
+            &AtomicBool::new(false),
+            &client,
+            &fpcalc,
+            Some(&reopened),
+        )
+        .await;
+        let super::super::auto_tag_acoustid::AcoustidResolution::Recordings {
+            evidence,
+            reason_code,
+            shared_album,
+            ..
+        } = result
+        else {
+            panic!("twenty indistinguishable editions cannot select one pressing");
+        };
+        assert_eq!(evidence.pending_candidates.len(), remaining);
+        if pass < 2 {
+            assert_eq!(reason_code, "discovery_budget_limited");
+            assert!(
+                shared_album.is_none(),
+                "unexamined editions block consensus"
+            );
+        } else {
+            assert!(shared_album.is_some());
+        }
+    }
+    stop.store(true, Ordering::Release);
+    let requests = server.join().unwrap();
+    assert_eq!(
+        requests.iter().filter(|r| r.contains("/release/")).count(),
+        20,
+        "cached details survive reopen; no repeated network work"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_verified_redirect_aliases_resume_but_body_mismatches_never_do() {
+    for redirected in [true, false] {
+        let root = super::tests::temp_root();
+        let album = root.join("Collection");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(super::tests::corpus_wav(), album.join("Song.wav")).unwrap();
+        let mut request = build_lookup_request(&album).unwrap();
+        let a = "11111111-1111-4111-8111-111111111111";
+        let b = "22222222-2222-4222-8222-222222222222";
+        let canonical = "33333333-3333-4333-8333-333333333333";
+        request.tracks[0].musicbrainz_track_id = Some(a.into());
+        request.tracks[0].artist = None;
+        request.tracks[0].artists.clear();
+        let (base, stop, server) = review_fixture_server(move |request| {
+            if request.starts_with("POST /lookup ") {
+                return ("200 OK".into(),serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":a},{"id":b}]}]}).to_string());
+            }
+            if redirected && !request.contains(canonical) {
+                return (
+                    format!("302 Found\r\nLocation: /mb/recording/{canonical}"),
+                    "".into(),
+                );
+            }
+            ("200 OK".into(),serde_json::json!({"id":canonical,"title":"Song","length":1000,"artist-credit":[{"name":"Singer"}]}).to_string())
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let client =
+            crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+        let fpcalc = root.join("fpcalc");
+        super::tests::fake_fpcalc(&fpcalc);
+        let cache_dir = root.join("cache");
+        let mut results = Vec::new();
+        for _ in 0..3 {
+            let cache = CacheState::new_in(cache_dir.clone());
+            assert!(cache.initialize(None));
+            results.push(
+                super::super::auto_tag_acoustid::resolve_with_cache(
+                    &request,
+                    Some("fixture"),
+                    &providers,
+                    &AtomicBool::new(false),
+                    &client,
+                    &fpcalc,
+                    Some(&cache),
+                )
+                .await,
+            );
+        }
+        request.tracks[0].title = Some("Song (Other Remix)".into());
+        let cache = CacheState::new_in(cache_dir.clone());
+        assert!(cache.initialize(None));
+        let changed = super::super::auto_tag_acoustid::resolve_with_cache(
+            &request,
+            Some("fixture"),
+            &providers,
+            &AtomicBool::new(false),
+            &client,
+            &fpcalc,
+            Some(&cache),
+        )
+        .await;
+        stop.store(true, Ordering::Release);
+        let requests = server.join().unwrap();
+        let super::super::auto_tag_acoustid::AcoustidResolution::Recordings {
+            tracks: changed_tracks,
+            ..
+        } = changed
+        else {
+            panic!("changed local version requires review");
+        };
+        assert!(
+            changed_tracks[0].musicbrainz_track_id.is_none(),
+            "cached provider data must be reevaluated against changed local evidence"
+        );
+        for result in results {
+            let super::super::auto_tag_acoustid::AcoustidResolution::Recordings { tracks, .. } =
+                result
+            else {
+                panic!("recordings expected");
+            };
+            assert_eq!(
+                tracks[0].musicbrainz_track_id.as_deref(),
+                redirected.then_some(canonical),
+                "only verified redirect aliases may supersede an existing ID"
+            );
+        }
+        if redirected {
+            assert_eq!(requests.iter().filter(|r|r.starts_with(&format!("GET /mb/recording/{a}")) ||r.starts_with(&format!("GET /mb/recording/{b}"))).count(),2,"validated public details survive cache reopen and do not consume the next pass's budget");
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_aliases_cannot_bypass_full_audio_conflicts_across_files() {
+    let root = super::tests::temp_root();
+    let album = root.join("Collection");
+    fs::create_dir_all(&album).unwrap();
+    for name in ["1.wav", "2.wav", "3.wav", "4.wav"] {
+        fs::copy(super::tests::corpus_wav(), album.join(name)).unwrap();
+    }
+    let mut request = build_lookup_request(&album).unwrap();
+    for track in &mut request.tracks {
+        track.length = Some(240.0);
+        track.artist = None;
+        track.artists.clear();
+        track.musicbrainz_track_id = None;
+    }
+    let a = "11111111-1111-4111-8111-111111111111";
+    let b = "22222222-2222-4222-8222-222222222222";
+    let canonical = "33333333-3333-4333-8333-333333333333";
+    let other = "44444444-4444-4444-8444-444444444444";
+    let mut lookup = 0;
+    let (base, stop, server) = review_fixture_server(move |request| {
+        if request.starts_with("POST /lookup ") {
+            let id = [a, b, other, other][lookup];
+            lookup += 1;
+            return ("200 OK".into(),serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":id}]}]}).to_string());
+        }
+        if request.starts_with(&format!("GET /mb/recording/{a}"))
+            || request.starts_with(&format!("GET /mb/recording/{b}"))
+        {
+            return (
+                format!("302 Found\r\nLocation: /mb/recording/{canonical}"),
+                "".into(),
+            );
+        }
+        let id = if request.starts_with(&format!("GET /mb/recording/{canonical}")) {
+            canonical
+        } else {
+            other
+        };
+        ("200 OK".into(),serde_json::json!({"id":id,"title":"Song","length":240000,"artist-credit":[{"name":"Singer"}]}).to_string())
+    });
+    let providers = ProviderState::at(
+        ProviderState::new().http(),
+        &format!("{base}/mb"),
+        &format!("{base}/discogs"),
+    );
+    let client =
+        crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+    let fpcalc = root.join("fpcalc");
+    super::tests::fake_fpcalc(&fpcalc);
+    let a_frames: Vec<_> = (0..300u32).map(|i| i.wrapping_mul(2654435761)).collect();
+    let b_frames: Vec<_> = a_frames.iter().map(|v| !v).collect();
+    let other_frames: Vec<_> = a_frames.iter().map(|v| v.rotate_left(13)).collect();
+    fs::write(&fpcalc,format!("#!/bin/sh\nif [ \"$2\" = '-raw' ]; then\nfor audio do :; done\ncase \"$audio\" in\n*1.wav) printf '%s' '{{\"fingerprint\":{}}}';;\n*2.wav) printf '%s' '{{\"fingerprint\":{}}}';;\n*) printf '%s' '{{\"fingerprint\":{}}}';;\nesac\nelse printf '%s' '{{\"duration\":240,\"fingerprint\":\"same-prefix\"}}'; fi\n",serde_json::to_string(&a_frames).unwrap(),serde_json::to_string(&b_frames).unwrap(),serde_json::to_string(&other_frames).unwrap())).unwrap();
+    let result = super::super::auto_tag_acoustid::resolve_with(
+        &request,
+        Some("fixture"),
+        &providers,
+        &AtomicBool::new(false),
+        &client,
+        &fpcalc,
+    )
+    .await;
+    stop.store(true, Ordering::Release);
+    server.join().unwrap();
+    let super::super::auto_tag_acoustid::AcoustidResolution::Recordings {
+        tracks, evidence, ..
+    } = result
+    else {
+        panic!("recordings expected");
+    };
+    assert!(
+        tracks[..2]
+            .iter()
+            .all(|track| track.musicbrainz_track_id.is_none()),
+        "canonical aliases with conflicting full audio cannot receive an identity"
+    );
+    assert!(
+        tracks[2..]
+            .iter()
+            .all(|track| track.musicbrainz_track_id.as_deref() == Some(other)),
+        "an unrelated compatible duplicate group still receives its verified identity"
+    );
+    assert_eq!(
+        evidence.track_matches[0].reason.as_deref(),
+        Some("recording_audio_conflict")
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_consensus_album_writes_count_without_claiming_an_edition() {
+    let root = super::tests::temp_root();
+    let album = root.join("Collection");
+    fs::create_dir_all(&album).unwrap();
+    let file = album.join("Song.wav");
+    fs::copy(super::tests::corpus_wav(), &file).unwrap();
+    let request = build_lookup_request(&album).unwrap();
+    let mut track = request.tracks[0].clone();
+    track.source = Some(RecordingSource::capture(&file).unwrap());
+    track.title = Some("Song".into());
+    track.artist = Some("Singer".into());
+    track.artists = vec!["Singer".into()];
+    let shared = AlbumCandidate {
+        album: Some("Consensus album".into()),
+        album_artist: Some("Singer".into()),
+        album_artists: vec!["Singer".into()],
+        source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    };
+    let evidence = super::super::auto_tag_acoustid::AcoustidEvidence {
+        release_id: String::new(),
+        decision_rule_version: 2,
+        track_matches: vec![],
+        candidate_count: 2,
+        checked_candidates: 2,
+        rejections: vec![],
+        pending_candidates: vec![],
+    };
+    let resolution = super::super::auto_tag_acoustid::AcoustidResolution::Recordings {
+        tracks: vec![track],
+        shared_album: Some(Box::new(shared)),
+        evidence,
+        reason_code: "ambiguous_edition".into(),
+        retryable: false,
+        retry_after_seconds: None,
+    };
+    let result = apply_recording_resolution(
+        &album,
+        &request,
+        resolution,
+        &WriteQueue::default(),
+        &mut |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        read_track_metadata(&file).unwrap().album.as_deref(),
+        Some("Consensus album")
+    );
+    let coverage = result
+        .diagnostics
+        .iter()
+        .find(|row| row["stage"] == "coverage")
+        .unwrap();
+    assert_eq!(
+        coverage["providerVerifiedAlbumTracks"], 1,
+        "count the verified album values actually written"
+    );
+    assert_eq!(
+        coverage["providerVerifiedEditionTracks"], 0,
+        "consensus never invents a pressing identity"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn coverage_v2_live_disambiguation_supports_a_complete_album_but_studio_does_not() {
+    for (live, alias) in [(true, false), (true, true), (false, false)] {
+        let root = super::tests::temp_root();
+        let album = root.join("Lead/Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(super::tests::corpus_wav(), album.join("Song (Live).wav")).unwrap();
+        let mut request = build_lookup_request(&album).unwrap();
+        request.artist_hint = Some("Lead".into());
+        request.album_hint = Some("Album".into());
+        let id = "11111111-1111-4111-8111-111111111111";
+        let canonical = if alias {
+            "22222222-2222-4222-8222-222222222222"
+        } else {
+            id
+        };
+        if alias {
+            request.tracks[0].musicbrainz_track_id = Some(id.into());
+        }
+        let (base, stop, server) = review_fixture_server(move |request| {
+            if alias && request.starts_with(&format!("GET /mb/recording/{id}")) {
+                return (
+                    format!("302 Found\r\nLocation: /mb/recording/{canonical}"),
+                    "".into(),
+                );
+            }
+            let body = if request.starts_with("POST /lookup ") {
+                serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":id,"releases":[{"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}]}]}]}).to_string()
+            } else if request.starts_with("GET /mb/recording/") {
+                serde_json::json!({"id":canonical,"title":"Song","disambiguation":if live {"live, from Tour"}else{"studio recording"},"length":2000,"artist-credit":[{"name":"Lead"}]}).to_string()
+            } else {
+                review_fixture_release(canonical)
+            };
+            ("200 OK".into(), body)
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let client =
+            crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+        let fpcalc = root.join("fpcalc");
+        super::tests::fake_fpcalc(&fpcalc);
+        let result = super::super::auto_tag_acoustid::resolve_with(
+            &request,
+            Some("fixture"),
+            &providers,
+            &AtomicBool::new(false),
+            &client,
+            &fpcalc,
+        )
+        .await;
+        stop.store(true, Ordering::Release);
+        server.join().unwrap();
+        if live {
+            let super::super::auto_tag_acoustid::AcoustidResolution::Candidate {
+                candidate, ..
+            } = result
+            else {
+                panic!("verified live context supports the complete release mapping");
+            };
+            assert_eq!(
+                candidate.accepted_match.unwrap().tracks[0].title.as_deref(),
+                Some("Song (Live)")
+            );
+        } else {
+            let super::super::auto_tag_acoustid::AcoustidResolution::Recordings { tracks, .. } =
+                result
+            else {
+                panic!("studio conflicts require review");
+            };
+            assert!(tracks[0].musicbrainz_track_id.is_none());
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
 }

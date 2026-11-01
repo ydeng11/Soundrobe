@@ -179,6 +179,62 @@ pub(crate) async fn fingerprint_file_with(
     stdout_limit: usize,
     stderr_limit: usize,
 ) -> Result<Fingerprint, AcoustidError> {
+    let output = fpcalc_output_with(
+        executable,
+        path,
+        cancelled,
+        timeout,
+        stdout_limit,
+        stderr_limit,
+        false,
+    )
+    .await?;
+    parse_fpcalc_output(&output)
+}
+
+pub(crate) async fn raw_fingerprint_file_with(
+    executable: &Path,
+    path: &Path,
+    cancelled: &AtomicBool,
+) -> Result<Vec<u32>, AcoustidError> {
+    let output = fpcalc_output_with(
+        executable,
+        path,
+        cancelled,
+        FP_TIMEOUT,
+        MAX_FP_OUTPUT,
+        MAX_FP_STDERR,
+        true,
+    )
+    .await?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&output).map_err(|_| AcoustidError::InvalidFingerprint)?;
+    let frames = value
+        .get("fingerprint")
+        .and_then(serde_json::Value::as_array)
+        .ok_or(AcoustidError::InvalidFingerprint)?;
+    if frames.is_empty() || frames.len() > 100_000 {
+        return Err(AcoustidError::InvalidFingerprint);
+    }
+    frames
+        .iter()
+        .map(|v| {
+            v.as_u64()
+                .and_then(|n| u32::try_from(n).ok())
+                .ok_or(AcoustidError::InvalidFingerprint)
+        })
+        .collect()
+}
+
+async fn fpcalc_output_with(
+    executable: &Path,
+    path: &Path,
+    cancelled: &AtomicBool,
+    timeout: Duration,
+    stdout_limit: usize,
+    stderr_limit: usize,
+    raw: bool,
+) -> Result<Vec<u8>, AcoustidError> {
     if cancelled.load(Ordering::Acquire) {
         return Err(AcoustidError::Cancelled);
     }
@@ -187,8 +243,14 @@ pub(crate) async fn fingerprint_file_with(
         permit = Arc::clone(semaphore).acquire_owned() => permit.map_err(|_| AcoustidError::ProcessFailed)?,
         _ = wait_for_cancel(cancelled) => return Err(AcoustidError::Cancelled),
     };
-    let mut child = Command::new(executable)
-        .arg("-json")
+    let mut command = Command::new(executable);
+    command.arg("-json");
+    if raw {
+        command.args(["-raw", "-length", "0"]);
+    } else {
+        command.args(["-length", "120"]);
+    }
+    let mut child = command
         .arg(path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -234,7 +296,7 @@ pub(crate) async fn fingerprint_file_with(
         // provider-provided material that should not be copied to diagnostics.
         return Err(AcoustidError::ProcessFailed);
     }
-    parse_fpcalc_output(&stdout)
+    Ok(stdout)
 }
 
 async fn read_limited<R: tokio::io::AsyncRead + Unpin>(
@@ -274,8 +336,14 @@ pub struct AcoustidRelease {
     pub title: Option<String>,
 }
 
+fn memberships_complete() -> bool {
+    true
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct AcoustidRecording {
+    #[serde(default = "memberships_complete")]
+    pub releases_complete: bool,
     pub id: String,
     pub title: Option<String>,
     pub duration: Option<f64>,
@@ -287,6 +355,8 @@ pub struct AcoustidRecording {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct AcoustidResult {
+    #[serde(default)]
+    pub id: Option<String>,
     pub score: f64,
     #[serde(default)]
     pub recordings: Vec<AcoustidRecording>,
@@ -379,20 +449,24 @@ impl AcoustidClient {
         if parsed.status != "ok" {
             return Err(AcoustidError::ApiRejected);
         }
-        let Some(results) = parsed.results else {
+        let Some(mut results) = parsed.results else {
             return Err(AcoustidError::InvalidResponse);
         };
         if results.len() > MAX_RESULTS
-            || results.iter().any(|result| {
-                !result.score.is_finite()
-                    || result.recordings.len() > MAX_RECORDINGS
-                    || result
-                        .recordings
-                        .iter()
-                        .any(|recording| recording.releases.len() > MAX_RELEASES_PER_RECORDING)
-            })
+            || results
+                .iter()
+                .any(|result| !result.score.is_finite() || result.recordings.len() > MAX_RECORDINGS)
         {
             return Err(AcoustidError::IncompleteResponse);
+        }
+        for result in &mut results {
+            for recording in &mut result.recordings {
+                if recording.releases.len() > MAX_RELEASES_PER_RECORDING {
+                    recording.releases.sort_by(|a, b| a.id.cmp(&b.id));
+                    recording.releases.truncate(MAX_RELEASES_PER_RECORDING);
+                    recording.releases_complete = false;
+                }
+            }
         }
         Ok(results)
     }
@@ -455,6 +529,34 @@ mod tests {
         permissions.set_mode(0o700);
         fs::set_permissions(&path, permissions).unwrap();
         path
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn raw_fingerprinting_requests_the_full_span_and_rejects_non_frame_output() {
+        let script = fake_fpcalc("{}", 0);
+        fs::write(&script,"#!/bin/sh\n[ \"$1 $2 $3 $4\" = \"-json -raw -length 0\" ] || exit 1\nprintf '%s' '{\"fingerprint\":[0,4294967295,17]}'\n").unwrap();
+        let cancelled = AtomicBool::new(false);
+        assert_eq!(
+            raw_fingerprint_file_with(&script, Path::new("fixture.wav"), &cancelled)
+                .await
+                .unwrap(),
+            [0, u32::MAX, 17]
+        );
+        for body in [
+            r#"{"fingerprint":"compressed"}"#,
+            r#"{"fingerprint":[]}"#,
+            r#"{"fingerprint":[-1]}"#,
+            r#"{"fingerprint":[4294967296]}"#,
+        ] {
+            let bad = fake_fpcalc(body, 0);
+            assert_eq!(
+                raw_fingerprint_file_with(&bad, Path::new("fixture.wav"), &cancelled).await,
+                Err(AcoustidError::InvalidFingerprint)
+            );
+            fs::remove_file(bad).unwrap();
+        }
+        fs::remove_file(script).unwrap();
     }
 
     #[test]
@@ -689,6 +791,29 @@ mod tests {
             duration_seconds: 125,
             value: "fingerprint-private".into(),
         }
+    }
+
+    #[tokio::test]
+    async fn crowded_memberships_preserve_recording_identity_without_claiming_a_complete_release_set(
+    ) {
+        let releases: Vec<_> = (0..101)
+            .map(|i| serde_json::json!({"id":format!("aaaaaaaa-aaaa-4aaa-8aaa-{i:012x}")}))
+            .collect();
+        let body=serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":"11111111-1111-4111-8111-111111111111","releases":releases}]}]}).to_string();
+        let (endpoint, _) = response_server("200 OK", body);
+        let results = test_client(endpoint)
+            .lookup("key", &test_fingerprint(), &AtomicBool::new(false))
+            .await
+            .unwrap();
+        assert_eq!(
+            results[0].recordings[0].id,
+            "11111111-1111-4111-8111-111111111111"
+        );
+        assert_eq!(results[0].recordings[0].releases.len(), 100);
+        assert!(
+            !results[0].recordings[0].releases_complete,
+            "a bounded prefix must never permit edition selection or consensus"
+        );
     }
 
     #[tokio::test]

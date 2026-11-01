@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Monitoring separates complete folders from files written, and reports verified title/artist, album and edition coverage without treating older missing evidence as zero.
+- AcoustID matching retains competing recording evidence, checks authoritative durations before resolving ties, and recognizes verified live/remix disambiguation while preserving version wording. High-scoring unidentified or unavailable competitors remain in review.
+- Duplicate encodings can match across codec differences using full-duration fingerprints with checks for local edits. A conflicting duplicate group no longer blocks unrelated tracks.
+- Recording and edition details survive restarts. Explicit retries examine the next bounded group of uncached candidates, while crowded release memberships no longer discard a useful recording identity or imply a unique pressing.
+
 - Auto-tag run history now retains provider failures, recording evidence, effective configuration fingerprints and separate file/release coverage for review after restart.
 - Strong recording recognition can enrich partial albums and personal collections while preserving unresolved editions, versions and credits. Compatible duplicate encodings can share a verified release mapping.
 

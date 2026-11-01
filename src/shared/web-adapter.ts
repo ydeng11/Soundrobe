@@ -428,7 +428,17 @@ export interface BackgroundRunItem {
   authority?: string;
 }
 
+export interface RunFileCoverage {
+  filesConsidered: number;
+  filesWritten: number;
+  foldersWithWrites: number;
+  providerVerifiedCoreTracks: number | null;
+  albumVerifiedTracks: number | null;
+  editionVerifiedTracks: number | null;
+}
+
 export interface BackgroundRun {
+  fileCoverage?: RunFileCoverage;
   id: string;
   trigger: BackgroundRunTrigger;
   startedAt: string;

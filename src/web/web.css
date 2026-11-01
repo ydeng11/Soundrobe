@@ -2308,13 +2308,18 @@
 
 
 /* Diagnostic prose wraps inside the existing dense run tables. */
-.sr-run-evidence {
+.sr-run-evidence,
+.sr-table--log .sr-run-summary {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 
 @media (max-width: 720px) {
-  .sr-run-evidence {
+  .sr-run-evidence,
+  .sr-table--log .sr-run-summary {
     max-inline-size: var(--sr-log-source-w);
+  }
+  .sr-table--log .sr-run-summary {
+    min-inline-size: var(--sr-log-source-w);
   }
 }

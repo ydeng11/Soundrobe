@@ -780,18 +780,28 @@ fn start_background_batch(
             (
                 RunStatus::Failed,
                 format!(
-                    "Tagged {tagged}, {needing_review} need review, {failed} failed: {last_message}"
+                    "Complete folders {tagged}, {needing_review} need review, {failed} failed: {last_message}"
                 ),
             )
         } else if needing_review > 0 {
             (
                 RunStatus::Completed,
-                format!("Tagged {tagged}, {needing_review} need review"),
+                format!("Complete folders {tagged}, {needing_review} need review"),
             )
         } else {
-            (RunStatus::Completed, format!("Tagged {tagged} of {total}"))
+            (
+                RunStatus::Completed,
+                format!("Complete folders {tagged} of {total}"),
+            )
         };
 
+        let file_coverage = crate::state::background::run_file_coverage(&items);
+        if let Some(coverage) = &file_coverage {
+            message.push_str(&format!(
+                "; {}/{} files written; folders with writes: {}",
+                coverage.files_written, coverage.files_considered, coverage.folders_with_writes
+            ));
+        }
         if run_ai_blocked.load(Ordering::Acquire) {
             message.push_str("; AI billing unavailable (HTTP 402): check service credits before an explicit retry");
         }
@@ -805,6 +815,7 @@ fn start_background_batch(
             "tagged": tagged,
             "failed": failed,
             "needsReview": needing_review,
+            "fileCoverage": file_coverage,
         });
         if task_status == TaskStatus::Failed && cancelled.load(Ordering::Acquire) {
             tasks.finish_cancellation_failure(&task_id_for_work, &message, task_result);
@@ -7285,6 +7296,7 @@ mod tests {
                 },
             ],
             items_truncated: false,
+            file_coverage: None,
         };
 
         let albums = retryable_albums(&run);

@@ -706,12 +706,28 @@ impl MusicBrainzClient {
         if !response.status().is_success() {
             return Err(format!("MusicBrainz recording HTTP {}", response.status()));
         }
+        // Only an HTTP redirect on the same provider origin establishes a
+        // canonical ID. A different ID in an unredirected JSON body is invalid.
+        let endpoint = reqwest::Url::parse(&self.base_url)
+            .map_err(|_| "MusicBrainz recording endpoint invalid")?;
+        let canonical_id = if response.url().origin() == endpoint.origin() {
+            response
+                .url()
+                .path_segments()
+                .and_then(|mut parts| parts.next_back())
+                .unwrap_or(id)
+                .to_string()
+        } else {
+            return Err("MusicBrainz recording redirect origin changed".into());
+        };
         let value: serde_json::Value = response
             .json()
             .await
             .map_err(|_| "MusicBrainz recording response invalid")?;
-        parse_musicbrainz_recording(&value, id)
-            .ok_or_else(|| "MusicBrainz recording identity incomplete".into())
+        let mut recording = parse_musicbrainz_recording(&value, &canonical_id)
+            .ok_or("MusicBrainz recording identity incomplete")?;
+        recording.requested_id = id.into();
+        Ok(recording)
     }
 
     /// Like [`Self::release_by_id`], but returns the failure reason instead of
@@ -1719,8 +1735,10 @@ fn parse_musicbrainz_release(
     })
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
 pub(crate) struct ProviderRecording {
+    pub requested_id: String,
+    pub disambiguation: Option<String>,
     pub id: String,
     pub title: String,
     pub artist: String,
@@ -1750,6 +1768,12 @@ fn parse_musicbrainz_recording(
         return None;
     }
     Some(ProviderRecording {
+        requested_id: expected_id.into(),
+        disambiguation: value
+            .get("disambiguation")
+            .and_then(serde_json::Value::as_str)
+            .filter(|v| !v.trim().is_empty())
+            .map(str::to_owned),
         id: id.into(),
         title: title.into(),
         artist,

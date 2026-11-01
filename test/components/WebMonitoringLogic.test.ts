@@ -12,6 +12,7 @@ import type { BackgroundRun, MonitoredRelease } from "../../src/shared/web-adapt
 import {
   describeCron,
   describeRunItemReason,
+  runFileCoverage,
   runEvidenceLines,
   describeRunItems,
   itemsNeedingAction,
@@ -257,5 +258,17 @@ describe("durable auto-tag evidence", () => {
     expect(lines.join("\n")).toContain("musicbrainz: unavailable (HTTP 503)");
     expect(lines.join("\n")).toContain("1/1 files verified; 1 written; 12 release tracks; album incomplete");
     expect(runEvidenceLines({path: "/old", status: "needs_review"})).toEqual(["No diagnostic evidence was retained for this run."]);
+  });
+});
+
+
+describe("file coverage", () => {
+  it("counts partial file writes without pretending folders or editions are complete", () => {
+    const run = runWith([{path:"/partial",status:"needs_review",evidence:{written:2,diagnostics:[{stage:"coverage",localFiles:3,writtenFiles:2,providerVerifiedCoreTracks:2,providerVerifiedAlbumTracks:0,providerVerifiedEditionTracks:0,fieldCoverage:{album:0,editionId:0}}]}}]);
+    expect(runFileCoverage(run)).toEqual({filesConsidered:3,filesWritten:2,foldersWithWrites:1,providerVerifiedCoreTracks:2,albumVerifiedTracks:0,editionVerifiedTracks:0});
+    const old = runWith([{path:"/old",status:"needs_review",evidence:{diagnostics:[{stage:"coverage",localFiles:3,writtenFiles:2,fieldCoverage:{album:2,editionId:0}}]}}]);
+    expect(runFileCoverage(old)).toMatchObject({filesWritten:2,providerVerifiedCoreTracks:null,albumVerifiedTracks:null,editionVerifiedTracks:null});
+    expect(runFileCoverage(runWith([]))).toBeNull();
+    expect(runFileCoverage({...run,itemsTruncated:true})).toBeNull();
   });
 });

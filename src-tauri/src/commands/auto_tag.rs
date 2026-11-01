@@ -2571,8 +2571,17 @@ fn album_coverage(
     } else {
         verified
     };
+    let provider = candidate.filter(|candidate| {
+        matches!(
+            candidate.source,
+            LookupSource::Musicbrainz | LookupSource::Discogs
+        )
+    });
     serde_json::json!({"stage":"coverage", "localFiles":local, "verifiedTracks":verified, "uniqueVerifiedRecordings":unique_recordings,
         "writtenFiles":written, "releaseTracks":release_tracks,
+        "providerVerifiedCoreTracks":provider.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some() && track.artist.is_some()).count()).unwrap_or(0),
+        "providerVerifiedAlbumTracks":provider.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
+        "providerVerifiedEditionTracks":provider.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0),
         "fieldCoverage": {
             "title":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some()).count()).unwrap_or(0),
             "artist":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.artist.is_some()).count()).unwrap_or(0),
@@ -3451,11 +3460,12 @@ async fn resolve_and_apply_album_with_acoustid_override(
             )
             .await
         } else {
-            super::auto_tag_acoustid::resolve(
+            super::auto_tag_acoustid::resolve_cached(
                 &request,
                 config.acoustid_api_key.as_deref(),
                 services.providers,
                 cancelled,
+                services.cache,
             )
             .await
         };
@@ -3889,11 +3899,12 @@ async fn resolve_and_apply_album_with_acoustid_override(
             )
             .await
         } else {
-            super::auto_tag_acoustid::resolve(
+            super::auto_tag_acoustid::resolve_cached(
                 &request,
                 config.acoustid_api_key.as_deref(),
                 services.providers,
                 cancelled,
+                services.cache,
             )
             .await
         };
@@ -4726,7 +4737,7 @@ async fn apply_recording_resolution(
         tracks,
         verification: Some("recording_only".into()),
         source: LookupSource::Musicbrainz,
-        ..AlbumCandidate::default()
+        ..shared_album.as_deref().cloned().unwrap_or_default()
     };
     if candidate.tracks.iter().any(|track| track.title.is_some()) {
         review_intent(&candidate)?;
@@ -5317,6 +5328,27 @@ mod tests {
         assert_eq!(coverage["localFiles"], 1);
         assert_eq!(coverage["releaseTracks"], 12);
         assert_eq!(coverage["completeAlbum"], false);
+        assert_eq!(
+            coverage["providerVerifiedCoreTracks"], 0,
+            "a title without verified credits is not complete core track evidence"
+        );
+        candidate.tracks[0].artist = Some("Singer".into());
+        assert_eq!(
+            album_coverage(&request, Some(&candidate), 1)["providerVerifiedCoreTracks"],
+            1
+        );
+        candidate.source = LookupSource::Llm;
+        candidate.album = Some("Proposed album".into());
+        assert_eq!(
+            album_coverage(&request, Some(&candidate), 1)["providerVerifiedAlbumTracks"],
+            0,
+            "AI album proposals are not provider-verified fields"
+        );
+        assert_eq!(
+            album_coverage(&request, Some(&candidate), 1)["providerVerifiedCoreTracks"],
+            0,
+            "AI proposals remain distinct from provider verification"
+        );
         candidate.tracks[0].track_total = Some(1);
         assert_eq!(
             album_coverage(&request, Some(&candidate), 1)["completeAlbum"],
@@ -5370,6 +5402,17 @@ mod tests {
                 .to_string();
                 assert!(request.starts_with("POST /lookup "));
                 write_http_response(&mut stream, "200 OK", &body);
+                let (mut detail_stream, _) = listener.accept().unwrap();
+                assert!(read_http_request(&mut detail_stream).starts_with("GET /mb/recording/"));
+                let detail: serde_json::Value = serde_json::from_str(&release).unwrap();
+                let recording = detail["media"][0]["tracks"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|track| track["recording"]["id"] == recording_id)
+                    .unwrap()["recording"]
+                    .to_string();
+                write_http_response(&mut detail_stream, "200 OK", &recording);
             }
             let (mut stream, _) = listener.accept().unwrap();
             let request = read_http_request(&mut stream);

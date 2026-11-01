@@ -32,6 +32,7 @@ import {
   TRIGGER_LABEL,
   describeCron,
   describeRunItemReason,
+  runFileCoverage,
   runEvidenceLines,
   describeRunItems,
   facetCounts,
@@ -60,6 +61,22 @@ import {
   type WebTask,
 } from "../shared/web-adapter";
 import type { MonitoringLog } from "../shared/web-adapter";
+
+function RunSummary({ run }: { run: BackgroundRun }) {
+  const coverage = runFileCoverage(run);
+  return (
+    <>
+      {run.message || "—"}
+      {coverage && (
+        <p>
+          {coverage.filesWritten}/{coverage.filesConsidered} files written; folders with writes: {coverage.foldersWithWrites}.
+          {" "}Files verified by providers — title/artist: {coverage.providerVerifiedCoreTracks ?? "unknown"};
+          {" "}album: {coverage.albumVerifiedTracks ?? "unknown"}; edition: {coverage.editionVerifiedTracks ?? "unknown"}.
+        </p>
+      )}
+    </>
+  );
+}
 
 export interface MonitoringViewProps {
   /** Injected for tests. */
@@ -537,7 +554,7 @@ export function MonitoringView({
                       <th scope="col">Trigger</th>
                       <th scope="col">Status</th>
                       <th scope="col">Took</th>
-                      <th scope="col">Tagged</th>
+                      <th scope="col">Complete folders</th>
                       <th scope="col">Failed</th>
                       <th scope="col">Releases</th>
                       <th scope="col">Summary</th>
@@ -577,7 +594,9 @@ export function MonitoringView({
                               </button>
                             )}
                           </td>
-                          <td className="sr-cell--muted">{run.message || "—"}</td>
+                          <td className="sr-cell--muted sr-run-summary">
+                            <RunSummary run={run} />
+                          </td>
                         </tr>
                         {expandedRun === run.id && (
                           <tr data-testid={`monitoring-run-detail-${run.id}`}>

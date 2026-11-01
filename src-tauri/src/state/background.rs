@@ -146,6 +146,57 @@ pub struct ReleaseOutcome {
     pub authority: Option<String>,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunFileCoverage {
+    pub files_considered: u64,
+    pub files_written: u64,
+    pub folders_with_writes: u64,
+    pub provider_verified_core_tracks: Option<u64>,
+    pub album_verified_tracks: Option<u64>,
+    pub edition_verified_tracks: Option<u64>,
+}
+
+/// Summarize before bounding the ledger. Older or incomplete evidence stays unknown.
+pub(crate) fn run_file_coverage(items: &[ReleaseOutcome]) -> Option<RunFileCoverage> {
+    if items.is_empty() {
+        return None;
+    }
+    let mut total = RunFileCoverage {
+        provider_verified_core_tracks: Some(0),
+        album_verified_tracks: Some(0),
+        edition_verified_tracks: Some(0),
+        ..RunFileCoverage::default()
+    };
+    for item in items {
+        let row = item
+            .evidence
+            .as_ref()?
+            .get("diagnostics")?
+            .as_array()?
+            .iter()
+            .rev()
+            .find(|row| row["stage"] == "coverage")?;
+        total.files_considered += row["localFiles"].as_u64()?;
+        let written = row["writtenFiles"].as_u64()?;
+        total.files_written += written;
+        total.folders_with_writes += u64::from(written > 0);
+        total.provider_verified_core_tracks = total
+            .provider_verified_core_tracks
+            .zip(row["providerVerifiedCoreTracks"].as_u64())
+            .map(|(total, value)| total + value);
+        total.album_verified_tracks = total
+            .album_verified_tracks
+            .zip(row["providerVerifiedAlbumTracks"].as_u64())
+            .map(|(total, value)| total + value);
+        total.edition_verified_tracks = total
+            .edition_verified_tracks
+            .zip(row["providerVerifiedEditionTracks"].as_u64())
+            .map(|(total, value)| total + value);
+    }
+    Some(total)
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BackgroundRun {
@@ -166,6 +217,8 @@ pub struct BackgroundRun {
     /// Whether `items` is a subset of what the run actually covered.
     #[serde(default)]
     pub items_truncated: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub file_coverage: Option<RunFileCoverage>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -278,6 +331,7 @@ impl BackgroundState {
             task_id,
             items: Vec::new(),
             items_truncated: false,
+            file_coverage: None,
         };
         let mut runs = inner.runs.clone();
         runs.insert(0, run.clone());
@@ -314,6 +368,7 @@ impl BackgroundState {
         message: impl Into<String>,
         items: Vec<ReleaseOutcome>,
     ) -> Result<(), String> {
+        let file_coverage = run_file_coverage(&items);
         let (items, items_truncated) = bound_items(items);
         let message = message.into();
         let mut inner = self.lock();
@@ -331,6 +386,7 @@ impl BackgroundState {
         run.finished_at = Some(timestamp(local_now()));
         run.items = items;
         run.items_truncated = items_truncated;
+        run.file_coverage = file_coverage;
         self.persist_values(&inner.settings, &runs)?;
         inner.runs = runs;
         Ok(())
@@ -904,5 +960,38 @@ mod tests {
         assert_eq!(slot, dt(18, 13, 45));
         assert_eq!(state.due(dt(18, 13, 45)), None);
         assert_eq!(state.peek_next(dt(18, 13, 45)), Some(dt(18, 13, 50)));
+    }
+    #[test]
+    fn file_coverage_survives_truncated_items_without_inventing_old_evidence() {
+        let item: ReleaseOutcome = serde_json::from_value(serde_json::json!({"path":"/partial","status":"needs_review","reasonCode":"partial_collection","evidence":{"diagnostics":[{"stage":"coverage","localFiles":3,"writtenFiles":2,"providerVerifiedCoreTracks":2,"providerVerifiedAlbumTracks":0,"providerVerifiedEditionTracks":0,"fieldCoverage":{"album":0,"editionId":0}}]}})).unwrap();
+        let coverage = run_file_coverage(std::slice::from_ref(&item)).unwrap();
+        assert_eq!(coverage.files_considered, 3);
+        assert_eq!(coverage.files_written, 2);
+        assert_eq!(coverage.folders_with_writes, 1);
+        assert_eq!(coverage.edition_verified_tracks, Some(0));
+        assert_eq!(coverage.provider_verified_core_tracks, Some(2));
+        let mut legacy = item.clone();
+        legacy.evidence = None;
+        assert!(run_file_coverage(&[legacy]).is_none());
+        let root = dir("file-coverage");
+        let state = BackgroundState::init_in(&root);
+        let run = state.record_run(RunTrigger::Manual, None);
+        state
+            .finish_run_checked(
+                &run.id,
+                RunStatus::Completed,
+                0,
+                0,
+                "partial",
+                vec![item; MAX_RUN_ITEMS + 1],
+            )
+            .unwrap();
+        let saved = state.runs().remove(0);
+        assert!(saved.items_truncated);
+        assert_eq!(
+            saved.file_coverage.unwrap().files_written,
+            2 * (MAX_RUN_ITEMS as u64 + 1)
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
