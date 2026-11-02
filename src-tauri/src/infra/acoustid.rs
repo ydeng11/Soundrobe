@@ -28,6 +28,10 @@ const REQUEST_INTERVAL: Duration = Duration::from_millis(350);
 static FP_SEMAPHORE: OnceLock<Arc<Semaphore>> = OnceLock::new();
 static NEXT_ACOUSTID_REQUEST: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
 
+#[cfg(all(test, unix))]
+#[path = "acoustid_flac_tests.rs"]
+mod flac_tests;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AcoustidFailureKind {
     Unavailable,
@@ -179,36 +183,50 @@ pub(crate) async fn fingerprint_file_with(
     stdout_limit: usize,
     stderr_limit: usize,
 ) -> Result<Fingerprint, AcoustidError> {
-    let output = fpcalc_output_with(
-        executable,
+    let output = Box::pin(fingerprint_output(
+        FingerprintTools {
+            fpcalc: executable,
+            ffmpeg: None,
+        },
         path,
         cancelled,
         timeout,
-        stdout_limit,
-        stderr_limit,
+        FingerprintLimits {
+            stdout: stdout_limit,
+            stderr: stderr_limit,
+        },
         false,
-    )
+    ))
     .await?;
     parse_fpcalc_output(&output)
 }
+
+#[path = "acoustid_flac.rs"]
+mod flac;
 
 pub(crate) async fn raw_fingerprint_file_with(
     executable: &Path,
     path: &Path,
     cancelled: &AtomicBool,
 ) -> Result<Vec<u32>, AcoustidError> {
-    let output = fpcalc_output_with(
-        executable,
+    let output = Box::pin(fingerprint_output(
+        FingerprintTools {
+            fpcalc: executable,
+            ffmpeg: None,
+        },
         path,
         cancelled,
         FP_TIMEOUT,
-        MAX_FP_OUTPUT,
-        MAX_FP_STDERR,
+        FingerprintLimits::default(),
         true,
-    )
+    ))
     .await?;
+    parse_raw_output(&output)
+}
+
+fn parse_raw_output(output: &[u8]) -> Result<Vec<u32>, AcoustidError> {
     let value: serde_json::Value =
-        serde_json::from_slice(&output).map_err(|_| AcoustidError::InvalidFingerprint)?;
+        serde_json::from_slice(output).map_err(|_| AcoustidError::InvalidFingerprint)?;
     let frames = value
         .get("fingerprint")
         .and_then(serde_json::Value::as_array)
@@ -226,24 +244,83 @@ pub(crate) async fn raw_fingerprint_file_with(
         .collect()
 }
 
-async fn fpcalc_output_with(
-    executable: &Path,
+struct FingerprintTools<'a> {
+    fpcalc: &'a Path,
+    ffmpeg: Option<&'a Path>,
+}
+
+#[derive(Clone, Copy)]
+struct FingerprintLimits {
+    stdout: usize,
+    stderr: usize,
+}
+
+impl Default for FingerprintLimits {
+    fn default() -> Self {
+        Self {
+            stdout: MAX_FP_OUTPUT,
+            stderr: MAX_FP_STDERR,
+        }
+    }
+}
+
+struct FingerprintJob<'a> {
+    cancelled: &'a AtomicBool,
+    deadline: tokio::time::Instant,
+    limits: FingerprintLimits,
+}
+
+impl FingerprintJob<'_> {
+    fn check(&self) -> Result<(), AcoustidError> {
+        if self.cancelled.load(Ordering::Acquire) {
+            Err(AcoustidError::Cancelled)
+        } else if tokio::time::Instant::now() >= self.deadline {
+            Err(AcoustidError::ProcessTimedOut)
+        } else {
+            Ok(())
+        }
+    }
+
+    async fn wait<T>(
+        &self,
+        operation: impl std::future::Future<Output = Result<T, AcoustidError>>,
+    ) -> Result<T, AcoustidError> {
+        tokio::select! {
+            biased;
+            _ = wait_for_cancel(self.cancelled) => Err(AcoustidError::Cancelled),
+            _ = tokio::time::sleep_until(self.deadline) => Err(AcoustidError::ProcessTimedOut),
+            result = operation => { self.check()?; result },
+        }
+    }
+}
+
+async fn fingerprint_output(
+    tools: FingerprintTools<'_>,
     path: &Path,
     cancelled: &AtomicBool,
     timeout: Duration,
-    stdout_limit: usize,
-    stderr_limit: usize,
+    limits: FingerprintLimits,
     raw: bool,
 ) -> Result<Vec<u8>, AcoustidError> {
     if cancelled.load(Ordering::Acquire) {
         return Err(AcoustidError::Cancelled);
     }
     let semaphore = FP_SEMAPHORE.get_or_init(|| Arc::new(Semaphore::new(2)));
-    let permit = tokio::select! {
-        permit = Arc::clone(semaphore).acquire_owned() => permit.map_err(|_| AcoustidError::ProcessFailed)?,
+    let _permit = tokio::select! {
+        biased;
         _ = wait_for_cancel(cancelled) => return Err(AcoustidError::Cancelled),
+        permit = Arc::clone(semaphore).acquire_owned() => permit.map_err(|_| AcoustidError::ProcessFailed)?,
     };
-    let mut command = Command::new(executable);
+    // Queue contention does not shorten an ordinary lookup. Direct execution,
+    // optional recovery and all drains share this single execution deadline.
+    let job = FingerprintJob {
+        cancelled,
+        deadline: tokio::time::Instant::now() + timeout,
+        limits,
+    };
+    job.check()?;
+    let original = raw.then(|| flac::source_snapshot(path)).flatten();
+    let mut command = Command::new(tools.fpcalc);
     command.arg("-json");
     if raw {
         command.args(["-raw", "-length", "0"]);
@@ -258,45 +335,39 @@ async fn fpcalc_output_with(
         .kill_on_drop(true)
         .spawn()
         .map_err(|_| AcoustidError::MissingExecutable)?;
-    let stdout = child.stdout.take().ok_or(AcoustidError::ProcessFailed)?;
-    let stderr = child.stderr.take().ok_or(AcoustidError::ProcessFailed)?;
-    let stdout_reader = tokio::spawn(read_limited(stdout, stdout_limit));
-    let stderr_reader = tokio::spawn(read_limited(stderr, stderr_limit));
-
-    let mut timeout_sleep = Box::pin(tokio::time::sleep(timeout));
-    let status = tokio::select! {
-        status = child.wait() => status.map_err(|_| AcoustidError::ProcessFailed)?,
-        _ = &mut timeout_sleep => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            drop(permit);
-            return Err(AcoustidError::ProcessTimedOut);
-        }
-        _ = wait_for_cancel(cancelled) => {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
-            drop(permit);
-            return Err(AcoustidError::Cancelled);
-        }
-    };
-    drop(permit);
-    let (stdout, stdout_oversized) = stdout_reader
+    let result = async {
+        let stdout = child.stdout.take().ok_or(AcoustidError::ProcessFailed)?;
+        let stderr = child.stderr.take().ok_or(AcoustidError::ProcessFailed)?;
+        job.wait(async {
+            let (stdout, stderr, status) = tokio::try_join!(
+                read_limited(stdout, limits.stdout),
+                read_limited(stderr, limits.stderr),
+                child.wait(),
+            )
+            .map_err(|_| AcoustidError::ProcessFailed)?;
+            if stdout.1 || stderr.1 {
+                return Err(AcoustidError::OutputTooLarge);
+            }
+            Ok((stdout.0, status))
+        })
         .await
-        .map_err(|_| AcoustidError::ProcessFailed)?
-        .map_err(|_| AcoustidError::ProcessFailed)?;
-    let (_stderr, stderr_oversized) = stderr_reader
-        .await
-        .map_err(|_| AcoustidError::ProcessFailed)?
-        .map_err(|_| AcoustidError::ProcessFailed)?;
-    if stdout_oversized || stderr_oversized {
-        return Err(AcoustidError::OutputTooLarge);
     }
-    if !status.success() {
-        // Never include process output in errors; it can contain paths or
-        // provider-provided material that should not be copied to diagnostics.
-        return Err(AcoustidError::ProcessFailed);
+    .await;
+    if result.is_err() {
+        let _ = child.kill().await;
+        let _ = child.wait().await;
     }
-    Ok(stdout)
+    let (output, status) = result?;
+    job.check()?;
+    if status.success() {
+        return Ok(output);
+    }
+    // Failed stdout is never evidence. Only an actual failed raw child exit
+    // can attempt read-only, checksum-verified FLAC decoding.
+    if raw && status.code().is_some_and(|code| code != 0) {
+        return flac::fingerprint(tools, path, &job, original.as_ref()).await;
+    }
+    Err(AcoustidError::ProcessFailed)
 }
 
 async fn read_limited<R: tokio::io::AsyncRead + Unpin>(
@@ -589,7 +660,7 @@ mod tests {
                 &malformed,
                 audio,
                 &cancelled,
-                Duration::from_secs(1),
+                Duration::from_secs(10),
                 1024,
                 1024
             )
@@ -602,7 +673,7 @@ mod tests {
                 &missing_fields,
                 audio,
                 &cancelled,
-                Duration::from_secs(1),
+                Duration::from_secs(10),
                 1024,
                 1024
             )
@@ -615,7 +686,7 @@ mod tests {
                 &oversized,
                 audio,
                 &cancelled,
-                Duration::from_secs(1),
+                Duration::from_secs(10),
                 16,
                 1024
             )
@@ -628,7 +699,7 @@ mod tests {
                 &oversized,
                 audio,
                 &cancelled,
-                Duration::from_secs(1),
+                Duration::from_secs(10),
                 16,
                 1024,
             )
@@ -641,7 +712,7 @@ mod tests {
             &nonzero,
             audio,
             &cancelled,
-            Duration::from_secs(1),
+            Duration::from_secs(10),
             1024,
             1024,
         )
@@ -655,7 +726,7 @@ mod tests {
                 missing,
                 audio,
                 &cancelled,
-                Duration::from_secs(1),
+                Duration::from_secs(10),
                 1024,
                 1024
             )

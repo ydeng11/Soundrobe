@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- On macOS and Linux, duplicate-track comparison can recover FLAC audio rejected by the fingerprint tool when optional FFmpeg decoding reproduces the file’s complete lossless checksum. Damaged or unverifiable audio remains in review.
+
 - Monitoring shows competing recording titles, ordered artist credits, identifiers, scores and provider failures, with explicit limits on displayed evidence.
 
 - Monitoring separates complete folders from files written, and reports verified title/artist, album and edition coverage without treating older missing evidence as zero.
