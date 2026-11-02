@@ -17,7 +17,7 @@ use lofty::iff::wav::WavFile;
 use lofty::mp4::{AtomData, AtomIdent, Mp4File};
 use lofty::mpeg::MpegFile;
 use lofty::ogg::{OpusFile, VorbisFile};
-use lofty::tag::{ItemKey, Tag};
+use lofty::tag::{ItemKey, Tag, TagType};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -673,9 +673,13 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
     let read_result: std::result::Result<lofty::file::TaggedFile, ApiError> =
         lofty::read_from_path(path).map_err(ApiError::from);
     match read_result {
-        Ok(tagged) => {
+        Ok(mut tagged) => {
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
-            if extension == "flac" {
+            if extension == "mp3" {
+                if let Some(tag) = tagged.remove(TagType::Id3v2) {
+                    apply_mp3_recording_id(&Id3v2Tag::from(tag), &mut track);
+                }
+            } else if extension == "flac" {
                 apply_flac_native_fields(path, &mut track);
             } else if matches!(extension.as_str(), "ogg" | "opus") {
                 apply_ogg_native_fields(path, &extension, &mut track);
@@ -705,6 +709,16 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
             read_ogg_vorbis_fallback(path, size_bytes)?.ok_or(error)
         }
         Err(error) => Err(error),
+    }
+}
+
+fn apply_mp3_recording_id(id3v2: &Id3v2Tag, track: &mut TrackData) {
+    // Match the writer's TXXX contract; keep a standard UFID when it is absent.
+    if let Some(id) = id3v2
+        .get_user_text("MusicBrainz Track Id")
+        .filter(|value| !value.trim().is_empty())
+    {
+        track.musicbrainz_track_id = Some(id.to_owned());
     }
 }
 
@@ -1250,9 +1264,7 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
             track.artists = native_artists;
         }
         track.description = id3v2.get_user_text("DESCRIPTION").map(ToOwned::to_owned);
-        track.musicbrainz_track_id = id3v2
-            .get_user_text("MusicBrainz Track Id")
-            .map(ToOwned::to_owned);
+        apply_mp3_recording_id(id3v2, &mut track);
         track.discogs_artist_id = id3v2
             .get_user_text("Discogs Artist Id")
             .map(ToOwned::to_owned);

@@ -4361,6 +4361,96 @@ mod tests {
         copy_to_temp(&fixture(), "track.mp3")
     }
 
+    fn copy_valid_mpeg_fixture() -> (PathBuf, PathBuf) {
+        let (root, path) = copy_fixture();
+        let bytes = fs::read(&path).unwrap();
+        fs::write(&path, mpeg_payload(&bytes).unwrap().repeat(8)).unwrap();
+        let parsed = lofty::read_from_path(&path).unwrap();
+        assert!(parsed.properties().duration().as_secs_f64() > 0.0);
+        (root, path)
+    }
+
+    /// Recording recognition must persist a new ID even when visible tags
+    /// already match; otherwise retry and conflict checks lose its evidence.
+    #[test]
+    fn mp3_recording_id_only_write_is_not_discarded_as_unchanged() {
+        let (root, path) = copy_valid_mpeg_fixture();
+        let seed = serde_json::from_value(serde_json::json!({
+            "title":"Already correct", "artist":"Singer"
+        }))
+        .unwrap();
+        write_mp3_atomic(&path, &seed).unwrap();
+        let before = fs::read(&path).unwrap();
+        let id = "11111111-1111-4111-8111-111111111111";
+        let patch = serde_json::from_value(serde_json::json!({"musicbrainzTrackId":id})).unwrap();
+        assert_eq!(
+            write_mp3_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Replaced
+        );
+        let written = fs::read(&path).unwrap();
+        assert_eq!(mpeg_payload(&before), mpeg_payload(&written));
+        assert_eq!(
+            read_id3v2(&path)
+                .unwrap()
+                .get_user_text("MusicBrainz Track Id"),
+            Some(id)
+        );
+        assert_eq!(
+            read_track_metadata(&path)
+                .unwrap()
+                .musicbrainz_track_id
+                .as_deref(),
+            Some(id)
+        );
+        assert_eq!(
+            write_mp3_atomic(&path, &patch).unwrap(),
+            TrackWriteOutcome::Skipped
+        );
+        assert_eq!(fs::read(&path).unwrap(), written);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Soundrobe's current TXXX field wins when present, while standard UFID
+    /// recordings remain readable when no Soundrobe override was written.
+    #[test]
+    fn mp3_recording_id_reads_current_txxx_without_losing_ufid_fallback() {
+        let (root, path) = copy_valid_mpeg_fixture();
+        let ufid = "11111111-1111-4111-8111-111111111111";
+        let current = "22222222-2222-4222-8222-222222222222";
+        for custom in [None, Some(""), Some(" \t "), Some(current)] {
+            let mut native = Id3v2Tag::default();
+            native.insert(Frame::UniqueFileIdentifier(
+                lofty::id3::v2::UniqueFileIdentifierFrame::new(
+                    "http://musicbrainz.org",
+                    ufid.as_bytes(),
+                ),
+            ));
+            if let Some(value) = custom {
+                native.insert_user_text("MusicBrainz Track Id".into(), value.into());
+            }
+            native.save_to_path(&path, WriteOptions::default()).unwrap();
+            assert!(
+                lofty::read_from_path(&path).is_ok(),
+                "exercise the normal MPEG path"
+            );
+            assert_eq!(
+                read_track_metadata(&path)
+                    .unwrap()
+                    .musicbrainz_track_id
+                    .as_deref(),
+                custom
+                    .filter(|value| !value.trim().is_empty())
+                    .or(Some(ufid))
+            );
+            let stored = lofty::tag::Tag::from(read_id3v2(&path).unwrap());
+            assert_eq!(
+                stored.get_string(lofty::tag::ItemKey::MusicBrainzRecordingId),
+                Some(ufid)
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn writer_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/writer-corpus")
