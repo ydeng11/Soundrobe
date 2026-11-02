@@ -1231,17 +1231,11 @@ pub(crate) fn accept_acoustid_release(
         if (local_duration - provider_duration).abs() > 5.0_f64.max(local_duration * 0.03) {
             return Err("MusicBrainz track duration conflicts with local audio".to_string());
         }
-        if local
-            .title
-            .iter()
-            .chain(local.filename.iter())
-            .any(|title| {
-                !super::auto_tag_acoustid::versions_compatible(
-                    title,
-                    track.title.as_deref().unwrap_or_default(),
-                )
-            })
-        {
+        if !super::auto_tag_acoustid::recording_versions_compatible(
+            local,
+            track.title.as_deref().unwrap_or_default(),
+            None,
+        ) {
             return Err("MusicBrainz recording version conflicts with local evidence".into());
         }
         track.length = Some(local_duration);
@@ -2625,13 +2619,21 @@ fn acoustid_provider_attempt(
             (ProviderAttemptStatus::Incomplete, Some(reason.clone()))
         }
     };
+    let (retryable, retry_after_seconds) = match result {
+        AcoustidResolution::Recordings {
+            retryable,
+            retry_after_seconds,
+            ..
+        } => (*retryable, *retry_after_seconds),
+        _ => (false, None),
+    };
     ProviderAttempt {
         provider: "acoustid",
         status,
         diagnostic,
         retry_count: 0,
-        retry_after_seconds: None,
-        retryable: false,
+        retry_after_seconds,
+        retryable,
     }
 }
 
@@ -3473,14 +3475,25 @@ async fn resolve_and_apply_album_with_acoustid_override(
         let attempt = acoustid_provider_attempt(&result);
         progress(7, "Checking complete MusicBrainz release coverage...");
         match result {
-            super::auto_tag_acoustid::AcoustidResolution::Recordings { evidence, .. }
-                if identity_available
-                    && evidence
-                        .track_matches
-                        .iter()
-                        .all(|track| track.recording_id.is_empty()) =>
+            super::auto_tag_acoustid::AcoustidResolution::Recordings {
+                evidence,
+                tracks,
+                retryable,
+                reason_code,
+                ..
+            } if identity_available
+                && !retryable
+                && reason_code != "recording_conflict"
+                && !tracks.iter().any(has_recording_patch)
+                && evidence.track_matches.iter().all(|row| {
+                    row.recording_id.is_empty()
+                        && !matches!(
+                            row.reason.as_deref(),
+                            Some("recording_audio_conflict" | "duplicate_comparison_incomplete")
+                        )
+                }) =>
             {
-                early_acoustid_diagnostics.push(serde_json::json!({"stage":"acoustid", "status":"unavailable", "trackMatches":evidence.track_matches}));
+                early_acoustid_diagnostics.push(serde_json::json!({"stage":"acoustid", "status":"incomplete", "trackMatches":evidence.track_matches}));
                 early_acoustid_attempt = Some(attempt);
             }
             result @ super::auto_tag_acoustid::AcoustidResolution::Recordings { .. } => {
@@ -4756,7 +4769,7 @@ async fn apply_recording_resolution(
         candidate: Some(candidate),
         reason_code: Some(reason_code.clone()),
         diagnostics: vec![
-            serde_json::json!({"stage":"acoustid", "reason":reason_code,"trackMatches":evidence.track_matches,"candidateCount":evidence.candidate_count,"checkedCandidates":evidence.checked_candidates,"rejections":evidence.rejections,"sharedAlbumFields":shared_album}),
+            serde_json::json!({"stage":"acoustid", "reason":reason_code,"validationComplete":evidence.validation_complete,"trackMatches":evidence.track_matches,"candidateCount":evidence.candidate_count,"checkedCandidates":evidence.checked_candidates,"rejections":evidence.rejections,"sharedAlbumFields":shared_album}),
             coverage,
         ],
         provider_attempts: vec![ProviderAttempt {
@@ -4769,6 +4782,10 @@ async fn apply_recording_resolution(
         }],
         ..AutoTagRunResult::default()
     })
+}
+
+fn has_recording_patch(track: &TrackCandidate) -> bool {
+    track.musicbrainz_track_id.is_some() || (track.title.is_some() && track.artist.is_some())
 }
 
 /// Recording evidence never authorizes clearing or changing an album edition.
@@ -4787,8 +4804,7 @@ async fn apply_recording_tags(
     validate_recording_sources(&files, tracks)?;
     let mut written = 0;
     for (path, track) in files.into_iter().zip(tracks) {
-        if track.musicbrainz_track_id.is_none() && (track.title.is_none() || track.artist.is_none())
-        {
+        if !has_recording_patch(track) {
             continue;
         }
         let mut fields = serde_json::json!({});
@@ -5373,11 +5389,11 @@ mod tests {
                 "tracks": [
                     {"position": "1", "title": "Recording One", "recording": {
                         "id": first_recording, "title": "Recording One", "length": 10,
-                        "artist-credit": [{"name": "Lead One"}, {"joinphrase": " feat. "}, {"name": "Guest One"}]
+                        "artist-credit": [{"name": "Lead One", "joinphrase": " feat. "}, {"name": "Guest One"}]
                     }},
                     {"position": "2", "title": "Recording Two", "recording": {
                         "id": second_recording, "title": "Recording Two", "length": 10,
-                        "artist-credit": [{"name": "Lead Two"}, {"joinphrase": " feat. "}, {"name": "Guest Two"}]
+                        "artist-credit": [{"name": "Lead Two", "joinphrase": " feat. "}, {"name": "Guest Two"}]
                     }}
                 ]
             }]

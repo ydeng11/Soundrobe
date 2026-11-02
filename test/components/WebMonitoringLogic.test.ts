@@ -272,3 +272,23 @@ describe("file coverage", () => {
     expect(runFileCoverage({...run,itemsTruncated:true})).toBeNull();
   });
 });
+
+it("shows conflicting candidate identities instead of making a Halo collision look like a match", () => {
+  const lines = runEvidenceLines({path:"/music/Halo",status:"needs_review",evidence:{diagnostics:[{stage:"acoustid",validationComplete:true,trackMatches:[{fileName:"Halo Radio Edit.mp3",reason:"AcoustID returned tied recording identities",candidateCount:3,omittedCandidates:0,candidates:[
+    {recordingId:"beyonce-id",authoritativeTitle:"Halo",artistCredits:["Beyoncé"],score:0.968,disambiguation:"radio edit",disposition:"supported"},
+    {recordingId:"luke-id",authoritativeTitle:"Even Though I'm Leaving",artistCredits:["Luke Combs"],score:0.968,disposition:"supported"},
+  ]}]}]}});
+  expect(lines.join("\n")).toContain("Beyoncé");
+  expect(lines.join("\n")).toContain("Luke Combs");
+  expect(lines.join("\n")).toContain("beyonce-id");
+  expect(lines.join("\n")).toContain("luke-id");
+  expect(lines.join("\n")).toContain("radio edit");
+  expect(lines.join("\n")).toContain("tied recording identities");
+});
+
+it("bounds detailed evidence and discloses omitted candidates and unfinished validation", () => {
+  const lines=runEvidenceLines({path:"/music/Many",status:"needs_review",evidence:{diagnostics:[{stage:"acoustid",validationComplete:false,trackMatches:Array.from({length:10},(_,i)=>({fileName:`${i}.mp3`,candidateCount:24,omittedCandidates:4,candidates:Array.from({length:20},(_,j)=>({recordingId:`${i}-${j}`,authoritativeTitle:"Song",artistCredits:["Singer"],score:0.95,disposition:"supported"}))}))}]}});
+  expect(lines.filter(line=>line.startsWith("Candidate:")).length).toBeLessThanOrEqual(48);
+  expect(lines.join("\n")).toContain("omitted");
+  expect(lines.join("\n")).toContain("Validation unfinished");
+});

@@ -696,20 +696,71 @@ impl MusicBrainzClient {
     pub(crate) async fn recording_by_id_result(
         &self,
         id: &str,
-    ) -> Result<ProviderRecording, String> {
-        let response = self
+    ) -> Result<ProviderRecording, RecordingLookupFailure> {
+        let metrics = ProviderRetryMetrics::default();
+        let mut context = self.retry_context.clone().unwrap_or_else(|| {
+            let mut context =
+                ProviderRetryContext::new(Arc::new(AtomicBool::new(false)), metrics.clone());
+            context.max_attempts = 1;
+            context
+        });
+        context.metrics = metrics.clone();
+        let client = Self {
+            http: self.http.clone(),
+            base_url: self.base_url.clone(),
+            retry_context: Some(context),
+        };
+        let response = client
             .send_with_retry(
                 format!("{}/recording/{id}", self.base_url),
                 &[("fmt", "json".into()), ("inc", "artist-credits".into())],
             )
-            .await?;
+            .await;
+        if let Some(context) = &self.retry_context {
+            context
+                .metrics
+                .retry_count
+                .fetch_add(metrics.retry_count(), Ordering::AcqRel);
+            if metrics.transient_failure() {
+                context
+                    .metrics
+                    .observe_transient_failure(metrics.max_retry_after_seconds());
+            }
+        }
+        let failure = |kind: &str, reason: String, status: Option<u16>, retryable: bool| {
+            RecordingLookupFailure {
+                kind: kind.into(),
+                reason,
+                status,
+                retryable,
+                retry_after_seconds: metrics.max_retry_after_seconds(),
+                attempts: metrics.retry_count() + 1,
+            }
+        };
+        let response = response
+            .map_err(|reason| failure("request", reason, None, metrics.transient_failure()))?;
+        let status = response.status();
+        let retry_after = retry_after_seconds(&response);
         if !response.status().is_success() {
-            return Err(format!("MusicBrainz recording HTTP {}", response.status()));
+            let mut error = failure(
+                "http",
+                format!("MusicBrainz recording HTTP {status}"),
+                Some(status.as_u16()),
+                retryable_status(status),
+            );
+            error.retry_after_seconds = error.retry_after_seconds.max(retry_after);
+            return Err(error);
         }
         // Only an HTTP redirect on the same provider origin establishes a
         // canonical ID. A different ID in an unredirected JSON body is invalid.
-        let endpoint = reqwest::Url::parse(&self.base_url)
-            .map_err(|_| "MusicBrainz recording endpoint invalid")?;
+        let endpoint = reqwest::Url::parse(&self.base_url).map_err(|_| {
+            failure(
+                "endpoint",
+                "MusicBrainz recording endpoint invalid".into(),
+                None,
+                false,
+            )
+        })?;
         let canonical_id = if response.url().origin() == endpoint.origin() {
             response
                 .url()
@@ -718,14 +769,29 @@ impl MusicBrainzClient {
                 .unwrap_or(id)
                 .to_string()
         } else {
-            return Err("MusicBrainz recording redirect origin changed".into());
+            return Err(failure(
+                "identity",
+                "MusicBrainz recording redirect origin changed".into(),
+                Some(status.as_u16()),
+                false,
+            ));
         };
-        let value: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|_| "MusicBrainz recording response invalid")?;
-        let mut recording = parse_musicbrainz_recording(&value, &canonical_id)
-            .ok_or("MusicBrainz recording identity incomplete")?;
+        let value: serde_json::Value = response.json().await.map_err(|error| {
+            failure(
+                "response",
+                "MusicBrainz recording response invalid".into(),
+                Some(status.as_u16()),
+                !error.is_decode(),
+            )
+        })?;
+        let mut recording = parse_musicbrainz_recording(&value, &canonical_id).map_err(|kind| {
+            failure(
+                kind,
+                format!("MusicBrainz recording identity incomplete: {kind}"),
+                Some(status.as_u16()),
+                false,
+            )
+        })?;
         recording.requested_id = id.into();
         Ok(recording)
     }
@@ -1736,6 +1802,17 @@ fn parse_musicbrainz_release(
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RecordingLookupFailure {
+    pub kind: String,
+    pub reason: String,
+    pub status: Option<u16>,
+    pub retryable: bool,
+    pub retry_after_seconds: Option<u64>,
+    pub attempts: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
 pub(crate) struct ProviderRecording {
     pub requested_id: String,
     pub disambiguation: Option<String>,
@@ -1749,25 +1826,50 @@ pub(crate) struct ProviderRecording {
 fn parse_musicbrainz_recording(
     value: &serde_json::Value,
     expected_id: &str,
-) -> Option<ProviderRecording> {
-    let id = value.get("id")?.as_str()?;
+) -> Result<ProviderRecording, &'static str> {
+    let id = value
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("recording_identity_invalid")?;
     if id != expected_id {
-        return None;
+        return Err("recording_identity_invalid");
     }
-    let title = value.get("title")?.as_str()?.trim();
-    let credit = non_empty_credit(value.get("artist-credit"))?;
+    let title = value
+        .get("title")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|v| !v.is_empty())
+        .ok_or("recording_title_missing")?;
+    let credit =
+        non_empty_credit(value.get("artist-credit")).ok_or("recording_credit_incomplete")?;
+    if !credit.iter().all(|item| {
+        item.get("name")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|name| !name.trim().is_empty())
+            && item
+                .get("joinphrase")
+                .is_none_or(serde_json::Value::is_string)
+    }) {
+        return Err("recording_credit_incomplete");
+    }
     let artist = format_artist_credit(credit);
     let artists = artist_names(Some(credit));
-    let duration = value.get("length")?.as_f64()? / 1000.0;
-    if title.is_empty()
-        || artist.trim().is_empty()
-        || artists.is_empty()
-        || !duration.is_finite()
-        || duration <= 0.0
-    {
-        return None;
+    if artist.trim().is_empty() || artists.is_empty() {
+        return Err("recording_credit_incomplete");
     }
-    Some(ProviderRecording {
+    let duration = value
+        .get("length")
+        .and_then(serde_json::Value::as_f64)
+        .map(|v| v / 1000.0)
+        .filter(|v| v.is_finite() && *v > 0.0)
+        .ok_or("recording_duration_missing")?;
+    if value
+        .get("disambiguation")
+        .is_some_and(|v| !v.is_null() && !v.is_string())
+    {
+        return Err("recording_annotation_invalid");
+    }
+    Ok(ProviderRecording {
         requested_id: expected_id.into(),
         disambiguation: value
             .get("disambiguation")
@@ -3809,6 +3911,21 @@ fn valid_image(image: &RemoteImage) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn coverage_v3_recording_identity_requires_every_credit() {
+        let id = "11111111-1111-4111-8111-111111111111";
+        for extra in [
+            serde_json::json!({}),
+            serde_json::json!({"name":""}),
+            serde_json::json!({"name":7}),
+        ] {
+            let value = serde_json::json!({"id":id,"title":"Song","length":1000,"artist-credit":[{"name":"Singer"},extra]});
+            assert!(
+                super::parse_musicbrainz_recording(&value, id).is_err(),
+                "a missing guest credit must not become apparently complete consensus"
+            );
+        }
+    }
     use super::*;
     use std::io::{Read, Write};
     use std::net::TcpListener;

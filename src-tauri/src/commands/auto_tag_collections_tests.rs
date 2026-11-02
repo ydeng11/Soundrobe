@@ -1,4 +1,7 @@
 //! The investigation snapshot describes collection shape, never catalog truth.
+#[cfg(unix)]
+#[path = "auto_tag_coverage_v3_tests.rs"]
+mod coverage_v3;
 use super::*;
 use crate::commands::tracks::read_track_metadata;
 use std::{fs, process::Command};
@@ -1041,6 +1044,7 @@ async fn coverage_v2_consensus_album_writes_count_without_claiming_an_edition() 
     let evidence = super::super::auto_tag_acoustid::AcoustidEvidence {
         release_id: String::new(),
         decision_rule_version: 2,
+        validation_complete: true,
         track_matches: vec![],
         candidate_count: 2,
         checked_candidates: 2,

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Monitoring shows competing recording titles, ordered artist credits, identifiers, scores and provider failures, with explicit limits on displayed evidence.
+
 - Monitoring separates complete folders from files written, and reports verified title/artist, album and edition coverage without treating older missing evidence as zero.
 - AcoustID matching retains competing recording evidence, checks authoritative durations before resolving ties, and recognizes verified live/remix disambiguation while preserving version wording. High-scoring unidentified or unavailable competitors remain in review.
 - Duplicate encodings can match across codec differences using full-duration fingerprints with checks for local edits. A conflicting duplicate group no longer blocks unrelated tracks.
@@ -20,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional AcoustID audio recognition can identify complete albums and track positions when ordinary metadata lookups cannot. Ambiguous or incomplete matches remain marked for review. Configure its application key in Tag sources or provider settings.
 
 ### Changed
+
+- AcoustID retries continue through crowded recording candidates without increasing lookup limits. Failed details retain their reason and retry eligibility, and time-limited runs retain progress while deferring writes until validation finishes.
+- Ambiguous recording IDs can now supply title and artist when every viable recording agrees and all audio, duration, credit and version checks pass. Recording IDs and edition details stay unresolved. Filename remix connectors are accepted only when the complete embedded and provider titles agree.
 
 - Temporary provider outages now defer affected background albums with bounded retries. An AI billing failure stops further AI requests in that run, including genre requests, and explains the required service action.
 - Incomplete albums and ambiguous editions remain marked for review; shared verified fields can be written without choosing a release ID or track positions. HTML entities and Unicode are normalized for comparison while display text and recording versions remain intact.

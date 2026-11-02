@@ -354,6 +354,7 @@ export function runEvidenceLines(item: BackgroundRunItem): string[] {
   );
   const diagnostics = [...(evidence.diagnostics ?? [])];
   if (evidence.acoustid && !diagnostics.some((diagnostic) => Array.isArray(diagnostic.trackMatches))) diagnostics.push(evidence.acoustid);
+  let candidateBudget = 48;
   for (const diagnostic of diagnostics) {
     if (diagnostic.stage === "coverage") {
       lines.push(`${diagnostic.verifiedTracks}/${diagnostic.localFiles} files verified; ${diagnostic.writtenFiles} written; ${diagnostic.releaseTracks ?? "unknown"} release tracks; album ${diagnostic.completeAlbum ? "complete" : "incomplete"}`);
@@ -362,9 +363,31 @@ export function runEvidenceLines(item: BackgroundRunItem): string[] {
     }
     if (typeof diagnostic.candidateCount === "number") lines.push(`${diagnostic.checkedCandidates ?? 0}/${diagnostic.candidateCount} candidate editions checked`);
     if (Array.isArray(diagnostic.rejections)) lines.push(...diagnostic.rejections.filter((reason): reason is string => typeof reason === "string"));
+    if (diagnostic.validationComplete === false) lines.push("Validation unfinished; recording identity remains unresolved.");
     if (Array.isArray(diagnostic.trackMatches)) {
       for (const track of diagnostic.trackMatches) {
-        lines.push(`${track.fileName}: ${track.reason ?? track.recordingId ?? "unresolved"}${typeof track.score === "number" ? ` (${Math.round(track.score * 100)}%)` : ""}`);
+        const outcome = track.reason === "recording_fields_consensus" ? "Shared title/artist verified; recording ID unresolved" : track.reason;
+        lines.push(`${track.fileName}: ${outcome ?? track.recordingId ?? "unresolved"}${typeof track.score === "number" ? ` (${Math.round(track.score * 100)}%)` : ""}`);
+        const candidates: unknown[] = Array.isArray(track.candidates) ? track.candidates : [];
+        let shown = 0;
+        for (const value of candidates.slice(0, Math.min(16, candidateBudget))) {
+          if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+          const candidate = value as Record<string, unknown>;
+          const text = (value: unknown, fallback: string): string => typeof value === "string" && value.trim() ? (value.length > 240 ? `${value.slice(0, 240)}…` : value) : fallback;
+          const title = text(candidate.authoritativeTitle, text(candidate.acousticTitle, "Title unknown"));
+          const credits = candidate.artistCredits;
+          const artist = Array.isArray(credits) && credits.length && credits.every((credit) => typeof credit === "string" && credit.trim())
+            ? `${credits.slice(0, 8).map((credit) => text(credit, "")).join(" / ")}${credits.length > 8 ? ` +${credits.length - 8} credits` : ""}` : "Credits incomplete";
+          const score = typeof candidate.score === "number" && Number.isFinite(candidate.score) && candidate.score >= 0 && candidate.score <= 1 ? `; ${Math.round(candidate.score * 100)}%` : "";
+          const annotation = text(candidate.disambiguation, "");
+          const failure = candidate.detailFailure && typeof candidate.detailFailure === "object" ? candidate.detailFailure as Record<string, unknown> : null;
+          const status = failure && typeof failure.status === "number" ? `; HTTP ${failure.status}` : "";
+          lines.push(`Candidate: ${title} — ${artist} [${text(candidate.canonicalRecordingId, text(candidate.recordingId, "recording ID unknown"))}]${score}; ${text(candidate.disposition, "unresolved")}${annotation ? `; ${annotation}` : ""}${status}`);
+          shown += 1;
+          candidateBudget -= 1;
+        }
+        const omitted = (typeof track.omittedCandidates === "number" && Number.isSafeInteger(track.omittedCandidates) && track.omittedCandidates > 0 ? track.omittedCandidates : 0) + candidates.length - shown;
+        if (omitted > 0) lines.push(`Additional candidate details omitted: at least ${omitted}.`);
       }
     }
     if (diagnostic.stage === "configuration" && diagnostic.settings && typeof diagnostic.settings === "object") {
