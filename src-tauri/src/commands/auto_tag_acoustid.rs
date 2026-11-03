@@ -1477,6 +1477,18 @@ fn consensus_qualifiers_compatible(local: &TrackCandidate, remote: &ProviderReco
     ];
     // Check the actual written title, not annotation words that could disappear
     // from the patch. Full phrases prevent Radio Edit matching Extended Edit.
+    let artist_prefix_matches = |prefix: &str, leading_credit: bool| {
+        prefix.ends_with(' ')
+            && (local
+                .artist
+                .as_ref()
+                .is_some_and(|artist| version_words(artist) == prefix.trim())
+                || leading_credit
+                    && local
+                        .artists
+                        .first()
+                        .is_some_and(|artist| version_words(artist) == prefix.trim()))
+    };
     let written = recording_display_title(local, &remote.title);
     let live_title = format!("{} live", version_words(&remote.title));
     // The caller requires unanimous authoritative annotations. Only this
@@ -1502,13 +1514,9 @@ fn consensus_qualifiers_compatible(local: &TrackCandidate, remote: &ProviderReco
         && local.filename.as_deref().is_some_and(|filename| {
             let words = version_words(filename);
             words == live_title
-                || words.strip_suffix(&live_title).is_some_and(|prefix| {
-                    prefix.ends_with(' ')
-                        && local
-                            .artist
-                            .as_deref()
-                            .is_some_and(|artist| version_words(artist) == prefix.trim())
-                })
+                || words
+                    .strip_suffix(&live_title)
+                    .is_some_and(|prefix| artist_prefix_matches(prefix, true))
         })
         && written
             .strip_prefix(&remote.title)
@@ -1528,13 +1536,9 @@ fn consensus_qualifiers_compatible(local: &TrackCandidate, remote: &ProviderReco
             .any(|marker| unbracketed.contains(&format!(" {marker} ")))
         {
             let full_agreement = words == remote_words
-                || words.strip_suffix(&remote_words).is_some_and(|prefix| {
-                    prefix.ends_with(' ')
-                        && local
-                            .artist
-                            .as_ref()
-                            .is_some_and(|artist| version_words(artist) == prefix.trim())
-                });
+                || words
+                    .strip_suffix(&remote_words)
+                    .is_some_and(|prefix| artist_prefix_matches(prefix, retained_live));
             if !full_agreement {
                 return false;
             }
@@ -1829,6 +1833,8 @@ mod tests {
             "same_named_mix",
             "supported_live",
             "artist_prefixed_live",
+            "leading_credit_live",
+            "guest_prefixed_live",
             "live_missing_title",
             "live_missing_filename",
             "live_credit_order",
@@ -1884,6 +1890,8 @@ mod tests {
                 "annotation" => second.disambiguation = Some("live".into()),
                 "supported_live"
                 | "artist_prefixed_live"
+                | "leading_credit_live"
+                | "guest_prefixed_live"
                 | "live_missing_title"
                 | "live_missing_filename"
                 | "live_credit_order"
@@ -1925,6 +1933,18 @@ mod tests {
                         "artist_prefixed_live" => {
                             local.artist = Some("Singer".into());
                             local.filename = Some("Singer-Song(Live)".into());
+                        }
+                        "leading_credit_live" | "guest_prefixed_live" => {
+                            local.artist = Some("Singer & Guest".into());
+                            local.artists = vec!["Singer".into(), "Guest".into()];
+                            local.filename = Some(
+                                if scenario == "leading_credit_live" {
+                                    "Singer-Song(Live)"
+                                } else {
+                                    "Guest-Song(Live)"
+                                }
+                                .into(),
+                            );
                         }
                         "live_missing_title" => local.title = None,
                         "live_missing_filename" => local.filename = None,
@@ -1990,7 +2010,11 @@ mod tests {
                 common_recording_text(&local, &candidates, &details).is_some(),
                 matches!(
                     scenario,
-                    "valid" | "same_named_mix" | "supported_live" | "artist_prefixed_live"
+                    "valid"
+                        | "same_named_mix"
+                        | "supported_live"
+                        | "artist_prefixed_live"
+                        | "leading_credit_live"
                 ),
                 "{scenario}: full agreement and every guard are required, not a majority"
             );
