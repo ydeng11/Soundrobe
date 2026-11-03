@@ -270,9 +270,68 @@ async fn verified_pcm_requires_exact_checksum_and_complete_sample_count() {
     }
 }
 
+fn native_24_bit_fixture(channels: u64) -> Fixture {
+    use md5::Digest;
+    let fixture = Fixture::new();
+    let pcm = if channels == 1 { "abc" } else { "abcdef" };
+    let mut header = fs::read(&fixture.audio).unwrap();
+    let format = (48000_u64 << 44) | ((channels - 1) << 41) | (23 << 36) | 1;
+    header[18..26].copy_from_slice(&format.to_be_bytes());
+    header[26..42].copy_from_slice(&md5::Md5::digest(pcm));
+    fs::write(&fixture.audio, header).unwrap();
+    fixture.script(&fixture.ffmpeg, &format!(
+        "[ \"$*\" = '-nostdin -v error -noauto_conversion_filters -threads 1 -f flac -i pipe:0 -map 0:a:0 -c:a pcm_s24le -ar 48000 -ac {channels} -f s24le pipe:1' ] || exit 9\ncat >/dev/null\nprintf '{pcm}'\n"
+    ));
+    fixture.script(&fixture.fpcalc, &format!(
+        "if [ \"$5\" = -format ]; then\n[ \"$*\" = '-json -raw -length 0 -format s24le -rate 48000 -channels {channels} -' ] || exit 9\n[ \"$(cat)\" = '{pcm}' ] || exit 8\nprintf '%s' '{{\"fingerprint\":[1,2,3]}}'\nelse exit 3; fi\n"
+    ));
+    fixture
+}
+
+#[tokio::test]
+async fn verified_pcm_preserves_native_24_bit_mono_and_stereo_precision() {
+    for channels in [1, 2] {
+        let fixture = native_24_bit_fixture(channels);
+        let before = fs::read(&fixture.audio).unwrap();
+        assert_eq!(fixture.fingerprint().await.unwrap(), [1, 2, 3]);
+        assert_eq!(fs::read(&fixture.audio).unwrap(), before);
+    }
+}
+
+#[tokio::test]
+async fn verified_pcm_24_bit_requires_checksum_count_and_byte_cap() {
+    for decoded in ["abcdeF", "abcde", "abcdefg", ""] {
+        let fixture = native_24_bit_fixture(2);
+        accept_any_pcm(&fixture, r#"{"fingerprint":[1,2,3]}"#, 0);
+        fixture.script(
+            &fixture.ffmpeg,
+            &format!("cat >/dev/null\nprintf '{decoded}'\n"),
+        );
+        assert_eq!(
+            fixture.fingerprint().await,
+            Err(AcoustidError::ProcessFailed)
+        );
+    }
+    let fixture = native_24_bit_fixture(2);
+    let mut header = fs::read(&fixture.audio).unwrap();
+    let format = (48000_u64 << 44) | (1 << 41) | (23 << 36) | 44_739_243;
+    header[18..26].copy_from_slice(&format.to_be_bytes());
+    fs::write(&fixture.audio, header).unwrap();
+    let marker = fixture.root.join("decoder-called");
+    fixture.script(&fixture.ffmpeg, &format!("touch '{}'\n", marker.display()));
+    assert_eq!(
+        fixture.fingerprint().await,
+        Err(AcoustidError::ProcessFailed)
+    );
+    assert!(
+        !marker.exists(),
+        "24-bit sample width must count toward the same byte cap"
+    );
+}
+
 #[tokio::test]
 async fn verified_pcm_refuses_unverifiable_or_unsupported_streaminfo_before_decoding() {
-    for variant in 0..9 {
+    for variant in 0..10 {
         let fixture = Fixture::new();
         let mut bytes = fs::read(&fixture.audio).unwrap();
         match variant {
@@ -284,12 +343,14 @@ async fn verified_pcm_refuses_unverifiable_or_unsupported_streaminfo_before_deco
             5 => bytes[18..26]
                 .copy_from_slice(&((44100_u64 << 44) | (1 << 41) | (15 << 36)).to_be_bytes()),
             6 => bytes[18..26]
-                .copy_from_slice(&((44100_u64 << 44) | (1 << 41) | (23 << 36) | 1).to_be_bytes()),
+                .copy_from_slice(&((44100_u64 << 44) | (1 << 41) | (19 << 36) | 1).to_be_bytes()),
             7 => bytes[18..26]
                 .copy_from_slice(&((44100_u64 << 44) | (2 << 41) | (15 << 36) | 1).to_be_bytes()),
             8 => bytes[18..26].copy_from_slice(
                 &((44100_u64 << 44) | (1 << 41) | (15 << 36) | 0xf_ffff_ffff).to_be_bytes(),
             ),
+            9 => bytes[18..26]
+                .copy_from_slice(&((44100_u64 << 44) | (1 << 41) | (31 << 36) | 1).to_be_bytes()),
             _ => unreachable!(),
         }
         fs::write(&fixture.audio, bytes).unwrap();

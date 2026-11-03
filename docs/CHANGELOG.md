@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Folders with AcoustID-verified titles and artist credits on every file can finish with an unresolved edition. Recording-only tagging preserves existing album grouping, and run details identify this completion scope.
 
 - On macOS and Linux, duplicate-track comparison can recover FLAC audio rejected by the fingerprint tool when optional FFmpeg decoding reproduces the file’s complete lossless checksum. Damaged or unverifiable audio remains in review.
+- Checksum-verified FLAC recovery also supports native 24-bit mono and stereo audio without reducing its precision.
 
 - Monitoring shows competing recording titles, ordered artist credits, identifiers, scores and provider failures, with explicit limits on displayed evidence.
 

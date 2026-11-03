@@ -54,6 +54,7 @@ struct FlacInput {
     original: SourceSnapshot,
     rate: u32,
     channels: u32,
+    format: &'static str,
     bytes: u64,
     md5: [u8; 16],
 }
@@ -89,19 +90,18 @@ impl FlacInput {
         let rate = (format >> 44) as u32;
         let channels = ((format >> 41) & 7) as u32 + 1;
         let bits = ((format >> 36) & 31) + 1;
+        let pcm_format = match bits {
+            16 => "s16le",
+            24 => "s24le",
+            _ => return Err(failed),
+        };
         let samples = format & 0xf_ffff_ffff;
         let md5: [u8; 16] = header[26..42].try_into().map_err(|_| failed)?;
         let bytes = samples
             .checked_mul(u64::from(channels))
-            .and_then(|n| n.checked_mul(2))
+            .and_then(|n| n.checked_mul(bits / 8))
             .ok_or(failed)?;
-        if rate == 0
-            || channels > 2
-            || bits != 16
-            || bytes == 0
-            || bytes > MAX_PCM_BYTES
-            || md5 == [0; 16]
-        {
+        if rate == 0 || channels > 2 || bytes == 0 || bytes > MAX_PCM_BYTES || md5 == [0; 16] {
             return Err(failed);
         }
         file.rewind().map_err(|_| failed)?;
@@ -110,6 +110,7 @@ impl FlacInput {
             original: original.clone(),
             rate,
             channels,
+            format: pcm_format,
             bytes,
             md5,
         })
@@ -148,7 +149,7 @@ pub(super) async fn fingerprint(
 ) -> Result<Vec<u8>, AcoustidError> {
     job.check()?;
     let input = FlacInput::open(path, original.ok_or(AcoustidError::ProcessFailed)?)?;
-    // Force the held file's FLAC demuxer and native signed 16-bit output. No
+    // Force the held file's FLAC demuxer and native signed PCM precision. No
     // filename/protocol interpretation, resampling, conversion or media writes.
     let executable = tools
         .ffmpeg
@@ -169,15 +170,15 @@ pub(super) async fn fingerprint(
             "-map",
             "0:a:0",
             "-c:a",
-            "pcm_s16le",
         ])
+        .arg(format!("pcm_{}", input.format))
         // Reject format negotiation that would change rate/channels. The MD5
         // covers PCM bytes but does not encode their playback interpretation.
         .arg("-ar")
         .arg(input.rate.to_string())
         .arg("-ac")
         .arg(input.channels.to_string())
-        .args(["-f", "s16le", "pipe:1"])
+        .args(["-f", input.format, "pipe:1"])
         .stdin(Stdio::from(
             input
                 .file
@@ -190,7 +191,15 @@ pub(super) async fn fingerprint(
         .spawn()
         .map_err(|_| AcoustidError::ProcessFailed)?;
     let fingerprint = Command::new(tools.fpcalc)
-        .args(["-json", "-raw", "-length", "0", "-format", "s16le", "-rate"])
+        .args([
+            "-json",
+            "-raw",
+            "-length",
+            "0",
+            "-format",
+            input.format,
+            "-rate",
+        ])
         .arg(input.rate.to_string())
         .arg("-channels")
         .arg(input.channels.to_string())
