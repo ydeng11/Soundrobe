@@ -61,14 +61,14 @@ pub enum LookupSource {
     Musicbrainz,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct RecordingSource {
     path: PathBuf,
     fingerprint: String,
 }
 
 impl RecordingSource {
-    fn capture(path: &Path) -> Result<Self, ApiError> {
+    pub(crate) fn capture(path: &Path) -> Result<Self, ApiError> {
         use std::io::Read;
         let path = path.canonicalize()?;
         let mut file = std::fs::File::open(&path)?;

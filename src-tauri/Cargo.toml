@@ -23,6 +23,11 @@ name = "soundrobe-server"
 path = "src/bin/soundrobe-server.rs"
 required-features = ["server"]
 
+[[bin]]
+name = "soundrobe-inventory"
+path = "src/bin/soundrobe-inventory.rs"
+required-features = ["server"]
+
 [build-dependencies]
 tauri-build = { version = "2.6", features = [], optional = true }
 

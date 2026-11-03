@@ -64,6 +64,47 @@ pub struct WorkerStore {
 }
 
 impl WorkerStore {
+    /// Inventory must not initialize schemas, recover work, or start scheduling.
+    /// A missing database means absent evidence, not a failed tagging attempt.
+    pub fn read_only_history(data_dir: &Path) -> Result<Vec<serde_json::Value>, String> {
+        let path = data_dir.join("worker.db");
+        if !path.try_exists().map_err(|error| error.to_string())? {
+            return Ok(Vec::new());
+        }
+        let connection =
+            Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
+        let mut statement = connection
+            .prepare(
+                "SELECT e.path, e.run_id, e.evidence, i.updated_at, i.run_id = e.run_id
+             FROM worker_evidence e LEFT JOIN worker_items i ON e.path = i.path
+             ORDER BY e.path, e.rowid",
+            )
+            .map_err(|error| error.to_string())?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                    row.get::<_, Option<bool>>(4)?,
+                ))
+            })
+            .map_err(|error| error.to_string())?;
+        rows.map(|row| {
+            let (path, run_id, evidence, updated_at, current) =
+                row.map_err(|error| error.to_string())?;
+            let evidence: serde_json::Value =
+                serde_json::from_str(&evidence).map_err(|error| error.to_string())?;
+            Ok(
+                serde_json::json!({"path":path,"runId":run_id,"evidence":evidence,
+                "schedulingUpdatedAt":updated_at,"currentSchedulingRun":current.unwrap_or(false)}),
+            )
+        })
+        .collect()
+    }
+
     pub fn new_in(data_dir: PathBuf) -> Self {
         Self {
             path: data_dir.join("worker.db"),

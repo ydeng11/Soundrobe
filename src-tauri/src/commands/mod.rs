@@ -17,6 +17,9 @@ pub mod shell;
 /// `album:search-releases` / `album:resolve-release` / `album:preview-release-match` / `album:search-apply-candidate`
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod album_search;
+/// Read-only artist-library inventory and worklist exports.
+#[cfg(feature = "server")]
+pub mod artist_inventory;
 /// `assistant:*` — `electron/handlers/assistant.ts`.
 #[cfg(feature = "desktop")]
 pub mod assistant;

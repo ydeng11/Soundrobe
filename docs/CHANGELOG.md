@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An offline artist-library inventory exports physical-file accounting and a ranked evidence worklist as JSON or Markdown. It prioritizes one-file identification blockers and keeps historical replay coverage separate from current verification, without querying providers or writing tags.
+
 - Folders with AcoustID-verified titles and artist credits on every file can finish with an unresolved edition. Recording-only tagging preserves existing album grouping, and run details identify this completion scope.
 
 - On macOS and Linux, duplicate-track comparison can recover FLAC audio rejected by the fingerprint tool when optional FFmpeg decoding reproduces the file’s complete lossless checksum. Damaged or unverifiable audio remains in review.

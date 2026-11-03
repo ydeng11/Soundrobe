@@ -1,0 +1,678 @@
+//! Read-only physical-file accounting and evidence triage. Never runs a resolver.
+
+use super::{auto_tag::RecordingSource, library::is_audio_file};
+use crate::state::worker::WorkerStore;
+use serde_json::{json, Value};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::{Path, PathBuf},
+};
+
+const SCOPE: &str = "Read-only inventory; existing tags and historical decisions are not identity proof. Legacy worker evidence has no durable post-write source binding. Verified core, edition, enrichment and human approval remain separate; no new verification or approval is performed.";
+
+/// Full-file SHA-256 is a stale-input check, not an audio identity decision.
+/// The scan is not a filesystem snapshot: each file records its observation.
+pub fn inventory(
+    root: &Path,
+    worker_data: Option<&Path>,
+    historical: Option<&Path>,
+) -> Result<Value, String> {
+    let root = root.canonicalize().map_err(|error| error.to_string())?;
+    if !root.is_dir() {
+        return Err("artist root must be a directory".into());
+    }
+    let history = historical.map(load_history).transpose()?;
+    let worker = worker_data
+        .map(WorkerStore::read_only_history)
+        .transpose()?
+        .unwrap_or_default();
+    let mut worker_folders = BTreeMap::<PathBuf, Vec<&Value>>::new();
+    for attempt in &worker {
+        if let Ok(path) = Path::new(text(&attempt["path"])).canonicalize() {
+            worker_folders.entry(path).or_default().push(attempt);
+        }
+    }
+    let mut paths = Vec::new();
+    let mut excluded = Vec::new();
+    collect(&root, &mut paths, &mut excluded).map_err(|error| error.to_string())?;
+    paths.sort();
+    excluded.sort();
+    let mut files = Vec::new();
+    let mut matched_history = BTreeSet::new();
+    let mut changed_inputs = 0;
+    for path in paths {
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or("non-UTF-8 media filename")?;
+        let folder = path.parent().ok_or("media without parent")?;
+        let before = fs::metadata(&path).map_err(|error| error.to_string())?;
+        let source = RecordingSource::capture(&path)
+            .map_err(|error| error.to_string())
+            .and_then(|source| serde_json::to_value(source).map_err(|error| error.to_string()));
+        let stable = fs::metadata(&path).is_ok_and(|after| {
+            before.len() == after.len() && before.modified().ok() == after.modified().ok()
+        });
+        let source_error = source.as_ref().err().cloned();
+        let source = source.unwrap_or(Value::Null);
+        let mut evidence = Vec::new();
+        for attempt in worker_folders.get(folder).into_iter().flatten() {
+            let snapshot = &attempt["evidence"];
+            let row = track_rows(snapshot)
+                .into_iter()
+                .find(|row| row["fileName"] == name);
+            evidence.push(json!({"source":"worker", "runId":attempt["runId"],
+                "currentSchedulingRun":attempt["currentSchedulingRun"],
+                "schedulingUpdatedAt":attempt["schedulingUpdatedAt"],"fetchedAt":null,
+                "reasonCode":snapshot["reasonCode"],"providerAttempts":snapshot["providerAttempts"],
+                "trackEvidence":row,"freshness":"source_unbound"}));
+        }
+        let historical_file = history.as_ref().and_then(|h| h.files.get(&path));
+        let mut freshness = if evidence.is_empty() {
+            "absent"
+        } else {
+            "source_unbound"
+        };
+        let mut prior_supported = false;
+        if let Some(record) = historical_file {
+            matched_history.insert(path.clone());
+            let unchanged =
+                stable && source["fingerprint"] == record["sourceHashBefore"] && !source.is_null();
+            freshness = if unchanged {
+                "unchanged_historical_input"
+            } else {
+                "changed_since_historical_input"
+            };
+            if !unchanged {
+                changed_inputs += 1;
+            }
+            prior_supported = unchanged && record["providerVerifiedCore"] == true;
+            evidence.push(json!({"source":"historical_composed", "fetchedAt":null,
+                "freshness":freshness,"trackEvidence":record["trackEvidence"],
+                "providerBackedCore":record["providerVerifiedCore"]}));
+        }
+        let selected = evidence
+            .iter()
+            .rev()
+            .find(|e| e["source"] == "historical_composed")
+            .or_else(|| evidence.iter().find(|e| e["currentSchedulingRun"] == true))
+            .or_else(|| evidence.last());
+        let selected = selected.cloned().unwrap_or(Value::Null);
+        let row = &selected["trackEvidence"];
+        let Triage {
+            mut blockers,
+            missing,
+            conflicts,
+            mut actions,
+        } = triage(row, &selected["providerAttempts"]);
+        if row.is_null() && !prior_supported {
+            blockers.insert("evidence_absent".into());
+            actions.insert("Collect recording evidence through the existing preview/tagging workflow on an approved copy.".into());
+        }
+        if freshness == "changed_since_historical_input" || !stable || source_error.is_some() {
+            blockers.insert("stale_or_unreadable_source".into());
+            actions.insert("Refresh evidence for this changed or unreadable physical file before using any prior decision.".into());
+        }
+        actions.insert("Revalidate source-bound track core and readback for every folder member before claiming completion.".into());
+        files.push(json!({"path":path,"relativePath":path.strip_prefix(&root).unwrap(),
+            "folder":folder.strip_prefix(&root).unwrap(),"sourceIdentity":source,
+            "sourceStableDuringRead":stable,"sourceError":source_error,
+            "observedAt":time::OffsetDateTime::now_utc().unix_timestamp(),
+            "freshness":freshness,"coreState":if prior_supported {"requires_revalidation"} else {"unresolved"},
+            "historicalProviderBackedCore":historical_file.map(|r| r["providerVerifiedCore"].clone()),
+            "candidateSummary":{"eligibleHypothesisCount":row["candidateCount"],
+                "visibleAlternativeCount":row["candidates"].as_array().map(Vec::len),
+                "omittedEligibleHypotheses":row["omittedCandidates"],
+                "candidateSetComplete":row["candidateSetComplete"],
+                "fullAlternativeCount":null,"fullAlternativeCountKnown":false},
+            "blockers":blockers,"missingFacts":missing,"conflictingFields":conflicts,
+            "nextActions":actions,"selectedEvidence":selected,"evidence":evidence}));
+    }
+    let mut folders = BTreeMap::<String, (usize, usize)>::new();
+    for file in &files {
+        let counts = folders.entry(text(&file["folder"]).into()).or_default();
+        counts.0 += 1;
+        counts.1 += usize::from(file["coreState"] == "unresolved");
+    }
+    // Rank fact-sharing opportunities using explicit recording IDs, never title similarity.
+    let mut gap_files = BTreeMap::<String, BTreeSet<String>>::new();
+    for file in &files {
+        for gap in file["missingFacts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|gap| !text(&gap["recordingId"]).is_empty())
+        {
+            gap_files
+                .entry(gap.to_string())
+                .or_default()
+                .insert(text(&file["path"]).into());
+        }
+    }
+    let mut worklist = files.clone();
+    for file in &mut worklist {
+        let unresolved = folders[text(&file["folder"])].1;
+        let benefit = file["missingFacts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|gap| gap_files.get(&gap.to_string()).map(BTreeSet::len))
+            .max()
+            .unwrap_or(1);
+        let identification = file["coreState"] == "unresolved";
+        file["priorityGroup"] = json!(if identification && unresolved == 1 {
+            0
+        } else if identification {
+            1
+        } else {
+            2
+        });
+        file["folderIdentificationUnresolvedFiles"] = json!(unresolved);
+        file["sharedFactFileCount"] = json!(benefit);
+        file["priorityReason"] = json!(if !identification {
+            "Historical support still requires current source/readback validation"
+        } else if unresolved == 1 {
+            "One identification blocker; other folder members still need revalidation"
+        } else {
+            "Shared missing facts first, then low-cost provider evidence; all hard cases retained"
+        });
+    }
+    worklist.sort_by_key(|file| {
+        (
+            file["priorityGroup"].as_u64().unwrap(),
+            std::cmp::Reverse(file["sharedFactFileCount"].as_u64().unwrap()),
+            !file["blockers"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("provider_failure")),
+            text(&file["relativePath"]).to_owned(),
+        )
+    });
+    for (index, file) in worklist.iter_mut().enumerate() {
+        file["rank"] = json!(index + 1);
+    }
+    let unresolved = folders.values().map(|(_, count)| count).sum::<usize>();
+    let historical = history.map(|h| {
+        let mut summary = h.summary;
+        summary["matchedInputs"] = json!(matched_history.len());
+        summary["changedInputs"] = json!(changed_inputs);
+        summary["missingOrOutOfScopeInputs"] = json!(h
+            .files
+            .keys()
+            .filter(|p| !matched_history.contains(*p))
+            .collect::<Vec<_>>());
+        summary
+    });
+    Ok(json!({"schemaVersion":1,"root":root,"scope":SCOPE,
+        "summary":{"physicalFiles":files.len(),"folders":folders.len(),"verifiedCoreFiles":0,
+            "unresolvedFiles":files.len(),"identificationUnresolvedFiles":unresolved,
+            "revalidationFiles":files.len()-unresolved,
+            "oneIdentificationBlockerFolders":folders.values().filter(|(_,n)| *n == 1).count()},
+        "historical":historical,"folders":folders.into_iter().map(|(path,(total,unresolved))|
+            json!({"path":path,"physicalFiles":total,"identificationUnresolvedFiles":unresolved,
+                "currentCompletion":"not_verified"})).collect::<Vec<_>>(),
+        "excludedSymlinks":excluded,"files":files,"worklist":worklist}))
+}
+
+fn text(value: &Value) -> &str {
+    value.as_str().unwrap_or("")
+}
+
+fn collect(
+    root: &Path,
+    files: &mut Vec<PathBuf>,
+    excluded: &mut Vec<PathBuf>,
+) -> std::io::Result<()> {
+    for entry in fs::read_dir(root)? {
+        let entry = entry?;
+        let kind = entry.file_type()?;
+        if kind.is_symlink() {
+            excluded.push(entry.path());
+        } else if kind.is_dir() {
+            collect(&entry.path(), files, excluded)?;
+        } else if kind.is_file() && is_audio_file(&entry.path()) {
+            files.push(entry.path());
+        }
+    }
+    Ok(())
+}
+
+fn track_rows(snapshot: &Value) -> Vec<&Value> {
+    // A terminal diagnostic supersedes the earlier checkpoint in `acoustid`.
+    if let Some(diag) = snapshot["diagnostics"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .rev()
+        .find(|diag| diag["stage"] == "acoustid")
+    {
+        return diag["trackMatches"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .collect();
+    }
+    snapshot["acoustid"]["trackMatches"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .collect()
+}
+
+struct Triage {
+    blockers: BTreeSet<String>,
+    missing: Vec<Value>,
+    conflicts: BTreeSet<String>,
+    actions: BTreeSet<String>,
+}
+
+/// Classification explains observations; it never changes acceptance rules.
+fn triage(row: &Value, attempts: &Value) -> Triage {
+    let mut blockers = BTreeSet::new();
+    let mut missing = BTreeSet::new();
+    let mut conflicts = BTreeSet::new();
+    let mut actions = BTreeSet::new();
+    let reason = text(&row["reason"]);
+    for (pattern, category, action) in [
+        ("audio_conflict", "audio_conflict", "Compare complete audio and an independently supported recording reference; do not collapse variants."),
+        ("version", "version_credit_conflict", "Confirm the live/remix/edit/demo version using playback and an independent reference."),
+        ("credit", "version_credit_conflict", "Verify the complete ordered artist credit, including guests."),
+        ("tied", "candidate_ambiguity", "Obtain evidence that distinguishes every competing recording; context alone cannot exclude one."),
+        ("duration", "missing_catalog_fact", "Find an independent recording-duration reference; local duration is not provider corroboration."),
+        ("without recording identities", "human_identification", "Identify unnamed acoustic competitors independently before selecting a recording."),
+        ("unidentified", "human_identification", "Identify unnamed acoustic competitors independently before selecting a recording."),
+        ("budget", "provider_failure", "Continue saved bounded candidate hydration only through an explicitly approved retry."),
+    ] {
+        if reason.contains(pattern) { blockers.insert(category.into()); actions.insert(action.into()); }
+    }
+    for candidate in row["candidates"].as_array().into_iter().flatten() {
+        let failure = &candidate["detailFailure"];
+        let kind = text(&failure["kind"]);
+        if candidate["disposition"] == "recording_id_unavailable" {
+            blockers.insert("human_identification".into());
+            actions.insert(
+                "Identify unnamed acoustic competitors independently before selecting a recording."
+                    .into(),
+            );
+        }
+        if kind.contains("missing") {
+            blockers.insert("missing_catalog_fact".into());
+            let id = text(&candidate["recordingId"]);
+            missing.insert((id.to_owned(), kind.to_owned()));
+            actions.insert("Seek the specific missing catalog fact from an identity-linked source; do not repeat a successful-null response.".into());
+        } else if !failure.is_null() {
+            blockers.insert("provider_failure".into());
+            actions.insert("Inspect provider failure and retry eligibility; retry only when policy or new evidence justifies it.".into());
+        }
+    }
+    if attempts
+        .as_array()
+        .into_iter()
+        .flatten()
+        .any(|a| a["retryable"] == true || a["status"] == "unavailable")
+    {
+        blockers.insert("provider_failure".into());
+        actions.insert("Inspect the saved provider attempt and retry-after policy before requesting more evidence.".into());
+    }
+    for key in [
+        "authoritativeTitle",
+        "artistCredits",
+        "authoritativeDuration",
+        "disambiguation",
+    ] {
+        let values = row["candidates"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter(|&c| !c[key].is_null())
+            .map(|c| c[key].to_string())
+            .collect::<BTreeSet<_>>();
+        if values.len() > 1 {
+            conflicts.insert(key.into());
+        }
+    }
+    if blockers.is_empty() && !reason.is_empty() && reason != "recording_fields_consensus" {
+        blockers.insert("human_identification".into());
+        actions.insert("Inspect the per-file reason and obtain independent identity evidence; keep unresolved alternatives.".into());
+    }
+    Triage {
+        blockers,
+        missing: missing
+            .into_iter()
+            .map(|(id, kind)| json!({"recordingId":id,"fact":kind}))
+            .collect(),
+        conflicts,
+        actions,
+    }
+}
+
+struct Historical {
+    files: BTreeMap<PathBuf, Value>,
+    summary: Value,
+}
+
+fn read_json(path: &Path) -> Result<Value, String> {
+    serde_json::from_slice(&fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?)
+        .map_err(|e| format!("{}: {e}", path.display()))
+}
+
+fn load_history(dir: &Path) -> Result<Historical, String> {
+    let preservation = read_json(&dir.join("preservation.json"))?;
+    let audits = read_json(&dir.join("file-audit.json"))?;
+    let tracks = read_json(&dir.join("track-evidence.json"))?;
+    let albums = read_json(&dir.join("albums.json"))?;
+    let audits = audits.as_array().ok_or("audit must be an array")?;
+    let tracks = tracks.as_array().ok_or("track evidence must be an array")?;
+    let albums = albums.as_array().ok_or("albums must be an array")?;
+    let mut files = BTreeMap::new();
+    for record in preservation["records"]
+        .as_array()
+        .ok_or("preservation records missing")?
+    {
+        let path = PathBuf::from(record["source"].as_str().ok_or("source path missing")?);
+        let name = path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .ok_or("source filename missing")?;
+        let folder = path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|s| s.to_str())
+            .ok_or("source folder missing")?;
+        let matching = audits
+            .iter()
+            .filter(|a| a["folder"] == folder && a["fileName"] == name)
+            .collect::<Vec<_>>();
+        if matching.len() != 1
+            || !path.is_absolute()
+            || record["sourceHashBefore"]
+                .as_str()
+                .is_none_or(|s| s.len() != 64)
+        {
+            return Err(format!(
+                "ambiguous or incomplete historical source mapping: {}",
+                path.display()
+            ));
+        }
+        let rows = tracks
+            .iter()
+            .filter(|a| a["folder"] == folder && a["fileName"] == name)
+            .collect::<Vec<_>>();
+        if rows.len() > 1 {
+            return Err("duplicate historical track evidence".into());
+        }
+        if files.insert(path, json!({"sourceHashBefore":record["sourceHashBefore"],
+            "providerVerifiedCore":matching[0]["providerVerifiedCore"],"trackEvidence":rows.first()})).is_some() {
+            return Err("duplicate historical source path".into());
+        }
+    }
+    if files.len() != audits.len() {
+        return Err("historical audit/source counts disagree".into());
+    }
+    let supported = audits
+        .iter()
+        .filter(|a| a["providerVerifiedCore"] == true)
+        .count();
+    let mut folders = BTreeMap::<String, usize>::new();
+    for row in audits {
+        *folders.entry(text(&row["folder"]).into()).or_default() +=
+            usize::from(row["providerVerifiedCore"] != true);
+    }
+    Ok(Historical {
+        files,
+        summary: json!({"scope":"Historical composed replay, not a fresh census or independent identity accuracy proof",
+        "path":dir,"physicalFiles":audits.len(),"folders":folders.len(),
+        "completeFolders":albums.iter().filter(|a| a["status"] == "completed").count(),
+        "providerBackedCoreFiles":supported,"identificationUnresolvedFiles":audits.len()-supported,
+        "oneIdentificationBlockerFolders":folders.values().filter(|n| **n == 1).count(),
+        "providerFetchedAt":null}),
+    })
+}
+
+pub fn markdown(report: &Value) -> String {
+    let mut out = format!("# Artist-library inventory\n\n{}\n\nRoot: {}\n\nCurrent accounting: {} physical files in {} folders; {} freshly verified core files; {} identification blockers and {} historical-support files requiring revalidation.\n\n",
+        SCOPE, text(&report["root"]),report["summary"]["physicalFiles"],report["summary"]["folders"],
+        report["summary"]["verifiedCoreFiles"],report["summary"]["identificationUnresolvedFiles"],report["summary"]["revalidationFiles"]);
+    if !report["historical"].is_null() {
+        out.push_str(&format!(
+            "Historical composed baseline (not current verification):\n\n```json\n{}\n```\n\n",
+            serde_json::to_string_pretty(&report["historical"]).unwrap()
+        ));
+    }
+    for file in report["worklist"].as_array().into_iter().flatten() {
+        let row = &file["selectedEvidence"]["trackEvidence"];
+        out.push_str(&format!("## {}. {}\n\n{}; freshness: {}.\n\nEligible hypotheses: {}; displayed alternatives (including rejected): {}; omitted eligible hypotheses: {}; candidate set complete: {}. Full alternative count: unknown (not recorded by legacy evidence). Null means unknown, not zero.\n\nBlockers: {}\n\nMissing facts: {}\n\nObserved candidate disagreements (not new rejection rules): {}\n\nNext actions: {}\n\n<details>\n<summary>All stored attempts and alternatives (fetch times may be unknown)</summary>\n\n```json\n{}\n```\n\n</details>\n\n",
+            file["rank"],text(&file["relativePath"]),text(&file["priorityReason"]),text(&file["freshness"]),
+            row["candidateCount"],row["candidates"].as_array().map(Vec::len).map_or("unknown".into(),|n|n.to_string()),row["omittedCandidates"],row["candidateSetComplete"],
+            file["blockers"],file["missingFacts"],file["conflictingFields"],file["nextActions"],
+            serde_json::to_string_pretty(&file["evidence"]).unwrap()));
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::worker::WorkerStore;
+    use serde_json::json;
+    use std::{fs, path::PathBuf};
+
+    fn fixture() -> PathBuf {
+        let root = std::env::temp_dir().join(format!("artist-inventory-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn inventory_accounts_for_files_and_preserves_bounded_competitors_without_promoting_tags() {
+        let root = fixture();
+        let library = root.join("artist");
+        for name in [
+            "Single/one.mp3",
+            "Multi/a.flac",
+            "Multi/disc/b.wav",
+            "loose.MP3",
+        ] {
+            let path = library.join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(path, b"unreadable media still counts").unwrap();
+        }
+        let data = root.join("data");
+        let worker = WorkerStore::new_in(data.clone());
+        assert!(worker.initialize());
+        worker.record_evidence(&library.join("Single"), "old-run", &json!({
+            "acoustid":{"trackMatches":[{"fileName":"one.mp3", "candidateCount":17,
+                "omittedCandidates":16,"candidateSetComplete":false,
+                "reason":"recording_candidates_incomplete", "candidates":[{
+                    "recordingId":"gap", "detailFailure":{"kind":"recording_duration_missing",
+                    "retryable":false,"status":200},"disposition":"recording_duration_missing"}]}]}
+        })).unwrap();
+        let before = fs::read(data.join("worker.db")).unwrap();
+        let report = inventory(&library, Some(&data), None).unwrap();
+        assert_eq!(report["summary"]["physicalFiles"], 4);
+        assert_eq!(report["summary"]["verifiedCoreFiles"], 0);
+        assert_eq!(report["summary"]["unresolvedFiles"], 4);
+        let file = report["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|file| file["relativePath"] == "Single/one.mp3")
+            .unwrap();
+        assert_eq!(file["evidence"][0]["trackEvidence"]["candidateCount"], 17);
+        assert_eq!(file["candidateSummary"]["eligibleHypothesisCount"], 17);
+        assert_eq!(file["candidateSummary"]["visibleAlternativeCount"], 1);
+        assert!(file["candidateSummary"]["fullAlternativeCount"].is_null());
+        assert_eq!(file["candidateSummary"]["fullAlternativeCountKnown"], false);
+        assert_eq!(
+            file["evidence"][0]["trackEvidence"]["omittedCandidates"],
+            16
+        );
+        assert!(file["blockers"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("missing_catalog_fact")));
+        assert_eq!(file["freshness"], "source_unbound");
+        assert_eq!(fs::read(data.join("worker.db")).unwrap(), before);
+        assert!(report["worklist"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["rank"].is_u64()));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn missing_database_is_not_created_and_symlinks_are_not_followed() {
+        let root = fixture();
+        fs::write(root.join("one.mp3"), b"media").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(root.join("one.mp3"), root.join("alias.mp3")).unwrap();
+        let data = root.join("absent-data");
+        let report = inventory(&root, Some(&data), None).unwrap();
+        assert_eq!(report["summary"]["physicalFiles"], 1);
+        assert!(!data.exists());
+        #[cfg(unix)]
+        assert_eq!(report["excludedSymlinks"].as_array().unwrap().len(), 1);
+        assert!(markdown(&report).contains("not identity proof"));
+        assert!(inventory(&root.join("missing"), None, None).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn terminal_diagnostics_supersede_checkpoints_and_retain_multiple_blockers() {
+        let root = fixture();
+        let album = root.join("Album");
+        fs::create_dir_all(&album).unwrap();
+        fs::write(album.join("song.mp3"), b"media").unwrap();
+        let data = root.join("data");
+        let worker = WorkerStore::new_in(data.clone());
+        assert!(worker.initialize());
+        worker
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        worker.mark_running(&album, "current").unwrap();
+        worker.record_evidence(&album, "current", &json!({
+            "acoustid":{"trackMatches":[{"fileName":"song.mp3","reason":"old checkpoint"}]},
+            "diagnostics":[{"stage":"acoustid","trackMatches":[{
+                "fileName":"song.mp3","candidateCount":3,"omittedCandidates":0,
+                "reason":"recording_audio_conflict","candidates":[{
+                    "recordingId":"missing", "detailFailure":{"kind":"recording_duration_missing","retryable":false}
+                }, {"recordingId":"outage","detailFailure":{"kind":"http_error","retryable":true,"status":503}},
+                {"disposition":"recording_id_unavailable"}]}]}]
+        })).unwrap();
+        let report = inventory(&root, Some(&data), None).unwrap();
+        let file = &report["files"][0];
+        assert_eq!(
+            file["selectedEvidence"]["trackEvidence"]["candidateCount"],
+            3
+        );
+        for category in [
+            "audio_conflict",
+            "missing_catalog_fact",
+            "provider_failure",
+            "human_identification",
+        ] {
+            assert!(
+                file["blockers"]
+                    .as_array()
+                    .unwrap()
+                    .contains(&json!(category)),
+                "{category}"
+            );
+        }
+        assert_eq!(file["selectedEvidence"]["currentSchedulingRun"], true);
+        assert_eq!(file["freshness"], "source_unbound");
+        worker
+            .record_evidence(
+                &album,
+                "current",
+                &json!({"providerAttempts":[{
+            "provider":"musicbrainz","status":"unavailable","retryable":false,
+            "diagnostic":"HTTP 401"}]}),
+            )
+            .unwrap();
+        let unavailable = inventory(&root, Some(&data), None).unwrap();
+        assert!(
+            unavailable["files"][0]["blockers"]
+                .as_array()
+                .unwrap()
+                .contains(&json!("provider_failure")),
+            "An authorization failure must not disappear merely because retryable=false"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn historical_audits_rank_one_blocker_first_but_never_certify_current_files() {
+        let root = fixture();
+        let library = root.join("artist");
+        let history = root.join("history");
+        fs::create_dir_all(&history).unwrap();
+        let mut inputs = Vec::new();
+        let mut audits = Vec::new();
+        let mut tracks = Vec::new();
+        for (folder, name, supported) in [
+            ("Almost", "a.mp3", true),
+            ("Almost", "b.mp3", false),
+            ("Hard", "a.mp3", false),
+            ("Hard", "b.mp3", false),
+        ] {
+            let path = library.join(folder).join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, b"media").unwrap();
+            inputs.push(json!({"source":path.canonicalize().unwrap(),
+                "sourceHashBefore":"721c9525ade2ea8903d343ef25cf68b9bf4ab0aad56bb7b01fbe48d09bc7fcf4"}));
+            audits.push(json!({"folder":folder,"fileName":name,"providerVerifiedCore":supported}));
+            tracks.push(json!({"folder":folder,"fileName":name,"candidateCount":2,
+                "candidateSetComplete":true,"omittedCandidates":0,
+                "reason":if supported {None} else {Some("recording_version_conflict")},
+                "candidates":[{"authoritativeTitle":"Song", "artistCredits":["Lead","Guest"]},
+                {"authoritativeTitle":"Song (Live)", "artistCredits":["Guest","Lead"]}]}));
+        }
+        for row in tracks.iter_mut().filter(|row| row["folder"] == "Hard") {
+            row["candidates"][0]["recordingId"] = json!("same-recording");
+            row["candidates"][0]["detailFailure"] = json!({"kind":"recording_duration_missing"});
+        }
+        for (name, value) in [
+            ("preservation.json", json!({"records":inputs})),
+            ("file-audit.json", json!(audits)),
+            ("track-evidence.json", json!(tracks)),
+            (
+                "albums.json",
+                json!([{"folder":"Almost","status":"needs_review"},
+                {"folder":"Hard","status":"needs_review"}]),
+            ),
+        ] {
+            fs::write(history.join(name), value.to_string()).unwrap();
+        }
+        let report = inventory(&library, None, Some(&history)).unwrap();
+        assert_eq!(report["historical"]["providerBackedCoreFiles"], 1);
+        assert_eq!(report["summary"]["identificationUnresolvedFiles"], 3);
+        assert_eq!(report["summary"]["revalidationFiles"], 1);
+        assert_eq!(report["worklist"][0]["relativePath"], "Almost/b.mp3");
+        assert_eq!(report["worklist"][1]["relativePath"], "Hard/a.mp3");
+        assert_eq!(report["worklist"][1]["sharedFactFileCount"], 2);
+        assert_eq!(
+            report["worklist"][0]["freshness"],
+            "unchanged_historical_input"
+        );
+        assert!(report["worklist"][0]["conflictingFields"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("artistCredits")));
+        fs::write(library.join("Almost/a.mp3"), b"replacement").unwrap();
+        let changed = inventory(&library, None, Some(&history)).unwrap();
+        assert_eq!(changed["summary"]["verifiedCoreFiles"], 0);
+        assert_eq!(changed["summary"]["identificationUnresolvedFiles"], 4);
+        assert_eq!(changed["historical"]["changedInputs"], 1);
+        let mut manifest = read_json(&history.join("preservation.json")).unwrap();
+        let duplicate = manifest["records"][0].clone();
+        manifest["records"].as_array_mut().unwrap().push(duplicate);
+        fs::write(history.join("preservation.json"), manifest.to_string()).unwrap();
+        assert!(inventory(&library, None, Some(&history))
+            .unwrap_err()
+            .contains("duplicate"));
+        fs::remove_dir_all(root).unwrap();
+    }
+}
