@@ -481,7 +481,7 @@ async fn copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_
 
 #[cfg(unix)]
 #[tokio::test]
-async fn partial_fingerprint_identity_writes_only_verified_recording_fields() {
+async fn verified_collection_core_finishes_without_changing_edition_fields() {
     use super::tests::{
         corpus_wav, fake_fpcalc, read_http_request, temp_root, wav_audio_payload,
         write_http_response,
@@ -555,12 +555,27 @@ async fn partial_fingerprint_identity_writes_only_verified_recording_fields() {
     .await
     .unwrap();
     server.join().unwrap();
-    assert_eq!(result.outcome, AutoTagOutcome::NeedsReview);
+    assert_eq!(result.outcome, AutoTagOutcome::Applied,
+        "every physical file has verified core tags even though its collection has no unique edition");
+    assert_eq!(result.completion_basis, Some("verified_track_core"));
+    let coverage = result
+        .diagnostics
+        .iter()
+        .find(|row| row["stage"] == "coverage")
+        .unwrap();
+    assert_eq!(coverage["completeTrackCore"], true);
+    assert_eq!(coverage["completeAlbum"], false);
+    assert_eq!(coverage["providerVerifiedAlbumTracks"], 0);
+    assert_eq!(coverage["providerVerifiedEditionTracks"], 0);
     assert_eq!(result.written, 1);
-    assert_eq!(checkpoints, 1, "review intent must precede partial writes");
+    assert_eq!(
+        checkpoints, 1,
+        "review intent must precede recording-only writes, including a complete core"
+    );
     let after = read_track_metadata(&file).unwrap();
     assert_eq!(after.title.as_deref(), Some("Verified Song (Demo)"));
     assert_eq!(after.artist.as_deref(), Some("Lead feat. Guest"));
+    assert_eq!(after.artists, ["Lead", "Guest"]);
     assert_eq!(after.album.as_deref(), Some("My Collection"));
     assert_eq!(after.album_artist.as_deref(), Some("Collector"));
     assert_eq!(after.year.as_deref(), Some("1999"));
