@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Live track titles and ordered artist credits can be verified without choosing a recording ID when every acoustic candidate agrees on the title, credits and explicit live annotation, and the written title preserves its supported live label.
+
 - AcoustID retries continue through crowded recording candidates without increasing lookup limits. Failed details retain their reason and retry eligibility, and time-limited runs retain progress while deferring writes until validation finishes.
 - Ambiguous recording IDs can now supply title and artist when every viable recording agrees and all audio, duration, credit and version checks pass. Recording IDs and edition details stay unresolved. Filename remix connectors are accepted only when the complete embedded and provider titles agree.
 

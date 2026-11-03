@@ -1460,31 +1460,72 @@ pub(crate) fn recording_versions_compatible(
 // Ambiguous identities must not discard local qualifiers that the historical
 // unique-ID comparator does not recognize (for example a dub or radio edit).
 fn consensus_qualifiers_compatible(local: &TrackCandidate, remote: &ProviderRecording) -> bool {
+    let version_markers = [
+        "dub",
+        "edit",
+        "mix",
+        "remix",
+        "acoustic",
+        "extended",
+        "version",
+        "live",
+        "demo",
+        "remaster",
+        "instrumental",
+        "mono",
+        "stereo",
+    ];
     // Check the actual written title, not annotation words that could disappear
     // from the patch. Full phrases prevent Radio Edit matching Extended Edit.
-    let remote_words = version_words(&remote.title);
+    let written = recording_display_title(local, &remote.title);
+    let live_title = format!("{} live", version_words(&remote.title));
+    // The caller requires unanimous authoritative annotations. Only this
+    // affirmative live form may support a literal Live suffix kept on disk.
+    let retained_live = remote.disambiguation.as_deref().is_some_and(|annotation| {
+        let annotation = annotation.trim().to_lowercase();
+        let annotation_words = version_words(&annotation)
+            .replace("a cappella", "acapella")
+            .replace("a capella", "acapella");
+        annotation.starts_with("live, from ")
+            && !annotation_words.split_whitespace().any(|word| {
+                matches!(
+                    word,
+                    "no" | "not" | "non" | "studio" | "acapella" | "clean" | "explicit"
+                ) || version_markers
+                    .iter()
+                    .any(|marker| *marker != "live" && *marker == word)
+            })
+    }) && local
+        .title
+        .as_deref()
+        .is_some_and(|title| version_words(title) == live_title)
+        && local.filename.as_deref().is_some_and(|filename| {
+            let words = version_words(filename);
+            words == live_title
+                || words.strip_suffix(&live_title).is_some_and(|prefix| {
+                    prefix.ends_with(' ')
+                        && local
+                            .artist
+                            .as_deref()
+                            .is_some_and(|artist| version_words(artist) == prefix.trim())
+                })
+        })
+        && written
+            .strip_prefix(&remote.title)
+            .is_some_and(|suffix| suffix.eq_ignore_ascii_case(" (Live)"));
+    let remote_words = version_words(if retained_live {
+        &written
+    } else {
+        &remote.title
+    });
     let context = format!(" {remote_words} ");
     let brackets = regex::Regex::new(r"[\[(]([^\])]+)[\])]").unwrap();
     for source in local.title.iter().chain(local.filename.iter()) {
         let words = version_words(source);
         let unbracketed = format!(" {} ", version_words(&brackets.replace_all(source, " ")));
-        if [
-            "dub",
-            "edit",
-            "mix",
-            "remix",
-            "acoustic",
-            "extended",
-            "version",
-            "live",
-            "demo",
-            "remaster",
-            "instrumental",
-            "mono",
-            "stereo",
-        ]
-        .iter()
-        .any(|marker| unbracketed.contains(&format!(" {marker} ")))
+        if version_markers
+            .iter()
+            .any(|marker| unbracketed.contains(&format!(" {marker} ")))
         {
             let full_agreement = words == remote_words
                 || words.strip_suffix(&remote_words).is_some_and(|prefix| {
@@ -1786,6 +1827,26 @@ mod tests {
             "different_named_mix",
             "different_named_edit",
             "same_named_mix",
+            "supported_live",
+            "artist_prefixed_live",
+            "live_missing_title",
+            "live_missing_filename",
+            "live_credit_order",
+            "unbracketed_live",
+            "negated_live",
+            "unrelated_live",
+            "studio_live",
+            "extended_live",
+            "dub_live",
+            "acoustic_live",
+            "mono_live",
+            "clean_live",
+            "a_cappella_live",
+            "a_capella_live",
+            "different_live_show",
+            "different_live_base",
+            "different_live_filename",
+            "extra_live_qualifier",
         ] {
             let mut local = TrackCandidate {
                 title: Some("Song".into()),
@@ -1821,6 +1882,70 @@ mod tests {
                 "credit_order" => second.artists.reverse(),
                 "credit_vector" => second.artists = vec!["Singer & Guest".into()],
                 "annotation" => second.disambiguation = Some("live".into()),
+                "supported_live"
+                | "artist_prefixed_live"
+                | "live_missing_title"
+                | "live_missing_filename"
+                | "live_credit_order"
+                | "unbracketed_live"
+                | "negated_live"
+                | "unrelated_live"
+                | "studio_live"
+                | "extended_live"
+                | "dub_live"
+                | "acoustic_live"
+                | "mono_live"
+                | "clean_live"
+                | "a_cappella_live"
+                | "a_capella_live"
+                | "different_live_show"
+                | "different_live_base"
+                | "different_live_filename"
+                | "extra_live_qualifier" => {
+                    local.title = Some("Song (Live)".into());
+                    local.filename = Some("Song(Live)".into());
+                    remote.disambiguation = Some(
+                        match scenario {
+                            "negated_live" => "live, from a not live recording",
+                            "unrelated_live" => "album with live tracks",
+                            "studio_live" => "live, from a studio version",
+                            "extended_live" => "live, from World Tour (extended mix)",
+                            "dub_live" => "live, from World Tour (dub mix)",
+                            "acoustic_live" => "live, from World Tour (acoustic)",
+                            "mono_live" => "live, from World Tour (mono)",
+                            "clean_live" => "live, from World Tour (clean)",
+                            "a_cappella_live" => "live, from World Tour (a cappella)",
+                            "a_capella_live" => "live, from World Tour (a capella)",
+                            _ => "live, from World Tour",
+                        }
+                        .into(),
+                    );
+                    second.disambiguation = remote.disambiguation.clone();
+                    match scenario {
+                        "artist_prefixed_live" => {
+                            local.artist = Some("Singer".into());
+                            local.filename = Some("Singer-Song(Live)".into());
+                        }
+                        "live_missing_title" => local.title = None,
+                        "live_missing_filename" => local.filename = None,
+                        "live_credit_order" => second.artists.reverse(),
+                        "unbracketed_live" => {
+                            local.title = Some("Song Live".into());
+                            local.filename = Some("Song Live".into());
+                        }
+                        "different_live_show" => {
+                            second.disambiguation = Some("live, from Another Tour".into())
+                        }
+                        "different_live_base" => local.title = Some("Other Song (Live)".into()),
+                        "different_live_filename" => {
+                            local.filename = Some("Other Song(Live)".into())
+                        }
+                        "extra_live_qualifier" => {
+                            local.title = Some("Song (Live) (Radio Edit)".into())
+                        }
+                        _ => {}
+                    }
+                }
                 "version" => local.title = Some("Song (Demo)".into()),
                 "existing_id" => local.musicbrainz_track_id = Some(a.into()),
                 "score" => candidates[1].score = 0.89,
@@ -1863,7 +1988,10 @@ mod tests {
             }
             assert_eq!(
                 common_recording_text(&local, &candidates, &details).is_some(),
-                scenario == "valid" || scenario == "same_named_mix",
+                matches!(
+                    scenario,
+                    "valid" | "same_named_mix" | "supported_live" | "artist_prefixed_live"
+                ),
                 "{scenario}: full agreement and every guard are required, not a majority"
             );
         }

@@ -162,80 +162,97 @@ async fn coverage_v3_complete_field_consensus_has_no_recording_or_edition_identi
 
 #[tokio::test]
 async fn coverage_v3_consensus_flows_through_normal_writer_without_an_id() {
-    let (root, album, _) = collection(&["Song.wav"]);
-    let file = album.join("Song.wav");
-    let queue = WriteQueue::default();
-    write_track_queued(&queue,file.clone(),serde_json::from_value(serde_json::json!({"title":"Song","artist":"Singer","album":"Personal collection","trackNumber":7})).unwrap()).await.unwrap();
-    let audio = super::super::tests::wav_audio_payload(&file);
-    let (base, stop, server) = review_fixture_server(|request| {
-        if request.starts_with("POST /lookup ") {
-            return("200 OK".into(),serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":recording_id(0)},{"id":recording_id(1)}]}]}).to_string());
-        }
-        if request.contains("/recording/") {
-            let id = request
-                .split("/recording/")
-                .nth(1)
-                .unwrap()
-                .split('?')
-                .next()
-                .unwrap();
-            return("200 OK".into(),serde_json::json!({"id":id,"title":"Song","length":1000,"artist-credit":[{"name":"Singer"}]}).to_string());
-        }
-        (
-            "200 OK".into(),
-            serde_json::json!({"artists":[],"releases":[],"artist-count":0,"release-count":0})
-                .to_string(),
+    for live in [false, true] {
+        let name = if live { "Song(Live).wav" } else { "Song.wav" };
+        let title = if live { "Song (Live)" } else { "Song" };
+        let (root, album, _) = collection(&[name]);
+        let file = album.join(name);
+        let queue = WriteQueue::default();
+        write_track_queued(&queue,file.clone(),serde_json::from_value(serde_json::json!({"title":title,"artist":"Singer","album":"Personal collection","trackNumber":7})).unwrap()).await.unwrap();
+        let audio = super::super::tests::wav_audio_payload(&file);
+        let (base, stop, server) = review_fixture_server(move |request| {
+            if request.starts_with("POST /lookup ") {
+                return("200 OK".into(),serde_json::json!({"status":"ok","results":[{"score":0.99,"recordings":[{"id":recording_id(0)},{"id":recording_id(1)}]}]}).to_string());
+            }
+            if request.contains("/recording/") {
+                let id = request
+                    .split("/recording/")
+                    .nth(1)
+                    .unwrap()
+                    .split('?')
+                    .next()
+                    .unwrap();
+                return("200 OK".into(),serde_json::json!({"id":id,"title":"Song","length":1000,"disambiguation":if live {Some("live, from World Tour")}else{None},"artist-credit":if live {serde_json::json!([{"name":"Singer","joinphrase":" feat. "},{"name":"Guest"}])}else{serde_json::json!([{"name":"Singer"}])}}).to_string());
+            }
+            (
+                "200 OK".into(),
+                serde_json::json!({"artists":[],"releases":[],"artist-count":0,"release-count":0})
+                    .to_string(),
+            )
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let client =
+            crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
+        let cache = CacheState::new_in(root.join("cache"));
+        assert!(cache.initialize(None));
+        let fpcalc = root.join("fpcalc");
+        super::super::tests::fake_fpcalc(&fpcalc);
+        let result = resolve_and_apply_album_with_acoustid_override(
+            &album,
+            &AutoTagConfig {
+                acoustid_enabled: Some(true),
+                acoustid_api_key: Some("fixture".into()),
+                remote_lookup_enabled: Some(true),
+                discogs_enabled: Some(false),
+                ..AutoTagConfig::default()
+            },
+            AutoTagServices {
+                providers: &providers,
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("aliases"),
+            },
+            &AtomicBool::new(false),
+            None,
+            |_| Ok(()),
+            Some((&client, &fpcalc)),
+            |_, _| {},
+            |_, _, _| {},
         )
-    });
-    let providers = ProviderState::at(
-        ProviderState::new().http(),
-        &format!("{base}/mb"),
-        &format!("{base}/discogs"),
-    );
-    let client =
-        crate::infra::acoustid::AcoustidClient::at(providers.http(), format!("{base}/lookup"));
-    let cache = CacheState::new_in(root.join("cache"));
-    assert!(cache.initialize(None));
-    let fpcalc = root.join("fpcalc");
-    super::super::tests::fake_fpcalc(&fpcalc);
-    let result = resolve_and_apply_album_with_acoustid_override(
-        &album,
-        &AutoTagConfig {
-            acoustid_enabled: Some(true),
-            acoustid_api_key: Some("fixture".into()),
-            remote_lookup_enabled: Some(true),
-            discogs_enabled: Some(false),
-            ..AutoTagConfig::default()
-        },
-        AutoTagServices {
-            providers: &providers,
-            cache: &cache,
-            queue: &queue,
-            alias_file: &root.join("aliases"),
-        },
-        &AtomicBool::new(false),
-        None,
-        |_| Ok(()),
-        Some((&client, &fpcalc)),
-        |_, _| {},
-        |_, _, _| {},
-    )
-    .await;
-    stop.store(true, Ordering::Release);
-    server.join().unwrap();
-    let result = result.unwrap();
-    assert_eq!(
-        result.written, 1,
-        "ID-free verified fields must not be discarded by the early caller"
-    );
-    let after = read_track_metadata(&file).unwrap();
-    assert_eq!(after.title.as_deref(), Some("Song"));
-    assert_eq!(after.artist.as_deref(), Some("Singer"));
-    assert_eq!(after.album.as_deref(), Some("Personal collection"));
-    assert_eq!(after.track_number, Some(7));
-    assert!(after.musicbrainz_track_id.is_none() && after.musicbrainz_album_id.is_none());
-    assert_eq!(super::super::tests::wav_audio_payload(&file), audio);
-    fs::remove_dir_all(root).unwrap();
+        .await;
+        stop.store(true, Ordering::Release);
+        server.join().unwrap();
+        let result = result.unwrap();
+        assert_eq!(
+            result.written, 1,
+            "ID-free verified fields must not be discarded by the early caller"
+        );
+        let after = read_track_metadata(&file).unwrap();
+        assert_eq!(after.title.as_deref(), Some(title));
+        assert_eq!(
+            after.artist.as_deref(),
+            Some(if live { "Singer feat. Guest" } else { "Singer" })
+        );
+        assert_eq!(
+            after.artists,
+            if live {
+                vec!["Singer", "Guest"]
+            } else {
+                vec!["Singer"]
+            }
+        );
+        assert_eq!(result.outcome, AutoTagOutcome::Applied);
+        assert_eq!(result.completion_basis, Some("verified_track_core"));
+        assert_eq!(after.album.as_deref(), Some("Personal collection"));
+        assert_eq!(after.track_number, Some(7));
+        assert!(after.musicbrainz_track_id.is_none() && after.musicbrainz_album_id.is_none());
+        assert_eq!(super::super::tests::wav_audio_payload(&file), audio);
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 #[tokio::test]
