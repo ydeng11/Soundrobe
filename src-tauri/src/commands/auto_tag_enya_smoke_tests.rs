@@ -891,6 +891,7 @@ fn enya_classification_prioritizes_safety_and_provider_state() {
         outcome: AutoTagOutcome::NeedsReview,
         authority: None,
         candidate: None,
+        completion_basis: None,
         written: 0,
         reason_code: None,
         diagnostics: Vec::new(),

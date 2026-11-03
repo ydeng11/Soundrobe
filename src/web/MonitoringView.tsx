@@ -415,6 +415,9 @@ export function MonitoringView({
           <Tile testId="monitoring-tile-total" label="Releases surveyed" value={0} />
         )}
       </div>
+      <p className="sr-freshness">
+        Release status includes tag scans. Run details show what was verified during each recorded run.
+      </p>
 
       {/* Announce completion for anyone not watching the numbers. */}
       <p className="sr-sr-only" role="status" aria-live="polite" data-testid="monitoring-live">

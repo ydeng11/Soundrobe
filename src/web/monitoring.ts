@@ -98,7 +98,8 @@ export function describeRunItems(run: BackgroundRun): string {
  * supplied the tags, or both. Absent for a release that simply worked.
  */
 export function describeRunItemReason(item: BackgroundRunItem): string {
-  const parts = [item.reason, item.authority ? `via ${item.authority}` : null].filter(
+  const reason = item.reason === "verified_track_core" ? "Track titles/artists verified; edition unresolved" : item.reason;
+  const parts = [reason, item.authority ? `via ${item.authority}` : null].filter(
     (part): part is string => Boolean(part),
   );
   return parts.length > 0 ? parts.join(" · ") : "—";
@@ -357,10 +358,17 @@ export function runEvidenceLines(item: BackgroundRunItem): string[] {
   let candidateBudget = 48;
   for (const diagnostic of diagnostics) {
     if (diagnostic.stage === "coverage") {
-      lines.push(`${diagnostic.verifiedTracks}/${diagnostic.localFiles} files verified; ${diagnostic.writtenFiles} written; ${diagnostic.releaseTracks ?? "unknown"} release tracks; album ${diagnostic.completeAlbum ? "complete" : "incomplete"}`);
+      if (evidence.completionBasis === "verified_track_core" && item.status === "healthy"
+          && diagnostic.completeTrackCore === true && typeof diagnostic.localFiles === "number"
+          && Number.isInteger(diagnostic.localFiles) && diagnostic.localFiles > 0) {
+        lines.push(diagnostic.localFiles === 1
+          ? "The physical file had a verified title and artists; edition unresolved."
+          : `All ${diagnostic.localFiles} physical files had verified titles and artists; edition unresolved.`);
+      } else lines.push(`${diagnostic.verifiedTracks}/${diagnostic.localFiles} files verified; ${diagnostic.writtenFiles} written; ${diagnostic.releaseTracks ?? "unknown"} release tracks; album ${diagnostic.completeAlbum ? "complete" : "incomplete"}`);
     } else if (typeof diagnostic.reason === "string") {
       lines.push(diagnostic.reason);
     }
+    if (diagnostic.coreReadbackMatched === false) lines.push("Written title or ordered artist credits did not match the verified fields.");
     if (typeof diagnostic.candidateCount === "number") lines.push(`${diagnostic.checkedCandidates ?? 0}/${diagnostic.candidateCount} candidate editions checked`);
     if (Array.isArray(diagnostic.rejections)) lines.push(...diagnostic.rejections.filter((reason): reason is string => typeof reason === "string"));
     if (diagnostic.validationComplete === false) lines.push("Validation unfinished; recording identity remains unresolved.");

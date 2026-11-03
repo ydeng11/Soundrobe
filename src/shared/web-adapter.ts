@@ -411,6 +411,7 @@ export type BackgroundRunStatus =
  * answerable after the run has finished.
  */
 export interface AutoTagEvidence {
+  completionBasis?: "verified_track_core";
   written?: number;
   providerAttempts?: { provider: string; status: string; diagnostic?: string; retryAfterSeconds?: number }[];
   diagnostics?: Record<string, unknown>[];

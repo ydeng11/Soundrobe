@@ -19,7 +19,7 @@ use crate::{
         covers::{download_album_artwork_at, download_artist_artwork_at},
         library::collect_audio_files,
         lyrics::{fetch_album_lyrics, LyricsDocument, DEFAULT_BASE_URL},
-        mutations::{write_track_queued, TrackPatch},
+        mutations::{write_track_queued, write_track_queued_guarded, TrackPatch},
         tracks::{read_album, read_extra_tags},
     },
     error::ApiError,
@@ -2457,6 +2457,8 @@ pub struct AutoTagRunResult {
     pub authority: Option<LookupSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub candidate: Option<AlbumCandidate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completion_basis: Option<&'static str>,
     pub written: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason_code: Option<String>,
@@ -2482,6 +2484,7 @@ impl Default for AutoTagRunResult {
             outcome: AutoTagOutcome::NeedsReview,
             authority: None,
             candidate: None,
+            completion_basis: None,
             written: 0,
             reason_code: None,
             diagnostics: Vec::new(),
@@ -2571,17 +2574,21 @@ fn album_coverage(
             LookupSource::Musicbrainz | LookupSource::Discogs
         )
     });
+    let edition =
+        candidate.filter(|candidate| candidate.verification.as_deref() != Some("recording_only"));
+    let edition_provider =
+        provider.filter(|candidate| candidate.verification.as_deref() != Some("recording_only"));
     serde_json::json!({"stage":"coverage", "localFiles":local, "verifiedTracks":verified, "uniqueVerifiedRecordings":unique_recordings,
         "writtenFiles":written, "releaseTracks":release_tracks,
         "providerVerifiedCoreTracks":provider.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some() && track.artist.is_some()).count()).unwrap_or(0),
-        "providerVerifiedAlbumTracks":provider.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
-        "providerVerifiedEditionTracks":provider.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0),
+        "providerVerifiedAlbumTracks":edition_provider.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
+        "providerVerifiedEditionTracks":edition_provider.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0),
         "fieldCoverage": {
             "title":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some()).count()).unwrap_or(0),
             "artist":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.artist.is_some()).count()).unwrap_or(0),
             "recordingId":candidate.map(|candidate| candidate.tracks.iter().filter(|track| track.musicbrainz_track_id.is_some()).count()).unwrap_or(0),
-            "album":candidate.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
-            "editionId":candidate.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0)
+            "album":edition.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
+            "editionId":edition.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0)
         },
         "completeAlbum":local > 0 && verified == local && release_tracks == Some(covered) && written == local})
 }
@@ -2724,7 +2731,9 @@ pub(crate) fn auto_tag_event(
 }
 
 pub(crate) fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'static str {
-    if candidate.genre.is_some() {
+    if candidate.verification.as_deref() == Some("recording_only") {
+        "Complete — titles/artists verified; edition unresolved"
+    } else if candidate.genre.is_some() {
         "Complete"
     } else {
         "Complete — genre remains missing"
@@ -3406,16 +3415,50 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
         report,
     )
     .await?;
-    let coverage = album_coverage(&request, result.candidate.as_ref(), result.written);
-    if result.outcome == AutoTagOutcome::Applied && coverage["completeAlbum"] != true {
-        result.outcome = AutoTagOutcome::NeedsReview;
-        result.reason_code = Some("partial_collection".into());
-    }
-    result.diagnostics.push(coverage);
+    finalize_album_coverage(&request, &mut result, cancelled.load(Ordering::Acquire));
     result.diagnostics.push(
         serde_json::json!({"stage":"configuration", "settings":diagnostic_configuration(config)}),
     );
     Ok(result)
+}
+
+fn finalize_album_coverage(
+    request: &LookupRequest,
+    result: &mut AutoTagRunResult,
+    cancelled: bool,
+) {
+    if result.completion_basis == Some("verified_track_core") && cancelled {
+        result.completion_basis = None;
+        result.outcome = AutoTagOutcome::NeedsReview;
+        result.reason_code = Some("cancelled".into());
+    }
+    let measured_core = result.diagnostics.iter().any(|row| {
+        row["stage"] == "coverage"
+            && row
+                .get("completeTrackCore")
+                .and_then(serde_json::Value::as_bool)
+                .is_some()
+    });
+    let mut coverage = result
+        .diagnostics
+        .iter()
+        .rev()
+        .find(|row| row["stage"] == "coverage")
+        .cloned()
+        .unwrap_or_else(|| album_coverage(request, result.candidate.as_ref(), result.written));
+    if measured_core {
+        coverage["completeTrackCore"] =
+            (result.completion_basis == Some("verified_track_core")).into();
+    }
+    if result.outcome == AutoTagOutcome::Applied
+        && result.completion_basis != Some("verified_track_core")
+        && coverage["completeAlbum"] != true
+    {
+        result.outcome = AutoTagOutcome::NeedsReview;
+        result.reason_code = Some("partial_collection".into());
+    }
+    result.diagnostics.retain(|row| row["stage"] != "coverage");
+    result.diagnostics.push(coverage);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -4078,6 +4121,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
             outcome: AutoTagOutcome::NeedsReview,
             authority: None,
             candidate: None,
+            completion_basis: None,
             written: 0,
             reason_code: Some(reason_code.to_string()),
             diagnostics: provider_diagnostics
@@ -4139,8 +4183,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
                 }
                 review_intent(&shared)?;
                 let written =
-                    apply_recording_tags(album_path, &shared.tracks, Some(&shared), services.queue)
-                        .await?;
+                    apply_recording_tags(album_path, &shared.tracks, services.queue).await?;
                 provider_diagnostics.push(serde_json::json!({"stage":"shared_edition_fields", "reason":"recording fields agree across editions; edition-specific fields remain unchanged", "releaseIds":editions}));
                 return Ok(AutoTagRunResult {
                     written,
@@ -4351,6 +4394,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let ai_confidence = candidate.confidence;
     let ai_threshold = ai_status.as_ref().map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
     Ok(AutoTagRunResult {
+        completion_basis: None,
         outcome,
         authority: Some(candidate.source),
         candidate: Some(candidate),
@@ -4668,11 +4712,14 @@ fn common_recording_fields(candidates: &[AlbumCandidate]) -> Option<AlbumCandida
                 .all(|candidate| candidate.tracks[index].title == track.title)
                 .then(|| track.title.clone())
                 .flatten(),
-            artist: candidates
-                .iter()
-                .all(|candidate| candidate.tracks[index].artist == track.artist)
-                .then(|| track.artist.clone())
-                .flatten(),
+            artist: (!track.artists.is_empty()
+                && track.artists.iter().all(|name| !name.trim().is_empty())
+                && candidates.iter().all(|candidate| {
+                    candidate.tracks[index].artist == track.artist
+                        && candidate.tracks[index].artists == track.artists
+                }))
+            .then(|| track.artist.clone())
+            .flatten(),
             artists: if candidates
                 .iter()
                 .all(|candidate| candidate.tracks[index].artists == track.artists)
@@ -4745,6 +4792,7 @@ async fn apply_recording_resolution(
     else {
         unreachable!("recording resolution required")
     };
+    let complete_core = complete_recording_core(request, &tracks, &evidence);
     let shared_album = shared_album.filter(|_| tracks.iter().all(|track| track.title.is_some()));
     let candidate = AlbumCandidate {
         tracks,
@@ -4755,21 +4803,32 @@ async fn apply_recording_resolution(
     if candidate.tracks.iter().any(|track| track.title.is_some()) {
         review_intent(&candidate)?;
     }
-    let written = apply_recording_tags(
-        album_path,
-        &candidate.tracks,
-        shared_album.as_deref(),
-        queue,
-    )
-    .await?;
-    let coverage = album_coverage(request, Some(&candidate), written);
+    let written = apply_recording_tags(album_path, &candidate.tracks, queue).await?;
+    let core_readback =
+        complete_core.then(|| recording_core_readback_matches(album_path, &candidate.tracks));
+    let readback_failed = core_readback == Some(false);
+    let complete_core = complete_core && !readback_failed;
+    let mut coverage = album_coverage(request, Some(&candidate), written);
+    coverage["completeTrackCore"] = complete_core.into();
     Ok(AutoTagRunResult {
+        outcome: if complete_core {
+            AutoTagOutcome::Applied
+        } else {
+            AutoTagOutcome::NeedsReview
+        },
+        completion_basis: complete_core.then_some("verified_track_core"),
         written,
-        authority: (written > 0).then_some(LookupSource::Musicbrainz),
+        authority: (complete_core || written > 0).then_some(LookupSource::Musicbrainz),
         candidate: Some(candidate),
-        reason_code: Some(reason_code.clone()),
+        reason_code: Some(if complete_core {
+            "verified_track_core".into()
+        } else if readback_failed {
+            "recording_readback_conflict".into()
+        } else {
+            reason_code.clone()
+        }),
         diagnostics: vec![
-            serde_json::json!({"stage":"acoustid", "reason":reason_code,"validationComplete":evidence.validation_complete,"trackMatches":evidence.track_matches,"candidateCount":evidence.candidate_count,"checkedCandidates":evidence.checked_candidates,"rejections":evidence.rejections,"sharedAlbumFields":shared_album}),
+            serde_json::json!({"stage":"acoustid", "reason":reason_code,"validationComplete":evidence.validation_complete,"trackMatches":evidence.track_matches,"candidateCount":evidence.candidate_count,"checkedCandidates":evidence.checked_candidates,"rejections":evidence.rejections,"sharedAlbumFields":shared_album,"coreReadbackMatched":core_readback}),
             coverage,
         ],
         provider_attempts: vec![ProviderAttempt {
@@ -4784,6 +4843,96 @@ async fn apply_recording_resolution(
     })
 }
 
+// Only this typed AcoustID route carries accepted decisions and fresh source
+// hashes for every physical file. Merged provider fields and display excerpts
+// cannot establish this completion basis.
+fn complete_recording_core(
+    request: &LookupRequest,
+    tracks: &[TrackCandidate],
+    evidence: &super::auto_tag_acoustid::AcoustidEvidence,
+) -> bool {
+    if request.tracks.is_empty()
+        || tracks.len() != request.tracks.len()
+        || evidence.track_matches.len() != tracks.len()
+        || evidence.decision_rule_version != 3
+        || !evidence.validation_complete
+    {
+        return false;
+    }
+    let mut paths = HashSet::new();
+    request
+        .tracks
+        .iter()
+        .zip(tracks)
+        .zip(&evidence.track_matches)
+        .all(|((local, track), row)| {
+            let Some(source) = &track.source else {
+                return false;
+            };
+            let nonblank = |value: Option<&str>| value.is_some_and(|text| !text.trim().is_empty());
+            if local.source.as_ref() != Some(source)
+                || !paths.insert(&source.path)
+                || source.path.file_name().and_then(|name| name.to_str())
+                    != Some(row.file_name.as_str())
+                || track.filename != local.filename
+                || source.path.file_stem().and_then(|name| name.to_str())
+                    != local.filename.as_deref()
+                || !nonblank(track.title.as_deref())
+                || !nonblank(track.artist.as_deref())
+                || track.artists.is_empty()
+                || track.artists.iter().any(|name| name.trim().is_empty())
+                || !row.candidate_set_complete
+                || !row.score.is_finite()
+                || row.score <= 0.0
+                || row.score > 1.0
+            {
+                return false;
+            }
+            match row.reason.as_deref() {
+                None => track.musicbrainz_track_id.as_deref().is_some_and(|id| {
+                    id == row.recording_id && id.len() == 36 && uuid::Uuid::parse_str(id).is_ok()
+                }),
+                Some("recording_fields_consensus") => track.musicbrainz_track_id.is_none(),
+                _ => false,
+            }
+        })
+}
+
+fn recording_core_readback_matches(album_path: &Path, tracks: &[TrackCandidate]) -> bool {
+    use unicode_normalization::UnicodeNormalization;
+    let text = |value: &str| value.trim().nfc().collect::<String>();
+    let files = collect_audio_files(album_path);
+    files.len() == tracks.len()
+        && files.iter().zip(tracks).all(|(file, expected)| {
+            let Some(source) = &expected.source else {
+                return false;
+            };
+            if Path::new(file).canonicalize().ok().as_ref() != Some(&source.path) {
+                return false;
+            }
+            let Ok(actual) = super::tracks::read_track_metadata_without_lyrics(Path::new(file))
+            else {
+                return false;
+            };
+            actual.title.as_deref().map(&text) == expected.title.as_deref().map(&text)
+                && actual.artist.as_deref().map(&text) == expected.artist.as_deref().map(&text)
+                && actual
+                    .artists
+                    .iter()
+                    .map(|name| text(name))
+                    .collect::<Vec<_>>()
+                    == expected
+                        .artists
+                        .iter()
+                        .map(|name| text(name))
+                        .collect::<Vec<_>>()
+                && expected
+                    .musicbrainz_track_id
+                    .as_ref()
+                    .is_none_or(|id| actual.musicbrainz_track_id.as_ref() == Some(id))
+        })
+}
+
 fn has_recording_patch(track: &TrackCandidate) -> bool {
     track.musicbrainz_track_id.is_some() || (track.title.is_some() && track.artist.is_some())
 }
@@ -4792,7 +4941,6 @@ fn has_recording_patch(track: &TrackCandidate) -> bool {
 async fn apply_recording_tags(
     album_path: &Path,
     tracks: &[TrackCandidate],
-    shared_album: Option<&AlbumCandidate>,
     queue: &WriteQueue,
 ) -> Result<usize, ApiError> {
     let files = collect_audio_files(album_path);
@@ -4820,18 +4968,20 @@ async fn apply_recording_tags(
         if let Some(id) = &track.musicbrainz_track_id {
             fields["musicbrainzTrackId"] = id.clone().into();
         }
-        if let Some(shared) = shared_album {
-            if let Some(album) = &shared.album {
-                fields["album"] = album.clone().into();
-            }
-            if !shared.album_artists.is_empty() {
-                fields["albumArtist"] = shared.album_artists.join(" & ").into();
-                fields["albumArtists"] = serde_json::json!(shared.album_artists);
-            }
-        }
         let patch = serde_json::from_value(fields)
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
-        write_track_queued(queue, path.into(), patch).await?;
+        let source = track.source.clone();
+        write_track_queued_guarded(queue, path.into(), patch, move |path| {
+            if let Some(expected) = source {
+                if RecordingSource::capture(path)? != expected {
+                    return Err(ApiError::Message(
+                        "audio source changed while waiting for a tag write".into(),
+                    ));
+                }
+            }
+            Ok(())
+        })
+        .await?;
         written += 1;
     }
     Ok(written)
@@ -5159,9 +5309,7 @@ mod tests {
             musicbrainz_track_id: Some("verified-recording".into()),
             ..TrackCandidate::default()
         }];
-        let first = apply_recording_tags(&album, &tracks, None, &queue)
-            .await
-            .unwrap();
+        let first = apply_recording_tags(&album, &tracks, &queue).await.unwrap();
         assert_eq!(first, 1);
         let after = read_album(&album).unwrap();
         assert_eq!(after.tracks[0].album, before.tracks[0].album);
@@ -5174,9 +5322,7 @@ mod tests {
         );
         assert_eq!(after.tracks[0].title.as_deref(), Some("Song (Demo)"));
         let once = fs::read(&file).unwrap();
-        apply_recording_tags(&album, &tracks, None, &queue)
-            .await
-            .unwrap();
+        apply_recording_tags(&album, &tracks, &queue).await.unwrap();
         assert_eq!(
             fs::read(&file).unwrap(),
             once,
@@ -5204,7 +5350,7 @@ mod tests {
         fs::rename(&first, &renamed).unwrap();
         let queue = WriteQueue::default();
         assert!(
-            apply_recording_tags(&album, std::slice::from_ref(&track), None, &queue)
+            apply_recording_tags(&album, std::slice::from_ref(&track), &queue)
                 .await
                 .is_err()
         );
@@ -5215,7 +5361,7 @@ mod tests {
             .await
             .unwrap();
         let replacement = fs::read(&first).unwrap();
-        assert!(apply_recording_tags(&album, &[track], None, &queue)
+        assert!(apply_recording_tags(&album, &[track], &queue)
             .await
             .is_err());
         assert_eq!(fs::read(&first).unwrap(), replacement);
@@ -5355,6 +5501,11 @@ mod tests {
         );
         candidate.source = LookupSource::Llm;
         candidate.album = Some("Proposed album".into());
+        assert_eq!(
+            album_coverage(&request, Some(&candidate), 1)["fieldCoverage"]["album"],
+            1,
+            "written AI fields remain visible without implying provider verification"
+        );
         assert_eq!(
             album_coverage(&request, Some(&candidate), 1)["providerVerifiedAlbumTracks"],
             0,

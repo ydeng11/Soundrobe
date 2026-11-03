@@ -64,6 +64,7 @@ describe("Monitoring", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Monitoring" })).toBeTruthy();
     expect(screen.getByText(/Track background tagging and review albums that need attention/i)).toBeTruthy();
+    expect(screen.getByText("Release status includes tag scans. Run details show what was verified during each recorded run.")).toBeTruthy();
   });
 
   it("keeps AI-written releases visible until the operator acknowledges review", async () => {

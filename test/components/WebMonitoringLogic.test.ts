@@ -292,3 +292,45 @@ it("bounds detailed evidence and discloses omitted candidates and unfinished val
   expect(lines.join("\n")).toContain("omitted");
   expect(lines.join("\n")).toContain("Validation unfinished");
 });
+
+describe("track-core completion scope", () => {
+  it("explains verified physical files without requiring edition tags or writes", () => {
+    const lines = runEvidenceLines({
+      path: "/music/Personal Collection", status: "healthy",
+      evidence: { completionBasis: "verified_track_core", diagnostics: [{
+        stage: "coverage", localFiles: 2, verifiedTracks: 2, writtenFiles: 0,
+        completeTrackCore: true, completeAlbum: false,
+      }] },
+    });
+    expect(lines).toContain("All 2 physical files had verified titles and artists; edition unresolved.");
+    expect(lines.join(" ")).not.toContain("album incomplete");
+    expect(runEvidenceLines({ path: "/music/Single", status: "healthy",
+      evidence: { completionBasis: "verified_track_core", diagnostics: [{
+        stage: "coverage", localFiles: 1, completeTrackCore: true,
+      }] },
+    })).toContain("The physical file had a verified title and artists; edition unresolved.");
+  });
+
+  it("does not infer strict completion from old field counts", () => {
+    const lines = runEvidenceLines({
+      path: "/music/Legacy", status: "healthy",
+      evidence: { diagnostics: [{ stage: "coverage", localFiles: 2,
+        verifiedTracks: 2, writtenFiles: 2, completeAlbum: false }] },
+    });
+    expect(lines.join(" ")).not.toContain("had verified titles and artists");
+  });
+});
+
+it("labels core-only completion with its actual scope", () => {
+  expect(describeRunItemReason({path: "/music/Collection", status: "healthy",
+    reason: "verified_track_core", authority: "musicbrainz"}))
+    .toBe("Track titles/artists verified; edition unresolved · via musicbrainz");
+});
+
+it("explains a format readback conflict without promoting provider field counts", () => {
+  const lines = runEvidenceLines({path: "/music/APE", status: "needs_review",
+    evidence: {diagnostics: [{stage: "acoustid", coreReadbackMatched: false},
+      {stage: "coverage", localFiles: 1, verifiedTracks: 1, completeTrackCore: false}]}});
+  expect(lines).toContain("Written title or ordered artist credits did not match the verified fields.");
+  expect(lines.join(" ")).not.toContain("had verified titles and artists");
+});

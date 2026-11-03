@@ -514,7 +514,7 @@ impl WorkerStore {
             return Err("worker completion has no scheduling row".into());
         }
         let due = Self::schedule_retry(&transaction, path, origin, retry_after, now_epoch())?;
-        let mut evidence = evidence.clone();
+        let mut evidence = Self::merged_terminal_evidence(&transaction, path, run_id, evidence)?;
         evidence
             .as_object_mut()
             .ok_or("diagnostic evidence is not an object")?
@@ -559,6 +559,42 @@ impl WorkerStore {
             .map_err(|error| error.to_string())
     }
 
+    fn merged_terminal_evidence(
+        transaction: &rusqlite::Transaction<'_>,
+        path: &Path,
+        run_id: &str,
+        patch: &serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        let previous: Option<String> = transaction
+            .query_row(
+                "SELECT evidence FROM worker_evidence WHERE path=?1 AND run_id=?2",
+                params![storage_key(path), run_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let mut evidence = previous
+            .map(|value| serde_json::from_str::<serde_json::Value>(&value))
+            .transpose()
+            .map_err(|error| error.to_string())?
+            .unwrap_or_else(|| serde_json::json!({}));
+        let patch = patch
+            .as_object()
+            .ok_or("terminal evidence is not an object")?;
+        let target = evidence
+            .as_object_mut()
+            .ok_or("diagnostic evidence is not an object")?;
+        // Only the new terminal result may assert success. Progress from an
+        // interrupted earlier implementation cannot supply a completion basis.
+        for key in ["completionBasis", "outcome"] {
+            if !patch.contains_key(key) {
+                target.remove(key);
+            }
+        }
+        target.extend(patch.clone());
+        Ok(evidence)
+    }
+
     pub fn finish_with_evidence(
         &self,
         path: &Path,
@@ -567,14 +603,22 @@ impl WorkerStore {
         reason: Option<&str>,
         authority: Option<&str>,
         evidence: &serde_json::Value,
-    ) -> Result<(), String> {
+    ) -> Result<serde_json::Value, String> {
         let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
         let transaction = guard
             .as_mut()
             .ok_or("worker state not initialized")?
             .transaction()
             .map_err(|error| error.to_string())?;
-        let changed = transaction.execute("UPDATE worker_items SET status=?2, run_id=?3, reason=?4, authority=?5, updated_at=?6 WHERE path=?1", params![storage_key(path), status, run_id, reason, authority, now_epoch()]).map_err(|error| error.to_string())?;
+        let evidence = Self::merged_terminal_evidence(&transaction, path, run_id, evidence)?;
+        let verified_core = status == "completed"
+            && evidence
+                .get("completionBasis")
+                .and_then(serde_json::Value::as_str)
+                == Some("verified_track_core");
+        // Failure reporting after a rejected finish must not reclaim a newer
+        // run. Ordinary pending rows retain the existing unclaimed finish path.
+        let changed = transaction.execute("UPDATE worker_items SET status=?2, run_id=?3, reason=?4, authority=?5, updated_at=?6 WHERE path=?1 AND (run_id = ?3 OR (?7 = 0 AND run_id IS NULL))", params![storage_key(path), status, run_id, reason, authority, now_epoch(), verified_core]).map_err(|error| error.to_string())?;
         if changed != 1 {
             return Err("worker completion has no scheduling row".into());
         }
@@ -584,7 +628,14 @@ impl WorkerStore {
                 params![storage_key(path), run_id, evidence.to_string()],
             )
             .map_err(|error| error.to_string())?;
-        transaction.commit().map_err(|error| error.to_string())
+        if verified_core {
+            // This is machine-verified track proof, not acknowledgement of an
+            // AI or human obligation, or evidence from a different attempt.
+            transaction.execute("DELETE FROM review_flags WHERE path=?1 AND run_id=?2 AND reason='recording_identity' AND reviewed_at IS NULL",
+                params![storage_key(path), run_id]).map_err(|error| error.to_string())?;
+        }
+        transaction.commit().map_err(|error| error.to_string())?;
+        Ok(evidence)
     }
 
     pub fn checkpoint_evidence(
@@ -693,9 +744,14 @@ impl WorkerStore {
         let connection = guard.as_ref().ok_or("worker state not initialized")?;
         connection
             .execute(
-                "INSERT OR REPLACE INTO review_flags
+                "INSERT INTO review_flags
                  (path, reason, run_id, created_at, reviewed_at)
-                 VALUES (?1, ?2, ?3, ?4, NULL)",
+                 VALUES (?1, ?2, ?3, ?4, NULL)
+                 ON CONFLICT(path) DO UPDATE SET reason=excluded.reason,
+                   run_id=excluded.run_id, created_at=excluded.created_at, reviewed_at=NULL
+                 WHERE excluded.reason != 'recording_identity'
+                   OR review_flags.reviewed_at IS NOT NULL
+                   OR review_flags.reason = 'recording_identity'",
                 params![storage_key(path), reason, run_id, now_epoch()],
             )
             .map(|_| ())
@@ -1056,6 +1112,243 @@ mod tests {
         assert!(reopened.initialize());
         assert_eq!(reopened.recover_interrupted().unwrap(), 1);
         assert_eq!(reopened.pending(), vec![album]);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn terminal_core_commit_merges_progress_without_publishing_success_early() {
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        store.mark_running(&album, "run").unwrap();
+        store
+            .record_review_flag(&album, "recording_identity", "run")
+            .unwrap();
+        store
+            .checkpoint_evidence(
+                &album,
+                "run",
+                &serde_json::json!({"reports":["provider progress"]}),
+            )
+            .unwrap();
+        assert!(store
+            .evidence(&album, "run")
+            .unwrap()
+            .unwrap()
+            .get("completionBasis")
+            .is_none());
+        store
+            .finish_with_evidence(
+                &album,
+                "run",
+                "completed",
+                None,
+                None,
+                &serde_json::json!({"outcome":"applied","completionBasis":"verified_track_core"}),
+            )
+            .unwrap();
+        let saved = store.evidence(&album, "run").unwrap().unwrap();
+        assert_eq!(
+            saved["reports"],
+            serde_json::json!(["provider progress"]),
+            "progress survives the one atomic terminal commit"
+        );
+        assert_eq!(saved["completionBasis"], "verified_track_core");
+        assert!(store.unreviewed_review_paths().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn verified_core_completion_closes_only_its_own_recording_review() {
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        store.mark_running(&album, "run").unwrap();
+        store
+            .record_review_flag(&album, "recording_identity", "run")
+            .unwrap();
+        let evidence = serde_json::json!({"completionBasis":"verified_track_core"});
+        store
+            .finish_with_evidence(
+                &album,
+                "run",
+                "completed",
+                None,
+                Some("musicbrainz"),
+                &evidence,
+            )
+            .unwrap();
+        assert!(
+            store.unreviewed_review_paths().unwrap().is_empty(),
+            "verified core must not remain in the recording-review bucket"
+        );
+        assert_eq!(store.evidence(&album, "run").unwrap(), Some(evidence));
+        drop(store);
+        let reopened = WorkerStore::new_in(root.clone());
+        assert!(reopened.initialize());
+        assert!(reopened.unreviewed_review_paths().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn core_completion_preserves_other_review_scopes_and_rolls_back_on_checkpoint_failure() {
+        for (status, basis, reason, flag_run) in [
+            ("completed", false, "recording_identity", "run"),
+            ("needs_review", true, "recording_identity", "run"),
+            ("failed", true, "recording_identity", "run"),
+            ("completed", true, "recording_identity", "other"),
+            ("completed", true, "ai_fallback", "run"),
+        ] {
+            let root = root();
+            let album = root.join("Album");
+            let store = WorkerStore::new_in(root.clone());
+            assert!(store.initialize());
+            store
+                .enqueue(std::slice::from_ref(&album), "manual")
+                .unwrap();
+            store.mark_running(&album, "run").unwrap();
+            store.record_review_flag(&album, reason, flag_run).unwrap();
+            let evidence = if basis {
+                serde_json::json!({"completionBasis":"verified_track_core"})
+            } else {
+                serde_json::json!({})
+            };
+            store
+                .finish_with_evidence(&album, "run", status, None, None, &evidence)
+                .unwrap();
+            assert_eq!(store.unreviewed_review_paths().unwrap(), vec![album]);
+            fs::remove_dir_all(root).unwrap();
+        }
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        store.mark_running(&album, "run").unwrap();
+        store
+            .record_review_flag(&album, "recording_identity", "run")
+            .unwrap();
+        {
+            let guard = store.inner.lock().unwrap();
+            guard.as_ref().unwrap().execute_batch("CREATE TRIGGER reject_core_evidence BEFORE INSERT ON worker_evidence BEGIN SELECT RAISE(ABORT, 'checkpoint blocked'); END;").unwrap();
+        }
+        assert!(store
+            .finish_with_evidence(
+                &album,
+                "run",
+                "completed",
+                None,
+                None,
+                &serde_json::json!({"completionBasis":"verified_track_core"})
+            )
+            .is_err());
+        assert_eq!(
+            store.unreviewed_review_paths().unwrap(),
+            vec![album.clone()]
+        );
+        assert!(store.evidence(&album, "run").unwrap().is_none());
+        let status: String = store
+            .inner
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .query_row("SELECT status FROM worker_items", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            status, "running",
+            "failed evidence persistence must not publish completion"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn recording_review_cannot_replace_an_open_ai_obligation() {
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .record_review_flag(&album, "ai_fallback", "prior")
+            .unwrap();
+        store
+            .record_review_flag(&album, "recording_identity", "current")
+            .unwrap();
+        let guard = store.inner.lock().unwrap();
+        let reason: String = guard
+            .as_ref()
+            .unwrap()
+            .query_row("SELECT reason FROM review_flags", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            reason, "ai_fallback",
+            "fresh track proof does not acknowledge a separate AI review"
+        );
+        drop(guard);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn stale_core_completion_cannot_replace_a_newer_running_attempt() {
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .enqueue(std::slice::from_ref(&album), "manual")
+            .unwrap();
+        store.mark_running(&album, "new").unwrap();
+        store
+            .record_review_flag(&album, "recording_identity", "old")
+            .unwrap();
+        assert!(store
+            .finish_with_evidence(
+                &album,
+                "old",
+                "completed",
+                None,
+                None,
+                &serde_json::json!({"completionBasis":"verified_track_core"})
+            )
+            .is_err());
+        assert_eq!(
+            store.unreviewed_review_paths().unwrap(),
+            vec![album.clone()]
+        );
+        assert!(store.evidence(&album, "old").unwrap().is_none());
+        // The manual caller reports a rejected completion as a failed attempt.
+        // Neither terminal path may reclaim another run's scheduling row.
+        assert!(store
+            .finish_with_evidence(
+                &album,
+                "old",
+                "failed",
+                Some("completion checkpoint failed"),
+                None,
+                &serde_json::json!({"error":"completion checkpoint failed"}),
+            )
+            .is_err());
+        assert!(store.evidence(&album, "old").unwrap().is_none());
+        store
+            .finish_with_evidence(
+                &album,
+                "new",
+                "completed",
+                None,
+                None,
+                &serde_json::json!({"completionBasis":"verified_track_core"}),
+            )
+            .unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 

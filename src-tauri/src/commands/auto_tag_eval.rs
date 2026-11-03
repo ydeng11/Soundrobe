@@ -2413,6 +2413,7 @@ fn native_outcome_classification_keeps_safety_and_provider_failures_distinct() {
         outcome: AutoTagOutcome::NeedsReview,
         authority: None,
         candidate: None,
+        completion_basis: None,
         written: 0,
         reason_code: Some("no_match".into()),
         diagnostics: Vec::new(),

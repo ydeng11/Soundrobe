@@ -652,42 +652,33 @@ fn start_background_batch(
                 }
             }
 
+            // Progress may be checkpointed during lookup, but terminal proof
+            // is published only by the cancellation-serialized transaction.
+            let result = match report_checkpoint_error {
+                Some(error) => Err(ApiError::Message(format!(
+                    "diagnostic checkpoint failed: {error}"
+                ))),
+                None => result,
+            };
             let mut evidence = match &result {
                 Ok(result) => serde_json::to_value(result).unwrap_or_default(),
                 Err(error) => serde_json::json!({"error":error.to_string(), "reports":reports}),
             };
-            let result = match report_checkpoint_error.map(Err).unwrap_or_else(|| {
-                worker.checkpoint_evidence(album, &run_id, &evidence)?;
-                evidence = worker
-                    .evidence(album, &run_id)?
-                    .ok_or("diagnostic checkpoint missing after persistence")?;
-                Ok(())
-            }) {
-                Ok(()) => result,
-                Err(error) => Err(ApiError::Message(format!(
-                    "diagnostic checkpoint failed: {error}"
-                ))),
-            };
             let mut release_health = match &result {
-                Ok(result) if result.outcome == AutoTagOutcome::Applied => {
-                    tagged += 1;
-                    ReleaseHealth::Healthy
-                }
+                Ok(result) if result.outcome == AutoTagOutcome::Applied => ReleaseHealth::Healthy,
                 Ok(result) => {
-                    needing_review += 1;
                     last_message = result
                         .reason_code
                         .clone()
-                        .unwrap_or_else(|| "needs review".to_string());
+                        .unwrap_or_else(|| "needs review".into());
                     ReleaseHealth::NeedsReview
                 }
                 Err(error) => {
-                    failed += 1;
                     last_message = error.to_string();
                     ReleaseHealth::Failed
                 }
             };
-            let reason = match &result {
+            let mut reason = match &result {
                 Ok(result) => result.reason_code.clone(),
                 Err(error) => Some(error.to_string()),
             };
@@ -696,22 +687,21 @@ fn start_background_batch(
                 .ok()
                 .and_then(|result| result.authority)
                 .and_then(lookup_source_name);
-            if !cancelled.load(Ordering::Acquire) {
-                let worker_status = match release_health {
-                    ReleaseHealth::Healthy => "completed",
-                    ReleaseHealth::NeedsReview => "needs_review",
-                    ReleaseHealth::Tagging => "running",
-                    ReleaseHealth::NeedsTagging => "pending",
-                    ReleaseHealth::Unreadable | ReleaseHealth::Failed => "failed",
-                };
-                let retryable = result.as_ref().is_ok_and(|result| {
-                    result.outcome == AutoTagOutcome::NeedsReview
-                        && result
-                            .provider_attempts
-                            .iter()
-                            .any(|attempt| attempt.retryable)
-                });
-                let completion = if retryable {
+            let worker_status = match release_health {
+                ReleaseHealth::Healthy => "completed",
+                ReleaseHealth::NeedsReview => "needs_review",
+                _ => "failed",
+            };
+            let retryable = result.as_ref().is_ok_and(|result| {
+                result.outcome == AutoTagOutcome::NeedsReview
+                    && result.reason_code.as_deref() != Some("recording_readback_conflict")
+                    && result
+                        .provider_attempts
+                        .iter()
+                        .any(|attempt| attempt.retryable)
+            });
+            let completion = tasks.with_running(&task_id_for_work, |_| {
+                if retryable {
                     let retry_after = result
                         .as_ref()
                         .unwrap()
@@ -729,25 +719,35 @@ fn start_background_batch(
                         &evidence,
                     )
                 } else {
-                    worker
-                        .finish_with_evidence(
-                            album,
-                            &run_id,
-                            worker_status,
-                            reason.as_deref(),
-                            authority.as_deref(),
-                            &evidence,
-                        )
-                        .map(|()| evidence.clone())
-                };
-                match completion {
-                    Ok(saved) => evidence = saved,
-                    Err(error) => {
-                        failed += 1;
-                        last_message = format!("worker completion checkpoint failed: {error}");
-                        release_health = ReleaseHealth::Failed;
-                    }
+                    worker.finish_with_evidence(
+                        album,
+                        &run_id,
+                        worker_status,
+                        reason.as_deref(),
+                        authority.as_deref(),
+                        &evidence,
+                    )
                 }
+            });
+            match completion {
+                Ok(Some(saved)) => evidence = saved,
+                Ok(None) => {
+                    release_health = ReleaseHealth::NeedsReview;
+                    reason = Some("cancelled".into());
+                    evidence = serde_json::json!({"reasonCode":"cancelled", "reports":reports});
+                }
+                Err(error) => {
+                    last_message = format!("worker completion checkpoint failed: {error}");
+                    reason = Some(last_message.clone());
+                    release_health = ReleaseHealth::Failed;
+                    evidence = serde_json::json!({"error":last_message, "reports":reports});
+                }
+            }
+            // Count only the actual durable disposition, once.
+            match release_health {
+                ReleaseHealth::Healthy => tagged += 1,
+                ReleaseHealth::NeedsReview => needing_review += 1,
+                _ => failed += 1,
             }
             items.push(ReleaseOutcome {
                 evidence: Some(evidence),
@@ -2017,89 +2017,65 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
         .await;
 
         let result = result.and_then(|result| {
-            worker
-                .record_evidence(
-                    &album_path,
-                    &task_id_for_work,
-                    &serde_json::to_value(&result).unwrap_or_default(),
+            let data = serde_json::to_value(&result).unwrap_or_default();
+            let applied = result.outcome == AutoTagOutcome::Applied;
+            let status = if applied {
+                TaskStatus::Completed
+            } else {
+                TaskStatus::NeedsReview
+            };
+            let message = if applied {
+                auto_tag_completion_message(
+                    result
+                        .candidate
+                        .as_ref()
+                        .expect("applied auto-tag has a candidate"),
                 )
-                .map_err(|error| {
-                    ApiError::Message(format!("diagnostic checkpoint failed: {error}"))
-                })?;
-            Ok(result)
-        });
-        match result {
-            Ok(result) if result.outcome == AutoTagOutcome::Applied => {
-                let candidate = result
-                    .candidate
-                    .as_ref()
-                    .expect("applied auto-tag has a candidate");
-                let data = serde_json::to_value(&result).unwrap_or_default();
-                let message = auto_tag_completion_message(candidate);
-                if let Err(error) = worker.mark_finished(
-                    &album_path,
-                    "completed",
-                    result.reason_code.as_deref(),
-                    result.authority.and_then(lookup_source_name).as_deref(),
-                ) {
-                    let message = format!("durable worker completion failed: {error}");
-                    task_state.finish(
-                        &task_id_for_work,
-                        TaskStatus::Failed,
-                        &message,
-                        serde_json::json!({"error": message}),
-                    );
-                    operations.finish(token);
-                    return;
-                }
-                if !task_state.finish(
-                    &task_id_for_work,
-                    TaskStatus::Completed,
-                    message,
-                    data.clone(),
-                ) {
-                    operations.finish(token);
-                    return;
-                }
-                let _ = event_bus.publish(
-                    "auto-tag:event",
-                    &auto_tag_event(&task_id_for_work, "completed", message, 9, Some(data)),
-                );
-            }
-            Ok(result) => {
-                let data = serde_json::to_value(&result).unwrap_or_default();
-                let message = result
+                .to_string()
+            } else {
+                result
                     .reason_code
                     .as_deref()
                     .map(|reason| format!("Needs review: {reason}"))
-                    .unwrap_or_else(|| "Needs review".to_string());
-                if let Err(error) = worker.mark_finished(
-                    &album_path,
-                    "needs_review",
-                    result.reason_code.as_deref(),
-                    result.authority.and_then(lookup_source_name).as_deref(),
-                ) {
-                    let message = format!("durable worker completion failed: {error}");
-                    task_state.finish(
+                    .unwrap_or_else(|| "Needs review".into())
+            };
+            let saved = task_state
+                .with_running(&task_id_for_work, |progress| {
+                    worker.finish_with_evidence(
+                        &album_path,
                         &task_id_for_work,
-                        TaskStatus::Failed,
-                        &message,
-                        serde_json::json!({"error": message}),
-                    );
-                    operations.finish(token);
-                    return;
-                }
-                if task_state.finish(
-                    &task_id_for_work,
-                    TaskStatus::NeedsReview,
-                    &message,
-                    data.clone(),
-                ) {
-                    let _ = event_bus.publish(
-                        "auto-tag:event",
-                        &auto_tag_event(&task_id_for_work, "needs_review", message, 9, Some(data)),
-                    );
-                }
+                        if applied { "completed" } else { "needs_review" },
+                        result.reason_code.as_deref(),
+                        result.authority.and_then(lookup_source_name).as_deref(),
+                        &data,
+                    )?;
+                    progress.status = status;
+                    progress.progress = progress.total;
+                    progress.message = message.clone();
+                    progress.result = data.clone();
+                    Ok(())
+                })
+                .map_err(|error| {
+                    ApiError::Message(format!("durable worker completion failed: {error}"))
+                })?;
+            if saved.is_none() {
+                return Err(ApiError::Message(
+                    "auto-tag cancelled before terminal persistence".into(),
+                ));
+            }
+            Ok((status, message, data))
+        });
+        match result {
+            Ok((status, message, data)) => {
+                let kind = if status == TaskStatus::Completed {
+                    "completed"
+                } else {
+                    "needs_review"
+                };
+                let _ = event_bus.publish(
+                    "auto-tag:event",
+                    &auto_tag_event(&task_id_for_work, kind, message, 9, Some(data)),
+                );
             }
             Err(error) if cancelled.load(Ordering::Acquire) => {
                 let progress = task_state
@@ -2144,9 +2120,14 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
             }
             Err(error) => {
                 let message = error.to_string();
-                if let Err(checkpoint_error) =
-                    worker.mark_finished(&album_path, "failed", Some(&message), None)
-                {
+                if let Err(checkpoint_error) = worker.finish_with_evidence(
+                    &album_path,
+                    &task_id_for_work,
+                    "failed",
+                    Some(&message),
+                    None,
+                    &serde_json::json!({"error":message}),
+                ) {
                     tracing::error!(%checkpoint_error, "manual auto-tag failure could not be persisted");
                 }
                 let data = serde_json::json!({"error": message});

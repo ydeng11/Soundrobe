@@ -120,6 +120,29 @@ impl TaskRegistry {
         true
     }
 
+    /// Serialize a durable transition with cancellation. The callback runs
+    /// synchronously under the task lock; it must not re-enter this registry.
+    #[cfg(any(feature = "server", test))]
+    pub(crate) fn with_running<T>(
+        &self,
+        task_id: &str,
+        operation: impl FnOnce(&mut TaskProgress) -> Result<T, String>,
+    ) -> Result<Option<T>, String> {
+        let mut tasks = self.tasks.lock().map_err(|_| "task registry unavailable")?;
+        let entry = tasks.get_mut(task_id).ok_or("task not found")?;
+        if entry.progress.status != TaskStatus::Running || entry.cancelled.load(Ordering::Acquire) {
+            return Ok(None);
+        }
+        let previous = entry.progress.clone();
+        match operation(&mut entry.progress) {
+            Ok(value) => Ok(Some(value)),
+            Err(error) => {
+                entry.progress = previous;
+                Err(error)
+            }
+        }
+    }
+
     pub fn finish(
         &self,
         task_id: &str,
@@ -250,6 +273,80 @@ mod tests {
             serde_json::to_value(review.status).unwrap(),
             serde_json::json!("needs_review")
         );
+    }
+
+    #[test]
+    fn cancelled_task_cannot_start_a_durable_terminal_transition() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 1, "Running");
+        registry.cancel(&id);
+        let mut committed = false;
+        let result = registry
+            .with_running(&id, |_| {
+                committed = true;
+                Ok(())
+            })
+            .unwrap();
+        assert!(result.is_none());
+        assert!(
+            !committed,
+            "cancellation must win before any durable terminal proof is written"
+        );
+    }
+
+    #[test]
+    fn terminal_commit_and_concurrent_cancellation_have_one_order() {
+        let registry = Arc::new(TaskRegistry::default());
+        let id = registry.create("auto-tag", 1, "Running");
+        let entered = Arc::new(std::sync::Barrier::new(2));
+        let (cancelled_tx, cancelled_rx) = std::sync::mpsc::channel();
+        let (committer, commit_id, barrier) = (registry.clone(), id.clone(), entered.clone());
+        let commit = std::thread::spawn(move || {
+            committer
+                .with_running(&commit_id, |progress| {
+                    barrier.wait();
+                    assert!(
+                        cancelled_rx
+                            .recv_timeout(std::time::Duration::from_millis(100))
+                            .is_err(),
+                        "cancellation cannot pass the terminal commit lock"
+                    );
+                    progress.status = TaskStatus::Completed;
+                    Ok(())
+                })
+                .unwrap()
+                .unwrap();
+        });
+        entered.wait();
+        registry.cancel(&id);
+        let _ = cancelled_tx.send(());
+        commit.join().unwrap();
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Completed);
+        assert!(!registry.cancellation(&id).unwrap().load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn terminal_transition_restores_failure_and_finishes_before_later_cancellation() {
+        let registry = TaskRegistry::default();
+        let id = registry.create("auto-tag", 1, "Running");
+        let failed: Result<Option<()>, String> = registry.with_running(&id, |progress| {
+            progress.status = TaskStatus::Completed;
+            Err("checkpoint failed".into())
+        });
+        assert!(failed.is_err());
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Running);
+        registry
+            .with_running(&id, |progress| {
+                progress.status = TaskStatus::Completed;
+                progress.progress = progress.total;
+                Ok(())
+            })
+            .unwrap()
+            .unwrap();
+        registry.cancel(&id);
+        assert_eq!(registry.get(&id).unwrap().status, TaskStatus::Completed,
+            "a cancellation arriving after the durable terminal boundary cannot undo that completed transition");
+        assert!(!registry.cancellation(&id).unwrap().load(Ordering::Acquire));
     }
 
     #[test]

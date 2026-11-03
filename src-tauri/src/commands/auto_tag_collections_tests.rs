@@ -2,6 +2,8 @@
 #[cfg(unix)]
 #[path = "auto_tag_coverage_v3_tests.rs"]
 mod coverage_v3;
+#[path = "auto_tag_track_core_tests.rs"]
+mod track_core;
 use super::*;
 use crate::commands::tracks::read_track_metadata;
 use std::{fs, process::Command};
@@ -442,9 +444,7 @@ async fn copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_
             });
             before.push((track, audio));
         }
-        verified_fields += apply_recording_tags(&path, &rows, None, &queue)
-            .await
-            .unwrap();
+        verified_fields += apply_recording_tags(&path, &rows, &queue).await.unwrap();
         let mut once = Vec::new();
         let after_audio = audio_hashes(&files);
         for ((file, (original, audio)), observed_audio) in
@@ -470,9 +470,7 @@ async fn copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_
             once.push(file_hash(Path::new(file)));
             total += 1;
         }
-        apply_recording_tags(&path, &rows, None, &queue)
-            .await
-            .unwrap();
+        apply_recording_tags(&path, &rows, &queue).await.unwrap();
         for (file, expected) in files.iter().zip(once) {
             assert_eq!(file_hash(Path::new(file)), expected);
         }
@@ -1022,7 +1020,7 @@ async fn coverage_v2_aliases_cannot_bypass_full_audio_conflicts_across_files() {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn coverage_v2_consensus_album_writes_count_without_claiming_an_edition() {
+async fn recording_only_consensus_preserves_grouping_without_claiming_an_edition() {
     let root = super::tests::temp_root();
     let album = root.join("Collection");
     fs::create_dir_all(&album).unwrap();
@@ -1070,7 +1068,8 @@ async fn coverage_v2_consensus_album_writes_count_without_claiming_an_edition() 
     .unwrap();
     assert_eq!(
         read_track_metadata(&file).unwrap().album.as_deref(),
-        Some("Consensus album")
+        None,
+        "recording-only facts do not authorize replacing the existing grouping"
     );
     let coverage = result
         .diagnostics
@@ -1078,8 +1077,8 @@ async fn coverage_v2_consensus_album_writes_count_without_claiming_an_edition() 
         .find(|row| row["stage"] == "coverage")
         .unwrap();
     assert_eq!(
-        coverage["providerVerifiedAlbumTracks"], 1,
-        "count the verified album values actually written"
+        coverage["providerVerifiedAlbumTracks"], 0,
+        "retained shared catalog facts are not verified on-disk grouping"
     );
     assert_eq!(
         coverage["providerVerifiedEditionTracks"], 0,

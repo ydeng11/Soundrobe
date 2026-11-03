@@ -774,6 +774,17 @@ pub(crate) async fn write_track_queued(
     path: PathBuf,
     patch: TrackPatch,
 ) -> Result<(), ApiError> {
+    write_track_queued_guarded(queue, path, patch, |_| Ok(())).await
+}
+
+/// The guard runs after queue admission, beside the existing journal and
+/// dispatcher, so lookup-bound writes cannot target a queued replacement.
+pub(crate) async fn write_track_queued_guarded(
+    queue: &WriteQueue,
+    path: PathBuf,
+    patch: TrackPatch,
+    guard: impl FnOnce(&Path) -> Result<(), ApiError> + Send + 'static,
+) -> Result<(), ApiError> {
     validated_track_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
     // A queued write made while an album review is active must be journaled.
@@ -788,7 +799,10 @@ pub(crate) async fn write_track_queued(
     let operation = async move {
         tokio::task::spawn_blocking(move || {
             let write_start = std::time::Instant::now();
-            let write = || write_track_dispatch(&path, &patch);
+            let write = || {
+                guard(&path)?;
+                write_track_dispatch(&path, &patch)
+            };
             let result = match review {
                 Some(journal) => {
                     let outcome = journal.mutate(&path, write);
