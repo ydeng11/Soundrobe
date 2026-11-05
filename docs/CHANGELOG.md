@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The offline inventory can export core-only reuse proposals for selected donor/recipient pairs with exact complete checksum-verified FLAC audio and current independently rooted recording receipts. It retains source/proof lineage, blocks conflicting selected donor labels, and leaves files, verification, grouping and worker state unchanged; there is no apply operation.
+
+- Strict recording-core tagging retains per-file source-bound write/readback receipts across restarts in both desktop and server runs. Replaced inputs cannot inherit an earlier source's proof, and supported metadata-boundary repairs remain compatible. The offline inventory distinguishes current proof from pending, changed and legacy evidence, and candidate observations retain partial billing, duration and fresh-response provenance without relaxing identification rules.
+
+- The offline inventory can optionally export source-bound exact PCM, digital-zero boundary and bidirectional exact-overlap diagnostics for selected pairs, without changing identification decisions or writing media. It rejects proven WAV truncation, replaced source-directory bindings and non-regular manifests, and retains available diagnostics when decoding fails or is cancelled. Unsupported, changed or incomplete inputs remain explicit.
+
 - An offline artist-library inventory exports physical-file accounting and a ranked evidence worklist as JSON or Markdown. It prioritizes one-file identification blockers and keeps historical replay coverage separate from current verification, without querying providers or writing tags.
 
 - Folders with AcoustID-verified titles and artist credits on every file can finish with an unresolved edition. Recording-only tagging preserves existing album grouping, and run details identify this completion scope.

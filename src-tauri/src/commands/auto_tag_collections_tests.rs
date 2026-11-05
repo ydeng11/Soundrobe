@@ -444,7 +444,10 @@ async fn copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_
             });
             before.push((track, audio));
         }
-        verified_fields += apply_recording_tags(&path, &rows, &queue).await.unwrap();
+        verified_fields += apply_recording_tags(&path, &rows, &queue, None)
+            .await
+            .unwrap()
+            .0;
         let mut once = Vec::new();
         let after_audio = audio_hashes(&files);
         for ((file, (original, audio)), observed_audio) in
@@ -470,7 +473,9 @@ async fn copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_
             once.push(file_hash(Path::new(file)));
             total += 1;
         }
-        apply_recording_tags(&path, &rows, &queue).await.unwrap();
+        apply_recording_tags(&path, &rows, &queue, None)
+            .await
+            .unwrap();
         for (file, expected) in files.iter().zip(once) {
             assert_eq!(file_hash(Path::new(file)), expected);
         }

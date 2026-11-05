@@ -57,7 +57,7 @@ fn cleanup_abandoned_at(root: &Path) {
     }
 }
 #[cfg(unix)]
-fn process_alive(pid: u32) -> bool {
+pub(crate) fn process_alive(pid: u32) -> bool {
     let Ok(pid) = i32::try_from(pid) else {
         return false;
     };
@@ -72,7 +72,7 @@ fn process_alive(pid: u32) -> bool {
     }
 }
 #[cfg(windows)]
-fn process_alive(pid: u32) -> bool {
+pub(crate) fn process_alive(pid: u32) -> bool {
     use windows_sys::Win32::{
         Foundation::{CloseHandle, GetLastError, ERROR_INVALID_PARAMETER},
         System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},

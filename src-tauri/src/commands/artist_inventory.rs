@@ -1,6 +1,9 @@
 //! Read-only physical-file accounting and evidence triage. Never runs a resolver.
 
-use super::{auto_tag::RecordingSource, library::is_audio_file};
+use super::{
+    auto_tag::{CoreReceipt, RecordingSource},
+    library::is_audio_file,
+};
 use crate::state::worker::WorkerStore;
 use serde_json::{json, Value};
 use std::{
@@ -9,7 +12,129 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const SCOPE: &str = "Read-only inventory; existing tags and historical decisions are not identity proof. Legacy worker evidence has no durable post-write source binding. Verified core, edition, enrichment and human approval remain separate; no new verification or approval is performed.";
+const SCOPE: &str = "Read-only inventory; existing tags and historical decisions are not identity proof. Versioned terminal receipts are revalidated against current physical source hashes; legacy evidence remains source-unbound. Verified core, edition, enrichment and human approval remain separate; no recognition or approval is performed.";
+
+/// Reuse is narrower than a valid write/readback receipt: the retained original
+/// lookup and complete recording billing must independently support its core.
+/// Sparse legacy display rows remain useful diagnostics, never reuse roots.
+pub(crate) fn reuse_root(file: &Value, current_history: &[Value]) -> Result<Value, String> {
+    use sha2::{Digest, Sha256};
+    if file["coreProof"]["state"] != "valid" {
+        return Err("donor_proof_not_current_valid".into());
+    }
+    let stored = &file["coreProof"]["receipt"];
+    let terminal = current_history.iter().any(|attempt| {
+        attempt["currentSchedulingRun"] == true
+            && attempt["runId"] == stored["runId"]
+            && Path::new(text(&attempt["path"]))
+                .canonicalize()
+                .ok()
+                .as_deref()
+                == Path::new(text(&file["path"])).parent()
+            && matches!(
+                text(&attempt["schedulingStatus"]),
+                "completed" | "needs_review" | "failed" | "deferred"
+            )
+            && attempt["evidence"]["proofPublication"]["state"] == "terminal_validated"
+            && attempt["evidence"]["proofPublication"]["runId"] == stored["runId"]
+            && attempt["evidence"]["coreReceipts"]
+                .as_array()
+                .is_some_and(|receipts| receipts.contains(stored))
+    });
+    if !terminal {
+        return Err("donor_terminal_ownership_changed_or_pending".into());
+    }
+    let receipt: CoreReceipt = serde_json::from_value(stored.clone()).map_err(|e| e.to_string())?;
+    receipt.validate_current(Path::new(text(&file["path"])))?;
+    if receipt.parent_proof.is_some()
+        || receipt.run_id.as_deref().is_none_or(str::is_empty)
+        || receipt.published_at.is_none()
+        || receipt.evidence["queryScope"] != "existing_acoustid_recording_resolution"
+    {
+        return Err("independent_root_unproven".into());
+    }
+    let row = &receipt.evidence["trackMatch"];
+    let lookup = &row["lookupObservation"];
+    if lookup["version"] != 1
+        || lookup["provider"] != "acoustid"
+        || lookup["status"] != "successful_nonempty"
+        || lookup["source"] != json!(receipt.pre_write)
+    {
+        return Err("independent_lookup_binding_unproven".into());
+    }
+    let core = json!(receipt.accepted);
+    let candidates = row["candidates"]
+        .as_array()
+        .ok_or("root_recording_facts_missing")?;
+    let selected = receipt.decision_basis == "selected_recording";
+    let roots: Vec<_> = candidates
+        .iter()
+        .filter(|c| {
+            if selected {
+                c["disposition"] == "verified"
+                    && c["canonicalRecordingId"] == core["musicbrainzTrackId"]
+            } else {
+                c["disposition"] == "supported" || c["disposition"] == "verified"
+            }
+        })
+        .collect();
+    let unique_ids: BTreeSet<_> = roots
+        .iter()
+        .filter_map(|c| c["canonicalRecordingId"].as_str())
+        .collect();
+    if (selected && roots.len() != 1)
+        || (!selected
+            && (unique_ids.len() < 2
+                || unique_ids.len() != roots.len()
+                || row["omittedCandidates"] != 0
+                || row["candidateCount"] != json!(roots.len())
+                || lookup["eligibleHypothesisCount"] != json!(roots.len())))
+    {
+        return Err("root_recording_facts_incomplete".into());
+    }
+    for candidate in roots {
+        let observation = &candidate["providerObservation"];
+        let id = text(&candidate["canonicalRecordingId"]);
+        let billing = observation["rawOrderedBilling"]
+            .as_array()
+            .ok_or("root_billing_missing")?;
+        let names: Vec<_> = billing.iter().map(|b| text(&b["name"])).collect();
+        let display: String = billing
+            .iter()
+            .map(|b| format!("{}{}", text(&b["name"]), text(&b["joinphrase"])))
+            .collect();
+        if uuid::Uuid::parse_str(id).is_err()
+            || observation["version"] != 1
+            || observation["provider"] != "musicbrainz"
+            || observation["sourceLevel"] != "recording"
+            || observation["canonicalId"] != id
+            || observation["responseId"] != id
+            || candidate["authoritativeTitle"] != core["title"]
+            || observation["title"] != core["title"]
+            || candidate["artistCredits"] != core["artists"]
+            || json!(names) != core["artists"]
+            || json!(display) != core["artist"]
+            || names.iter().any(|s| s.trim().is_empty())
+            || billing
+                .iter()
+                .any(|b| b.get("joinphrase").is_some_and(|v| !v.is_string()))
+            || candidate["authoritativeDuration"]
+                .as_f64()
+                .is_none_or(|d| !d.is_finite() || d <= 0.0)
+        {
+            return Err("root_recording_core_conflict_or_missing_facts".into());
+        }
+    }
+    Ok(
+        json!({"source":receipt.post_write,"accepted":core,"decisionBasis":receipt.decision_basis,
+        "root":{"kind":"independent_acoustid_recording_resolution","runId":receipt.run_id,
+            "attemptId":receipt.attempt_id,"receiptVersion":receipt.version,"decisionRuleVersion":receipt.decision_rule_version,
+            "evidenceVersion":receipt.evidence_version,"receiptDigest":format!("{:x}",Sha256::digest(stored.to_string().as_bytes())),
+            "evidenceDigest":receipt.evidence_digest,"preWrite":receipt.pre_write,"postWrite":receipt.post_write,
+            "observedAt":receipt.observed_at,"publishedAt":receipt.published_at,"parentProof":null},
+        "provenance":receipt.evidence}),
+    )
+}
 
 /// Full-file SHA-256 is a stale-input check, not an audio identity decision.
 /// The scan is not a filesystem snapshot: each file records its observation.
@@ -57,8 +182,37 @@ pub fn inventory(
         let source_error = source.as_ref().err().cloned();
         let source = source.unwrap_or(Value::Null);
         let mut evidence = Vec::new();
+        let mut core_proof =
+            json!({"version":1,"state":"absent","reason":"no_terminal_source_bound_receipt"});
         for attempt in worker_folders.get(folder).into_iter().flatten() {
             let snapshot = &attempt["evidence"];
+            if attempt["currentSchedulingRun"] == true {
+                let receipt = snapshot["coreReceipts"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .find(|r| r["postWrite"]["path"] == json!(path));
+                if let Some(receipt) = receipt {
+                    let validated = serde_json::from_value::<CoreReceipt>(receipt.clone())
+                        .map_err(|e| e.to_string())
+                        .and_then(|r| {
+                            if snapshot["proofPublication"]["state"] != "terminal_validated"
+                                || snapshot["proofPublication"]["runId"] != attempt["runId"]
+                                || json!(r.run_id) != attempt["runId"]
+                                || r.published_at.is_none()
+                            {
+                                return Err("receipt_not_terminal_bound".into());
+                            }
+                            r.validate_current(&path)
+                        });
+                    core_proof = json!({"version":1,"state":if validated.is_ok() && stable {"valid"} else {"invalid"},"reason":validated.err(),"receipt":receipt});
+                } else if snapshot["pendingCoreReceipts"]
+                    .as_array()
+                    .is_some_and(|v| v.iter().any(|r| r["postWrite"]["path"] == json!(path)))
+                {
+                    core_proof = json!({"version":1,"state":"pending","reason":"write_observed_without_terminal_proof"});
+                }
+            }
             let row = track_rows(snapshot)
                 .into_iter()
                 .find(|row| row["fileName"] == name);
@@ -115,15 +269,32 @@ pub fn inventory(
             actions.insert("Refresh evidence for this changed or unreadable physical file before using any prior decision.".into());
         }
         actions.insert("Revalidate source-bound track core and readback for every folder member before claiming completion.".into());
+        let eligible_count = row["lookupObservation"]
+            .get("eligibleHypothesisCount")
+            .cloned()
+            .unwrap_or_else(|| {
+                if row["candidateSetComplete"] == true
+                    || row["candidateCount"].as_u64().is_some_and(|n| n > 0)
+                {
+                    row["candidateCount"].clone()
+                } else {
+                    Value::Null
+                }
+            });
+        let omitted_count = if eligible_count.is_null() {
+            Value::Null
+        } else {
+            row["omittedCandidates"].clone()
+        };
         files.push(json!({"path":path,"relativePath":path.strip_prefix(&root).unwrap(),
             "folder":folder.strip_prefix(&root).unwrap(),"sourceIdentity":source,
             "sourceStableDuringRead":stable,"sourceError":source_error,
             "observedAt":time::OffsetDateTime::now_utc().unix_timestamp(),
-            "freshness":freshness,"coreState":if prior_supported {"requires_revalidation"} else {"unresolved"},
+            "freshness":freshness,"coreProof":core_proof,"coreState":if core_proof["state"] == "valid" {"verified_core"} else if prior_supported {"requires_revalidation"} else {"unresolved"},
             "historicalProviderBackedCore":historical_file.map(|r| r["providerVerifiedCore"].clone()),
-            "candidateSummary":{"eligibleHypothesisCount":row["candidateCount"],
+            "candidateSummary":{"eligibleHypothesisCount":eligible_count,
                 "visibleAlternativeCount":row["candidates"].as_array().map(Vec::len),
-                "omittedEligibleHypotheses":row["omittedCandidates"],
+                "omittedEligibleHypotheses":omitted_count,
                 "candidateSetComplete":row["candidateSetComplete"],
                 "fullAlternativeCount":null,"fullAlternativeCountKnown":false},
             "blockers":blockers,"missingFacts":missing,"conflictingFields":conflicts,
@@ -170,7 +341,9 @@ pub fn inventory(
         });
         file["folderIdentificationUnresolvedFiles"] = json!(unresolved);
         file["sharedFactFileCount"] = json!(benefit);
-        file["priorityReason"] = json!(if !identification {
+        file["priorityReason"] = json!(if file["coreState"] == "verified_core" {
+            "Current source-bound core proof; edition, enrichment and approval remain separate"
+        } else if !identification {
             "Historical support still requires current source/readback validation"
         } else if unresolved == 1 {
             "One identification blocker; other folder members still need revalidation"
@@ -193,6 +366,10 @@ pub fn inventory(
         file["rank"] = json!(index + 1);
     }
     let unresolved = folders.values().map(|(_, count)| count).sum::<usize>();
+    let verified = files
+        .iter()
+        .filter(|f| f["coreState"] == "verified_core")
+        .count();
     let historical = history.map(|h| {
         let mut summary = h.summary;
         summary["matchedInputs"] = json!(matched_history.len());
@@ -204,14 +381,14 @@ pub fn inventory(
             .collect::<Vec<_>>());
         summary
     });
-    Ok(json!({"schemaVersion":1,"root":root,"scope":SCOPE,
-        "summary":{"physicalFiles":files.len(),"folders":folders.len(),"verifiedCoreFiles":0,
-            "unresolvedFiles":files.len(),"identificationUnresolvedFiles":unresolved,
-            "revalidationFiles":files.len()-unresolved,
+    Ok(json!({"schemaVersion":2,"root":root,"scope":SCOPE,
+        "summary":{"physicalFiles":files.len(),"folders":folders.len(),"verifiedCoreFiles":verified,
+            "unresolvedFiles":files.len()-verified,"identificationUnresolvedFiles":unresolved,
+            "revalidationFiles":files.len()-unresolved-verified,
             "oneIdentificationBlockerFolders":folders.values().filter(|(_,n)| *n == 1).count()},
         "historical":historical,"folders":folders.into_iter().map(|(path,(total,unresolved))|
             json!({"path":path,"physicalFiles":total,"identificationUnresolvedFiles":unresolved,
-                "currentCompletion":"not_verified"})).collect::<Vec<_>>(),
+                "currentCompletion":if files.iter().filter(|f| text(&f["folder"]) == path).all(|f| f["coreState"] == "verified_core") {"verified_core"} else {"not_verified"}})).collect::<Vec<_>>(),
         "excludedSymlinks":excluded,"files":files,"worklist":worklist}))
 }
 
@@ -444,9 +621,27 @@ pub fn markdown(report: &Value) -> String {
         let row = &file["selectedEvidence"]["trackEvidence"];
         out.push_str(&format!("## {}. {}\n\n{}; freshness: {}.\n\nEligible hypotheses: {}; displayed alternatives (including rejected): {}; omitted eligible hypotheses: {}; candidate set complete: {}. Full alternative count: unknown (not recorded by legacy evidence). Null means unknown, not zero.\n\nBlockers: {}\n\nMissing facts: {}\n\nObserved candidate disagreements (not new rejection rules): {}\n\nNext actions: {}\n\n<details>\n<summary>All stored attempts and alternatives (fetch times may be unknown)</summary>\n\n```json\n{}\n```\n\n</details>\n\n",
             file["rank"],text(&file["relativePath"]),text(&file["priorityReason"]),text(&file["freshness"]),
-            row["candidateCount"],row["candidates"].as_array().map(Vec::len).map_or("unknown".into(),|n|n.to_string()),row["omittedCandidates"],row["candidateSetComplete"],
+            file["candidateSummary"]["eligibleHypothesisCount"],row["candidates"].as_array().map(Vec::len).map_or("unknown".into(),|n|n.to_string()),file["candidateSummary"]["omittedEligibleHypotheses"],row["candidateSetComplete"],
             file["blockers"],file["missingFacts"],file["conflictingFields"],file["nextActions"],
             serde_json::to_string_pretty(&file["evidence"]).unwrap()));
+        out.push_str(&format!(
+            "### Current per-file proof\n\n```json\n{}\n```\n\n",
+            serde_json::to_string_pretty(&file["coreProof"]).unwrap()
+        ));
+    }
+    if let Some(evidence) = report.get("audioEvidence") {
+        out.push_str(&format!(
+            "## Offline selected-pair audio diagnostics\n\n{}\n\n```json\n{}\n```\n",
+            crate::infra::audio_evidence::SCOPE,
+            serde_json::to_string_pretty(evidence).unwrap()
+        ));
+    }
+    if let Some(proposals) = report.get("reuseProposals") {
+        out.push_str(&format!(
+            "## Verified-audio reuse proposals (no writes)\n\n{}\n\n```json\n{}\n```\n",
+            crate::infra::audio_evidence::REUSE_SCOPE,
+            serde_json::to_string_pretty(proposals).unwrap()
+        ));
     }
     out
 }
@@ -488,6 +683,10 @@ mod tests {
                     "recordingId":"gap", "detailFailure":{"kind":"recording_duration_missing",
                     "retryable":false,"status":200},"disposition":"recording_duration_missing"}]}]}
         })).unwrap();
+        for (folder, name, complete) in [("Multi", "a.flac", false), ("Multi/disc", "b.wav", true)]
+        {
+            worker.record_evidence(&library.join(folder), "seed-run", &json!({"acoustid":{"trackMatches":[{"fileName":name,"candidateCount":0,"omittedCandidates":0,"candidateSetComplete":complete,"candidates":[]}]}})).unwrap();
+        }
         let before = fs::read(data.join("worker.db")).unwrap();
         let report = inventory(&library, Some(&data), None).unwrap();
         assert_eq!(report["summary"]["physicalFiles"], 4);
@@ -504,6 +703,26 @@ mod tests {
         assert_eq!(file["candidateSummary"]["visibleAlternativeCount"], 1);
         assert!(file["candidateSummary"]["fullAlternativeCount"].is_null());
         assert_eq!(file["candidateSummary"]["fullAlternativeCountKnown"], false);
+        let summaries = |name: &str| {
+            report["files"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["relativePath"] == name)
+                .unwrap()["candidateSummary"]
+                .clone()
+        };
+        assert!(summaries("Multi/a.flac")["eligibleHypothesisCount"].is_null());
+        assert!(summaries("Multi/a.flac")["omittedEligibleHypotheses"].is_null());
+        let mut unknown_only = report.clone();
+        unknown_only["worklist"] = json!(report["worklist"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|row| row["relativePath"] == "Multi/a.flac")
+            .collect::<Vec<_>>());
+        assert!(markdown(&unknown_only).contains("omitted eligible hypotheses: null"));
+        assert_eq!(summaries("Multi/disc/b.wav")["eligibleHypothesisCount"], 0);
         assert_eq!(
             file["evidence"][0]["trackEvidence"]["omittedCandidates"],
             16

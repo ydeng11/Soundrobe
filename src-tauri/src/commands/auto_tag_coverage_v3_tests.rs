@@ -353,13 +353,24 @@ async fn coverage_v3_failed_identity_does_not_starve_later_candidates_or_become_
         .unwrap();
     assert_eq!(failure["detailFailure"]["status"], 404);
     assert_eq!(failure["detailFailure"]["retryable"], false);
+    let observed = serde_json::to_value(&evidence.track_matches[0]).unwrap();
+    assert_eq!(
+        observed["lookupObservation"]["status"], "successful_nonempty",
+        "a missing provider detail is not an absent acoustic lookup or confirmed no-match"
+    );
+    assert_eq!(observed["lookupObservation"]["resultCount"], 1);
+    assert!(observed["lookupObservation"]["observedAt"].is_u64());
+    assert_eq!(
+        observed["lookupObservation"]["fullAlternativeCount"],
+        serde_json::Value::Null
+    );
     fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
 async fn coverage_v3_timeout_keeps_progress_but_never_patches_before_duplicate_validation() {
     for cancel_at_deadline in [false, true] {
-        let (root, album, request) = collection(&["1.wav", "2.wav"]);
+        let (root, album, request) = collection(&["1.wav", "2.wav", "3.wav"]);
         let before: Vec<_> = collect_audio_files(&album)
             .iter()
             .map(fs::read)
@@ -425,7 +436,10 @@ async fn coverage_v3_timeout_keeps_progress_but_never_patches_before_duplicate_v
                         .iter()
                         .all(|t| t.title.is_none() && t.musicbrainz_track_id.is_none())
             );
-            assert_eq!(evidence.track_matches.len(), 2);
+            assert_eq!(evidence.track_matches.len(), 3);
+            let unattempted = serde_json::to_value(&evidence.track_matches[2]).unwrap();
+            assert_eq!(unattempted["lookupObservation"]["status"], "not_attempted");
+            assert!(unattempted["lookupObservation"]["eligibleHypothesisCount"].is_null());
             assert_eq!(
                 evidence.track_matches[0].candidates[0]["authoritativeTitle"],
                 "Song"
@@ -496,6 +510,20 @@ async fn coverage_v3_confirmed_no_match_has_complete_durable_diagnostics() {
         seen.lock().unwrap()["acoustid"]["validationComplete"],
         true,
         "confirmed empty differs from interrupted validation"
+    );
+    let retained = seen.lock().unwrap();
+    let observation = &retained["acoustid"]["trackMatches"][0]["lookupObservation"];
+    assert_eq!(observation["responseUrl"], format!("{base}/lookup"));
+    assert_eq!(observation["httpStatus"], 200);
+    use sha2::{Digest, Sha256};
+    let body = serde_json::json!({"status":"ok","results":[]}).to_string();
+    assert_eq!(
+        observation["responseDigest"],
+        format!("{:x}", Sha256::digest(body.as_bytes()))
+    );
+    assert_eq!(
+        observation["responseDigestBasis"],
+        "http_decoded_body_sha256"
     );
     fs::remove_dir_all(root).unwrap();
 }

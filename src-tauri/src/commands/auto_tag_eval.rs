@@ -2411,6 +2411,8 @@ fn native_outcome_classification_keeps_safety_and_provider_failures_distinct() {
     let case = &corpus.cases[0];
     let needs_review = AutoTagRunResult {
         outcome: AutoTagOutcome::NeedsReview,
+        proof_version: None,
+        core_receipts: Vec::new(),
         authority: None,
         candidate: None,
         completion_basis: None,

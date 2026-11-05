@@ -44,7 +44,7 @@ pub mod tag_source;
 pub mod tasks;
 #[cfg(feature = "desktop")]
 pub mod updater;
-#[cfg(feature = "server")]
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod worker;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod write_queue;

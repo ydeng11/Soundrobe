@@ -735,6 +735,7 @@ impl MusicBrainzClient {
                 retryable,
                 retry_after_seconds: metrics.max_retry_after_seconds(),
                 attempts: metrics.retry_count() + 1,
+                observation: None,
             }
         };
         let response = response
@@ -776,6 +777,9 @@ impl MusicBrainzClient {
                 false,
             ));
         };
+        let mut response_url = response.url().clone();
+        let _ = response_url.set_username("");
+        let _ = response_url.set_password(None);
         let value: serde_json::Value = response.json().await.map_err(|error| {
             failure(
                 "response",
@@ -784,15 +788,25 @@ impl MusicBrainzClient {
                 !error.is_decode(),
             )
         })?;
+        use sha2::{Digest, Sha256};
+        let observation = serde_json::json!({"version":1,"provider":"musicbrainz","sourceLevel":"recording",
+            "requestedId":id,"canonicalId":canonical_id,"responseId":value["id"],"responseUrl":response_url.as_str(),
+            "httpStatus":status.as_u16(),"fetchedAt":time::OffsetDateTime::now_utc().unix_timestamp(),
+            "queryScope":"recording_id_with_artist_credits","responseDigest":format!("{:x}",Sha256::digest(value.to_string().as_bytes())),"digestBasis":"parsed_json_serialization_sha256",
+            "title":value["title"],"disambiguation":value["disambiguation"],"recordingDurationMs":value["length"],"releaseTrackDurationMs":null,
+            "rawOrderedBilling":value["artist-credit"],"roleRelationships":value["relations"],"roleScope":"only_relationships_present_in_response_not_requested_or_inferred"});
         let mut recording = parse_musicbrainz_recording(&value, &canonical_id).map_err(|kind| {
-            failure(
+            let mut error = failure(
                 kind,
                 format!("MusicBrainz recording identity incomplete: {kind}"),
                 Some(status.as_u16()),
                 false,
-            )
+            );
+            error.observation = Some(observation.clone());
+            error
         })?;
         recording.requested_id = id.into();
+        recording.observation = Some(observation);
         Ok(recording)
     }
 
@@ -1810,6 +1824,8 @@ pub(crate) struct RecordingLookupFailure {
     pub retryable: bool,
     pub retry_after_seconds: Option<u64>,
     pub attempts: u32,
+    #[serde(default)]
+    pub observation: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
@@ -1821,6 +1837,8 @@ pub(crate) struct ProviderRecording {
     pub artist: String,
     pub artists: Vec<String>,
     pub duration: f64,
+    #[serde(default)]
+    pub observation: Option<serde_json::Value>,
 }
 
 fn parse_musicbrainz_recording(
@@ -1871,6 +1889,7 @@ fn parse_musicbrainz_recording(
     }
     Ok(ProviderRecording {
         requested_id: expected_id.into(),
+        observation: None,
         disambiguation: value
             .get("disambiguation")
             .and_then(serde_json::Value::as_str)
@@ -3935,6 +3954,37 @@ mod tests {
     use std::thread;
 
     type Route = fn(&str, &str) -> (&'static str, String, &'static str);
+
+    #[tokio::test]
+    async fn partial_recording_observations_survive_strict_duration_failure() {
+        fn route(_: &str, _: &str) -> (&'static str, String, &'static str) {
+            ("200 OK", serde_json::json!({"id":"11111111-1111-4111-8111-111111111111","title":"Mix","artist-credit":[{"name":"Primary","joinphrase":" feat. ","artist":{"id":"primary"}},{"name":"Guest","joinphrase":"","artist":{"id":"guest"}}],"relations":[{"type":"remixer","artist":{"name":"Not a performer"}}]}).to_string(), "application/json")
+        }
+        let (base, _requests) = server(1, route);
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+        let failure = client
+            .recording_by_id_result("11111111-1111-4111-8111-111111111111")
+            .await
+            .unwrap_err();
+        assert_eq!(failure.kind, "recording_duration_missing");
+        let value = serde_json::to_value(failure).unwrap();
+        assert_eq!(
+            value["observation"]["rawOrderedBilling"][0]["name"], "Primary",
+            "partial facts must not disappear when strict identity parsing fails"
+        );
+        assert_eq!(
+            value["observation"]["rawOrderedBilling"][1]["name"],
+            "Guest"
+        );
+        assert_eq!(
+            value["observation"]["roleRelationships"][0]["type"],
+            "remixer"
+        );
+        assert!(value["observation"]["recordingDurationMs"].is_null());
+        assert!(value["observation"]["fetchedAt"].is_i64());
+        assert_eq!(value["observation"]["sourceLevel"], "recording");
+        assert_eq!(value["observation"]["httpStatus"], 200);
+    }
 
     fn retry_server() -> (String, mpsc::Receiver<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

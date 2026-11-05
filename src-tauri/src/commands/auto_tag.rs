@@ -12,14 +12,15 @@ use std::time::Duration;
 #[cfg(feature = "desktop")]
 use tauri::{AppHandle, Emitter, Manager, State};
 
-#[cfg(feature = "desktop")]
 use crate::state::tasks::{TaskRegistry, TaskStatus};
 use crate::{
     commands::{
         covers::{download_album_artwork_at, download_artist_artwork_at},
         library::collect_audio_files,
         lyrics::{fetch_album_lyrics, LyricsDocument, DEFAULT_BASE_URL},
-        mutations::{write_track_queued, write_track_queued_guarded, TrackPatch},
+        mutations::{
+            track_payload_digest, write_track_queued, write_track_queued_guarded, TrackPatch,
+        },
         tracks::{read_album, read_extra_tags},
     },
     error::ApiError,
@@ -61,17 +62,62 @@ pub enum LookupSource {
     Musicbrainz,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct RecordingSource {
     path: PathBuf,
     fingerprint: String,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "physicalIdentity"
+    )]
+    physical_identity: Option<String>,
 }
 
 impl RecordingSource {
     pub(crate) fn capture(path: &Path) -> Result<Self, ApiError> {
-        use std::io::Read;
+        Self::capture_into(path, None)
+    }
+
+    pub(crate) fn copy_verified_to(&self, path: &Path, destination: &Path) -> Result<(), ApiError> {
+        let mut copy = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(destination)?;
+        let result = (|| {
+            if Self::capture_into(path, Some(&mut copy))? != *self {
+                return Err(ApiError::Message(
+                    "audio source changed while waiting for a tag write".into(),
+                ));
+            }
+            copy.sync_all()?;
+            Ok(())
+        })();
+        drop(copy);
+        if result.is_err() {
+            let _ = std::fs::remove_file(destination);
+        }
+        result
+    }
+
+    fn capture_into(path: &Path, mut copy: Option<&mut std::fs::File>) -> Result<Self, ApiError> {
+        use std::io::{Read, Write};
         let path = path.canonicalize()?;
-        let mut file = std::fs::File::open(&path)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW);
+        }
+        let mut file = options.open(&path)?;
+        let before = file.metadata()?;
+        if !before.is_file() {
+            return Err(ApiError::Message(
+                "recording source is not a regular file".into(),
+            ));
+        }
+        let physical_identity = recording_file_identity(&before);
         let mut hasher = Sha256::new();
         let mut buffer = [0; 64 * 1024];
         loop {
@@ -80,11 +126,176 @@ impl RecordingSource {
                 break;
             }
             hasher.update(&buffer[..count]);
+            if let Some(copy) = copy.as_mut() {
+                copy.write_all(&buffer[..count])?;
+            }
+        }
+        let after = file.metadata()?;
+        let named = std::fs::metadata(&path)?;
+        if before.len() != after.len()
+            || before.modified()? != after.modified()?
+            || physical_identity != recording_file_identity(&after)
+            || physical_identity != recording_file_identity(&named)
+            || after.len() != named.len()
+            || after.modified()? != named.modified()?
+        {
+            return Err(ApiError::Message(
+                "recording source changed during hashing".into(),
+            ));
         }
         Ok(Self {
             path,
             fingerprint: format!("{:x}", hasher.finalize()),
+            physical_identity,
         })
+    }
+}
+
+fn recording_file_identity(metadata: &std::fs::Metadata) -> Option<String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        Some(format!("{}:{}", metadata.dev(), metadata.ino()))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = metadata;
+        None
+    }
+}
+
+/// A queued observation is pending until the owning worker terminal transaction
+/// binds its run. It proves only accepted recording core, never an edition or approval.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CoreReceipt {
+    pub version: u8,
+    pub decision_rule_version: u8,
+    pub evidence_version: u8,
+    pub run_id: Option<String>,
+    pub attempt_id: String,
+    pub pre_write: RecordingSource,
+    pub post_write: RecordingSource,
+    pub source_stable: bool,
+    pub payload_preservation: String,
+    pub payload_digest: String,
+    pub write_outcome: String,
+    pub accepted: RecordingCore,
+    pub readback: RecordingCore,
+    pub decision_basis: String,
+    pub evidence: serde_json::Value,
+    pub evidence_digest: String,
+    pub observed_at: i64,
+    pub published_at: Option<i64>,
+    pub parent_proof: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordingCore {
+    title: Option<String>,
+    artist: Option<String>,
+    artists: Vec<String>,
+    musicbrainz_track_id: Option<String>,
+}
+
+impl RecordingCore {
+    fn from_candidate(track: &TrackCandidate) -> Self {
+        Self {
+            title: track.title.clone(),
+            artist: track.artist.clone(),
+            artists: track.artists.clone(),
+            musicbrainz_track_id: track.musicbrainz_track_id.clone(),
+        }
+    }
+
+    fn read(path: &Path) -> Result<Self, ApiError> {
+        let actual = super::tracks::read_track_metadata_without_lyrics(path)?;
+        Ok(Self {
+            title: actual.title,
+            artist: actual.artist,
+            artists: actual.artists,
+            musicbrainz_track_id: actual.musicbrainz_track_id,
+        })
+    }
+
+    fn matches(&self, actual: &Self) -> bool {
+        use unicode_normalization::UnicodeNormalization;
+        let text = |v: &str| v.trim().nfc().collect::<String>();
+        self.title.as_deref().map(&text) == actual.title.as_deref().map(&text)
+            && self.artist.as_deref().map(&text) == actual.artist.as_deref().map(&text)
+            && self.artists.iter().map(|v| text(v)).collect::<Vec<_>>()
+                == actual.artists.iter().map(|v| text(v)).collect::<Vec<_>>()
+            && self
+                .musicbrainz_track_id
+                .as_ref()
+                .is_none_or(|id| actual.musicbrainz_track_id.as_ref() == Some(id))
+    }
+}
+
+impl CoreReceipt {
+    pub(crate) fn path(&self) -> &Path {
+        &self.post_write.path
+    }
+
+    /// Validate stored structure and the current physical source. This is not a
+    /// new recognition route: legacy tags or checkpoints cannot create a receipt.
+    pub(crate) fn validate_current(&self, path: &Path) -> Result<(), String> {
+        let row = &self.evidence["trackMatch"];
+        if self.version != 1
+            || self.evidence_version != 1
+            || self.decision_rule_version != 3
+            || !self.source_stable
+            || self.attempt_id.is_empty()
+            || self.payload_preservation != "validated_by_atomic_writer"
+            || self.payload_digest.len() != 64
+            || !self
+                .payload_digest
+                .bytes()
+                .all(|byte| byte.is_ascii_hexdigit())
+            || self.pre_write.path != self.post_write.path
+            || self.post_write.path != path.canonicalize().map_err(|e| e.to_string())?
+            || self
+                .accepted
+                .title
+                .as_ref()
+                .is_none_or(|v| v.trim().is_empty())
+            || self
+                .accepted
+                .artist
+                .as_ref()
+                .is_none_or(|v| v.trim().is_empty())
+            || self.accepted.artists.is_empty()
+            || self.accepted.artists.iter().any(|v| v.trim().is_empty())
+            || !self.accepted.matches(&self.readback)
+            || row["candidateSetComplete"] != true
+            || row["score"]
+                .as_f64()
+                .is_none_or(|v| !v.is_finite() || v <= 0.0 || v > 1.0)
+            || row["fileName"].as_str() != self.post_write.path.file_name().and_then(|v| v.to_str())
+            || self.evidence["source"]
+                != serde_json::to_value(&self.pre_write).map_err(|e| e.to_string())?
+            || self.evidence_digest
+                != format!("{:x}", Sha256::digest(self.evidence.to_string().as_bytes()))
+        {
+            return Err("receipt_contract_invalid".into());
+        }
+        match (
+            self.decision_basis.as_str(),
+            self.accepted.musicbrainz_track_id.as_deref(),
+        ) {
+            ("selected_recording", Some(id))
+                if uuid::Uuid::parse_str(id).is_ok()
+                    && row["recordingId"] == id
+                    && row["reason"].is_null() => {}
+            ("recording_fields_consensus", None)
+                if row["reason"] == "recording_fields_consensus" => {}
+            _ => return Err("receipt_decision_invalid".into()),
+        }
+        if RecordingSource::capture(path).map_err(|e| e.to_string())? != self.post_write {
+            return Err("post_write_source_changed".into());
+        }
+        Ok(())
     }
 }
 
@@ -2454,6 +2665,10 @@ fn provider_diagnostic(
 pub struct AutoTagRunResult {
     pub outcome: AutoTagOutcome,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub proof_version: Option<u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub core_receipts: Vec<CoreReceipt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub authority: Option<LookupSource>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub candidate: Option<AlbumCandidate>,
@@ -2482,6 +2697,8 @@ impl Default for AutoTagRunResult {
     fn default() -> Self {
         Self {
             outcome: AutoTagOutcome::NeedsReview,
+            proof_version: None,
+            core_receipts: Vec::new(),
             authority: None,
             candidate: None,
             completion_basis: None,
@@ -4119,6 +4336,8 @@ async fn resolve_and_apply_album_with_acoustid_override(
         );
         return Ok(AutoTagRunResult {
             outcome: AutoTagOutcome::NeedsReview,
+            proof_version: None,
+            core_receipts: Vec::new(),
             authority: None,
             candidate: None,
             completion_basis: None,
@@ -4182,8 +4401,8 @@ async fn resolve_and_apply_album_with_acoustid_override(
                     track.source = local.source.clone();
                 }
                 review_intent(&shared)?;
-                let written =
-                    apply_recording_tags(album_path, &shared.tracks, services.queue).await?;
+                let (written, _) =
+                    apply_recording_tags(album_path, &shared.tracks, services.queue, None).await?;
                 provider_diagnostics.push(serde_json::json!({"stage":"shared_edition_fields", "reason":"recording fields agree across editions; edition-specific fields remain unchanged", "releaseIds":editions}));
                 return Ok(AutoTagRunResult {
                     written,
@@ -4395,6 +4614,8 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let ai_threshold = ai_status.as_ref().map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
     Ok(AutoTagRunResult {
         completion_basis: None,
+        proof_version: None,
+        core_receipts: Vec::new(),
         outcome,
         authority: Some(candidate.source),
         candidate: Some(candidate),
@@ -4418,6 +4639,66 @@ fn checkpoint_candidate_review(
         review_intent(candidate)?;
     }
     Ok(())
+}
+
+/// Both runtimes publish through the same durable worker owner while task
+/// cancellation is excluded. No successful task is visible before DB commit.
+pub(crate) async fn complete_auto_tag_run(
+    worker: &crate::state::worker::WorkerStore,
+    tasks: &TaskRegistry,
+    queue: &WriteQueue,
+    path: &Path,
+    run_id: &str,
+    result: &AutoTagRunResult,
+    mut data: serde_json::Value,
+) -> Result<(TaskStatus, String, serde_json::Value), ApiError> {
+    let applied = result.outcome == AutoTagOutcome::Applied;
+    let status = if applied {
+        TaskStatus::Completed
+    } else {
+        TaskStatus::NeedsReview
+    };
+    let message = if applied {
+        auto_tag_completion_message(
+            result
+                .candidate
+                .as_ref()
+                .expect("applied auto-tag has a candidate"),
+        )
+        .to_string()
+    } else {
+        result
+            .reason_code
+            .as_deref()
+            .map(|reason| format!("Needs review: {reason}"))
+            .unwrap_or_else(|| "Needs review".into())
+    };
+    let saved = queue
+        .run_exclusive(async {
+            tasks.with_running(run_id, |progress| {
+                data = worker.finish_with_evidence(
+                    path,
+                    run_id,
+                    if applied { "completed" } else { "needs_review" },
+                    result.reason_code.as_deref(),
+                    result.authority.map(lookup_source_name),
+                    &data,
+                )?;
+                progress.status = status;
+                progress.progress = progress.total;
+                progress.message = message.clone();
+                progress.result = data.clone();
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|error| ApiError::Message(format!("durable worker completion failed: {error}")))?;
+    if saved.is_none() {
+        return Err(ApiError::Message(
+            "auto-tag cancelled before terminal persistence".into(),
+        ));
+    }
+    Ok((status, message, data))
 }
 
 #[cfg(feature = "desktop")]
@@ -4446,17 +4727,26 @@ pub fn album_auto_tag(
         let providers = app.state::<ProviderState>();
         let cache = app.state::<CacheState>();
         let queue = app.state::<WriteQueue>();
+        let worker = app.state::<crate::state::worker::WorkerStore>();
         let progress_app = app.clone();
         let progress_task_id = spawned_task_id.clone();
         let report_app = app.clone();
         let report_task_id = spawned_task_id.clone();
         let reviews = app.state::<super::auto_tag_review::ReviewStore>();
         let review = match queue
-            .run_exclusive(async { reviews.begin(&spawned_task_id, &path) })
+            .run_exclusive(async {
+                worker
+                    .claim_desktop_run(&path, &spawned_task_id)
+                    .map_err(ApiError::Message)?;
+                reviews.begin(&spawned_task_id, &path)
+            })
             .await
         {
             Ok(review) => review,
             Err(error) => {
+                if let Err(persistence) = worker.finish_with_evidence(&path, &spawned_task_id, "failed", Some("review_start_failed"), None, &serde_json::json!({"proofVersion":1,"coreReceipts":[],"error":error.to_string()})) {
+                    tracing::error!(%persistence, "auto-tag start failure could not be persisted by this owner");
+                }
                 tasks.finish(
                     &spawned_task_id,
                     TaskStatus::Failed,
@@ -4466,46 +4756,64 @@ pub fn album_auto_tag(
                 return;
             }
         };
-        let operation = super::auto_tag_review::ACTIVE_REVIEW
-            .scope(
-                review,
-                resolve_and_apply_album_with_retry_context(
-                    &path,
-                    &config,
-                    AutoTagServices {
-                        providers: &providers,
-                        cache: &cache,
-                        queue: &queue,
-                        alias_file: &alias_file,
-                    },
-                    &cancelled,
-                    Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
-                    move |step, message| {
-                        let tasks = progress_app.state::<TaskRegistry>();
-                        if tasks.update(&progress_task_id, step, message) {
-                            let _ = progress_app.emit(
-                                "auto-tag:event",
-                                auto_tag_event(&progress_task_id, "progress", message, step, None),
-                            );
-                        }
-                    },
-                    move |kind, message, data| {
-                        if let Some(review) = super::auto_tag_review::active_review() {
-                            review.event(kind, &message, data.as_ref());
-                        }
-                        let progress = report_app
-                            .state::<TaskRegistry>()
-                            .get(&report_task_id)
-                            .map(|task| task.progress)
-                            .unwrap_or(0);
-                        let _ = report_app.emit(
+        let checkpoint_worker = worker.inner().clone();
+        let checkpoint_path = path.clone();
+        let checkpoint_run = spawned_task_id.clone();
+        let checkpoint: EvidenceCheckpoint = Arc::new(move |value| {
+            checkpoint_worker.checkpoint_evidence(&checkpoint_path, &checkpoint_run, &value)
+        });
+        let resolver = super::auto_tag_review::ACTIVE_REVIEW.scope(
+            review,
+            resolve_and_apply_album_with_review_intent(
+                &path,
+                &config,
+                AutoTagServices {
+                    providers: &providers,
+                    cache: &cache,
+                    queue: &queue,
+                    alias_file: &alias_file,
+                },
+                &cancelled,
+                Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+                |candidate| {
+                    worker
+                        .record_review_flag(
+                            &path,
+                            if candidate.source == LookupSource::Llm {
+                                "ai_fallback"
+                            } else {
+                                "recording_identity"
+                            },
+                            &spawned_task_id,
+                        )
+                        .map_err(ApiError::Message)
+                },
+                move |step, message| {
+                    let tasks = progress_app.state::<TaskRegistry>();
+                    if tasks.update(&progress_task_id, step, message) {
+                        let _ = progress_app.emit(
                             "auto-tag:event",
-                            auto_tag_event(&report_task_id, kind, message, progress, data),
+                            auto_tag_event(&progress_task_id, "progress", message, step, None),
                         );
-                    },
-                ),
-            )
-            .await;
+                    }
+                },
+                move |kind, message, data| {
+                    if let Some(review) = super::auto_tag_review::active_review() {
+                        review.event(kind, &message, data.as_ref());
+                    }
+                    let progress = report_app
+                        .state::<TaskRegistry>()
+                        .get(&report_task_id)
+                        .map(|task| task.progress)
+                        .unwrap_or(0);
+                    let _ = report_app.emit(
+                        "auto-tag:event",
+                        auto_tag_event(&report_task_id, kind, message, progress, data),
+                    );
+                },
+            ),
+        );
+        let operation = EVIDENCE_CHECKPOINT.scope(checkpoint, resolver).await;
 
         let (review_outcome, review_result) = match &operation {
             Ok(result) => (
@@ -4525,63 +4833,57 @@ pub fn album_auto_tag(
                 serde_json::json!({"error": error.to_string()}),
             ),
         };
-        if let Err(error) = queue
+        let review_finished = queue
             .run_exclusive(async {
                 reviews.finish(&spawned_task_id, review_outcome, review_result)
             })
-            .await
-        {
-            tracing::error!(%error, "auto-tag review readback failed");
-        }
-
-        match operation {
+            .await;
+        let operation = match operation.and_then(|result| review_finished.map(|()| result)) {
             Ok(result) => {
                 let mut data = serde_json::to_value(&result).unwrap_or_default();
                 data["reviewId"] = serde_json::json!(spawned_task_id);
-                match result.outcome {
-                    AutoTagOutcome::Applied => {
-                        let candidate = result
-                            .candidate
-                            .as_ref()
-                            .expect("applied auto-tag result has a candidate");
-                        let message = auto_tag_completion_message(candidate);
-                        tasks.finish(
-                            &spawned_task_id,
-                            TaskStatus::Completed,
-                            message,
-                            data.clone(),
-                        );
-                        let _ = app.emit(
-                            "auto-tag:event",
-                            auto_tag_event(&spawned_task_id, "completed", message, 9, Some(data)),
-                        );
-                    }
-                    AutoTagOutcome::NeedsReview => {
-                        let message = format!(
-                            "Needs review — {}",
-                            result
-                                .reason_code
-                                .as_deref()
-                                .unwrap_or("no authoritative match")
-                        );
-                        tasks.finish(
-                            &spawned_task_id,
-                            TaskStatus::NeedsReview,
-                            &message,
-                            data.clone(),
-                        );
-                        let _ = app.emit(
-                            "auto-tag:event",
-                            auto_tag_event(
-                                &spawned_task_id,
-                                "needs_review",
-                                message,
-                                9,
-                                Some(data),
-                            ),
-                        );
-                    }
-                }
+                complete_auto_tag_run(
+                    &worker,
+                    &tasks,
+                    &queue,
+                    &path,
+                    &spawned_task_id,
+                    &result,
+                    data,
+                )
+                .await
+            }
+            Err(error) => Err(error),
+        };
+        if let Err(error) = &operation {
+            let status = if cancelled.load(Ordering::Acquire) {
+                "cancelled"
+            } else {
+                "failed"
+            };
+            if let Err(persistence) = worker.finish_with_evidence(
+                &path,
+                &spawned_task_id,
+                status,
+                Some("auto_tag_incomplete"),
+                None,
+                &serde_json::json!({"proofVersion":1,"coreReceipts":[],"error":error.to_string()}),
+            ) {
+                tracing::error!(%persistence, "auto-tag terminal failure could not be persisted by this owner");
+            }
+        }
+
+        match operation {
+            Ok((status, message, data)) => {
+                let kind = if status == TaskStatus::Completed {
+                    "completed"
+                } else {
+                    "needs_review"
+                };
+                let _ = app.emit(
+                    "auto-tag:event",
+                    auto_tag_event(&spawned_task_id, kind, message, 9, Some(data)),
+                );
             }
             Err(error) if cancelled.load(Ordering::Acquire) => {
                 let progress = tasks
@@ -4803,9 +5105,12 @@ async fn apply_recording_resolution(
     if candidate.tracks.iter().any(|track| track.title.is_some()) {
         review_intent(&candidate)?;
     }
-    let written = apply_recording_tags(album_path, &candidate.tracks, queue).await?;
-    let core_readback =
-        complete_core.then(|| recording_core_readback_matches(album_path, &candidate.tracks));
+    let (written, core_receipts) =
+        apply_recording_tags(album_path, &candidate.tracks, queue, Some(&evidence)).await?;
+    let core_readback = complete_core.then(|| {
+        core_receipts.len() == candidate.tracks.len()
+            && recording_core_readback_matches(album_path, &candidate.tracks)
+    });
     let readback_failed = core_readback == Some(false);
     let complete_core = complete_core && !readback_failed;
     let mut coverage = album_coverage(request, Some(&candidate), written);
@@ -4817,6 +5122,8 @@ async fn apply_recording_resolution(
             AutoTagOutcome::NeedsReview
         },
         completion_basis: complete_core.then_some("verified_track_core"),
+        proof_version: Some(1),
+        core_receipts,
         written,
         authority: (complete_core || written > 0).then_some(LookupSource::Musicbrainz),
         candidate: Some(candidate),
@@ -4899,8 +5206,6 @@ fn complete_recording_core(
 }
 
 fn recording_core_readback_matches(album_path: &Path, tracks: &[TrackCandidate]) -> bool {
-    use unicode_normalization::UnicodeNormalization;
-    let text = |value: &str| value.trim().nfc().collect::<String>();
     let files = collect_audio_files(album_path);
     files.len() == tracks.len()
         && files.iter().zip(tracks).all(|(file, expected)| {
@@ -4910,26 +5215,8 @@ fn recording_core_readback_matches(album_path: &Path, tracks: &[TrackCandidate])
             if Path::new(file).canonicalize().ok().as_ref() != Some(&source.path) {
                 return false;
             }
-            let Ok(actual) = super::tracks::read_track_metadata_without_lyrics(Path::new(file))
-            else {
-                return false;
-            };
-            actual.title.as_deref().map(&text) == expected.title.as_deref().map(&text)
-                && actual.artist.as_deref().map(&text) == expected.artist.as_deref().map(&text)
-                && actual
-                    .artists
-                    .iter()
-                    .map(|name| text(name))
-                    .collect::<Vec<_>>()
-                    == expected
-                        .artists
-                        .iter()
-                        .map(|name| text(name))
-                        .collect::<Vec<_>>()
-                && expected
-                    .musicbrainz_track_id
-                    .as_ref()
-                    .is_none_or(|id| actual.musicbrainz_track_id.as_ref() == Some(id))
+            RecordingCore::read(Path::new(file))
+                .is_ok_and(|actual| RecordingCore::from_candidate(expected).matches(&actual))
         })
 }
 
@@ -4942,7 +5229,8 @@ async fn apply_recording_tags(
     album_path: &Path,
     tracks: &[TrackCandidate],
     queue: &WriteQueue,
-) -> Result<usize, ApiError> {
+    proof: Option<&super::auto_tag_acoustid::AcoustidEvidence>,
+) -> Result<(usize, Vec<CoreReceipt>), ApiError> {
     let files = collect_audio_files(album_path);
     if files.len() != tracks.len() {
         return Err(ApiError::Message(
@@ -4951,7 +5239,9 @@ async fn apply_recording_tags(
     }
     validate_recording_sources(&files, tracks)?;
     let mut written = 0;
-    for (path, track) in files.into_iter().zip(tracks) {
+    let mut receipts = Vec::new();
+    let attempt_id = uuid::Uuid::new_v4().to_string();
+    for (index, (path, track)) in files.into_iter().zip(tracks).enumerate() {
         if !has_recording_patch(track) {
             continue;
         }
@@ -4970,21 +5260,66 @@ async fn apply_recording_tags(
         }
         let patch = serde_json::from_value(fields)
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
-        let source = track.source.clone();
-        write_track_queued_guarded(queue, path.into(), patch, move |path| {
-            if let Some(expected) = source {
-                if RecordingSource::capture(path)? != expected {
-                    return Err(ApiError::Message(
-                        "audio source changed while waiting for a tag write".into(),
-                    ));
-                }
+        let before = track.source.clone();
+        let accepted = RecordingCore::from_candidate(track);
+        let row = proof
+            .filter(|e| e.decision_rule_version == 3 && e.validation_complete)
+            .and_then(|e| e.track_matches.get(index))
+            .filter(|row| {
+                row.candidate_set_complete
+                    && row.score.is_finite()
+                    && row.score > 0.0
+                    && row.score <= 1.0
+                    && before.as_ref().is_some_and(|s| {
+                        s.path.file_name().and_then(|v| v.to_str()) == Some(row.file_name.as_str())
+                    })
+                    && match row.reason.as_deref() {
+                        None => accepted.musicbrainz_track_id.as_deref().is_some_and(|id| {
+                            id == row.recording_id && uuid::Uuid::parse_str(id).is_ok()
+                        }),
+                        Some("recording_fields_consensus") => {
+                            accepted.musicbrainz_track_id.is_none()
+                        }
+                        _ => false,
+                    }
+            })
+            .cloned();
+        let needs_receipt = row.is_some();
+        let attempt = attempt_id.clone();
+        let receipt = write_track_queued_guarded(queue, path.into(), patch, true, before.clone(), move |path| {
+            if needs_receipt { track_payload_digest(path).map(Some) } else { Ok(None) }
+        }, move |path, outcome, payload_digest| {
+            let (Some(before), Some(row), Some(payload_digest)) = (before, row, payload_digest) else {return Ok(None);};
+            let post_write = RecordingSource::capture(path)?;
+            let actual = RecordingCore::read(path)?;
+            if !accepted.matches(&actual) || track_payload_digest(path)? != payload_digest || RecordingSource::capture(path)? != post_write {
+                return Ok(None);
             }
-            Ok(())
+            let evidence = serde_json::json!({"trackMatch":row,"providerFetchFreshness":"per_candidate_observation_or_unknown","source":before,"queryScope":"existing_acoustid_recording_resolution"});
+            let receipt = CoreReceipt {
+                version: 1, decision_rule_version: 3, evidence_version: 1,
+                run_id: None, attempt_id: attempt, pre_write: before, post_write,
+                source_stable: true, payload_preservation: "validated_by_atomic_writer".into(),
+                payload_digest,
+                write_outcome: format!("{outcome:?}"), accepted, readback: actual,
+                decision_basis: if row.reason.as_deref() == Some("recording_fields_consensus") {"recording_fields_consensus"} else {"selected_recording"}.into(),
+                evidence_digest: format!("{:x}", Sha256::digest(evidence.to_string().as_bytes())), evidence,
+                observed_at: time::OffsetDateTime::now_utc().unix_timestamp(), published_at: None, parent_proof: None,
+            };
+            receipt.validate_current(path).map_err(ApiError::Message)?;
+            Ok(Some(receipt))
         })
         .await?;
+        if let Some(receipt) = receipt {
+            receipts.push(receipt);
+            // A crash after the write may leave only pending diagnostics. Only
+            // the terminal transaction can publish these as source-bound proof.
+            checkpoint_evidence(serde_json::json!({"pendingCoreReceipts":receipts}))
+                .map_err(ApiError::Message)?;
+        }
         written += 1;
     }
-    Ok(written)
+    Ok((written, receipts))
 }
 
 fn has_writable_track_fields(track: &TrackCandidate) -> bool {
@@ -5249,12 +5584,150 @@ mod tests {
             .join("../test/fixtures/tauri/media-corpus/minimal.flac")
     }
 
+    #[tokio::test]
+    async fn recording_receipts_bind_actual_ordered_readback_and_survive_restart() {
+        use super::super::auto_tag_acoustid::{
+            AcoustidEvidence, AcoustidResolution, AcoustidTrackEvidence,
+        };
+        let root = temp_root();
+        let album = root.join("Collection");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join("01.wav");
+        fs::copy(corpus_wav(), &path).unwrap();
+        let payload = wav_audio_payload(&path);
+        let id = "b1d4d9e0-5f07-46a5-a6e5-aedb4b390a5f";
+        for consensus in [false, true] {
+            let source = RecordingSource::capture(&path).unwrap();
+            let local = TrackCandidate {
+                source: Some(source),
+                filename: Some("01".into()),
+                ..Default::default()
+            };
+            let track = TrackCandidate {
+                title: Some("Song".into()),
+                artist: Some("Lead feat. Guest".into()),
+                artists: vec!["Lead".into(), "Guest".into()],
+                musicbrainz_track_id: (!consensus).then(|| id.into()),
+                ..local.clone()
+            };
+            let request = LookupRequest {
+                path: album.to_string_lossy().into(),
+                tracks: vec![local],
+                ..Default::default()
+            };
+            let evidence = AcoustidEvidence {
+                release_id: String::new(),
+                decision_rule_version: 3,
+                validation_complete: true,
+                track_matches: vec![AcoustidTrackEvidence {
+                    file_name: "01.wav".into(),
+                    recording_id: if consensus { String::new() } else { id.into() },
+                    score: 0.97,
+                    reason: consensus.then(|| "recording_fields_consensus".into()),
+                    candidate_set_complete: true,
+                    candidates: vec![
+                        serde_json::json!({"recordingId":id,"disposition":"verified"}),
+                    ],
+                    candidate_count: if consensus { 2 } else { 1 },
+                    omitted_candidates: 0,
+                    lookup_observation: None,
+                }],
+                candidate_count: 0,
+                checked_candidates: 0,
+                rejections: vec![],
+                pending_candidates: vec![],
+            };
+            let result = apply_recording_resolution(
+                &album,
+                &request,
+                AcoustidResolution::Recordings {
+                    tracks: vec![track],
+                    shared_album: None,
+                    evidence,
+                    reason_code: "recording_only".into(),
+                    retryable: false,
+                    retry_after_seconds: None,
+                },
+                &WriteQueue::default(),
+                &mut |_| Ok(()),
+            )
+            .await
+            .unwrap();
+            assert_eq!(result.completion_basis, Some("verified_track_core"));
+            let data = serde_json::to_value(&result).unwrap();
+            assert_eq!(
+                data["coreReceipts"].as_array().map(Vec::len),
+                Some(1),
+                "strict acceptance must produce a source-bound queued readback receipt"
+            );
+            let receipt = &data["coreReceipts"][0];
+            assert_eq!(
+                receipt["readback"]["artists"],
+                serde_json::json!(["Lead", "Guest"])
+            );
+            assert_eq!(receipt["payloadPreservation"], "validated_by_atomic_writer");
+            assert_eq!(receipt["payloadDigest"].as_str().map(str::len), Some(64), "the queued readback must bind preserved payload bytes, not only a successful dispatcher return");
+            assert_eq!(
+                receipt["decisionBasis"],
+                if consensus {
+                    "recording_fields_consensus"
+                } else {
+                    "selected_recording"
+                }
+            );
+            assert_eq!(
+                receipt["postWrite"]["fingerprint"],
+                serde_json::to_value(RecordingSource::capture(&path).unwrap()).unwrap()
+                    ["fingerprint"]
+            );
+            assert_eq!(wav_audio_payload(&path), payload);
+            #[cfg(feature = "server")]
+            {
+                use crate::state::worker::WorkerStore;
+                let store = WorkerStore::new_in(root.join("state"));
+                assert!(store.initialize());
+                store
+                    .enqueue(std::slice::from_ref(&album), "manual")
+                    .unwrap();
+                store.mark_running(&album, "receipt-run").unwrap();
+                store
+                    .finish_with_evidence(&album, "receipt-run", "completed", None, None, &data)
+                    .unwrap();
+                drop(store);
+                let store = WorkerStore::new_in(root.join("state"));
+                assert!(store.initialize());
+                let saved = store.evidence(&album, "receipt-run").unwrap().unwrap();
+                assert_eq!(saved["coreReceipts"][0]["runId"], "receipt-run");
+                let exported = crate::commands::artist_inventory::inventory(
+                    &album,
+                    Some(&root.join("state")),
+                    None,
+                )
+                .unwrap();
+                assert_eq!(exported["summary"]["verifiedCoreFiles"], 1);
+                let mut bytes = fs::read(&path).unwrap();
+                let last = bytes.len() - 1;
+                bytes[last] ^= 1;
+                fs::write(&path, bytes).unwrap();
+                let changed = crate::commands::artist_inventory::inventory(
+                    &album,
+                    Some(&root.join("state")),
+                    None,
+                )
+                .unwrap();
+                assert_eq!(changed["summary"]["verifiedCoreFiles"], 0);
+                assert_eq!(changed["files"][0]["coreProof"]["state"], "invalid");
+                fs::copy(corpus_wav(), &path).unwrap();
+            }
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
     pub(super) fn corpus_wav() -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus/minimal.wav")
     }
 
-    #[cfg(unix)]
     pub(super) fn wav_audio_payload(path: &Path) -> Vec<u8> {
         let bytes = fs::read(path).unwrap();
         assert_eq!(&bytes[..4], b"RIFF");
@@ -5309,8 +5782,10 @@ mod tests {
             musicbrainz_track_id: Some("verified-recording".into()),
             ..TrackCandidate::default()
         }];
-        let first = apply_recording_tags(&album, &tracks, &queue).await.unwrap();
-        assert_eq!(first, 1);
+        let first = apply_recording_tags(&album, &tracks, &queue, None)
+            .await
+            .unwrap();
+        assert_eq!(first.0, 1);
         let after = read_album(&album).unwrap();
         assert_eq!(after.tracks[0].album, before.tracks[0].album);
         assert_eq!(after.tracks[0].album_artist, before.tracks[0].album_artist);
@@ -5322,7 +5797,9 @@ mod tests {
         );
         assert_eq!(after.tracks[0].title.as_deref(), Some("Song (Demo)"));
         let once = fs::read(&file).unwrap();
-        apply_recording_tags(&album, &tracks, &queue).await.unwrap();
+        apply_recording_tags(&album, &tracks, &queue, None)
+            .await
+            .unwrap();
         assert_eq!(
             fs::read(&file).unwrap(),
             once,
@@ -5350,7 +5827,7 @@ mod tests {
         fs::rename(&first, &renamed).unwrap();
         let queue = WriteQueue::default();
         assert!(
-            apply_recording_tags(&album, std::slice::from_ref(&track), &queue)
+            apply_recording_tags(&album, std::slice::from_ref(&track), &queue, None)
                 .await
                 .is_err()
         );
@@ -5361,7 +5838,7 @@ mod tests {
             .await
             .unwrap();
         let replacement = fs::read(&first).unwrap();
-        assert!(apply_recording_tags(&album, &[track], &queue)
+        assert!(apply_recording_tags(&album, &[track], &queue, None)
             .await
             .is_err());
         assert_eq!(fs::read(&first).unwrap(), replacement);

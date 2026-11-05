@@ -445,6 +445,15 @@ pub struct AcoustidClient {
     endpoint: String,
 }
 
+#[derive(Debug)]
+pub struct AcoustidLookup {
+    pub results: Vec<AcoustidResult>,
+    pub response_url: String,
+    pub http_status: u16,
+    pub response_digest: String,
+    pub observed_at: i64,
+}
+
 impl AcoustidClient {
     pub fn new(http: reqwest::Client) -> Self {
         Self {
@@ -463,7 +472,7 @@ impl AcoustidClient {
         client_key: &str,
         fingerprint: &Fingerprint,
         cancelled: &AtomicBool,
-    ) -> Result<Vec<AcoustidResult>, AcoustidError> {
+    ) -> Result<AcoustidLookup, AcoustidError> {
         self.lookup_bounded(client_key, fingerprint, cancelled, MAX_RESPONSE_BYTES)
             .await
     }
@@ -474,7 +483,7 @@ impl AcoustidClient {
         fingerprint: &Fingerprint,
         cancelled: &AtomicBool,
         response_limit: usize,
-    ) -> Result<Vec<AcoustidResult>, AcoustidError> {
+    ) -> Result<AcoustidLookup, AcoustidError> {
         wait_for_rate_limit(cancelled).await?;
         let request = self
             .http
@@ -497,6 +506,14 @@ impl AcoustidClient {
                 retry_after_seconds: crate::infra::http::retry_after_seconds(&response),
             });
         }
+        let http_status = response.status().as_u16();
+        // POST form credentials/fingerprint are never retained. Redact any
+        // redirect URL userinfo, query or fragment rather than exporting secrets.
+        let mut response_url = response.url().clone();
+        let _ = response_url.set_username("");
+        let _ = response_url.set_password(None);
+        response_url.set_query(None);
+        response_url.set_fragment(None);
         if response
             .content_length()
             .is_some_and(|length| length > response_limit as u64)
@@ -539,7 +556,14 @@ impl AcoustidClient {
                 }
             }
         }
-        Ok(results)
+        use sha2::{Digest, Sha256};
+        Ok(AcoustidLookup {
+            results,
+            response_url: response_url.into(),
+            http_status,
+            response_digest: format!("{:x}", Sha256::digest(&body)),
+            observed_at: time::OffsetDateTime::now_utc().unix_timestamp(),
+        })
     }
 }
 
@@ -875,7 +899,8 @@ mod tests {
         let results = test_client(endpoint)
             .lookup("key", &test_fingerprint(), &AtomicBool::new(false))
             .await
-            .unwrap();
+            .unwrap()
+            .results;
         assert_eq!(
             results[0].recordings[0].id,
             "11111111-1111-4111-8111-111111111111"
@@ -890,8 +915,10 @@ mod tests {
     #[tokio::test]
     async fn posts_bounded_form_and_parses_recording_release_evidence() {
         let body = r#"{"status":"ok","results":[{"score":0.97,"recordings":[{"id":"recording-1","title":"Song","duration":125,"artists":[{"id":"artist-1","name":"Singer"}],"releases":[{"id":"release-1","title":"Album"}]}]}]}"#.to_string();
+        use sha2::{Digest, Sha256};
+        let expected_digest = format!("{:x}", Sha256::digest(body.as_bytes()));
         let (endpoint, request) = response_server("200 OK", body);
-        let results = test_client(endpoint)
+        let observed = test_client(format!("{endpoint}?client=private#fingerprint=private"))
             .lookup(
                 "client-key-private",
                 &test_fingerprint(),
@@ -899,9 +926,14 @@ mod tests {
             )
             .await
             .unwrap();
+        assert_eq!(observed.response_url, endpoint);
+        assert_eq!(observed.http_status, 200);
+        assert_eq!(observed.response_digest, expected_digest);
+        assert!(observed.observed_at > 0);
+        let results = observed.results;
         let sent = request.recv_timeout(Duration::from_secs(2)).unwrap();
         let (headers, form) = sent.split_once("\r\n\r\n").unwrap();
-        assert!(headers.starts_with("POST /lookup HTTP/1.1"));
+        assert!(headers.starts_with("POST /lookup?client=private HTTP/1.1"));
         assert!(form.contains("client=client-key-private"));
         assert!(form.contains("duration=125"));
         assert!(form.contains("fingerprint=fingerprint-private"));
@@ -918,6 +950,7 @@ mod tests {
             .lookup("client", &test_fingerprint(), &AtomicBool::new(false))
             .await
             .unwrap()
+            .results
             .is_empty());
 
         let (endpoint, _) = response_server("200 OK", r#"{"status":"error","results":[]}"#.into());

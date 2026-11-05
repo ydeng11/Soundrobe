@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS worker_items (
   trigger TEXT NOT NULL,
   status TEXT NOT NULL,
   run_id TEXT,
+  owner TEXT,
   reason TEXT,
   authority TEXT,
   updated_at INTEGER NOT NULL
@@ -76,7 +77,7 @@ impl WorkerStore {
                 .map_err(|error| error.to_string())?;
         let mut statement = connection
             .prepare(
-                "SELECT e.path, e.run_id, e.evidence, i.updated_at, i.run_id = e.run_id
+                "SELECT e.path, e.run_id, e.evidence, i.updated_at, i.run_id = e.run_id, i.status
              FROM worker_evidence e LEFT JOIN worker_items i ON e.path = i.path
              ORDER BY e.path, e.rowid",
             )
@@ -89,17 +90,18 @@ impl WorkerStore {
                     row.get::<_, String>(2)?,
                     row.get::<_, Option<i64>>(3)?,
                     row.get::<_, Option<bool>>(4)?,
+                    row.get::<_, Option<String>>(5)?,
                 ))
             })
             .map_err(|error| error.to_string())?;
         rows.map(|row| {
-            let (path, run_id, evidence, updated_at, current) =
+            let (path, run_id, evidence, updated_at, current, status) =
                 row.map_err(|error| error.to_string())?;
             let evidence: serde_json::Value =
                 serde_json::from_str(&evidence).map_err(|error| error.to_string())?;
             Ok(
                 serde_json::json!({"path":path,"runId":run_id,"evidence":evidence,
-                "schedulingUpdatedAt":updated_at,"currentSchedulingRun":current.unwrap_or(false)}),
+                "schedulingUpdatedAt":updated_at,"currentSchedulingRun":current.unwrap_or(false),"schedulingStatus":status}),
             )
         })
         .collect()
@@ -130,6 +132,18 @@ impl WorkerStore {
             return false;
         };
         if connection.execute_batch(WORKER_SCHEMA).is_err() {
+            return false;
+        }
+        let Ok(statement) = connection.prepare("SELECT * FROM worker_items LIMIT 0") else {
+            return false;
+        };
+        let has_owner = statement.column_names().contains(&"owner");
+        drop(statement);
+        if !has_owner
+            && connection
+                .execute("ALTER TABLE worker_items ADD COLUMN owner TEXT", [])
+                .is_err()
+        {
             return false;
         }
         let halt = match fs::read_to_string(&self.halt_path) {
@@ -180,6 +194,47 @@ impl WorkerStore {
             accepted.push(PathBuf::from(path));
         }
         Ok(accepted)
+    }
+
+    /// A desktop request may retry only its demonstrably abandoned process
+    /// owner, never live desktop or unknown/server work. Retain old evidence.
+    pub fn claim_desktop_run(&self, path: &Path, run_id: &str) -> Result<(), String> {
+        self.ensure_not_halted()?;
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let key = storage_key(path);
+        let previous: Option<(String, Option<String>)> = transaction
+            .query_row(
+                "SELECT status, owner FROM worker_items WHERE path=?1",
+                [&key],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if let Some((status, owner)) = previous {
+            if matches!(status.as_str(), "pending" | "running" | "deferred") {
+                let pid = owner
+                    .as_deref()
+                    .and_then(|owner| owner.strip_prefix("desktop:"))
+                    .and_then(|pid| pid.parse::<u32>().ok())
+                    .filter(|pid| *pid > 0 && i32::try_from(*pid).is_ok());
+                if pid.is_none_or(crate::commands::auto_tag_review::process_alive) {
+                    return Err("album has live or unknown durable ownership; not reclaimed".into());
+                }
+            }
+        }
+        transaction
+            .execute("DELETE FROM worker_lineage WHERE path=?1", [&key])
+            .map_err(|e| e.to_string())?;
+        transaction
+            .execute("DELETE FROM worker_retries WHERE path=?1", [&key])
+            .map_err(|e| e.to_string())?;
+        transaction.execute("INSERT OR REPLACE INTO worker_items (path,trigger,status,run_id,owner,reason,authority,updated_at) VALUES (?1,'desktop','running',?2,?3,NULL,NULL,?4)",params![key,run_id,format!("desktop:{}",std::process::id()),now_epoch()]).map_err(|e|e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())
     }
 
     /// Explicit operator retry may reclaim a stale `running` row left behind
@@ -272,10 +327,10 @@ impl WorkerStore {
             .clone();
         let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
         let connection = guard.as_mut().ok_or("worker state not initialized")?;
-        if let Some(halt) = halt {
-            let transaction = connection
-                .transaction()
-                .map_err(|error| halt_recovery_error(&halt, error))?;
+        let transaction = connection
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|error| error.to_string())?;
+        if let Some(halt) = &halt {
             for path in &halt.paths {
                 transaction
                     .execute(
@@ -284,38 +339,55 @@ impl WorkerStore {
                          WHERE path = ?1 AND status IN ('pending', 'running', 'deferred')",
                         params![path, &halt.reason, now_epoch()],
                     )
-                    .map_err(|error| halt_recovery_error(&halt, error))?;
+                    .map_err(|error| halt_recovery_error(halt, error))?;
             }
-            let recovered = transaction
-                .execute(
-                    "UPDATE worker_items
-                     SET status = 'pending', run_id = NULL, updated_at = ?1
-                     WHERE status = 'running'",
-                    [now_epoch()],
-                )
-                .map_err(|error| halt_recovery_error(&halt, error))?;
-            transaction
-                .commit()
-                .map_err(|error| halt_recovery_error(&halt, error))?;
-            fs::remove_file(&self.halt_path).map_err(|error| halt_recovery_error(&halt, error))?;
+        }
+        let candidates = {
+            let mut statement = transaction
+                .prepare("SELECT path, owner FROM worker_items WHERE status='running'")
+                .map_err(|e| e.to_string())?;
+            let rows = statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+                })
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
+        };
+        let mut recovered = 0;
+        for (path, owner) in candidates {
+            if let Some(owner) = owner {
+                let pid = owner
+                    .split_once(':')
+                    .filter(|(runtime, _)| matches!(*runtime, "desktop" | "server"))
+                    .and_then(|(_, pid)| pid.parse::<u32>().ok())
+                    .filter(|pid| *pid > 0 && i32::try_from(*pid).is_ok());
+                if pid.is_none_or(crate::commands::auto_tag_review::process_alive) {
+                    continue;
+                }
+            }
+            recovered += transaction.execute("UPDATE worker_items SET status='pending',run_id=NULL,updated_at=?2 WHERE path=?1",params![path,now_epoch()]).map_err(|e|e.to_string())?;
+        }
+        transaction.commit().map_err(|e| e.to_string())?;
+        if let Some(halt) = &halt {
+            fs::remove_file(&self.halt_path).map_err(|error| halt_recovery_error(halt, error))?;
             *self
                 .halted
                 .lock()
                 .map_err(|_| "worker halt state unavailable")? = None;
-            return Ok(recovered);
         }
-        connection
-            .execute(
-                "UPDATE worker_items
-                 SET status = 'pending', run_id = NULL, updated_at = ?1
-                 WHERE status = 'running'",
-                [now_epoch()],
-            )
-            .map_err(|error| error.to_string())
+        Ok(recovered)
     }
 
     pub fn mark_running(&self, path: &Path, run_id: &str) -> Result<(), String> {
-        self.update_item(path, "running", Some(run_id), None, None)
+        self.ensure_not_halted()?;
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        let changed = connection.execute("UPDATE worker_items SET status='running',run_id=?2,owner=?3,reason=NULL,authority=NULL,updated_at=?4 WHERE path=?1 AND status IN ('pending','deferred')",params![storage_key(path),run_id,format!("server:{}",std::process::id()),now_epoch()]).map_err(|e|e.to_string())?;
+        if changed != 1 {
+            return Err("worker claim lost or album already running".into());
+        }
+        Ok(())
     }
 
     pub fn mark_finished(
@@ -547,8 +619,8 @@ impl WorkerStore {
             .map_err(|error| error.to_string())?;
         let changed = transaction
             .execute(
-                "UPDATE worker_items SET run_id=?2, authority=?3 WHERE path=?1",
-                params![storage_key(path), run_id, authority],
+                "UPDATE worker_items SET run_id=?2, authority=?3 WHERE path=?1 AND (run_id=?2 OR (?4=0 AND run_id IS NULL))",
+                params![storage_key(path), run_id, authority, evidence.get("proofVersion").is_some()],
             )
             .map_err(|error| error.to_string())?;
         if changed != 1 {
@@ -556,6 +628,7 @@ impl WorkerStore {
         }
         let due = Self::schedule_retry(&transaction, path, origin, retry_after, now_epoch())?;
         let mut evidence = Self::merged_terminal_evidence(&transaction, path, run_id, evidence)?;
+        Self::publish_core_receipts(path, run_id, false, &mut evidence)?;
         evidence
             .as_object_mut()
             .ok_or("diagnostic evidence is not an object")?
@@ -627,13 +700,71 @@ impl WorkerStore {
             .ok_or("diagnostic evidence is not an object")?;
         // Only the new terminal result may assert success. Progress from an
         // interrupted earlier implementation cannot supply a completion basis.
-        for key in ["completionBasis", "outcome"] {
+        for key in [
+            "completionBasis",
+            "outcome",
+            "coreReceipts",
+            "proofVersion",
+            "proofPublication",
+        ] {
             if !patch.contains_key(key) {
                 target.remove(key);
             }
         }
         target.extend(patch.clone());
         Ok(evidence)
+    }
+
+    fn publish_core_receipts(
+        path: &Path,
+        run_id: &str,
+        completed_core: bool,
+        evidence: &mut serde_json::Value,
+    ) -> Result<(), String> {
+        use crate::commands::auto_tag::CoreReceipt;
+        if evidence.get("proofVersion").is_none() {
+            return Ok(());
+        }
+        if evidence["proofVersion"] != 1 {
+            return Err("unsupported core proof version".into());
+        }
+        let folder = path.canonicalize().map_err(|e| e.to_string())?;
+        let mut receipts: Vec<CoreReceipt> = serde_json::from_value(
+            evidence
+                .get("coreReceipts")
+                .cloned()
+                .unwrap_or_else(|| serde_json::json!([])),
+        )
+        .map_err(|e| e.to_string())?;
+        let mut paths = std::collections::BTreeSet::new();
+        let mut attempt = None;
+        for receipt in &mut receipts {
+            let source = receipt.path().to_path_buf();
+            if source.parent() != Some(folder.as_path())
+                || !paths.insert(source.clone())
+                || receipt.run_id.as_deref().is_some_and(|id| id != run_id)
+                || attempt.as_ref().is_some_and(|id| id != &receipt.attempt_id)
+            {
+                return Err("core receipt ownership/coverage mismatch".into());
+            }
+            receipt.validate_current(&source)?;
+            attempt = Some(receipt.attempt_id.clone());
+            receipt.run_id = Some(run_id.into());
+            receipt.published_at = Some(now_epoch());
+        }
+        if completed_core {
+            let actual = crate::commands::library::collect_audio_files(&folder)
+                .into_iter()
+                .map(PathBuf::from)
+                .collect::<std::collections::BTreeSet<_>>();
+            if paths.is_empty() || paths != actual {
+                return Err("core receipt physical coverage incomplete".into());
+            }
+        }
+        evidence["coreReceipts"] = serde_json::to_value(receipts).map_err(|e| e.to_string())?;
+        evidence["proofPublication"] =
+            serde_json::json!({"version":1,"runId":run_id,"state":"terminal_validated"});
+        Ok(())
     }
 
     pub fn finish_with_evidence(
@@ -651,15 +782,16 @@ impl WorkerStore {
             .ok_or("worker state not initialized")?
             .transaction()
             .map_err(|error| error.to_string())?;
-        let evidence = Self::merged_terminal_evidence(&transaction, path, run_id, evidence)?;
+        let mut evidence = Self::merged_terminal_evidence(&transaction, path, run_id, evidence)?;
         let verified_core = status == "completed"
             && evidence
                 .get("completionBasis")
                 .and_then(serde_json::Value::as_str)
                 == Some("verified_track_core");
+        Self::publish_core_receipts(path, run_id, verified_core, &mut evidence)?;
         // Failure reporting after a rejected finish must not reclaim a newer
         // run. Ordinary pending rows retain the existing unclaimed finish path.
-        let changed = transaction.execute("UPDATE worker_items SET status=?2, run_id=?3, reason=?4, authority=?5, updated_at=?6 WHERE path=?1 AND (run_id = ?3 OR (?7 = 0 AND run_id IS NULL))", params![storage_key(path), status, run_id, reason, authority, now_epoch(), verified_core]).map_err(|error| error.to_string())?;
+        let changed = transaction.execute("UPDATE worker_items SET status=?2, run_id=?3, reason=?4, authority=?5, updated_at=?6 WHERE path=?1 AND (run_id = ?3 OR (?7 = 0 AND run_id IS NULL))", params![storage_key(path), status, run_id, reason, authority, now_epoch(), verified_core || evidence.get("proofVersion").is_some()]).map_err(|error| error.to_string())?;
         if changed != 1 {
             return Err("worker completion has no scheduling row".into());
         }
@@ -707,6 +839,17 @@ impl WorkerStore {
         let object = evidence
             .as_object_mut()
             .ok_or("diagnostic evidence is not an object")?;
+        if [
+            "coreReceipts",
+            "proofVersion",
+            "proofPublication",
+            "completionBasis",
+        ]
+        .iter()
+        .any(|key| patch.get(key).is_some())
+        {
+            return Err("terminal proof cannot be published by a checkpoint".into());
+        }
         object.extend(
             patch
                 .as_object()
@@ -887,6 +1030,153 @@ mod tests {
         ));
         fs::create_dir_all(&path).unwrap();
         path
+    }
+
+    #[test]
+    fn recovery_does_not_displace_a_live_desktop_run() {
+        let root = root();
+        let album = root.join("Album");
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store.claim_desktop_run(&album, "desktop-live").unwrap();
+        let reopened = WorkerStore::new_in(root.clone());
+        assert!(reopened.initialize());
+        assert_eq!(reopened.recover_interrupted().unwrap(), 0);
+        assert!(reopened.claim_desktop_run(&album, "conflict").is_err());
+        assert!(reopened.mark_running(&album, "server-conflict").is_err());
+        assert!(reopened.pending_result().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_worker_schema_gains_nullable_runtime_owner_without_rewriting_rows() {
+        let root = root();
+        let database = Connection::open(root.join("worker.db")).unwrap();
+        database.execute_batch("CREATE TABLE worker_items (path TEXT PRIMARY KEY, trigger TEXT NOT NULL, status TEXT NOT NULL, run_id TEXT, reason TEXT, authority TEXT, updated_at INTEGER NOT NULL); INSERT INTO worker_items VALUES ('legacy','watch','running','old',NULL,NULL,123);").unwrap();
+        drop(database);
+        for _ in 0..2 {
+            let store = WorkerStore::new_in(root.clone());
+            assert!(store.initialize());
+        }
+        let database = Connection::open(root.join("worker.db")).unwrap();
+        let row = database
+            .query_row(
+                "SELECT trigger,status,run_id,updated_at,owner FROM worker_items",
+                [],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, i64>(3)?,
+                        row.get::<_, Option<String>>(4)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(
+            row,
+            ("watch".into(), "running".into(), "old".into(), 123, None)
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn server_claim_replaces_abandoned_desktop_runtime_owner_not_trigger() {
+        use std::process::{Command, Stdio};
+        let root = root();
+        let album = root.join("Album");
+        let mut child = Command::new("sh")
+            .args(["-c", "read line"])
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let store = WorkerStore::new_in(root.clone());
+        assert!(store.initialize());
+        store
+            .enqueue(
+                std::slice::from_ref(&album),
+                &format!("desktop:{}", child.id()),
+            )
+            .unwrap();
+        store.inner.lock().unwrap().as_ref().unwrap().execute(
+            "UPDATE worker_items SET status='running',run_id='old-desktop',owner=?2 WHERE path=?1",
+            params![storage_key(&album), format!("desktop:{}", child.id())],
+        ).unwrap();
+        child.kill().unwrap();
+        child.wait().unwrap();
+        assert_eq!(store.recover_interrupted().unwrap(), 1);
+        store.mark_running(&album, "server-live").unwrap();
+        assert!(store.claim_desktop_run(&album, "must-not-steal").is_err());
+        assert_eq!(store.recover_interrupted().unwrap(), 0);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn abandoned_desktop_owner_can_retry_without_reclaiming_live_or_unknown_work() {
+        use std::process::{Command, Stdio};
+        for pending in [true, false] {
+            let root = root();
+            let album = root.join("Album");
+            fs::create_dir(&album).unwrap();
+            let mut child = Command::new("sh")
+                .args(["-c", "read line"])
+                .stdin(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let trigger = format!("desktop:{}", child.id());
+            let store = WorkerStore::new_in(root.clone());
+            assert!(store.initialize());
+            store
+                .enqueue(std::slice::from_ref(&album), &trigger)
+                .unwrap();
+            if !pending {
+                store.mark_running(&album, "abandoned").unwrap();
+            }
+            // The child represents the process recorded by this isolated row.
+            store
+                .inner
+                .lock()
+                .unwrap()
+                .as_ref()
+                .unwrap()
+                .execute(
+                    "UPDATE worker_items SET owner=?2 WHERE path=?1",
+                    params![storage_key(&album), trigger],
+                )
+                .unwrap();
+            store
+                .checkpoint_evidence(
+                    &album,
+                    "abandoned",
+                    &serde_json::json!({"pendingCoreReceipts":["diagnostic"]}),
+                )
+                .unwrap();
+            assert!(store.claim_desktop_run(&album, "live-conflict").is_err());
+            child.kill().unwrap();
+            child.wait().unwrap();
+            drop(store);
+            let reopened = WorkerStore::new_in(root.clone());
+            assert!(reopened.initialize());
+            reopened
+                .claim_desktop_run(&album, "retry")
+                .expect("explicit retry must revalidate an abandoned desktop source");
+            assert!(reopened
+                .claim_desktop_run(&album, "second-live-conflict")
+                .is_err());
+            let foreign = root.join("Foreign");
+            reopened
+                .enqueue(std::slice::from_ref(&foreign), "manual")
+                .unwrap();
+            assert!(reopened
+                .claim_desktop_run(&foreign, "unknown-owner")
+                .is_err());
+            assert!(reopened.evidence(&album, "abandoned").unwrap().is_some());
+            drop(reopened);
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 
     #[test]
@@ -1131,7 +1421,7 @@ mod tests {
     }
 
     #[test]
-    fn pending_work_is_deduplicated_and_running_work_recovers_after_restart() {
+    fn pending_work_is_deduplicated_and_legacy_running_work_recovers_after_restart() {
         let root = root();
         let album = root.join("Artist/Album");
         let store = WorkerStore::new_in(root.clone());
@@ -1147,6 +1437,18 @@ mod tests {
             .unwrap()
             .is_empty());
         store.mark_running(&album, "run-1").unwrap();
+        // Legacy rows have no recorded process owner; preserve their existing recovery contract.
+        store
+            .inner
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .execute(
+                "UPDATE worker_items SET owner=NULL WHERE path=?1",
+                [storage_key(&album)],
+            )
+            .unwrap();
         drop(store);
 
         let reopened = WorkerStore::new_in(root.clone());
@@ -1521,6 +1823,14 @@ mod tests {
             .unwrap();
         store.mark_running(&cancelled, "run-1").unwrap();
         store.mark_running(&interrupted, "run-1").unwrap();
+        store
+            .inner
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .execute("UPDATE worker_items SET owner=NULL", [])
+            .unwrap();
         *store.inner.lock().unwrap() = None;
         assert!(store
             .cancel_paths(std::slice::from_ref(&cancelled), "operator_cancelled")

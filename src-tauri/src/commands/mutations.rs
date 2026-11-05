@@ -774,17 +774,30 @@ pub(crate) async fn write_track_queued(
     path: PathBuf,
     patch: TrackPatch,
 ) -> Result<(), ApiError> {
-    write_track_queued_guarded(queue, path, patch, |_| Ok(())).await
+    write_track_queued_guarded(
+        queue,
+        path,
+        patch,
+        false,
+        None,
+        |_| Ok(()),
+        |_, _, _| Ok(()),
+    )
+    .await
 }
 
 /// The guard runs after queue admission, beside the existing journal and
-/// dispatcher, so lookup-bound writes cannot target a queued replacement.
-pub(crate) async fn write_track_queued_guarded(
+/// dispatcher, so lookup-bound writes cannot target a queued replacement. The
+/// observer runs before coordination is released, after validated dispatch.
+pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'static>(
     queue: &WriteQueue,
     path: PathBuf,
     patch: TrackPatch,
-    guard: impl FnOnce(&Path) -> Result<(), ApiError> + Send + 'static,
-) -> Result<(), ApiError> {
+    exclusive_readback: bool,
+    expected_source: Option<super::auto_tag::RecordingSource>,
+    guard: impl FnOnce(&Path) -> Result<G, ApiError> + Send + 'static,
+    observe: impl FnOnce(&Path, TrackWriteOutcome, G) -> Result<T, ApiError> + Send + 'static,
+) -> Result<T, ApiError> {
     validated_track_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
     // A queued write made while an album review is active must be journaled.
@@ -800,8 +813,38 @@ pub(crate) async fn write_track_queued_guarded(
         tokio::task::spawn_blocking(move || {
             let write_start = std::time::Instant::now();
             let write = || {
-                guard(&path)?;
-                write_track_dispatch(&path, &patch)
+                // Bind the dispatcher's consumed bytes to the lookup source,
+                // not to a separately reopened path after a source check.
+                let staged = expected_source.as_ref().map(|_| sibling_temp_path(&path));
+                let mut staged_created = false;
+                let result = (|| {
+                    let input = if let (Some(source), Some(staged)) = (&expected_source, &staged) {
+                        source.copy_verified_to(&path, staged)?;
+                        staged_created = true;
+                        staged.as_path()
+                    } else {
+                        path.as_path()
+                    };
+                    let guarded = guard(input)?;
+                    let outcome = write_track_dispatch(input, &patch)?;
+                    if let Some(expected) = &expected_source {
+                        if super::auto_tag::RecordingSource::capture(&path)? != *expected {
+                            return Err(ApiError::Message(
+                                "audio source changed during tag write".into(),
+                            ));
+                        }
+                        if outcome == TrackWriteOutcome::Replaced {
+                            replace_file_atomic(input, &path)?;
+                        }
+                    }
+                    Ok((outcome, guarded))
+                })();
+                if staged_created {
+                    if let Some(staged) = staged {
+                        let _ = fs::remove_file(staged);
+                    }
+                }
+                result
             };
             let result = match review {
                 Some(journal) => {
@@ -830,18 +873,69 @@ pub(crate) async fn write_track_queued_guarded(
                     "track write failed"
                 ),
             }
-            result
+            let (outcome, guarded) = result?;
+            observe(&path, outcome, guarded)
         })
         .await
         .map_err(|error| ApiError::WriteTask(error.to_string()))?
     };
 
-    if journaled {
-        queue.run_exclusive(operation).await?;
+    if journaled || exclusive_readback {
+        queue.run_exclusive(operation).await
     } else {
-        queue.run(operation).await?;
+        queue.run(operation).await
     }
-    Ok(())
+}
+
+/// Fingerprint the same encoded payload boundaries validated by the atomic
+/// writers. Packet framing is independent of Ogg page/lacing layout.
+pub(crate) fn track_payload_digest(path: &Path) -> Result<String, ApiError> {
+    use sha2::{Digest, Sha256};
+    let mut bytes = fs::read(path)?;
+    let extension = validated_track_extension(path)?;
+    // Use exactly the atomic writer's supported source preparation. Whole-file
+    // source binding still hashes the original, unmodified bytes separately.
+    if extension == "flac" {
+        bytes = prepare_flac_source(&bytes)
+            .ok_or_else(|| ApiError::MediaSafety("invalid FLAC metadata boundary".into()))?
+            .0;
+    } else if extension == "wav" {
+        pad_missing_terminal_wav_id3(&mut bytes)
+            .ok_or_else(|| ApiError::MediaSafety("WAV RIFF size exceeds supported range".into()))?;
+        fix_wav_orphan_tail(&mut bytes);
+    }
+    let ranges = match extension.as_str() {
+        "wav" => wav_data_ranges(&bytes),
+        "m4a" | "mp4" => mp4_mdat_payload_ranges(&bytes),
+        "ogg" | "opus" => {
+            let packets = ogg_audio_packet_ranges(&bytes, if extension == "opus" { 2 } else { 3 })
+                .ok_or_else(|| ApiError::WriteTask("invalid encoded payload".into()))?;
+            let mut hash = Sha256::new();
+            for packet in packets {
+                let length: usize = packet.iter().map(|range| range.len()).sum();
+                hash.update((length as u64).to_le_bytes());
+                for range in packet {
+                    hash.update(&bytes[range]);
+                }
+            }
+            return Ok(format!("{:x}", hash.finalize()));
+        }
+        _ => {
+            let payload = match extension.as_str() {
+                "flac" => flac_audio_payload(&bytes),
+                "mp3" => mpeg_payload(&bytes),
+                _ => ape_audio_core(&bytes),
+            }
+            .ok_or_else(|| ApiError::WriteTask("invalid encoded payload".into()))?;
+            return Ok(format!("{:x}", Sha256::digest(payload)));
+        }
+    }
+    .ok_or_else(|| ApiError::WriteTask("invalid encoded payload".into()))?;
+    let mut hash = Sha256::new();
+    for range in ranges {
+        hash.update(&bytes[range]);
+    }
+    Ok(format!("{:x}", hash.finalize()))
 }
 
 /// Remove all embedded cover art pictures from a single audio track file.

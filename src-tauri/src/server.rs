@@ -43,7 +43,7 @@ use crate::commands::audit::{
     audit_specific_albums, discover_album_dirs, finish_audit_run, start_audit, AuditAlbumResult,
 };
 use crate::commands::auto_tag::{
-    auto_tag_completion_message, auto_tag_event, resolve_and_apply_album_with_review_intent,
+    auto_tag_event, complete_auto_tag_run, resolve_and_apply_album_with_review_intent,
     AutoTagOutcome, AutoTagRetryContexts, AutoTagServices, LookupSource,
 };
 use crate::commands::configuration::test_llm_connection_at;
@@ -700,35 +700,39 @@ fn start_background_batch(
                         .iter()
                         .any(|attempt| attempt.retryable)
             });
-            let completion = tasks.with_running(&task_id_for_work, |_| {
-                if retryable {
-                    let retry_after = result
-                        .as_ref()
-                        .unwrap()
-                        .provider_attempts
-                        .iter()
-                        .filter(|attempt| attempt.retryable)
-                        .filter_map(|attempt| attempt.retry_after_seconds)
-                        .max();
-                    worker.finish_deferred_with_evidence(
-                        album,
-                        &run_id,
-                        &origin,
-                        retry_after,
-                        authority.as_deref(),
-                        &evidence,
-                    )
-                } else {
-                    worker.finish_with_evidence(
-                        album,
-                        &run_id,
-                        worker_status,
-                        reason.as_deref(),
-                        authority.as_deref(),
-                        &evidence,
-                    )
-                }
-            });
+            let completion = queue
+                .run_exclusive(async {
+                    tasks.with_running(&task_id_for_work, |_| {
+                        if retryable {
+                            let retry_after = result
+                                .as_ref()
+                                .unwrap()
+                                .provider_attempts
+                                .iter()
+                                .filter(|attempt| attempt.retryable)
+                                .filter_map(|attempt| attempt.retry_after_seconds)
+                                .max();
+                            worker.finish_deferred_with_evidence(
+                                album,
+                                &run_id,
+                                &origin,
+                                retry_after,
+                                authority.as_deref(),
+                                &evidence,
+                            )
+                        } else {
+                            worker.finish_with_evidence(
+                                album,
+                                &run_id,
+                                worker_status,
+                                reason.as_deref(),
+                                authority.as_deref(),
+                                &evidence,
+                            )
+                        }
+                    })
+                })
+                .await;
             match completion {
                 Ok(Some(saved)) => evidence = saved,
                 Ok(None) => {
@@ -1967,104 +1971,91 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
         let review_worker = worker.clone();
         let review_album = album_path.clone();
         let review_run_id = task_id_for_work.clone();
-        let result = resolve_and_apply_album_with_review_intent(
-            &album_path,
-            &config_values,
-            AutoTagServices {
-                providers: providers.as_ref(),
-                cache: cache.as_ref(),
-                queue: &queue,
-                alias_file: &alias_file,
-            },
-            &cancelled,
-            Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
-            move |candidate| {
-                review_worker
-                    .record_review_flag(
-                        &review_album,
-                        if candidate.source == crate::commands::auto_tag::LookupSource::Llm {
-                            "ai_fallback"
-                        } else {
-                            "recording_identity"
-                        },
-                        &review_run_id,
-                    )
-                    .map_err(|error| {
-                        ApiError::Message(format!(
-                            "Review checkpoint failed before tag writes: {error}"
-                        ))
-                    })
-            },
-            move |step, message| {
-                if progress_tasks.update(&progress_task_id, step, message) {
-                    let _ = progress_events.publish(
-                        "auto-tag:event",
-                        &auto_tag_event(&progress_task_id, "progress", message, step, None),
-                    );
-                }
-            },
-            move |kind, message, data| {
-                if let Some(task) = report_tasks.get(&report_task_id) {
-                    if task.status != TaskStatus::Cancelled {
-                        let _ = report_events.publish(
-                            "auto-tag:event",
-                            &auto_tag_event(&report_task_id, kind, message, task.progress, data),
-                        );
-                    }
-                }
-            },
-        )
-        .await;
-
-        let result = result.and_then(|result| {
-            let data = serde_json::to_value(&result).unwrap_or_default();
-            let applied = result.outcome == AutoTagOutcome::Applied;
-            let status = if applied {
-                TaskStatus::Completed
-            } else {
-                TaskStatus::NeedsReview
-            };
-            let message = if applied {
-                auto_tag_completion_message(
-                    result
-                        .candidate
-                        .as_ref()
-                        .expect("applied auto-tag has a candidate"),
-                )
-                .to_string()
-            } else {
-                result
-                    .reason_code
-                    .as_deref()
-                    .map(|reason| format!("Needs review: {reason}"))
-                    .unwrap_or_else(|| "Needs review".into())
-            };
-            let saved = task_state
-                .with_running(&task_id_for_work, |progress| {
-                    worker.finish_with_evidence(
-                        &album_path,
-                        &task_id_for_work,
-                        if applied { "completed" } else { "needs_review" },
-                        result.reason_code.as_deref(),
-                        result.authority.and_then(lookup_source_name).as_deref(),
-                        &data,
-                    )?;
-                    progress.status = status;
-                    progress.progress = progress.total;
-                    progress.message = message.clone();
-                    progress.result = data.clone();
-                    Ok(())
-                })
-                .map_err(|error| {
-                    ApiError::Message(format!("durable worker completion failed: {error}"))
-                })?;
-            if saved.is_none() {
-                return Err(ApiError::Message(
-                    "auto-tag cancelled before terminal persistence".into(),
-                ));
+        let checkpoint_worker = worker.clone();
+        let checkpoint_album = album_path.clone();
+        let checkpoint_run = task_id_for_work.clone();
+        let checkpoint: crate::commands::auto_tag::EvidenceCheckpoint = Arc::new(move |evidence| {
+            if evidence["aiCircuitOpen"] == true {
+                checkpoint_worker.open_ai_circuit(&checkpoint_run)?;
             }
-            Ok((status, message, data))
+            checkpoint_worker.checkpoint_evidence(&checkpoint_album, &checkpoint_run, &evidence)
         });
+        let result = crate::commands::auto_tag::EVIDENCE_CHECKPOINT
+            .scope(
+                checkpoint,
+                resolve_and_apply_album_with_review_intent(
+                    &album_path,
+                    &config_values,
+                    AutoTagServices {
+                        providers: providers.as_ref(),
+                        cache: cache.as_ref(),
+                        queue: &queue,
+                        alias_file: &alias_file,
+                    },
+                    &cancelled,
+                    Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
+                    move |candidate| {
+                        review_worker
+                            .record_review_flag(
+                                &review_album,
+                                if candidate.source == crate::commands::auto_tag::LookupSource::Llm
+                                {
+                                    "ai_fallback"
+                                } else {
+                                    "recording_identity"
+                                },
+                                &review_run_id,
+                            )
+                            .map_err(|error| {
+                                ApiError::Message(format!(
+                                    "Review checkpoint failed before tag writes: {error}"
+                                ))
+                            })
+                    },
+                    move |step, message| {
+                        if progress_tasks.update(&progress_task_id, step, message) {
+                            let _ = progress_events.publish(
+                                "auto-tag:event",
+                                &auto_tag_event(&progress_task_id, "progress", message, step, None),
+                            );
+                        }
+                    },
+                    move |kind, message, data| {
+                        if let Some(task) = report_tasks.get(&report_task_id) {
+                            if task.status != TaskStatus::Cancelled {
+                                let _ = report_events.publish(
+                                    "auto-tag:event",
+                                    &auto_tag_event(
+                                        &report_task_id,
+                                        kind,
+                                        message,
+                                        task.progress,
+                                        data,
+                                    ),
+                                );
+                            }
+                        }
+                    },
+                ),
+            )
+            .await;
+
+        let result = match result {
+            Ok(result) => {
+                let data = serde_json::to_value(&result).unwrap_or_default();
+                complete_auto_tag_run(
+                    &worker,
+                    &task_state,
+                    &queue,
+                    &album_path,
+                    &task_id_for_work,
+                    &result,
+                    data,
+                )
+                .await
+            }
+            Err(error) => Err(error),
+        };
         match result {
             Ok((status, message, data)) => {
                 let kind = if status == TaskStatus::Completed {
@@ -4261,6 +4252,42 @@ mod tests {
         .await;
 
         std::fs::remove_dir_all(root_dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn manual_auto_tag_retains_run_bound_resolver_checkpoints() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-manual-evidence-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = root.join("Artist/Unknown");
+        fs::create_dir_all(&album).unwrap();
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.wav"),
+            album.join("track.wav"),
+        )
+        .unwrap();
+        let stub = StubProvider::start();
+        let state = smoke_state(&root, &stub.base);
+        let response = start_auto_tag_task(&state, album.clone());
+        assert_eq!(response.status(), StatusCode::OK);
+        let task_id: String = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        await_task(&state, &task_id).await;
+        let reopened = WorkerStore::new_in(root.join("data"));
+        assert!(reopened.initialize());
+        let evidence = reopened.evidence(&album, &task_id).unwrap().unwrap();
+        assert_eq!(
+            evidence["localFiles"], 1,
+            "manual resolver checkpoints must survive terminal publication and reopen: {evidence}"
+        );
+        assert!(evidence["configuration"].is_object());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

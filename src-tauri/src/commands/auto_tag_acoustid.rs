@@ -75,6 +75,8 @@ pub(crate) struct AcoustidTrackEvidence {
     pub candidates: Vec<serde_json::Value>,
     pub candidate_count: usize,
     pub omitted_candidates: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lookup_observation: Option<serde_json::Value>,
 }
 
 #[derive(Clone, Debug)]
@@ -186,6 +188,7 @@ pub(crate) async fn resolve_with_deadline(
                 candidates: Vec::new(),
                 candidate_count: 0,
                 omitted_candidates: 0,
+                lookup_observation: Some(serde_json::json!({"version":1,"provider":"acoustid","source":null,"status":"not_attempted","observedAt":null,"responseUrl":null,"fullAlternativeCount":null,"eligibleHypothesisCount":null,"fingerprintScope":"fpcalc_default_provider_lookup"})),
             })
             .collect(),
         candidate_count: 0,
@@ -258,6 +261,7 @@ fn local_failure(kind: &str, reason: &str, retryable: bool) -> RecordingLookupFa
         retryable,
         retry_after_seconds: None,
         attempts: 0,
+        observation: None,
     }
 }
 
@@ -502,6 +506,9 @@ async fn resolve_inner(
             candidates: Vec::new(),
             candidate_count: 0,
             omitted_candidates: 0,
+            lookup_observation: Some(
+                serde_json::json!({"version":1,"provider":"acoustid","source":local.source,"status":"not_attempted","observedAt":null,"responseUrl":null,"fullAlternativeCount":null,"eligibleHypothesisCount":null,"fingerprintScope":"fpcalc_default_provider_lookup"}),
+            ),
         };
         let mut fingerprint = None;
         let mut file_requests = 0;
@@ -532,10 +539,18 @@ async fn resolve_inner(
             if (f64::from(value.duration_seconds) - duration).abs() > 5.0_f64.max(duration * 0.03) {
                 return Err("fingerprint duration conflicts with local audio".into());
             }
-            let results = client
+            let lookup = row.lookup_observation.as_mut().unwrap();
+            lookup["fingerprintDurationSeconds"] = value.duration_seconds.into();
+            { use sha2::{Digest, Sha256}; lookup["fingerprintDigest"] = format!("{:x}", Sha256::digest(value.value.as_bytes())).into(); }
+            lookup["status"] = "attempted".into();
+            let response = client
                 .lookup(api_key, &value, cancelled)
                 .await
                 .map_err(|error| {
+                    let lookup = row.lookup_observation.as_mut().unwrap();
+                    lookup["status"] = "unsuccessful".into();
+                    lookup["observedAt"] = now_seconds().into();
+                    lookup["failure"] = error.to_string().into();
                     lookup_retryable |= error.retryable();
                     if let AcoustidError::HttpStatus {
                         retry_after_seconds: Some(delay),
@@ -546,7 +561,20 @@ async fn resolve_inner(
                     }
                     error.to_string()
                 })?;
+            let lookup = row.lookup_observation.as_mut().unwrap();
+            lookup["responseUrl"] = response.response_url.into();
+            lookup["httpStatus"] = response.http_status.into();
+            lookup["responseDigest"] = response.response_digest.into();
+            lookup["responseDigestBasis"] = "http_decoded_body_sha256".into();
+            lookup["observedAt"] = response.observed_at.into();
+            let results = response.results;
             let hypotheses = recording_hypotheses(&results, &value);
+            let lookup = row.lookup_observation.as_mut().unwrap();
+            lookup["status"] = if results.is_empty() {"successful_empty"} else {"successful_nonempty"}.into();
+            lookup["resultCount"] = results.len().into();
+            lookup["responseRecordingAssociationCount"] = results.iter().map(|r| r.recordings.len()).sum::<usize>().into();
+            lookup["eligibleHypothesisCount"] = serde_json::json!(hypotheses.as_ref().ok().map(Vec::len));
+            lookup["countScope"] = "parsed_lookup_response_not_universal_catalog".into();
             if let Ok(candidates) = &hypotheses {
                 row.candidate_set_complete = true;
                 row.candidate_count = candidates.len();
@@ -611,6 +639,7 @@ async fn resolve_inner(
                 };
                 match detail {
                     Ok(remote) => {
+                        observation["providerObservation"] = serde_json::json!(remote.observation);
                         observation["authoritativeTitle"] = remote.title.clone().into();
                         observation["disambiguation"] = serde_json::json!(remote.disambiguation);
                         observation["authoritativeDuration"] = remote.duration.into();
@@ -1110,6 +1139,7 @@ async fn resolve_inner(
         }
         for candidate in &mut evidence.track_matches[index].candidates {
             if candidate["recordingId"] == *id || candidate["canonicalRecordingId"] == remote.id {
+                candidate["providerObservation"] = serde_json::json!(remote.observation);
                 candidate["canonicalRecordingId"] = remote.id.clone().into();
                 candidate["authoritativeTitle"] = remote.title.clone().into();
                 candidate["disambiguation"] = serde_json::json!(remote.disambiguation);
@@ -1862,6 +1892,7 @@ mod tests {
             };
             let mut remote = ProviderRecording {
                 requested_id: a.into(),
+                observation: None,
                 id: a.into(),
                 title: "Song".into(),
                 artist: "Singer & Guest".into(),

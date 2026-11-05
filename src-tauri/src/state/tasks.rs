@@ -122,7 +122,6 @@ impl TaskRegistry {
 
     /// Serialize a durable transition with cancellation. The callback runs
     /// synchronously under the task lock; it must not re-enter this registry.
-    #[cfg(any(feature = "server", test))]
     pub(crate) fn with_running<T>(
         &self,
         task_id: &str,

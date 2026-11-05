@@ -227,6 +227,14 @@ pub fn run() {
                 let debug_enabled = raw_config.debug.unwrap_or(false);
                 let cache = CacheState::new_in(data_dir.clone());
                 let _ = cache.initialize(raw_config.cache_path.as_deref());
+                let worker = crate::state::worker::WorkerStore::new_in(data_dir.clone());
+                if !worker.initialize() {
+                    return Err(std::io::Error::other(
+                        "durable worker state could not be initialized",
+                    )
+                    .into());
+                }
+                app.manage(worker);
                 app.manage(DebugState::new_in(data_dir.clone(), debug_enabled));
 
                 // Persistent task state for the assistant harness.

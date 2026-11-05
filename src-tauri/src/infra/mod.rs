@@ -21,6 +21,7 @@ pub mod acoustid;
 pub mod agent_completion;
 pub mod aliases;
 pub mod artwork;
+pub mod audio_evidence;
 pub mod encoding;
 pub mod fs;
 pub mod http;

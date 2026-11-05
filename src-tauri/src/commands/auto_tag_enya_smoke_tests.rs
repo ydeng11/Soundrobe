@@ -889,6 +889,8 @@ fn enya_classification_prioritizes_safety_and_provider_state() {
     );
     let result = AutoTagRunResult {
         outcome: AutoTagOutcome::NeedsReview,
+        proof_version: None,
+        core_receipts: Vec::new(),
         authority: None,
         candidate: None,
         completion_basis: None,
