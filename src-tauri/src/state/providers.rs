@@ -692,6 +692,90 @@ impl MusicBrainzClient {
         Ok(musicbrainz_track_count(&value))
     }
 
+    /// Bounded catalog hypotheses, never local-audio recognition or accepted core.
+    pub(crate) async fn discover_recordings(
+        &self,
+        artist: &str,
+        title: &str,
+        version: Option<&str>,
+    ) -> Result<serde_json::Value, String> {
+        let mut query = format!(
+            "recording:\"{}\" AND artist:\"{}\"",
+            escape_musicbrainz_query(title),
+            escape_musicbrainz_query(artist)
+        );
+        if let Some(version) = version.filter(|v| !v.trim().is_empty()) {
+            let version = escape_musicbrainz_query(version);
+            query.push_str(&format!(
+                " AND (recording:\"{version}\" OR comment:\"{version}\")"
+            ));
+        }
+        let mut response = self
+            .send_with_retry(
+                format!("{}/recording", self.base_url),
+                &[
+                    ("query", query.clone()),
+                    ("fmt", "json".into()),
+                    ("limit", "10".into()),
+                    ("offset", "0".into()),
+                ],
+            )
+            .await?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(format!(
+                "MusicBrainz recording search HTTP {status}; Retry-After seconds: {:?}",
+                retry_after_seconds(&response)
+            ));
+        }
+        let endpoint =
+            reqwest::Url::parse(&self.base_url).map_err(|_| "invalid provider endpoint")?;
+        if endpoint.origin() != response.url().origin() {
+            return Err("MusicBrainz recording search redirect origin changed".into());
+        }
+        let url = response.url().to_string();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|_| "recording search body failed")?
+        {
+            if bytes.len().saturating_add(chunk.len()) > 2 * 1024 * 1024 {
+                return Err("recording search response exceeds 2 MiB".into());
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let value: serde_json::Value =
+            serde_json::from_slice(&bytes).map_err(|_| "invalid recording search JSON")?;
+        let recordings = value["recordings"]
+            .as_array()
+            .ok_or("recording search missing recordings array")?;
+        let total = value["count"]
+            .as_u64()
+            .ok_or("recording search missing result count")?;
+        if value["offset"].as_u64() != Some(0)
+            || recordings.len() > 10
+            || total < recordings.len() as u64
+            || (total > 0 && recordings.is_empty())
+            || recordings.iter().any(|r| !r.is_object())
+        {
+            return Err("inconsistent recording search page".into());
+        }
+        use sha2::{Digest, Sha256};
+        let distinct: BTreeSet<_> = recordings.iter().filter_map(|r| r["id"].as_str()).collect();
+        Ok(
+            serde_json::json!({"version":1,"provider":"musicbrainz","sourceLevel":"recording_search",
+            "query":query,"responseUrl":url,"httpStatus":status.as_u16(),
+            "status":if total == 0 {"successful_empty"} else {"successful_nonempty"},
+            "fetchedAt":time::OffsetDateTime::now_utc().unix_timestamp(),
+            "responseDigest":format!("{:x}",Sha256::digest(&bytes)),"digestBasis":"response_bytes_sha256",
+            "totalResults":total,"displayedResults":recordings.len(),"distinctRetainedIds":distinct.len(),
+            "omittedResults":total-recordings.len() as u64,"retainedSetComplete":total == recordings.len() as u64,
+            "recordings":recordings,"roleScope":"only_relationships_present_in_response_not_inferred",
+            "identityScope":"Catalog hypotheses only; search scores, IDs and billing do not bind local audio."}),
+        )
+    }
+
     /// Recording identity is independent of an edition or album track position.
     pub(crate) async fn recording_by_id_result(
         &self,
@@ -5961,6 +6045,67 @@ mod tests {
         assert_eq!(album.artist.as_deref(), Some("Radiohead"));
         assert!(!album.id.is_empty());
         assert!(!album.tracks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn recording_discovery_retains_partial_billing_and_competitors() {
+        let (base, requests) = server(1, |_, _| {
+            ("200 OK", serde_json::json!({"count":12,"offset":0,"recordings":[
+                {"id":"11111111-1111-4111-8111-111111111111","title":"End of Time","length":null,
+                 "artist-credit":[{"name":"Primary","joinphrase":" feat. ","artist":{"name":"Primary"}},
+                                  {"name":"Guest","artist":{"name":"Guest"}}],
+                 "relations":[{"type":"remixer","artist":{"name":"Not a singer"}}]},
+                {"id":"22222222-2222-4222-8222-222222222222","title":"End of Time (dub)","length":250000}
+            ]}).to_string(), "application/json")
+        });
+        let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+        let result = client
+            .discover_recordings("Primary", "End of Time", Some("London sounds"))
+            .await
+            .unwrap();
+        assert_eq!(result["status"], "successful_nonempty");
+        assert_eq!(result["totalResults"], 12);
+        assert_eq!(result["omittedResults"], 10);
+        assert_eq!(result["retainedSetComplete"], false);
+        assert!(result["recordings"][0]["length"].is_null());
+        assert_eq!(result["recordings"][0]["artist-credit"][1]["name"], "Guest");
+        assert_eq!(result["recordings"][0]["relations"][0]["type"], "remixer");
+        assert_eq!(result["recordings"][1]["title"], "End of Time (dub)");
+        assert!(requests.recv().unwrap().contains("limit=10"));
+    }
+
+    #[tokio::test]
+    async fn recording_discovery_empty_is_distinct_from_malformed_or_failed() {
+        for (body, expected) in [
+            (
+                r#"{"count":0,"offset":0,"recordings":[]}"#,
+                Some("successful_empty"),
+            ),
+            (r#"{"count":1,"offset":0,"recordings":[]}"#, None),
+            (r#"{"count":0}"#, None),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut buffer = [0; 4096];
+                let _ = stream.read(&mut buffer);
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                )
+                .unwrap();
+            });
+            let client = MusicBrainzClient::at(ProviderState::new().http(), &base);
+            let result = client.discover_recordings("Lead", "Song", None).await;
+            if let Some(status) = expected {
+                assert_eq!(result.unwrap()["status"], status);
+            } else {
+                assert!(result.is_err());
+            }
+        }
     }
 
     #[test]

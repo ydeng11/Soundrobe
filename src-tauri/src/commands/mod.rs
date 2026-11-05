@@ -72,6 +72,9 @@ pub mod mutations;
 /// `files:sort-by-album` — `electron/handlers/organizer.ts`.
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod organizer;
+/// Explicit, source-bound catalog hypotheses; never a tagging decision.
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod recording_discovery;
 /// `task:progress`, `task:cancel`, `album:auto-tag` — `electron/handlers/auto-tag.ts`.
 #[cfg(feature = "desktop")]
 pub mod tasks;

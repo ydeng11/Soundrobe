@@ -205,6 +205,14 @@ fn reuse_proposes_only_core_from_independently_rooted_complete_audio_without_wri
     );
     let report: Value = serde_json::from_slice(&output.stdout).unwrap();
     let proposals = &report["reuseProposals"];
+    assert!(
+        proposals["pairs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|pair| pair.get("shadowMeasurements").is_none()),
+        "shadow instrumentation belongs only to --audio-pairs, never reuse eligibility"
+    );
     assert_eq!(
         proposals["proposalCount"], 1,
         "deduplicate recipients and duplicate pair selections"
@@ -962,6 +970,312 @@ fn exact_coverage_rejects_a_different_ending_and_nonoverlapping_offset() {
 
 // These process-boundary tests need no installed media tools. The controlled
 // decoder emits known native PCM; the real-tool contracts above test decoding.
+#[test]
+fn shadow_measurements_keep_native_channels_gain_and_final_partial_diagnostic_only() {
+    let fixture = Fixture::new();
+    let frames: Vec<_> = (0..4101)
+        .map(|i| [((i % 31) as i16 - 15) * 100, ((i % 17) as i16 - 8) * 30])
+        .collect();
+    let gained: Vec<_> = frames.iter().map(|[a, b]| [a * 2, b * 3]).collect();
+    let left = fixture.wav("left.wav", &frames);
+    let right = fixture.wav("right.wav", &gained);
+    let before = fs::read(fixture.0.join("left.wav")).unwrap();
+    let output = fixture
+        .controlled_command(json!({"left":left,"right":right}), "tail -c +45\n")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let mut report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let scope = report["audioEvidence"]["scope"].as_str().unwrap();
+    assert!(scope.contains("fixed supplied offset") && scope.contains("diagnostic only"));
+    let pair = &report["audioEvidence"]["pairs"][0];
+    assert_eq!(pair["comparison"]["wholePcmEqual"], false);
+    assert_eq!(pair["comparison"]["coverage"], Value::Null);
+    let shadow = &pair["shadowMeasurements"];
+    assert_eq!(shadow["status"], "observed");
+    assert_eq!(shadow["offsetFrames"], 0);
+    assert_eq!(shadow["windowFrames"], 4096);
+    assert_eq!(
+        shadow["differingFrames"],
+        frames.iter().zip(&gained).filter(|(a, b)| a != b).count()
+    );
+    assert_eq!(shadow["coverage"]["left"]["matchedFrames"], 4101);
+    let windows = shadow["windows"].as_array().unwrap();
+    assert_eq!(windows.len(), 2);
+    assert_eq!(windows[1]["frames"], 5);
+    assert_eq!(windows[1]["leftStartFrame"], 4096);
+    assert_eq!(windows[1]["rightStartFrame"], 4096);
+    for (channel, gain) in [(0, 2.0), (1, 3.0)] {
+        let metrics = &windows[0]["channels"][channel];
+        assert_eq!(metrics["channelIndex"], channel);
+        assert!((metrics["correlation"].as_f64().unwrap() - 1.0).abs() < 1e-12);
+        assert!((metrics["positiveGain"].as_f64().unwrap() - gain).abs() < 1e-12);
+        assert!(metrics["positiveGainResidualRms"].as_f64().unwrap() < 1e-12);
+        assert!(metrics["left"]["rms"].as_f64().unwrap() > 0.0);
+        assert!(
+            metrics["right"]["peak"].as_f64().unwrap() > metrics["left"]["peak"].as_f64().unwrap()
+        );
+    }
+    assert_eq!(windows[0]["channels"][0]["left"]["peak"], 1500.0 / 32768.0);
+    assert_eq!(fs::read(fixture.0.join("left.wav")).unwrap(), before);
+    report.as_object_mut().unwrap().remove("audioEvidence");
+    let mut default = fixture.run(None);
+    strip_times(&mut report);
+    strip_times(&mut default);
+    assert_eq!(
+        report, default,
+        "measurements never change resolver/ranking output"
+    );
+}
+
+#[test]
+fn shadow_measurements_report_analytic_rms_correlation_and_nonzero_residual() {
+    let fixture = Fixture::new();
+    let left = fixture.wav("left.wav", &[[1, 0], [2, 0], [-3, 0], [0, 0]]);
+    let right = fixture.wav("right.wav", &[[2, 0], [1, 0], [-3, 0], [0, 0]]);
+    let output = fixture
+        .controlled_command(json!({"left":left,"right":right}), "tail -c +45\n")
+        .output()
+        .unwrap();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let window = &report["audioEvidence"]["pairs"][0]["shadowMeasurements"]["windows"][0];
+    assert_eq!(window["differingFrames"], 2);
+    assert_eq!(window["exactEqualFrames"], 2);
+    let metrics = &window["channels"][0];
+    for (field, expected) in [
+        ("correlation", 13.0 / 14.0),
+        ("positiveGain", 13.0 / 14.0),
+        ("positiveGainResidualRms", (27.0f64 / 56.0).sqrt() / 32768.0),
+        (
+            "positiveGainResidualRelativeToRightRms",
+            (27.0f64 / 196.0).sqrt(),
+        ),
+    ] {
+        assert!(
+            (metrics[field].as_f64().unwrap() - expected).abs() < 1e-12,
+            "{field}"
+        );
+    }
+    assert!((metrics["left"]["rms"].as_f64().unwrap() - 3.5f64.sqrt() / 32768.0).abs() < 1e-12);
+    assert_eq!(window["channels"][1]["correlation"], Value::Null);
+    assert_eq!(window["channels"][1]["positiveGain"], Value::Null);
+}
+
+#[test]
+fn shadow_measurements_preserve_native_24_bit_and_tiny_float_levels() {
+    let fixture = Fixture::new();
+    for (name, code, bits, bytes, peak) in [
+        (
+            "integer.wav",
+            1u16,
+            24u16,
+            vec![0, 0, 0, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            1.0 / 8388608.0,
+        ),
+        (
+            "float.wav",
+            3,
+            32,
+            [0.0f32, -1e-30, 0.0, 0.0, 0.0, 1e-30]
+                .iter()
+                .flat_map(|v| v.to_le_bytes())
+                .collect(),
+            f64::from(1e-30f32),
+        ),
+    ] {
+        fixture.wav(name, &[[0, 0]; 1]);
+        let mut header = fs::read(fixture.0.join(name)).unwrap();
+        header.truncate(44);
+        header[4..8].copy_from_slice(&(36 + bytes.len() as u32).to_le_bytes());
+        header[20..22].copy_from_slice(&code.to_le_bytes());
+        header[28..32].copy_from_slice(&(44100u32 * u32::from(bits) / 4).to_le_bytes());
+        header[32..34].copy_from_slice(&(bits / 4).to_le_bytes());
+        header[34..36].copy_from_slice(&bits.to_le_bytes());
+        header[40..44].copy_from_slice(&(bytes.len() as u32).to_le_bytes());
+        header.extend(bytes);
+        fs::write(fixture.0.join(name), header).unwrap();
+        let source = fixture.source(name);
+        let mut command =
+            fixture.controlled_command(json!({"left":source,"right":source}), "tail -c +45\n");
+        let codec = if code == 3 { "pcm_f32le" } else { "pcm_s24le" };
+        fixture.script("probe", &format!("printf '%s' '{{\"streams\":[{{\"codec_name\":\"{codec}\",\"sample_rate\":\"44100\",\"channels\":2}}]}}'\n"));
+        let report: Value = serde_json::from_slice(&command.output().unwrap().stdout).unwrap();
+        let shadow = &report["audioEvidence"]["pairs"][0]["shadowMeasurements"];
+        assert_eq!(shadow["status"], "observed");
+        assert_eq!(shadow["differingFrames"], 0);
+        let channels = &shadow["windows"][0]["channels"];
+        assert_eq!(channels[0]["correlation"], Value::Null);
+        assert_eq!(channels[1]["left"]["peak"], peak);
+        assert!(
+            (channels[1]["left"]["rms"].as_f64().unwrap() / peak - (2.0f64 / 3.0).sqrt()).abs()
+                < 1e-12
+        );
+        assert!((channels[1]["correlation"].as_f64().unwrap() - 1.0).abs() < 1e-12);
+        assert_eq!(channels[1]["positiveGain"], 1.0);
+    }
+}
+
+#[test]
+fn shadow_measurements_cover_fixed_offsets_quiet_changes_and_unmatched_tails() {
+    let fixture = Fixture::new();
+    let mut program = [[500, -100], [-400, 300], [100, 200], [-200, -400]].repeat(1025);
+    program[4096..].copy_from_slice(&[[1, -1], [-2, 1], [1, 2], [-1, 1]]);
+    let mut changed = program.clone();
+    changed[4099][1] += 1; // Quiet changed word, in the final partial window.
+    let padded = [vec![[1, 0]; 3], changed, vec![[0, -1]; 2]].concat();
+    let left = fixture.wav("left.wav", &padded);
+    let right = fixture.wav("right.wav", &program);
+    for (offset, reverse) in [(3, false), (-3, true)] {
+        let (a, b) = if reverse {
+            (&right, &left)
+        } else {
+            (&left, &right)
+        };
+        let output = fixture
+            .controlled_command(
+                json!({"left":a,"right":b,"offsetFrames":offset}),
+                "tail -c +45\n",
+            )
+            .output()
+            .unwrap();
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let shadow = &report["audioEvidence"]["pairs"][0]["shadowMeasurements"];
+        assert_eq!(shadow["offsetFrames"], offset);
+        assert_eq!(shadow["differingFrames"], 1);
+        assert_eq!(
+            shadow["windows"][0]["differingFrames"], 0,
+            "a shared intro must not hide a different tail"
+        );
+        assert_eq!(shadow["windows"][1]["differingFrames"], 1);
+        let quiet = &shadow["windows"][1]["channels"][1];
+        assert!(quiet["positiveGainResidualRms"].as_f64().unwrap() > 0.0);
+        assert_eq!(quiet["left"]["peak"], 2.0 / 32768.0);
+        assert_eq!(quiet["right"]["peak"], 2.0 / 32768.0);
+        let coverage = &shadow["coverage"][if reverse { "right" } else { "left" }];
+        assert_eq!(coverage["matchedFrames"], 4100);
+        assert_eq!(coverage["unmatchedFrames"], 5);
+        assert_eq!(coverage["unmatched"][0]["nonzeroFrames"], 3);
+        assert_eq!(coverage["unmatched"][1]["nonzeroFrames"], 2);
+        assert_eq!(
+            coverage["unmatched"][1]["channels"][1]["peak"],
+            1.0 / 32768.0
+        );
+    }
+    // Omitted offset means zero, even when the old exact diagnostic infers edges.
+    let zero_padded = fixture.wav(
+        "zero-padded.wav",
+        &[vec![[0, 0]; 3], program.clone()].concat(),
+    );
+    let output = fixture
+        .controlled_command(json!({"left":zero_padded,"right":right}), "tail -c +45\n")
+        .output()
+        .unwrap();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["comparison"]["offsetFrames"],
+        3
+    );
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["shadowMeasurements"]["offsetFrames"],
+        0
+    );
+}
+
+#[test]
+fn shadow_measurements_do_not_promote_zero_constant_or_phase_cancellation() {
+    let fixture = Fixture::new();
+    for (name, frames, other, correlation) in [
+        ("zero", vec![[0, 0]; 7], vec![[0, 0]; 7], None),
+        ("constant", vec![[1, -2]; 7], vec![[2, -4]; 7], None),
+        (
+            "phase",
+            vec![[100, -100], [-200, 200], [300, -300]],
+            vec![[-100, 100], [200, -200], [-300, 300]],
+            Some(-1.0),
+        ),
+    ] {
+        let left = fixture.wav(&format!("{name}-left.wav"), &frames);
+        let right = fixture.wav(&format!("{name}-right.wav"), &other);
+        let output = fixture
+            .controlled_command(json!({"left":left,"right":right}), "tail -c +45\n")
+            .output()
+            .unwrap();
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let pair = &report["audioEvidence"]["pairs"][0];
+        assert_eq!(pair["comparison"]["identityVerified"], false);
+        let shadow = &pair["shadowMeasurements"];
+        assert_eq!(shadow["coverage"]["left"]["matchedFrames"], frames.len());
+        for channel in shadow["windows"][0]["channels"].as_array().unwrap() {
+            if let Some(expected) = correlation {
+                assert!((channel["correlation"].as_f64().unwrap() - expected).abs() < 1e-12);
+                assert!(
+                    channel["left"]["peak"].as_f64().unwrap() > 0.0,
+                    "opposite native channels must never cancel"
+                );
+            } else {
+                assert_eq!(channel["correlation"], Value::Null);
+            }
+            if name != "constant" {
+                assert_eq!(channel["positiveGain"], Value::Null);
+                assert_eq!(channel["positiveGainResidualRms"], Value::Null);
+            }
+        }
+    }
+}
+
+#[test]
+fn shadow_measurements_refuse_incomplete_or_incompatible_pcm_and_bound_offsets() {
+    let fixture = Fixture::new();
+    let left = fixture.wav("left.wav", &[[3, -1]; 8]);
+    for offset in [i64::MIN, i64::MAX, -8, 8] {
+        let output = fixture
+            .controlled_command(
+                json!({"left":left,"right":left,"offsetFrames":offset}),
+                "tail -c +45\n",
+            )
+            .output()
+            .unwrap();
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let shadow = &report["audioEvidence"]["pairs"][0]["shadowMeasurements"];
+        assert_eq!(shadow["status"], "no_overlap");
+        assert_eq!(shadow["coverage"]["left"]["unmatchedFrames"], 8);
+        assert_eq!(shadow["coverage"]["right"]["unmatchedFrames"], 8);
+        assert_eq!(shadow["windows"], json!([]));
+    }
+    let output = fixture
+        .controlled_command(json!({"left":left,"right":left}), "head -c 4\n")
+        .output()
+        .unwrap();
+    let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["shadowMeasurements"]["status"],
+        "unavailable"
+    );
+    fixture.wav("right.wav", &[[3, -1]; 8]);
+    let mut bytes = fs::read(fixture.0.join("right.wav")).unwrap();
+    bytes[24..28].copy_from_slice(&48000u32.to_le_bytes());
+    bytes[28..32].copy_from_slice(&192000u32.to_le_bytes());
+    fs::write(fixture.0.join("right.wav"), bytes).unwrap();
+    let right = fixture.source("right.wav");
+    let mut command =
+        fixture.controlled_command(json!({"left":left,"right":right}), "tail -c +45\n");
+    // Native formats can have identical bytes but a different sample timeline.
+    fixture.script("probe", "rate=$(od -An -tu4 -j24 -N4 | tr -d ' '); printf '{\"streams\":[{\"codec_name\":\"pcm_s16le\",\"sample_rate\":\"%s\",\"channels\":2}]}' \"$rate\"\n");
+    let report: Value = serde_json::from_slice(&command.output().unwrap().stdout).unwrap();
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["left"]["status"],
+        "complete"
+    );
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["right"]["status"],
+        "complete"
+    );
+    assert_eq!(
+        report["audioEvidence"]["pairs"][0]["shadowMeasurements"]["status"],
+        "unavailable"
+    );
+}
+
 impl Fixture {
     fn script(&self, name: &str, body: &str) -> std::path::PathBuf {
         use std::os::unix::fs::PermissionsExt;

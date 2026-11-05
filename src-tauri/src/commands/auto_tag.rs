@@ -703,6 +703,13 @@ pub fn parse_folder_album_evidence(
     folder_name: &str,
     tagged_album: Option<&str>,
 ) -> FolderAlbumEvidence {
+    let indexed_album =
+        Regex::new(r"(?i)^album-\d+-((?:19|20)\d{2})-(.+?)-(?:16|24|32)\s+\d{2,3}(?:\.\d+)?$")
+            .expect("valid indexed audio album folder regex")
+            .captures(folder_name)
+            .filter(|captures| !captures[2].trim().is_empty())
+            .map(|captures| format!("{} - {}", &captures[1], captures[2].trim()));
+    let folder_name = indexed_album.as_deref().unwrap_or(folder_name);
     let year = extract_folder_year(folder_name);
     let country = Regex::new(
         r"(?i)(?:japanese|japan|日本)\s*(?:edition|version|pressing|版)?",
@@ -3339,6 +3346,7 @@ fn tag_correction_request(request: &LookupRequest) -> (Vec<ChatMessage>, serde_j
             "title": track.title,
             "filename": track.filename,
             "artist": track.artist,
+            "artists": track.artists,
             "track_number": track.track_number,
             "genre": track.genre,
         })).collect::<Vec<_>>(),
@@ -3350,6 +3358,9 @@ fn tag_correction_request(request: &LookupRequest) -> (Vec<ChatMessage>, serde_j
             "Use the per-track filename field to infer titles when the existing title is missing or garbled. ",
             "Strip year and format annotations from album names. Preserve uncertain fields as null. ",
             "Use Various Artists only for true compilations. Number tracks and discs consistently. ",
+            "artist and albumArtist are display credits; artists and albumArtists are ordered lists of distinct billed acts, not copies of the joined display credit. ",
+            "For a collaboration, return each billed act separately in credit order; keep a band's complete name as one entry, even when it contains commas or an ampersand (for example Earth, Wind & Fire). ",
+            "Use existing structured artists as evidence when consistent with the other facts. Do not add remixers, producers or writers as performers solely from their roles or a remix title. ",
             "Do not invent provider IDs. Genre should use conservative Discogs-style comma-separated tags."
         )),
         ChatMessage::user(payload.to_string()),
@@ -3358,9 +3369,9 @@ fn tag_correction_request(request: &LookupRequest) -> (Vec<ChatMessage>, serde_j
         "type": "object",
         "properties": {
             "artist": {"type": ["string", "null"]},
-            "artists": {"type": "array", "items": {"type": "string"}},
+            "artists": {"type": "array", "description": "One complete billed act per entry, in credit order; split collaborations, never split a band's name.", "items": {"type": "string"}},
             "albumArtist": {"type": ["string", "null"]},
-            "albumArtists": {"type": "array", "items": {"type": "string"}},
+            "albumArtists": {"type": "array", "description": "One complete album-billed act per entry, in credit order; not the joined display credit.", "items": {"type": "string"}},
             "album": {"type": ["string", "null"]},
             "year": {"type": ["string", "null"]},
             "genre": {"type": ["string", "null"]},
@@ -3368,7 +3379,7 @@ fn tag_correction_request(request: &LookupRequest) -> (Vec<ChatMessage>, serde_j
                 "index": {"type": "number"},
                 "title": {"type": ["string", "null"]},
                 "artist": {"type": ["string", "null"]},
-                "artists": {"type": "array", "items": {"type": "string"}},
+                "artists": {"type": "array", "description": "One complete track-billed performer per entry, in credit order; preserve band names and do not promote remixer roles.", "items": {"type": "string"}},
                 "trackNumber": {"type": "number"},
                 "trackTotal": {"type": "number"},
                 "discNumber": {"type": "number"},
@@ -7120,6 +7131,46 @@ mod tests {
     }
 
     #[test]
+    fn build_lookup_request_cleans_indexed_audio_album_folders() {
+        let root = temp_root();
+        for (folder, title, year) in [
+            (
+                "Album-01-2017-Dua Lipa（豪华版）-24 44.1",
+                "Dua Lipa",
+                "2017",
+            ),
+            (
+                "Album-03-2024-Radical Optimism（网络发行版）-24 44.1",
+                "Radical Optimism",
+                "2024",
+            ),
+            ("Album-7-1998-1979-16 48", "1979", "1998"),
+        ] {
+            let album = root.join("Artist").join(folder);
+            fs::create_dir_all(&album).unwrap();
+            fs::copy(corpus_wav(), album.join("01.wav")).unwrap();
+
+            let request = build_lookup_request(&album).unwrap();
+
+            assert_eq!(request.album_hint.as_deref(), Some(title), "{folder}");
+            assert_eq!(request.year_hint.as_deref(), Some(year), "{folder}");
+        }
+        for folder in ["Album-01-2017-Live", "Album-01-2017-Live-24 44.1 Bonus"] {
+            let evidence = parse_folder_album_evidence(folder, None);
+            assert_eq!(evidence.folder_album.as_deref(), Some(folder));
+        }
+        let evidence = parse_folder_album_evidence(
+            "Album-03-2024-Radical Optimism（网络发行版）-24 44.1",
+            Some("Owner's album grouping"),
+        );
+        assert_eq!(
+            evidence.search_album.as_deref(),
+            Some("Owner's album grouping")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn ambiguity_ignores_format_suffix_but_detects_naming_annotations() {
         assert!(!hints_are_ambiguous(
             Some("Album"),
@@ -9585,6 +9636,106 @@ mod tests {
         fs::remove_dir_all(root).unwrap();
     }
 
+    #[tokio::test]
+    async fn artist_credit_lists_survive_queued_writes_and_both_album_readers() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join("01.flac");
+        fs::copy(corpus_flac(), &path).unwrap();
+        for (display, names, album_display, album_names) in [
+            (
+                "Guest & Lead",
+                vec!["Guest", "Lead"],
+                "Album Lead & Album Guest",
+                vec!["Album Lead", "Album Guest"],
+            ),
+            (
+                "Earth, Wind & Fire",
+                vec!["Earth, Wind & Fire"],
+                "Florence + the Machine",
+                vec!["Florence + the Machine"],
+            ),
+        ] {
+            let candidate = AlbumCandidate {
+                album_artist: Some(album_display.into()),
+                album_artists: album_names.iter().map(|name| (*name).into()).collect(),
+                tracks: vec![TrackCandidate {
+                    artist: Some(display.into()),
+                    artists: names.iter().map(|name| (*name).into()).collect(),
+                    ..TrackCandidate::default()
+                }],
+                source: LookupSource::Llm,
+                ..AlbumCandidate::default()
+            };
+            apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+                .await
+                .unwrap();
+
+            let desktop = crate::commands::tracks::read_album(&album).unwrap();
+            let server = crate::state::album::read_album(&album).unwrap();
+            assert_eq!(desktop.tracks[0].artist.as_deref(), Some(display));
+            assert_eq!(server.tracks[0].artist.as_deref(), Some(display));
+            assert_eq!(desktop.tracks[0].artists, names);
+            assert_eq!(server.tracks[0].artists, names);
+            assert_eq!(
+                desktop.tracks[0].album_artist.as_deref(),
+                Some(album_display)
+            );
+            assert_eq!(
+                server.tracks[0].album_artist.as_deref(),
+                Some(album_display)
+            );
+            assert_eq!(desktop.tracks[0].album_artists, album_names);
+            assert_eq!(server.tracks[0].album_artists, album_names);
+
+            let clear_lists: TrackPatch = serde_json::from_value(serde_json::json!({
+                "artists": null,
+                "albumArtists": null
+            }))
+            .unwrap();
+            write_track_queued(&WriteQueue::default(), path.clone(), clear_lists)
+                .await
+                .unwrap();
+            let desktop = crate::commands::tracks::read_album(&album).unwrap();
+            let server = crate::state::album::read_album(&album).unwrap();
+            assert_eq!(desktop.tracks[0].artists, [display]);
+            assert_eq!(server.tracks[0].artists, [display]);
+            assert_eq!(desktop.tracks[0].album_artists, [album_display]);
+            assert_eq!(server.tracks[0].album_artists, [album_display]);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ai_credit_request_retains_ordered_entities_and_compound_band_names() {
+        let request = LookupRequest {
+            tracks: vec![
+                TrackCandidate {
+                    artist: Some("Singer A & Singer B".into()),
+                    artists: vec!["Singer A".into(), "Singer B".into()],
+                    ..TrackCandidate::default()
+                },
+                TrackCandidate {
+                    artist: Some("Earth, Wind & Fire".into()),
+                    artists: vec!["Earth, Wind & Fire".into()],
+                    ..TrackCandidate::default()
+                },
+            ],
+            ..LookupRequest::default()
+        };
+        let (messages, _) = tag_correction_request(&request);
+        let payload: serde_json::Value = serde_json::from_str(&messages[1].content).unwrap();
+        assert_eq!(
+            payload["current_tracks"][0]["artists"],
+            serde_json::json!(["Singer A", "Singer B"])
+        );
+        assert_eq!(
+            payload["current_tracks"][1]["artists"],
+            serde_json::json!(["Earth, Wind & Fire"])
+        );
+    }
+
     #[test]
     fn authoritative_ai_requires_complete_tracks_and_threshold() {
         let request = LookupRequest {
@@ -9641,6 +9792,54 @@ mod tests {
             validated_ai_candidate(&request, &low).unwrap_err().code,
             "ai_low_confidence"
         );
+    }
+
+    #[tokio::test]
+    #[ignore = "requires explicitly configured live LLM credentials; performs three metadata-only calls"]
+    async fn live_ai_credit_entities_preserve_bands_and_billing_order() {
+        let config = crate::state::config::load_from("", &crate::state::config::ProcessEnv);
+        for (display, names) in [
+            ("Earth, Wind & Fire", vec!["Earth, Wind & Fire"]),
+            ("Florence + the Machine", vec!["Florence + the Machine"]),
+            ("Dua Lipa & Elton John", vec!["Dua Lipa", "Elton John"]),
+        ] {
+            let request = LookupRequest {
+                path: format!("/copied-fixture/{display}/Credit handling control"),
+                artist_hint: Some(display.into()),
+                album_hint: Some("Credit handling control".into()),
+                tracks: vec![TrackCandidate {
+                    title: Some("Credit handling control".into()),
+                    artist: Some(display.into()),
+                    artists: names.iter().map(|name| (*name).into()).collect(),
+                    ..TrackCandidate::default()
+                }],
+                ..LookupRequest::default()
+            };
+            let (messages, schema) = tag_correction_request(&request);
+            let response = tag_correction_client(&config, request.tracks.len())
+                .unwrap()
+                .complete_json(
+                    messages,
+                    "TagCorrectionResponse",
+                    schema,
+                    &AtomicBool::new(false),
+                )
+                .await
+                .unwrap();
+            let data = &response.data;
+            let expected = serde_json::json!(names);
+            assert_eq!(data["artists"], expected, "album performer list: {display}");
+            assert_eq!(data["albumArtists"], expected, "album credit: {display}");
+            assert_eq!(
+                data["tracks"][0]["artists"], expected,
+                "track credit: {display}"
+            );
+            let acceptance = validated_ai_candidate(&request, data);
+            println!(
+                "LIVE_CREDIT_CONTROL {}",
+                serde_json::json!({"display":display, "artists":data["artists"], "albumArtists":data["albumArtists"], "trackArtists":data["tracks"][0]["artists"], "confidence":data["confidence"], "accepted":acceptance.is_ok(), "rejectionCode":acceptance.err().map(|failure| failure.code), "resolvedModel":response.model, "diagnostics":response.diagnostics})
+            );
+        }
     }
 
     #[test]

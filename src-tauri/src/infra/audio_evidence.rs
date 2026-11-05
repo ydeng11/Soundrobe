@@ -18,7 +18,8 @@ const MAX_PCM: usize = 256 * 1024 * 1024;
 const MAX_SOURCE: u64 = 512 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 64 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(45);
-pub const SCOPE: &str = "Read-only exact-audio diagnostics, not identity proof or tagging approval. No recognition, near-silence classification, approximate alignment or donor propagation. Zero-edge-excluded equality is diagnostic only.";
+const SHADOW_WINDOW_FRAMES: usize = 4096;
+pub const SCOPE: &str = "Read-only audio diagnostics, not identity proof or tagging approval. Shadow measurements use the fixed supplied offset (or zero), never inferred alignment; diagnostic only, with no acceptance tolerance or calibration. No recognition, near-silence classification, lag search, time warp, downmix identity or donor propagation. Zero-edge-excluded equality is diagnostic only. Reuse eligibility and resolver outputs never consume shadow measurements.";
 pub const REUSE_SCOPE: &str = "Proposal only: no writes, new receipts, recipient verification or folder completion. Left is donor; right is recipient. Only independently rooted current core receipts and complete checksum-verified native FLAC PCM qualify. Conflicts cover selected sources only; no catalog or all-pairs search. Copies do not add independent corroboration. Source stability is observed, not a filesystem-wide lock.";
 
 #[derive(Deserialize)]
@@ -141,7 +142,11 @@ async fn export_selected(
             right.pcm = None;
             held_pairs.push((left, right, comparison));
         } else {
-            pairs.push(json!({"left":left.report,"right":right.report,"comparison":comparison}));
+            let shadow = shadow_measurements(&left, &right, pair.offset_frames.unwrap_or(0));
+            pairs.push(
+                json!({"left":left.report,"right":right.report,"comparison":comparison,
+                "shadowMeasurements":shadow}),
+            );
         }
         if cancelled.load(Ordering::Acquire) {
             break;
@@ -1098,4 +1103,133 @@ fn compare(left: &Observation, right: &Observation, requested: Option<i64>) -> V
     };
     report["coverage"] = json!({"left":coverage(a,start_a),"right":coverage(b,start_b)});
     report
+}
+
+impl Pcm {
+    /// Full-scale units; no quantization, resampling or channel mixing.
+    fn sample(&self, frame: usize, channel: usize) -> f64 {
+        let width = self.frame_bytes / self.channels;
+        let start = frame * self.frame_bytes + channel * width;
+        let bytes = &self.bytes[start..start + width];
+        match self.format.as_str() {
+            "s16le" => f64::from(i16::from_le_bytes(bytes.try_into().unwrap())) / 32768.0,
+            "s24le" => {
+                let signed = i32::from_le_bytes([0, bytes[0], bytes[1], bytes[2]]) >> 8;
+                f64::from(signed) / 8388608.0
+            }
+            "f32le" => f64::from(f32::from_le_bytes(bytes.try_into().unwrap())),
+            _ => unreachable!("Pcm::new validates formats"),
+        }
+    }
+
+    fn levels(&self, start: usize, count: usize, channel: usize) -> Value {
+        let mut peak = 0.0f64;
+        let mut squares = 0.0;
+        for frame in start..start + count {
+            let sample = self.sample(frame, channel);
+            peak = peak.max(sample.abs());
+            squares += sample * sample;
+        }
+        json!({"peak":peak,"rms":(squares / count as f64).sqrt()})
+    }
+}
+
+fn shadow_channel(a: &Pcm, b: &Pcm, sa: usize, sb: usize, count: usize, ch: usize) -> Value {
+    let mut sum_a = 0.0;
+    let mut sum_b = 0.0;
+    let mut aa = 0.0;
+    let mut bb = 0.0;
+    let mut ab = 0.0;
+    for i in 0..count {
+        let x = a.sample(sa + i, ch);
+        let y = b.sample(sb + i, ch);
+        sum_a += x;
+        sum_b += y;
+        aa += x * x;
+        bb += y * y;
+        ab += x * y;
+    }
+    let mean_a = sum_a / count as f64;
+    let mean_b = sum_b / count as f64;
+    let mut variance_a = 0.0;
+    let mut variance_b = 0.0;
+    let mut covariance = 0.0;
+    for i in 0..count {
+        let x = a.sample(sa + i, ch) - mean_a;
+        let y = b.sample(sb + i, ch) - mean_b;
+        variance_a += x * x;
+        variance_b += y * y;
+        covariance += x * y;
+    }
+    let correlation = (variance_a > 0.0 && variance_b > 0.0)
+        .then(|| (covariance / (variance_a.sqrt() * variance_b.sqrt())).clamp(-1.0, 1.0));
+    // Fit right ~= gain * left through the origin. A nonpositive fit is not
+    // a positive-gain explanation; silence has no identifiable gain.
+    let gain = (aa > 0.0 && bb > 0.0 && ab > 0.0).then(|| ab / aa);
+    let residual = gain.map(|gain| {
+        let mut squares = 0.0;
+        for i in 0..count {
+            let error = b.sample(sb + i, ch) - gain * a.sample(sa + i, ch);
+            squares += error * error;
+        }
+        (squares / count as f64).sqrt()
+    });
+    json!({"channelIndex":ch,"left":a.levels(sa,count,ch),"right":b.levels(sb,count,ch),
+        "correlation":correlation,"positiveGain":gain,"positiveGainResidualRms":residual,
+        "positiveGainResidualRelativeToRightRms":residual.map(|r| r / (bb / count as f64).sqrt())})
+}
+
+fn shadow_coverage(pcm: &Pcm, start: usize, count: usize) -> Value {
+    let mut unmatched = Vec::new();
+    for (from, to) in [(0, start), (start + count, pcm.frames())] {
+        if from < to {
+            unmatched.push(json!({"startFrame":from,"endFrame":to,
+                "nonzeroFrames":(from..to).filter(|i| !pcm.zero(*i)).count(),
+                "channels":(0..pcm.channels).map(|ch| pcm.levels(from,to-from,ch)).collect::<Vec<_>>()}));
+        }
+    }
+    json!({"totalFrames":pcm.frames(),"matchedInterval":{"startFrame":start,"endFrame":start+count},
+        "matchedFrames":count,"unmatchedFrames":pcm.frames()-count,
+        "wholeTimelineFraction":count as f64 / pcm.frames() as f64,"unmatched":unmatched})
+}
+
+fn shadow_measurements(left: &Observation, right: &Observation, offset: i64) -> Value {
+    let unavailable = |reason: &str| json!({"status":"unavailable","reason":reason});
+    let (Some(a), Some(b)) = (&left.pcm, &right.pcm) else {
+        return unavailable("incomplete source observation");
+    };
+    if (a.rate, a.channels, &a.format) != (b.rate, b.channels, &b.format) {
+        return unavailable("incompatible native PCM interpretation; no conversion attempted");
+    }
+    // Bounds precede negation so even i64::MIN cannot overflow.
+    let overlap = offset > -(b.frames() as i64) && offset < a.frames() as i64;
+    let (sa, sb, count) = if overlap {
+        let sa = offset.max(0) as usize;
+        let sb = (-offset).max(0) as usize;
+        (sa, sb, (a.frames() - sa).min(b.frames() - sb))
+    } else {
+        (0, 0, 0)
+    };
+    let mut windows = Vec::new();
+    let mut differing = 0;
+    for from in (0..count).step_by(SHADOW_WINDOW_FRAMES) {
+        let frames = SHADOW_WINDOW_FRAMES.min(count - from);
+        let differences = (from..from + frames)
+            .filter(|i| {
+                a.bytes[(sa + i) * a.frame_bytes..(sa + i + 1) * a.frame_bytes]
+                    != b.bytes[(sb + i) * b.frame_bytes..(sb + i + 1) * b.frame_bytes]
+            })
+            .count();
+        differing += differences;
+        windows.push(json!({"leftStartFrame":sa+from,"rightStartFrame":sb+from,"frames":frames,
+            "differingFrames":differences,"exactEqualFrames":frames-differences,
+            "channels":(0..a.channels).map(|ch| shadow_channel(a,b,sa+from,sb+from,frames,ch)).collect::<Vec<_>>()}));
+    }
+    json!({"version":1,"status":if overlap {"observed"} else {"no_overlap"},
+        "offsetFrames":offset,"offsetConvention":"left frame = right frame + offsetFrames",
+        "windowFrames":SHADOW_WINDOW_FRAMES,"sampleRate":a.rate,
+        "measurementScope":"Diagnostic measurement only, not acceptance calibration. Consecutive overlap windows, final partial included. Matched means aligned at the fixed offset, not equal or accepted. Exact counts compare native frame bytes. Levels and residuals are full-scale units (integer PCM divided by 2^(bits-1), float unchanged). Pearson correlation is null for zero variance; positiveGain fits right = gain * left through the origin and is null without a positive identifiable fit. Channel order is native; no channel mixing.",
+        "matchedFrames":count,"differingFrames":differing,"exactEqualFrames":count-differing,
+        "coverage":{"left":shadow_coverage(a,sa,count),"right":shadow_coverage(b,sb,count)},
+        "windows":windows})
 }

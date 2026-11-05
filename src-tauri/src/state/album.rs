@@ -380,14 +380,24 @@ fn track_from_lofty(path: &Path, size_bytes: u64, tagged: &lofty::file::TaggedFi
         .to_ascii_lowercase();
     let tags = tagged.tags();
     let album_artist = first_string(tags, ItemKey::AlbumArtist);
+    let album_artists = if extension == "mp3" {
+        let values = crate::commands::tracks::id3_user_text_values(path, "ALBUMARTISTS");
+        if values.is_empty() {
+            album_artist.iter().cloned().collect()
+        } else {
+            values
+        }
+    } else {
+        all_strings(tags, ItemKey::AlbumArtists, ItemKey::AlbumArtist)
+    };
     TrackData {
         path: path.to_string_lossy().into_owned(),
         title: first_string(tags, ItemKey::TrackTitle),
         artist: first_string(tags, ItemKey::TrackArtist),
-        artists: all_strings(tags, ItemKey::TrackArtists),
+        artists: all_strings(tags, ItemKey::TrackArtists, ItemKey::TrackArtist),
         album: first_string(tags, ItemKey::AlbumTitle),
-        album_artist: album_artist.clone(),
-        album_artists: album_artist.into_iter().collect(),
+        album_artist,
+        album_artists,
         track_number: first_number(tags, ItemKey::TrackNumber),
         track_total: first_number(tags, ItemKey::TrackTotal),
         disc_number: first_number(tags, ItemKey::DiscNumber),
@@ -423,7 +433,7 @@ fn first_string(tags: &[Tag], key: ItemKey) -> Option<String> {
         .find_map(|tag| tag.get_string(key).map(ToOwned::to_owned))
 }
 
-fn all_strings(tags: &[Tag], key: ItemKey) -> Vec<String> {
+fn all_strings(tags: &[Tag], key: ItemKey, fallback: ItemKey) -> Vec<String> {
     let mut values = Vec::new();
     for tag in tags {
         values.extend(
@@ -435,9 +445,7 @@ fn all_strings(tags: &[Tag], key: ItemKey) -> Vec<String> {
         );
     }
     if values.is_empty() {
-        return first_string(tags, ItemKey::TrackArtist)
-            .into_iter()
-            .collect();
+        return first_string(tags, fallback).into_iter().collect();
     }
     values.dedup();
     values

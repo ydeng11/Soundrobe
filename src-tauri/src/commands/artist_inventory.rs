@@ -396,7 +396,62 @@ pub fn inventory(
         "historical":historical,"folders":folders.into_iter().map(|(path,(total,unresolved))|
             json!({"path":path,"physicalFiles":total,"identificationUnresolvedFiles":unresolved,
                 "currentCompletion":if files.iter().filter(|f| text(&f["folder"]) == path).all(|f| f["coreState"] == "verified_core") {"verified_core"} else {"not_verified"}})).collect::<Vec<_>>(),
-        "excludedSymlinks":excluded,"files":files,"worklist":worklist}))
+        "excludedSymlinks":excluded,"reviewQuestions":review_questions(&files),"files":files,"worklist":worklist}))
+}
+
+/// Byte equality shares a review question, never a recording identity or proof.
+fn review_questions(files: &[Value]) -> Vec<Value> {
+    let mut groups = BTreeMap::<(bool, String), Vec<&Value>>::new();
+    for file in files.iter().filter(|f| f["coreProof"]["state"] != "valid") {
+        let hash = text(&file["sourceIdentity"]["fingerprint"]);
+        let hash_bound = file["sourceStableDuringRead"] == true
+            && file["sourceError"].is_null()
+            && hash.len() == 64
+            && hash.bytes().all(|b| b.is_ascii_hexdigit());
+        let key = if hash_bound {
+            (true, hash.to_owned())
+        } else {
+            (false, text(&file["path"]).to_owned())
+        };
+        groups.entry(key).or_default().push(file);
+    }
+    groups.into_iter().map(|((hash_bound, key), members)| {
+        let mut blockers = BTreeSet::new();
+        let mut missing = Vec::new();
+        let mut conflicts = BTreeSet::new();
+        let mut actions = BTreeSet::new();
+        let mut candidates = Vec::new();
+        for file in &members {
+            for (field, target) in [("blockers", &mut blockers),
+                ("conflictingFields", &mut conflicts), ("nextActions", &mut actions)] {
+                target.extend(file[field].as_array().into_iter().flatten().map(|v| text(v).to_owned()));
+            }
+            missing.extend(file["missingFacts"].as_array().into_iter().flatten().cloned());
+            for evidence in file["evidence"].as_array().into_iter().flatten() {
+                let row = &evidence["trackEvidence"];
+                let observed = triage(row, &evidence["providerAttempts"]);
+                blockers.extend(observed.blockers);
+                missing.extend(observed.missing);
+                conflicts.extend(observed.conflicts);
+                actions.extend(observed.actions);
+                candidates.extend(row["candidates"].as_array().into_iter().flatten().cloned());
+            }
+        }
+        // Show cross-attempt disagreements too, without selecting or rejecting a candidate.
+        conflicts.extend(triage(&json!({"candidates":candidates}), &Value::Null).conflicts);
+        missing.sort_by_cached_key(Value::to_string);
+        missing.dedup();
+        json!({"groupingBasis":if hash_bound {"exact_whole_file_sha256"} else {"ungrouped_physical_source"},
+            "wholeFileHash":if hash_bound {Some(key)} else {None},
+            "question":"What independent evidence distinguishes the retained alternatives or supplies the missing core facts for these physical files?",
+            "machineIdentityProof":false,
+            "scope":"Read-only review. Byte equality is not recording identity. Source-bound user-approved values are never machine proof; no approval, apply or retry is performed.",
+            "countScope":"Counts remain per physical member and stored observation, never summed across duplicates or attempts. Null means unknown, not zero; displayed alternatives include rejected candidates. No full alternative count is inferred.",
+            "members":members,"blockers":blockers,"missingFacts":missing,"conflictingFields":conflicts,
+            "nextDiscriminator":actions,
+            "stopReason":"Current retained evidence does not establish source-bound machine-verified core for every member. Keep all alternatives unresolved; repeated unchanged evidence or user-approved values cannot establish machine proof.",
+            "reopenWhen":"New independently identity-linked evidence resolves the listed contradictions or missing facts, or a changed/unreadable source is recaptured and revalidated. Recheck each physical member and its proof; a changed hash alone is not identity evidence."})
+    }).collect()
 }
 
 fn text(value: &Value) -> &str {
@@ -624,6 +679,40 @@ pub fn markdown(report: &Value) -> String {
             serde_json::to_string_pretty(&report["historical"]).unwrap()
         ));
     }
+    out.push_str("## Review questions\n\nRead-only; exact whole-file duplicates share a question, not an identity decision. Source-bound user-approved values are never machine proof. Detailed evidence remains below.\n\n");
+    for (index, question) in report["reviewQuestions"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        out.push_str(&format!(
+            "### Question {}\n\n{}\n\nGrouping: {}; whole-file SHA-256: {}.\n\nCount scope: {}\n\n",
+            index + 1,
+            text(&question["question"]),
+            text(&question["groupingBasis"]),
+            question["wholeFileHash"],
+            text(&question["countScope"])
+        ));
+        for member in question["members"].as_array().into_iter().flatten() {
+            out.push_str(&format!("- File: {}; hash: {}; proof: {}; freshness: {}; stable read: {}. Selected count scope: {}\n",
+                text(&member["relativePath"]),member["sourceIdentity"]["fingerprint"],
+                member["coreProof"]["state"],text(&member["freshness"]),member["sourceStableDuringRead"],member["candidateSummary"]));
+            for evidence in member["evidence"].as_array().into_iter().flatten() {
+                let row = &evidence["trackEvidence"];
+                let alternatives: Vec<_> = row["candidates"].as_array().into_iter().flatten().map(|c|
+                    json!({"recordingId":c["recordingId"],"canonicalRecordingId":c["canonicalRecordingId"],
+                        "title":c["authoritativeTitle"],"disposition":c["disposition"],
+                        "sourceLevel":c["providerObservation"]["sourceLevel"]})).collect();
+                out.push_str(&format!("  - Stored source: {}; run: {}; fetched: {}; alternatives: {}. Raw observation counts (not a full count): candidateCount={}, omitted={}, complete={}.\n",
+                    text(&evidence["source"]),evidence["runId"],evidence["fetchedAt"],json!(alternatives),
+                    row["candidateCount"],row["omittedCandidates"],row["candidateSetComplete"]));
+            }
+        }
+        out.push_str(&format!("\nBlockers: {}\n\nContradictions: {}\n\nMissing fields: {}\n\nNext discriminator: {}\n\nStop: {}\n\nReopen when: {}\n\n",
+            question["blockers"],question["conflictingFields"],question["missingFacts"],question["nextDiscriminator"],
+            text(&question["stopReason"]),text(&question["reopenWhen"])));
+    }
     for file in report["worklist"].as_array().into_iter().flatten() {
         let row = &file["selectedEvidence"]["trackEvidence"];
         out.push_str(&format!("## {}. {}\n\n{}; freshness: {}.\n\nEligible hypotheses: {}; displayed alternatives (including rejected): {}; omitted eligible hypotheses: {}; candidate set complete: {}. Full alternative count: unknown (not recorded by legacy evidence). Null means unknown, not zero.\n\nBlockers: {}\n\nMissing facts: {}\n\nObserved candidate disagreements (not new rejection rules): {}\n\nNext actions: {}\n\n<details>\n<summary>All stored attempts and alternatives (fetch times may be unknown)</summary>\n\n```json\n{}\n```\n\n</details>\n\n",
@@ -664,6 +753,164 @@ mod tests {
         let root = std::env::temp_dir().join(format!("artist-inventory-{}", uuid::Uuid::new_v4()));
         fs::create_dir_all(&root).unwrap();
         root
+    }
+
+    #[test]
+    fn review_questions_group_exact_bytes_without_losing_sources_or_changing_accounting() {
+        let root = fixture();
+        let library = root.join("artist");
+        fs::create_dir_all(&library).unwrap();
+        for (name, bytes) in [("a.mp3", "same"), ("b.mp3", "same"), ("c.mp3", "different")] {
+            fs::write(library.join(name), bytes).unwrap();
+        }
+        let data = root.join("data");
+        let worker = WorkerStore::new_in(data.clone());
+        assert!(worker.initialize());
+        for run in ["older", "newer"] {
+            worker
+                .record_evidence(
+                    &library,
+                    run,
+                    &json!({"acoustid":{"trackMatches":
+                (["a.mp3", "b.mp3", "c.mp3"].map(|name| json!({
+                    "fileName":name,"candidateCount":0,"candidateSetComplete":false,
+                    "omittedCandidates":0,"reason":"recording_candidates_tied",
+                    "candidates":[{"recordingId":run,"authoritativeTitle":"Same title",
+                        "providerObservation":{"sourceLevel":"recording","title":"Same title"},
+                        "detailFailure":{"kind":"recording_duration_missing"}},
+                        {"recordingId":"rejected","disposition":"rejected",
+                         "authoritativeTitle":"Same title (Live)"}]})))}}),
+                )
+                .unwrap();
+        }
+        let before = fs::read(data.join("worker.db")).unwrap();
+        let report = inventory(&library, Some(&data), None).unwrap();
+        let questions = report["reviewQuestions"]
+            .as_array()
+            .expect("review questions export");
+        assert_eq!(
+            questions.len(),
+            2,
+            "same titles with different bytes are not grouped"
+        );
+        let question = questions
+            .iter()
+            .find(|q| q["members"].as_array().unwrap().len() == 2)
+            .unwrap();
+        assert_eq!(question["groupingBasis"], "exact_whole_file_sha256");
+        assert_eq!(question["machineIdentityProof"], false);
+        assert_eq!(
+            question["missingFacts"].as_array().unwrap().len(),
+            2,
+            "one concise gap per recording/fact; repeated source observations remain in members"
+        );
+        assert!(question["conflictingFields"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("authoritativeTitle")));
+        assert!(question["stopReason"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()));
+        assert!(question["reopenWhen"]
+            .as_str()
+            .is_some_and(|s| !s.is_empty()));
+        for (index, name) in ["a.mp3", "b.mp3"].iter().enumerate() {
+            let member = &question["members"][index];
+            assert_eq!(member["relativePath"], *name);
+            assert_eq!(
+                member,
+                report["files"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .find(|f| f["relativePath"] == *name)
+                    .unwrap()
+            );
+            assert_eq!(
+                member["evidence"].as_array().unwrap().len(),
+                2,
+                "retain historical attempts, not just selected alternatives"
+            );
+            assert!(member["candidateSummary"]["eligibleHypothesisCount"].is_null());
+            assert!(member["candidateSummary"]["omittedEligibleHypotheses"].is_null());
+            assert_eq!(
+                member["candidateSummary"]["fullAlternativeCountKnown"],
+                false
+            );
+        }
+        assert_eq!(
+            report["summary"],
+            json!({"physicalFiles":3,"folders":1,
+            "verifiedCoreFiles":0,"unresolvedFiles":3,"identificationUnresolvedFiles":3,
+            "revalidationFiles":0,"oneIdentificationBlockerFolders":0})
+        );
+        for (index, file) in report["worklist"].as_array().unwrap().iter().enumerate() {
+            assert_eq!(file["rank"], index + 1);
+            assert_eq!(file["priorityGroup"], 1);
+            assert_eq!(file["sharedFactFileCount"], 3);
+            assert_eq!(file["relativePath"], ["a.mp3", "b.mp3", "c.mp3"][index]);
+        }
+        let rendered = markdown(&report);
+        for label in [
+            "## Review questions",
+            "Stop:",
+            "Reopen when:",
+            "Next discriminator:",
+            "All stored attempts and alternatives",
+            "Count scope:",
+            "Same title (Live)",
+        ] {
+            assert!(rendered.contains(label), "missing {label}");
+        }
+        assert_eq!(fs::read(data.join("worker.db")).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn review_questions_exclude_valid_proof_but_not_approved_or_unstable_sources() {
+        let root = fixture();
+        fs::write(root.join("one.mp3"), b"media").unwrap();
+        let report = inventory(&root, None, None).unwrap();
+        let original = report["files"][0].clone();
+        // This projection consumes the inventory's already validated proof state;
+        // it must not turn another policy state into a new proof mechanism.
+        let mut valid = original.clone();
+        valid["coreProof"] = json!({"state":"valid","receipt":{"retained":"proof"}});
+        valid["coreState"] = json!("verified_core");
+        let mut approved = original.clone();
+        approved["path"] = json!(root.join("approved.mp3"));
+        approved["coreState"] = json!("user_approved");
+        approved["userApproval"] =
+            json!({"sourceIdentity":original["sourceIdentity"],"title":"Approved"});
+        let mut unstable = original.clone();
+        unstable["path"] = json!(root.join("unstable.mp3"));
+        unstable["sourceStableDuringRead"] = json!(false);
+        let files = vec![valid, approved.clone(), unstable.clone()];
+        let before = files.clone();
+        let questions = review_questions(&files);
+        assert_eq!(
+            files, before,
+            "review projection must not upgrade or mutate facts"
+        );
+        assert_eq!(
+            questions.len(),
+            2,
+            "unstable hashes cannot join a stable group"
+        );
+        let members: Vec<_> = questions
+            .iter()
+            .flat_map(|q| q["members"].as_array().unwrap())
+            .collect();
+        assert_eq!(
+            members.len(),
+            2,
+            "valid proof must not become an unresolved question"
+        );
+        assert!(members.contains(&&approved));
+        assert!(members.contains(&&unstable));
+        assert!(questions.iter().all(|q| q["machineIdentityProof"] == false));
+        assert!(review_questions(&before[..1]).is_empty());
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

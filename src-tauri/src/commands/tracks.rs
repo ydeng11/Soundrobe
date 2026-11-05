@@ -677,7 +677,7 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
             let mut track = from_lofty(path, size_bytes, &extension, &tagged);
             if extension == "mp3" {
                 if let Some(tag) = tagged.remove(TagType::Id3v2) {
-                    apply_mp3_recording_id(&Id3v2Tag::from(tag), &mut track);
+                    apply_mp3_native_fields(path, &Id3v2Tag::from(tag), &mut track);
                 }
             } else if extension == "flac" {
                 apply_flac_native_fields(path, &mut track);
@@ -712,7 +712,11 @@ pub(crate) fn read_track_metadata_without_lyrics(path: &Path) -> Result<TrackDat
     }
 }
 
-fn apply_mp3_recording_id(id3v2: &Id3v2Tag, track: &mut TrackData) {
+fn apply_mp3_native_fields(path: &Path, id3v2: &Id3v2Tag, track: &mut TrackData) {
+    let album_artists = id3_user_text_values(path, "ALBUMARTISTS");
+    if !album_artists.is_empty() {
+        track.album_artists = album_artists;
+    }
     // Match the writer's TXXX contract; keep a standard UFID when it is absent.
     if let Some(id) = id3v2
         .get_user_text("MusicBrainz Track Id")
@@ -1132,6 +1136,10 @@ fn from_tags(
         artists = all_strings(tags, ItemKey::TrackArtist);
     }
     artists.dedup();
+    let mut album_artists = all_strings(tags, ItemKey::AlbumArtists);
+    if album_artists.is_empty() {
+        album_artists = album_artist.iter().cloned().collect();
+    }
 
     TrackData {
         path: path.to_string_lossy().into_owned(),
@@ -1139,8 +1147,8 @@ fn from_tags(
         artist,
         artists,
         album: first_string(tags, ItemKey::AlbumTitle),
-        album_artist: album_artist.clone(),
-        album_artists: album_artist.into_iter().collect(),
+        album_artist,
+        album_artists,
         track_number: first_number(tags, ItemKey::TrackNumber),
         track_total: first_number(tags, ItemKey::TrackTotal),
         disc_number: first_number(tags, ItemKey::DiscNumber),
@@ -1264,7 +1272,7 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
             track.artists = native_artists;
         }
         track.description = id3v2.get_user_text("DESCRIPTION").map(ToOwned::to_owned);
-        apply_mp3_recording_id(id3v2, &mut track);
+        apply_mp3_native_fields(path, id3v2, &mut track);
         track.discogs_artist_id = id3v2
             .get_user_text("Discogs Artist Id")
             .map(ToOwned::to_owned);
@@ -2569,17 +2577,46 @@ mod tests {
         value
     }
 
-    /// Differential contract: every Lofty/custom-fallback result serializes to
-    /// Electron's normalized renderer payload from these exact eleven files:
-    /// MP3/FLAC/WAV/OGG/APE, malformed FLAC, M4A/MP4, Opus, and AIFF.
+    #[test]
+    fn repeated_mp3_album_artist_frames_survive_both_album_readers() {
+        let root = album_test_root();
+        fs::create_dir_all(&root).unwrap();
+        let bytes = fs::read(corpus_root().join("minimal.mp3")).unwrap();
+        let audio_start = 10 + syncsafe_u32(&bytes[6..10]).unwrap() as usize;
+        let mut valid_mpeg = bytes[..audio_start].to_vec();
+        valid_mpeg.extend(bytes[audio_start..].repeat(8));
+        let path = root.join("01.mp3");
+        fs::write(&path, valid_mpeg).unwrap();
+        assert!(lofty::read_from_path(&path).is_ok());
+
+        let desktop = read_album(&root).unwrap();
+        let server = crate::state::album::read_album(&root).unwrap();
+        let expected = ["Corpus Album Artist", "Guest Album Artist"];
+        assert_eq!(desktop.tracks[0].album_artists, expected);
+        assert_eq!(server.tracks[0].album_artists, expected);
+        assert_eq!(
+            desktop.tracks[0].album_artist.as_deref(),
+            Some("Corpus Album Artist")
+        );
+        assert_eq!(
+            server.tracks[0].album_artist.as_deref(),
+            Some("Corpus Album Artist")
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Differential contract: retain Electron's normalized renderer payload
+    /// except that plural album credits now preserve every native entry.
     #[test]
     fn shared_electron_media_corpus_matches_track_data() {
         let root = corpus_root();
-        let expected: serde_json::Value = serde_json::from_str(
+        let mut expected: serde_json::Value = serde_json::from_str(
             &std::fs::read_to_string(root.join("expected.json"))
                 .expect("Electron normalized baseline exists"),
         )
         .expect("Electron baseline is valid JSON");
+        expected[0]["albumArtists"] =
+            serde_json::json!(["Corpus Album Artist", "Guest Album Artist"]);
         let expected = serde_json::Value::Array(
             expected
                 .as_array()

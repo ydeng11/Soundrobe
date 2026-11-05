@@ -612,15 +612,15 @@ fn aligned_track(
         title_replacement
     } else if api_source && evidence == Some(MatchEvidence::MusicbrainzTrackId) {
         remote.title.clone().or_else(|| local.title.clone())
-    } else if api_source && is_placeholder(local.title.as_deref()) {
-        remote.title.clone().or_else(|| local.title.clone())
-    } else if evidence == Some(MatchEvidence::TagTitle) && tag_matched_primary {
-        local.title.clone()
     } else if evidence == Some(MatchEvidence::FilenameTitle) {
         let mut artists = artist_hints.to_vec();
         artists.extend(local.artist.iter().cloned());
         artists.extend(local.artists.iter().cloned());
-        clean_filename_title(&forms.filename_raw, &artists).or_else(|| local.title.clone())
+        clean_filename_identity(&forms.filename_raw, &artists).or_else(|| local.title.clone())
+    } else if api_source && is_placeholder(local.title.as_deref()) {
+        remote.title.clone().or_else(|| local.title.clone())
+    } else if evidence == Some(MatchEvidence::TagTitle) && tag_matched_primary {
+        local.title.clone()
     } else if api_source
         && matches!(
             evidence,
@@ -1427,6 +1427,35 @@ mod tests {
 
         assert_eq!(polluted.tracks[0].title.as_deref(), Some("微光"));
         assert_eq!(live.tracks[0].title.as_deref(), Some("Song (Live)"));
+    }
+
+    #[test]
+    fn filename_matched_titles_keep_their_performance_qualifiers() {
+        for qualifier in ["Live", "Instrumental", "Radio Version"] {
+            let title = format!("New Rules [{qualifier}]");
+            let stem = format!("Dua Lipa - {title}");
+            for local_title in [None, Some(stem)] {
+                let local = TrackCandidate {
+                    title: local_title,
+                    length: Some(275.16),
+                    ..TrackCandidate::default()
+                };
+                let matched = match_remote_candidate_tracks(
+                    &[local],
+                    &[format!("08. Dua Lipa - {title}.wav")],
+                    &[TrackCandidate {
+                        length: Some(275_160.0),
+                        ..track("New Rules")
+                    }],
+                    "musicbrainz",
+                    &["Dua Lipa".into()],
+                    &[],
+                );
+
+                assert_eq!(matched.evidence, vec![Some(MatchEvidence::FilenameTitle)]);
+                assert_eq!(matched.tracks[0].title.as_deref(), Some(title.as_str()));
+            }
+        }
     }
 
     #[test]

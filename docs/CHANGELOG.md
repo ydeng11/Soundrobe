@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The inventory can discover recording-specific catalog leads under an explicitly selected artist and version, preserving partial credits and competing alternatives in an isolated resumable cache. Networking requires an explicit opt-in; catalog hits never become verified tags by themselves.
+- Selected audio-pair diagnostics include per-channel window measurements and quiet unmatched material at a declared fixed offset, without changing matching thresholds or reuse eligibility.
+- Inventory review questions group byte-identical unresolved files for investigation while retaining every physical file, alternative, unknown count and stop/reopen condition. Grouping and user approval do not create recording proof.
+
 - The offline inventory can export core-only reuse proposals for selected donor/recipient pairs with exact complete checksum-verified FLAC audio and current independently rooted recording receipts. It retains source/proof lineage, blocks conflicting selected donor labels, and leaves files, verification, grouping and worker state unchanged; there is no apply operation.
 
 - Strict recording-core tagging retains per-file source-bound write/readback receipts across restarts in both desktop and server runs. Replaced inputs cannot inherit an earlier source's proof, and supported metadata-boundary repairs remain compatible. The offline inventory distinguishes current proof from pending, changed and legacy evidence, and candidate observations retain partial billing, duration and fresh-response provenance without relaxing identification rules.
@@ -125,6 +129,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- AI fallback tagging now receives existing ordered performer lists and distinguishes collaboration credits from single-act band names, reducing joined artist-list entries without blindly splitting ampersands or promoting remixers to performers. Desktop and browser album readback also preserve stored album-artist lists instead of collapsing them into the display credit.
+- Auto-tagging recognizes indexed album folders with year and audio-quality suffixes, instead of treating their library index and sample format as part of the album title. Existing album tags and provider acceptance checks remain unchanged.
+- Titles recovered from filenames retain live, instrumental and version qualifiers instead of losing them when a provider lists only the base song title.
 - Reuse proposals now retain conflicting current independent recording proof even when a selected source cannot donate its metadata, such as a verified live title whose raw provider title omits the qualifier. Donation requirements remain unchanged.
 - MP3 recording IDs now remain readable and persist when recognition adds an ID to a track whose title and artist already match.
 - Desktop library loading, auto-tag results, and review actions now work in the native app instead of being unavailable after the tagging migration.

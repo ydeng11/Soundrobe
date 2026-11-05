@@ -1,8 +1,8 @@
 # Artist-library inventory
 
 Use the offline inventory to account for an artist's physical audio files and
-rank the next evidence-gathering work. It does not start the app, query providers,
-call AI, write tags, approve decisions, or enqueue retries. You do not need to
+rank the next evidence-gathering work. By default it does not query providers.
+It never starts the app, calls AI, writes tags, approves decisions, or enqueues retries. You do not need to
 launch `just web-local` to export it.
 
 From the repository root:
@@ -100,6 +100,78 @@ one file will complete its folder.
 worker/audit records lack that binding and do not become proof from tags or an
 old folder status. Album/edition metadata, enrichment and human approval remain
 separate and unverified by this command.
+
+The additive `reviewQuestions` section groups byte-identical unresolved files
+by current whole-file SHA-256 for investigation only. Different bytes or unstable
+sources stay separate even when titles agree. Each question retains every
+physical member, proof state, stored attempt, alternative and count scope, plus
+missing facts, observed contradictions, next discriminators and stop/reopen
+reasons. Counts are not summed across duplicate files or attempts. A shared
+question does not authenticate the files, and approval does not create machine
+proof. Current valid proofs are omitted from unresolved questions. The existing
+file worklist and its ranking remain unchanged.
+
+## Opt-in recording-centric discovery
+
+`--recording-discovery MANIFEST.json --discovery-cache DIR` adds a
+`recordingDiscovery` section. It reads retained per-file alternatives first,
+then looks up their recording IDs and searches a concrete title under the
+specified artist/version. An explicit `recordingIds` list can add catalog or
+embedded-ID leads. None of these leads binds a recording to local audio.
+Raw search alternatives, ordered billing, source levels and relationships are
+retained, including partial details rejected by the strict recording parser.
+Remixers, producers and writers are not converted into billed performers.
+
+```json
+{
+  "requests": [{
+    "path": "folder/track.flac",
+    "sha256": "<full SHA-256 from inventory>",
+    "artist": "Relevant primary or featured artist",
+    "title": "Exact recording title",
+    "version": "Named remix or version",
+    "changedFact": "New product evidence names this artist/version",
+    "recordingIds": []
+  }]
+}
+```
+
+Omit `version` when it is unknown; do not invent an edition or remove a known
+qualifier merely to get more hits. Search uses quoted recording/artist terms
+and, when supplied, the version in recording title or disambiguation.
+
+```sh
+cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features server \
+  --bin soundrobe-inventory -- /path/to/artist \
+  --worker-data /path/to/isolated-existing-worker-data \
+  --recording-discovery /path/to/discovery.json \
+  --discovery-cache /path/to/isolated-discovery-cache --allow-network \
+  > /tmp/recording-discovery.json
+```
+
+Networking requires `--allow-network`. Without it, cached observations are
+replayed and missing ones say `network_not_enabled`; they are not no-matches.
+Only the explicit discovery cache is written. Media, application state and
+worker directories are refused as cache locations. This mode cannot be combined
+with audio diagnostics or reuse proposals. It has no apply operation and never
+changes receipts, folder completion or the existing resolver's acceptance rules.
+
+Limits are eight selected requests, four new recording-detail operations per
+request, 32 new operations total, ten search results and up to three HTTP attempts
+per operation under the existing provider retry/rate-limit policy. Cached details
+do not consume the next budget. Repeating the same manifest resumes uncached
+details instead of retrying successful null-duration responses. Successful empty
+searches remain distinct from incomplete searches, and failed observations retain
+a retry deadline, including Retry-After, across restarts. Ctrl-C cancels optional
+work. A changed source is labeled unusable for the previous binding.
+
+Cache entries are versioned and provider/query-specific. A successful partial or
+empty response is retained without automatic expiry. To deliberately requery
+after a new source/provider revision, add a new `refreshRevision` string naming
+that evidence revision; retain the concrete `changedFact`. Changing prose alone
+does not bypass the cache. No automatic whole-library search or provider refresh
+is performed. A complete retained search page is not a complete acoustic candidate
+set or the entire world's catalog. Discovery alone adds no verified files.
 
 ## Durable recording-core receipts
 
@@ -201,6 +273,20 @@ reported. A different ending or an incompatible interpretation cannot be average
 away. Missing coverage means no exact correspondence was established, not that
 two recordings are unrelated.
 
+Each diagnostic pair also has `shadowMeasurements`, independent of exact
+comparison and reuse eligibility. It measures consecutive 4096-frame windows,
+including the final partial window, at the supplied offset or zero. No offset
+is inferred. Each native channel has peak/RMS, Pearson correlation and an
+explicit exploratory positive-gain fit/residual. Undefined low-information
+metrics are null. Exact differing-frame counts expose quiet local changes that
+aggregate correlation can hide; unmatched edges retain nonzero-frame counts
+and per-channel levels on both timelines. Here "matched" means aligned at the
+fixed offset, not equal audio or accepted identity. Incompatible/incomplete PCM
+is unavailable, not a negative identity decision. There is no similarity
+threshold, near-silence classification, resampling, time warp or acceptance
+policy in these measurements. Synthetic controls validate the instrument, not
+real-world recording accuracy or a tolerance safe enough to write tags.
+
 The export retains whole-PCM inequality, decoded hashes, maximal leading/trailing
 zero counts, the zero-edge-excluded interval and diagnostic hash, matching
 intervals/fractions on both timelines, and unmatched prefix/suffix intervals with
@@ -213,7 +299,8 @@ timeline, and its zero-edge-excluded interval is empty. No files are trimmed.
 
 Supported on Unix with FFmpeg/ffprobe: mono/stereo FLAC (native 16/24-bit), WAV
 (PCM 16/24-bit or float32), and MP3 (native float32 decode). There is no resampling,
-gain fitting, downmixing or precision-reduction fallback. Other formats, layouts
+gain adjustment, downmixing or precision-reduction fallback. The shadow gain fit
+only measures a relationship and never changes decoded samples. Other formats, layouts
 and native precisions are explicitly incomplete/unsupported. Process versions,
 arguments, stream/gapless interpretation, warnings and integrity basis are retained.
 FLAC requires both native STREAMINFO MD5 and declared sample-count agreement.
