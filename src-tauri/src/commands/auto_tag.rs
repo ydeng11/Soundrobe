@@ -222,8 +222,8 @@ impl RecordingCore {
     fn matches(&self, actual: &Self) -> bool {
         use unicode_normalization::UnicodeNormalization;
         let text = |v: &str| v.trim().nfc().collect::<String>();
-        self.title.as_deref().map(&text) == actual.title.as_deref().map(&text)
-            && self.artist.as_deref().map(&text) == actual.artist.as_deref().map(&text)
+        self.title.as_deref().map(text) == actual.title.as_deref().map(text)
+            && self.artist.as_deref().map(text) == actual.artist.as_deref().map(text)
             && self.artists.iter().map(|v| text(v)).collect::<Vec<_>>()
                 == actual.artists.iter().map(|v| text(v)).collect::<Vec<_>>()
             && self

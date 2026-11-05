@@ -14,9 +14,8 @@ use std::{
 
 const SCOPE: &str = "Read-only inventory; existing tags and historical decisions are not identity proof. Versioned terminal receipts are revalidated against current physical source hashes; legacy evidence remains source-unbound. Verified core, edition, enrichment and human approval remain separate; no recognition or approval is performed.";
 
-/// Reuse is narrower than a valid write/readback receipt: the retained original
-/// lookup and complete recording billing must independently support its core.
-/// Sparse legacy display rows remain useful diagnostics, never reuse roots.
+/// Current independently rooted M2 labels can contradict a proposal even when
+/// their retained facts are too sparse or differently worded to donate it.
 pub(crate) fn reuse_root(file: &Value, current_history: &[Value]) -> Result<Value, String> {
     use sha2::{Digest, Sha256};
     if file["coreProof"]["state"] != "valid" {
@@ -62,11 +61,27 @@ pub(crate) fn reuse_root(file: &Value, current_history: &[Value]) -> Result<Valu
     {
         return Err("independent_lookup_binding_unproven".into());
     }
-    let core = json!(receipt.accepted);
+    Ok(
+        json!({"source":receipt.post_write,"accepted":receipt.accepted,"decisionBasis":receipt.decision_basis,
+        "root":{"kind":"independent_acoustid_recording_resolution","runId":receipt.run_id,
+            "attemptId":receipt.attempt_id,"receiptVersion":receipt.version,"decisionRuleVersion":receipt.decision_rule_version,
+            "evidenceVersion":receipt.evidence_version,"receiptDigest":format!("{:x}",Sha256::digest(stored.to_string().as_bytes())),
+            "evidenceDigest":receipt.evidence_digest,"preWrite":receipt.pre_write,"postWrite":receipt.post_write,
+            "observedAt":receipt.observed_at,"publishedAt":receipt.published_at,"parentProof":null},
+        "provenance":receipt.evidence}),
+    )
+}
+
+/// Donation remains narrower than current independent proof: retained original
+/// recording facts must exactly support the complete proposed core.
+pub(crate) fn validate_reuse_donation(root: &Value) -> Result<(), String> {
+    let row = &root["provenance"]["trackMatch"];
+    let lookup = &row["lookupObservation"];
+    let core = &root["accepted"];
     let candidates = row["candidates"]
         .as_array()
         .ok_or("root_recording_facts_missing")?;
-    let selected = receipt.decision_basis == "selected_recording";
+    let selected = root["decisionBasis"] == "selected_recording";
     let roots: Vec<_> = candidates
         .iter()
         .filter(|c| {
@@ -125,15 +140,7 @@ pub(crate) fn reuse_root(file: &Value, current_history: &[Value]) -> Result<Valu
             return Err("root_recording_core_conflict_or_missing_facts".into());
         }
     }
-    Ok(
-        json!({"source":receipt.post_write,"accepted":core,"decisionBasis":receipt.decision_basis,
-        "root":{"kind":"independent_acoustid_recording_resolution","runId":receipt.run_id,
-            "attemptId":receipt.attempt_id,"receiptVersion":receipt.version,"decisionRuleVersion":receipt.decision_rule_version,
-            "evidenceVersion":receipt.evidence_version,"receiptDigest":format!("{:x}",Sha256::digest(stored.to_string().as_bytes())),
-            "evidenceDigest":receipt.evidence_digest,"preWrite":receipt.pre_write,"postWrite":receipt.post_write,
-            "observedAt":receipt.observed_at,"publishedAt":receipt.published_at,"parentProof":null},
-        "provenance":receipt.evidence}),
-    )
+    Ok(())
 }
 
 /// Full-file SHA-256 is a stale-input check, not an audio identity decision.

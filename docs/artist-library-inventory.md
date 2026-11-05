@@ -299,7 +299,12 @@ external edits. Re-export after any input or proof change.
 
 Conflicting valid core labels or decision bases on equal interpreted PCM among
 **selected sources**, including valid recipients, block proposals. Unselected
-sources are not searched. Repeated selections deduplicate to one proposal per
+sources are not searched. Current independently rooted M2 labels still participate
+in conflicts when their retained recording facts cannot satisfy the stricter
+donation checks, such as a supported live qualifier absent from the raw title.
+This does not make those sources eligible to donate. Invalid, stale, pending,
+source-unbound or differently owned receipts cannot supply conflict labels.
+Repeated selections deduplicate to one proposal per
 recipient path and one entry per identical donor proof/source. Multiple donor
 copies never become independent corroboration votes; that count stays null.
 Each proposal retains root run/attempt/receipt/evidence references, original and

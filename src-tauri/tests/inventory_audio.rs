@@ -639,6 +639,113 @@ fn reuse_rejects_edges_partial_audio_unproven_completeness_and_conflicting_roots
 }
 
 #[test]
+#[ignore = "native offline proposal contract: requires FFmpeg and ffprobe"]
+fn reuse_conflicts_include_current_independent_receipts_that_cannot_donate() {
+    for scenario in [
+        "eligible",
+        "qualified",
+        "basis",
+        "pending",
+        "stale",
+        "unbound",
+        "lineage",
+        "invalid_version",
+    ] {
+        let fixture = Fixture::new();
+        let program = [[37, -19], [21, 0], [-8, 93], [1, -2]].repeat(8);
+        let donor = fixture.flac("donor.flac", &program, "Program");
+        let recipient = fixture.flac("recipient.flac", &program, "Program (Live)");
+        let mut conflicting = fixture.donor_receipt("recipient.flac", scenario == "basis");
+        if scenario != "basis" {
+            let id = "22222222-2222-4222-8222-222222222222";
+            for core in ["accepted", "readback"] {
+                conflicting[core]["title"] = json!("Program (Live)");
+                conflicting[core]["musicbrainzTrackId"] = json!(id);
+            }
+            let row = &mut conflicting["evidence"]["trackMatch"];
+            row["recordingId"] = json!(id);
+            let candidate = &mut row["candidates"][0];
+            candidate["recordingId"] = json!(id);
+            candidate["canonicalRecordingId"] = json!(id);
+            candidate["authoritativeTitle"] = json!(if scenario == "eligible" {
+                "Program (Live)"
+            } else {
+                "Program"
+            });
+            candidate["disambiguation"] = json!("live, from World Tour");
+            candidate["providerObservation"]["canonicalId"] = json!(id);
+            candidate["providerObservation"]["responseId"] = json!(id);
+            candidate["providerObservation"]["title"] = candidate["authoritativeTitle"].clone();
+        }
+        conflicting["evidenceDigest"] = json!(format!(
+            "{:x}",
+            Sha256::digest(conflicting["evidence"].to_string().as_bytes())
+        ));
+        fixture.publish_donors(vec![
+            fixture.donor_receipt("donor.flac", false),
+            conflicting,
+        ]);
+        let db = rusqlite::Connection::open(fixture.0.join("state/worker.db")).unwrap();
+        let stored: String = db
+            .query_row("SELECT evidence FROM worker_evidence", [], |r| r.get(0))
+            .unwrap();
+        let mut evidence: Value = serde_json::from_str(&stored).unwrap();
+        let receipt = &mut evidence["coreReceipts"][1];
+        match scenario {
+            "stale" => receipt["postWrite"]["fingerprint"] = json!("f".repeat(64)),
+            "unbound" => {
+                receipt["evidence"]["trackMatch"]["lookupObservation"]["source"]["path"] =
+                    json!(fixture.0.join("donor.flac"));
+            }
+            "lineage" => receipt["parentProof"] = json!("unproven-parent"),
+            "invalid_version" => receipt["decisionRuleVersion"] = json!(2),
+            _ => (),
+        }
+        receipt["evidenceDigest"] = json!(format!(
+            "{:x}",
+            Sha256::digest(receipt["evidence"].to_string().as_bytes())
+        ));
+        if scenario == "pending" {
+            let receipt = evidence["coreReceipts"].as_array_mut().unwrap().remove(1);
+            evidence["pendingCoreReceipts"] = json!([receipt]);
+        }
+        db.execute(
+            "UPDATE worker_evidence SET evidence=?1",
+            [evidence.to_string()],
+        )
+        .unwrap();
+        drop(db);
+        let output = fixture.reuse(json!([{"left":donor,"right":recipient}]), false);
+        assert!(output.status.success());
+        let report: Value = serde_json::from_slice(&output.stdout).unwrap();
+        let conflict = matches!(scenario, "eligible" | "qualified" | "basis");
+        assert_eq!(
+            report["reuseProposals"]["proposalCount"],
+            if conflict { 0 } else { 1 },
+            "{scenario}: current independent contradictions must survive narrower donation rejection"
+        );
+        assert_eq!(
+            report["reuseProposals"]["conflicts"]
+                .as_array()
+                .unwrap()
+                .len(),
+            usize::from(conflict),
+            "{scenario}: invalid or non-independent receipts cannot supply conflict labels"
+        );
+        if scenario == "qualified" {
+            assert_eq!(report["summary"]["verifiedCoreFiles"], 2);
+            assert_eq!(
+                report["reuseProposals"]["pairs"][0]["recipientRootError"],
+                "root_recording_core_conflict_or_missing_facts",
+                "a conflict label does not make this receipt eligible to donate"
+            );
+        }
+        assert_eq!(fixture.source("donor.flac"), donor);
+        assert_eq!(fixture.source("recipient.flac"), recipient);
+    }
+}
+
+#[test]
 #[ignore = "native offline contract: requires FFmpeg and ffprobe"]
 fn selected_pair_export_preserves_nonzero_tail_and_default_inventory() {
     let fixture = Fixture::new();

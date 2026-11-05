@@ -260,6 +260,14 @@ fn propose(
         let a_source = observed_source(a);
         let b_source = observed_source(b);
         let key = audio_key(&a.report);
+        let donor_eligibility = ar
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(crate::commands::artist_inventory::validate_reuse_donation);
+        let recipient_eligibility = br
+            .as_ref()
+            .map_err(Clone::clone)
+            .and_then(crate::commands::artist_inventory::validate_reuse_donation);
         let rejection = if a
             .snapshot
             .as_ref()
@@ -274,7 +282,7 @@ fn propose(
             Some("cancelled_or_source_changed")
         } else if find(a).is_err() || find(b).is_err() {
             Some("inventory_decoded_source_binding_changed")
-        } else if ar.is_err() {
+        } else if donor_eligibility.is_err() {
             Some("independent_donor_root_unavailable")
         } else if !reusable_audio(&a.report) || !reusable_audio(&b.report) {
             Some("checksum_completeness_unavailable")
@@ -289,7 +297,7 @@ fn propose(
             None
         };
         pairs.push(json!({"left":a.report,"right":b.report,"comparison":comparison,
-            "rejection":rejection,"donorRootError":ar.as_ref().err(),"recipientRootError":br.as_ref().err()}));
+            "rejection":rejection,"donorRootError":donor_eligibility.err(),"recipientRootError":recipient_eligibility.err()}));
         if rejection.is_none() {
             let proof = ar.as_ref().unwrap();
             let proposal = proposals.entry(b.path.to_string_lossy().into_owned()).or_insert_with(|| {

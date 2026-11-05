@@ -125,6 +125,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reuse proposals now retain conflicting current independent recording proof even when a selected source cannot donate its metadata, such as a verified live title whose raw provider title omits the qualifier. Donation requirements remain unchanged.
 - MP3 recording IDs now remain readable and persist when recognition adds an ID to a track whose title and artist already match.
 - Desktop library loading, auto-tag results, and review actions now work in the native app instead of being unavailable after the tagging migration.
 - Browser Settings section links no longer trap the page at the selected section. The main pane remains scrollable, and the sticky navigation can focus another section.
