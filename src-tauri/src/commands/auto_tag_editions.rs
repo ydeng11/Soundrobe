@@ -9,7 +9,11 @@ use unicode_normalization::UnicodeNormalization;
 pub struct AcceptedMatch {
     #[serde(skip)]
     pub tracks: Vec<TrackCandidate>,
+    #[serde(skip)]
+    pub provider_tracks: Vec<TrackCandidate>,
     pub coverage: usize,
+    pub remote_indices: Vec<Option<usize>>,
+    pub evidence: Vec<Option<MatchEvidence>>,
     pub local_year: Option<String>,
     pub release_year: Option<String>,
     pub duration_exception: Option<DurationException>,
@@ -127,7 +131,10 @@ pub(super) fn accept_edition(
     strict_provider_candidate_credibility(request, &validated)?;
     Ok(AcceptedMatch {
         tracks,
+        provider_tracks: remote.clone(),
         coverage: remote.len(),
+        remote_indices: (0..remote.len()).map(Some).collect(),
+        evidence: vec![Some(MatchEvidence::TagTitle); remote.len()],
         local_year: request.year_hint.clone(),
         release_year: candidate.year.clone(),
         duration_exception,

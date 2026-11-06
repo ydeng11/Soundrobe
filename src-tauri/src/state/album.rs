@@ -289,8 +289,8 @@ where
             .file_name()
             .map(|name| name.to_string_lossy().into_owned())
             .unwrap_or_default();
-        match lofty::read_from_path(&path) {
-            Ok(tagged) => tracks.push(track_from_lofty(&path, size_bytes, &tagged)),
+        match read_album_track(&path, size_bytes) {
+            Ok(track) => tracks.push(track),
             Err(_) => {
                 error_count += 1;
                 tracks.push(unreadable_track(&path, size_bytes, title));
@@ -370,6 +370,60 @@ fn unreadable_track(path: &Path, size_bytes: u64, title: String) -> TrackData {
         codec: "unknown".to_string(),
         duration: 0.0,
     }
+}
+
+fn read_album_track(path: &Path, size_bytes: u64) -> lofty::error::Result<TrackData> {
+    use lofty::config::ParseOptions;
+    use lofty::file::FileType;
+    use lofty::probe::Probe;
+
+    let probe = Probe::open(path)?;
+    let (tagged, provider_ids) = match probe.file_type() {
+        Some(FileType::Mpeg) => {
+            let native =
+                lofty::mpeg::MpegFile::read_from(&mut probe.into_inner(), ParseOptions::default())?;
+            let tag = native.id3v2();
+            let ids = [
+                tag.and_then(|tag| tag.get_user_text("MusicBrainz Track Id")),
+                tag.and_then(|tag| {
+                    tag.get_user_text("MusicBrainz Release Id")
+                        .or_else(|| tag.get_user_text("MusicBrainz Album Id"))
+                }),
+                tag.and_then(|tag| tag.get_user_text("MusicBrainz Artist Id")),
+                tag.and_then(|tag| tag.get_user_text("Discogs Artist Id")),
+                tag.and_then(|tag| tag.get_user_text("Discogs Release Id")),
+            ]
+            .map(|value| value.map(ToOwned::to_owned));
+            (native.into(), ids)
+        }
+        Some(FileType::Flac) => {
+            let native =
+                lofty::flac::FlacFile::read_from(&mut probe.into_inner(), ParseOptions::default())?;
+            let ids = [
+                "MUSICBRAINZ_TRACKID",
+                "MUSICBRAINZ_ALBUMID",
+                "MUSICBRAINZ_ARTISTID",
+                "DISCOGS_ARTIST_ID",
+                "DISCOGS_RELEASE_ID",
+            ]
+            .map(|key| {
+                native
+                    .vorbis_comments()
+                    .and_then(|tag| tag.get(key))
+                    .map(ToOwned::to_owned)
+            });
+            (native.into(), ids)
+        }
+        _ => return Ok(track_from_lofty(path, size_bytes, &probe.read()?)),
+    };
+    let mut track = track_from_lofty(path, size_bytes, &tagged);
+    let [recording, release, artist, discogs_artist, discogs_release] = provider_ids;
+    track.musicbrainz_track_id = recording.or(track.musicbrainz_track_id);
+    track.musicbrainz_album_id = release.or(track.musicbrainz_album_id);
+    track.musicbrainz_artist_id = artist.or(track.musicbrainz_artist_id);
+    track.discogs_artist_id = discogs_artist;
+    track.discogs_release_id = discogs_release;
+    Ok(track)
 }
 
 fn track_from_lofty(path: &Path, size_bytes: u64, tagged: &lofty::file::TaggedFile) -> TrackData {
@@ -503,6 +557,108 @@ mod tests {
 
     fn temp_album(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!("soundrobe-web-{label}-{}", uuid::Uuid::new_v4()))
+    }
+
+    async fn provider_ids_survive_browser_readback(extension: &str) {
+        use crate::commands::mutations::{write_track_queued, TrackPatch};
+        use crate::state::write_queue::WriteQueue;
+        use serde_json::json;
+
+        let album = temp_album("provider-ids");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join(format!("01.{extension}"));
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus")
+                .join(format!("minimal.{extension}")),
+            &path,
+        )
+        .unwrap();
+        if extension == "mp3" {
+            let bytes = fs::read(&path).unwrap();
+            let tag_size = bytes[6..10]
+                .iter()
+                .fold(0_usize, |size, byte| (size << 7) | usize::from(*byte));
+            fs::write(&path, bytes[10 + tag_size..].repeat(8)).unwrap();
+        }
+        let queue = WriteQueue::default();
+        let ids = json!({
+            "musicbrainzTrackId": "11111111-1111-4111-8111-111111111111",
+            "musicbrainzAlbumId": "22222222-2222-4222-8222-222222222222",
+            "musicbrainzArtistId": "33333333-3333-4333-8333-333333333333",
+            "discogsArtistId": "456789",
+            "discogsReleaseId": "987654"
+        });
+        let mut patch = ids.clone();
+        patch["title"] = json!("Provider readback");
+        patch["artist"] = json!("Readback artist");
+        patch["album"] = json!("Readback album");
+        write_track_queued(
+            &queue,
+            path.clone(),
+            serde_json::from_value::<TrackPatch>(patch).unwrap(),
+        )
+        .await
+        .unwrap();
+        let written = read_album(&album).unwrap();
+        let clears = ids
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|key| (key.clone(), serde_json::Value::Null))
+            .collect::<serde_json::Map<_, _>>();
+        write_track_queued(
+            &queue,
+            path.clone(),
+            serde_json::from_value::<TrackPatch>(clears.into()).unwrap(),
+        )
+        .await
+        .unwrap();
+        let cleared = read_album(&album).unwrap();
+        let broken_path = album.join(format!("02.{extension}"));
+        fs::write(&broken_path, b"invalid audio").unwrap();
+        let mixed = read_album(&album).unwrap();
+        fs::remove_file(path).unwrap();
+        let unreadable = read_album(&album).unwrap();
+        fs::remove_dir_all(album).unwrap();
+
+        assert_eq!(written.status, "ok");
+        assert_eq!(cleared.status, "ok");
+        assert_eq!(mixed.status, "warning");
+        assert_eq!(unreadable.status, "error");
+        assert_eq!(unreadable.tracks[0].path, broken_path.to_string_lossy());
+        assert_eq!(unreadable.tracks[0].size_bytes, 13);
+        assert_eq!(unreadable.tracks[0].codec, "unknown");
+        assert_eq!(unreadable.tracks[0].title, Some(format!("02.{extension}")));
+        assert_eq!(written.tracks.len(), 1);
+        assert_eq!(cleared.tracks.len(), 1);
+        let written_track = serde_json::to_value(&written.tracks[0]).unwrap();
+        let cleared_track = serde_json::to_value(&cleared.tracks[0]).unwrap();
+        let observed = ids
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|key| (key.clone(), written_track[key].clone()))
+            .collect::<serde_json::Map<_, _>>();
+        assert_eq!(serde_json::Value::Object(observed), ids, "{extension}");
+        for key in ids.as_object().unwrap().keys() {
+            assert!(cleared_track[key].is_null(), "{extension} cleared {key}");
+        }
+        for track in [&written_track, &cleared_track] {
+            assert_eq!(track["title"], "Provider readback");
+            assert_eq!(track["artist"], "Readback artist");
+            assert_eq!(track["album"], "Readback album");
+        }
+    }
+
+    #[tokio::test]
+    async fn mp3_provider_ids_survive_browser_readback_and_explicit_clears() {
+        provider_ids_survive_browser_readback("mp3").await;
+    }
+
+    #[tokio::test]
+    async fn flac_provider_ids_survive_browser_readback_and_explicit_clears() {
+        provider_ids_survive_browser_readback("flac").await;
     }
 
     #[test]

@@ -724,6 +724,12 @@ fn apply_mp3_native_fields(path: &Path, id3v2: &Id3v2Tag, track: &mut TrackData)
     {
         track.musicbrainz_track_id = Some(id.to_owned());
     }
+    track.discogs_artist_id = id3v2
+        .get_user_text("Discogs Artist Id")
+        .map(ToOwned::to_owned);
+    track.discogs_release_id = id3v2
+        .get_user_text("Discogs Release Id")
+        .map(ToOwned::to_owned);
 }
 
 fn apply_flac_native_fields(path: &Path, track: &mut TrackData) {
@@ -1273,12 +1279,6 @@ fn read_mpeg_header_fallback(path: &Path, size_bytes: u64) -> Result<Option<Trac
         }
         track.description = id3v2.get_user_text("DESCRIPTION").map(ToOwned::to_owned);
         apply_mp3_native_fields(path, id3v2, &mut track);
-        track.discogs_artist_id = id3v2
-            .get_user_text("Discogs Artist Id")
-            .map(ToOwned::to_owned);
-        track.discogs_release_id = id3v2
-            .get_user_text("Discogs Release Id")
-            .map(ToOwned::to_owned);
         // Characterized Electron behavior: production writer stores TXXX
         // COMPILATION, but readTrackMetadata returns common.compilation=null.
         track.compilation = None;

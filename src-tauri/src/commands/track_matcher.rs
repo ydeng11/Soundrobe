@@ -19,7 +19,7 @@ const ANNOTATION_KEYWORDS: &str =
 const TITLE_POLLUTION_EXTRA_MIN_CHARS: usize = 3;
 const TITLE_POLLUTION_EXTRA_MIN_RATIO: f64 = 0.25;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
 pub enum MatchEvidence {
     MusicbrainzTrackId,
     TagTitle,
@@ -82,6 +82,146 @@ struct RemoteMeta {
     variants: Vec<String>,
     primary_forms: HashSet<String>,
     duration: Option<f64>,
+}
+
+pub(crate) fn validate_proven_group_metadata(
+    local: &[TrackCandidate],
+    proof: &crate::infra::audio_evidence::ProvenAudioGroups,
+) -> Result<(), String> {
+    for members in proof.groups() {
+        let mut titles = HashSet::new();
+        let mut ids = HashSet::new();
+        let mut positions = HashSet::new();
+        let mut discs = HashSet::new();
+        for &index in members {
+            let track = &local[index];
+            if let Some(title) = track
+                .title
+                .as_deref()
+                .filter(|title| !is_placeholder(Some(title)))
+            {
+                titles.insert(guarded_title(title));
+            }
+            ids.extend(track.musicbrainz_track_id.as_deref());
+            positions.extend(track.tagged_track_number);
+            discs.extend(track.disc_number);
+        }
+        if members.len() > 1
+            && (titles.len() > 1 || ids.len() > 1 || positions.len() > 1 || discs.len() > 1)
+        {
+            return Err(format!("exact-audio group has conflicting track titles, IDs or embedded positions: {members:?}"));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn match_proven_audio_groups(
+    local: &[TrackCandidate],
+    remote: &[TrackCandidate],
+    source: &str,
+    artists: &[String],
+    proof: &crate::infra::audio_evidence::ProvenAudioGroups,
+) -> Result<MatchedCandidate, String> {
+    validate_proven_group_metadata(local, proof)?;
+    let mut choices = Vec::new();
+    for members in proof.groups() {
+        let mut feasible = Vec::new();
+        for (remote_index, provider) in remote.iter().enumerate() {
+            let mut projections = Vec::new();
+            for &index in members {
+                let track = &local[index];
+                let durations = track
+                    .length
+                    .filter(|n| n.is_finite() && *n > 0.0)
+                    .zip(normalize_duration(provider.length, source).filter(|n| n.is_finite()));
+                if !durations.is_some_and(|(a, b)| durations_match(a, b))
+                    || track
+                        .tagged_track_number
+                        .is_some_and(|n| provider.track_number != Some(n))
+                    || track
+                        .disc_number
+                        .is_some_and(|n| provider.disc_number.unwrap_or(1) != n)
+                    || track.musicbrainz_track_id.as_ref().is_some_and(|id| {
+                        provider
+                            .musicbrainz_track_id
+                            .as_ref()
+                            .is_some_and(|other| other != id)
+                            || (source == "musicbrainz" && provider.musicbrainz_track_id.is_none())
+                    })
+                    || !super::auto_tag_acoustid::recording_versions_compatible(
+                        track,
+                        provider.title.as_deref().unwrap_or_default(),
+                        None,
+                    )
+                {
+                    break;
+                }
+                // An ID cannot hide a contradictory local title in a proven group.
+                let mut title_evidence = track.clone();
+                title_evidence.musicbrainz_track_id = None;
+                let filename = if members.len() > 1 && !is_placeholder(track.title.as_deref()) {
+                    String::new()
+                } else {
+                    track.filename.clone().unwrap_or_default()
+                };
+                let matched = match_remote_candidate_tracks(
+                    &[title_evidence],
+                    &[filename],
+                    std::slice::from_ref(provider),
+                    source,
+                    artists,
+                    &[],
+                );
+                if matched.stats.matched != 1
+                    || matches!(matched.evidence[0], None | Some(MatchEvidence::Position))
+                {
+                    break;
+                }
+                let mut projected = matched.tracks[0].clone();
+                // Physical coverage is not an ordered bijection. Preserve local positions.
+                projected.track_number = track.track_number;
+                projected.track_total = track.track_total;
+                projected.disc_number = track.disc_number;
+                projected.disc_total = track.disc_total;
+                projections.push((index, projected, matched.evidence[0]));
+            }
+            if projections.len() == members.len() {
+                feasible.push((remote_index, projections));
+            }
+        }
+        choices.push(feasible);
+    }
+    let mut used = HashSet::new();
+    let mut matched = MatchedCandidate {
+        tracks: local.to_vec(),
+        stats: MatchStats {
+            matched: 0,
+            local: local.len(),
+            remote: remote.len(),
+            skipped: Vec::new(),
+        },
+        evidence: vec![None; local.len()],
+        is_full_ordered_match: false,
+        remote_indices: vec![None; local.len()],
+        title_rejections: Vec::new(),
+    };
+    for feasible in choices {
+        if feasible.len() != 1 {
+            return Err("provider track occurrence allocation is missing or ambiguous".into());
+        }
+        let (occurrence, projections) = feasible.into_iter().next().unwrap();
+        if !used.insert(occurrence) {
+            return Err("unproven audio groups compete for a provider track occurrence".into());
+        }
+        for (index, track, evidence) in projections {
+            matched.tracks[index] = track;
+            matched.evidence[index] = evidence;
+            matched.remote_indices[index] = Some(occurrence);
+            matched.stats.matched += 1;
+        }
+    }
+    super::auto_tag::editions::preserve_collaborators(local, &mut matched.tracks);
+    Ok(matched)
 }
 
 pub fn match_remote_candidate_tracks(
@@ -205,7 +345,9 @@ pub fn match_remote_candidate_tracks(
     let mut matched_local = vec![None; local_tracks.len()];
     let mut evidence = vec![None; local_tracks.len()];
     let mut alternate_remote_title = vec![false; local_tracks.len()];
+    let mut ambiguous_local_ids = HashSet::new();
 
+    // Reserve recording identities across the album before weaker title matches.
     for (local_index, local_track) in local_tracks.iter().enumerate() {
         if source == "musicbrainz" {
             if let Some(id) = local_track.musicbrainz_track_id.as_deref() {
@@ -234,9 +376,16 @@ pub fn match_remote_candidate_tracks(
                         remote_index: None,
                         kind: SkipKind::DuplicateAmbiguous,
                     });
+                    ambiguous_local_ids.insert(local_index);
                     continue;
                 }
             }
+        }
+    }
+
+    for (local_index, local_track) in local_tracks.iter().enumerate() {
+        if matched_local[local_index].is_some() || ambiguous_local_ids.contains(&local_index) {
+            continue;
         }
 
         let forms = &local_forms[local_index];
@@ -611,7 +760,18 @@ fn aligned_track(
     } else if title_replacement.is_some() {
         title_replacement
     } else if api_source && evidence == Some(MatchEvidence::MusicbrainzTrackId) {
-        remote.title.clone().or_else(|| local.title.clone())
+        if local.title.as_deref().is_some_and(|title| {
+            let base = normalize_title(&strip_annotations(title));
+            base != normalize_title(title)
+                && remote
+                    .title
+                    .as_deref()
+                    .is_some_and(|remote| base == normalize_title(remote))
+        }) {
+            local.title.clone()
+        } else {
+            remote.title.clone().or_else(|| local.title.clone())
+        }
     } else if evidence == Some(MatchEvidence::FilenameTitle) {
         let mut artists = artist_hints.to_vec();
         artists.extend(local.artist.iter().cloned());
@@ -1081,6 +1241,10 @@ fn deduplicate(values: Vec<String>) -> Vec<String> {
 mod guarded_tests;
 
 #[cfg(test)]
+#[path = "track_matcher_groups_tests.rs"]
+mod groups_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -1386,6 +1550,159 @@ mod tests {
             vec![Some(MatchEvidence::MusicbrainzTrackId)]
         );
         assert_eq!(matched.tracks[0].title.as_deref(), Some("Canonical Title"));
+    }
+
+    #[test]
+    fn recording_ids_reserve_rows_before_other_tracks_match_titles() {
+        for stale_id in [None, Some("absent-recording".to_string())] {
+            for reversed in [false, true] {
+                let mut local = vec![
+                    TrackCandidate {
+                        musicbrainz_track_id: stale_id.clone(),
+                        length: Some(223.986),
+                        ..track("Rather Die Young")
+                    },
+                    TrackCandidate {
+                        musicbrainz_track_id: Some("recording-rather".into()),
+                        length: Some(222.511),
+                        ..track("Rather Die Young")
+                    },
+                ];
+                let mut filenames = vec![
+                    "Beyoncé-End Of Time.flac".into(),
+                    "Beyoncé-Rather Die Young.mp3".into(),
+                ];
+                let remote = vec![
+                    TrackCandidate {
+                        musicbrainz_track_id: Some("recording-rather".into()),
+                        length: Some(222_000.0),
+                        ..track("Rather Die Young")
+                    },
+                    TrackCandidate {
+                        musicbrainz_track_id: Some("recording-end".into()),
+                        length: Some(224_000.0),
+                        ..track("End Of Time")
+                    },
+                ];
+                if reversed {
+                    local.reverse();
+                    filenames.reverse();
+                }
+
+                let matched = match_remote_candidate_tracks(
+                    &local,
+                    &filenames,
+                    &remote,
+                    "musicbrainz",
+                    &["Beyoncé".into()],
+                    &[],
+                );
+
+                let filename_index = usize::from(reversed);
+                let id_index = 1 - filename_index;
+                assert_eq!(matched.stats.matched, 2);
+                assert_eq!(matched.remote_indices[filename_index], Some(1));
+                assert_eq!(matched.remote_indices[id_index], Some(0));
+                assert_eq!(
+                    matched.evidence[filename_index],
+                    Some(MatchEvidence::FilenameTitle)
+                );
+                assert_eq!(
+                    matched.evidence[id_index],
+                    Some(MatchEvidence::MusicbrainzTrackId)
+                );
+                assert_eq!(
+                    matched.tracks[filename_index].title.as_deref(),
+                    Some("End Of Time")
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn recording_id_reservations_remain_one_to_one_and_reject_ambiguous_ids() {
+        let identified = TrackCandidate {
+            musicbrainz_track_id: Some("shared-recording".into()),
+            ..track("Song")
+        };
+        let local = vec![identified.clone(), identified.clone()];
+
+        let unique = match_remote_candidate_tracks(
+            &local,
+            &[],
+            std::slice::from_ref(&identified),
+            "musicbrainz",
+            &[],
+            &[],
+        );
+        assert_eq!(unique.stats.matched, 1);
+        assert_eq!(unique.remote_indices, vec![Some(0), None]);
+
+        let ambiguous = match_remote_candidate_tracks(
+            &local,
+            &[],
+            &[identified.clone(), identified],
+            "musicbrainz",
+            &[],
+            &[],
+        );
+        assert_eq!(ambiguous.stats.matched, 0);
+        assert_eq!(ambiguous.remote_indices, vec![None, None]);
+        assert_eq!(ambiguous.stats.skipped.len(), 2);
+        assert!(ambiguous
+            .stats
+            .skipped
+            .iter()
+            .all(|skip| skip.kind == SkipKind::DuplicateAmbiguous));
+    }
+
+    #[test]
+    fn recording_id_matches_preserve_local_versions_only_for_the_same_base_title() {
+        for (local_title, remote_title, expected) in [
+            (
+                "Grown Woman (Studio Version)",
+                "Grown Woman",
+                "Grown Woman (Studio Version)",
+            ),
+            (
+                "Grown Woman [Studio Version]",
+                "Grown Woman",
+                "Grown Woman [Studio Version]",
+            ),
+            ("Song (Live)", "Song", "Song (Live)"),
+            ("Song (Instrumental)", "Song", "Song (Instrumental)"),
+            ("Stale Title (Studio Version)", "Grown Woman", "Grown Woman"),
+            (
+                "Grown Woman (Studio Version)",
+                "Grown Woman (Live)",
+                "Grown Woman (Live)",
+            ),
+            ("Grown Woman", "Grown Woman", "Grown Woman"),
+            ("Ｇｒｏｗｎ　Ｗｏｍａｎ", "Grown Woman", "Grown Woman"),
+            ("微光(亚特兰提斯)(24bit-48Hz)", "微光", "微光"),
+        ] {
+            let local = TrackCandidate {
+                musicbrainz_track_id: Some("recording-1".into()),
+                ..track(local_title)
+            };
+            let remote = TrackCandidate {
+                musicbrainz_track_id: Some("recording-1".into()),
+                ..track(remote_title)
+            };
+            let matched = match_remote_candidate_tracks(
+                &[local],
+                &["Beyoncé-Grown Woman(Studio Version).mp3".into()],
+                &[remote],
+                "musicbrainz",
+                &["Beyoncé".into()],
+                &[],
+            );
+            assert_eq!(
+                matched.evidence,
+                vec![Some(MatchEvidence::MusicbrainzTrackId)]
+            );
+            assert_eq!(matched.tracks[0].title.as_deref(), Some(expected));
+        }
     }
 
     #[test]

@@ -19,8 +19,234 @@ const MAX_SOURCE: u64 = 512 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 64 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(45);
 const SHADOW_WINDOW_FRAMES: usize = 4096;
+#[cfg(all(test, unix))]
+#[path = "audio_evidence_groups_tests.rs"]
+mod audio_evidence_groups_tests;
 pub const SCOPE: &str = "Read-only audio diagnostics, not identity proof or tagging approval. Shadow measurements use the fixed supplied offset (or zero), never inferred alignment; diagnostic only, with no acceptance tolerance or calibration. No recognition, near-silence classification, lag search, time warp, downmix identity or donor propagation. Zero-edge-excluded equality is diagnostic only. Reuse eligibility and resolver outputs never consume shadow measurements.";
 pub const REUSE_SCOPE: &str = "Proposal only: no writes, new receipts, recipient verification or folder completion. Left is donor; right is recipient. Only independently rooted current core receipts and complete checksum-verified native FLAC PCM qualify. Conflicts cover selected sources only; no catalog or all-pairs search. Copies do not add independent corroboration. Source stability is observed, not a filesystem-wide lock.";
+
+/// Opaque, ordered source-bound partition. This is PCM equality, not authority
+/// to resolve conflicting metadata or to remove any physical source.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct ProvenAudioGroups {
+    sources: Vec<(PathBuf, String)>,
+    groups: Vec<Vec<usize>>,
+    diagnostics: Value,
+}
+
+impl ProvenAudioGroups {
+    pub(crate) fn groups(&self) -> &[Vec<usize>] {
+        &self.groups
+    }
+
+    pub(crate) fn diagnostics(&self) -> Value {
+        self.diagnostics.clone()
+    }
+
+    pub(crate) fn matches_sources(&self, sources: &[(PathBuf, String)]) -> bool {
+        self.sources == sources
+    }
+
+    #[cfg(test)]
+    pub(crate) fn for_test(sources: Vec<(PathBuf, String)>, groups: Vec<Vec<usize>>) -> Self {
+        let mut indices = groups.iter().flatten().copied().collect::<Vec<_>>();
+        indices.sort_unstable();
+        assert_eq!(indices, (0..sources.len()).collect::<Vec<_>>());
+        assert!(groups.iter().all(|group| !group.is_empty()));
+        Self {
+            sources,
+            groups,
+            diagnostics: json!({"testOnly":true}),
+        }
+    }
+}
+
+const MAX_GROUP_FILES: usize = 32;
+const GROUP_TIMEOUT: Duration = Duration::from_secs(120);
+
+pub(crate) async fn prove_duplicate_groups(
+    root: &Path,
+    sources: &[(PathBuf, String)],
+    nominations: &[Vec<usize>],
+    cancelled: &AtomicBool,
+) -> ProvenAudioGroups {
+    prove_duplicate_groups_with_timeout(root, sources, nominations, cancelled, GROUP_TIMEOUT).await
+}
+
+async fn prove_duplicate_groups_with_timeout(
+    root: &Path,
+    sources: &[(PathBuf, String)],
+    nominations: &[Vec<usize>],
+    cancelled: &AtomicBool,
+    timeout: Duration,
+) -> ProvenAudioGroups {
+    let mut proof = ProvenAudioGroups {
+        sources: sources.to_vec(),
+        groups: (0..sources.len()).map(|i| vec![i]).collect(),
+        diagnostics: json!({"observations":[],"cancelled":cancelled.load(Ordering::Acquire),
+            "error":null,"limits":{"files":MAX_GROUP_FILES,"nominations":MAX_GROUP_FILES,
+            "pcmBytesPerFile":MAX_PCM,"sourceBytesPerFile":MAX_SOURCE,
+            "secondsPerProcess":TIMEOUT.as_secs(),"secondsPerBatch":GROUP_TIMEOUT.as_secs()}}),
+    };
+    if cancelled.load(Ordering::Acquire) {
+        return proof;
+    }
+    if nominations.len() > MAX_GROUP_FILES
+        || nominations.iter().any(|g| g.len() > MAX_GROUP_FILES)
+        || nominations.iter().flatten().any(|&i| i >= sources.len())
+    {
+        proof.diagnostics["error"] = json!("invalid or excessive duplicate nominations");
+        return proof;
+    }
+    let selected = nominations
+        .iter()
+        .flatten()
+        .copied()
+        .collect::<BTreeSet<_>>();
+    if selected.len() > MAX_GROUP_FILES {
+        proof.diagnostics["error"] = json!("duplicate observation file limit exceeded");
+        return proof;
+    }
+    let deadline = tokio::time::Instant::now() + timeout;
+    // Hold every nominated binding before the first decoder runs.
+    let inputs = selected
+        .into_iter()
+        .map(|i| {
+            let (path, hash) = &sources[i];
+            let input = if hash.len() != 64 || !hash.bytes().all(|b| b.is_ascii_hexdigit()) {
+                Err("selected source needs a full SHA-256".into())
+            } else if !path
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("flac"))
+            {
+                Err("duplicate proof supports native FLAC only".into())
+            } else {
+                open_source(root, path)
+            };
+            (i, input)
+        })
+        .collect::<Vec<_>>();
+    // Only observations and whole-PCM hashes survive each iteration, never a
+    // batch of decoded audio buffers.
+    let mut held = BTreeMap::new();
+    for (i, input) in inputs {
+        let (path, hash) = &sources[i];
+        let stop = AtomicBool::new(cancelled.load(Ordering::Acquire));
+        let pending = observe(root, path, input, hash, &stop);
+        tokio::pin!(pending);
+        let mut observation = tokio::select! {
+            observation = &mut pending => observation,
+            _ = async {
+                loop {
+                    if cancelled.load(Ordering::Acquire) || tokio::time::Instant::now() >= deadline {
+                        break;
+                    }
+                    tokio::time::sleep_until(deadline.min(tokio::time::Instant::now() + Duration::from_millis(25))).await;
+                }
+            } => {
+                // Let run_tool cancel and reap its process group rather than
+                // dropping the future and leaving wrapper descendants alive.
+                stop.store(true, Ordering::Release);
+                pending.await
+            }
+        };
+        observation.pcm = None;
+        held.insert(i, observation);
+        if tokio::time::Instant::now() >= deadline {
+            proof.diagnostics["error"] = json!("duplicate observation batch deadline exceeded");
+            break;
+        }
+        if cancelled.load(Ordering::Acquire) {
+            break;
+        }
+    }
+    finish_duplicate_groups(
+        root,
+        nominations,
+        &mut held,
+        cancelled,
+        deadline,
+        &mut proof,
+    );
+    proof
+}
+
+fn finish_duplicate_groups(
+    root: &Path,
+    nominations: &[Vec<usize>],
+    held: &mut BTreeMap<usize, Observation>,
+    cancelled: &AtomicBool,
+    deadline: tokio::time::Instant,
+    proof: &mut ProvenAudioGroups,
+) {
+    // Earlier sources can change while later decoders run. Revalidate every
+    // held input, not merely members of a prospective matching pair.
+    let expired = AtomicBool::new(true);
+    for observation in held.values_mut() {
+        observation.finalize(
+            root,
+            if tokio::time::Instant::now() >= deadline {
+                &expired
+            } else {
+                cancelled
+            },
+        );
+    }
+    let mut aliases = BTreeSet::new();
+    for (&i, a) in held.iter() {
+        for (&j, b) in held.range((i + 1)..) {
+            if a.snapshot
+                .as_ref()
+                .zip(b.snapshot.as_ref())
+                .is_some_and(|(a, b)| same_identity(a, b))
+            {
+                aliases.extend([i, j]);
+            }
+        }
+    }
+    proof.diagnostics["observations"] = held
+        .iter()
+        .map(
+            |(i, o)| json!({"index":i,"sameInodeAlias":aliases.contains(i),"observation":o.report}),
+        )
+        .collect();
+    proof.diagnostics["cancelled"] = json!(cancelled.load(Ordering::Acquire));
+    if tokio::time::Instant::now() >= deadline {
+        proof.diagnostics["error"] = json!("duplicate observation batch deadline exceeded");
+    }
+    if proof.diagnostics["error"].is_string() || cancelled.load(Ordering::Acquire) {
+        return;
+    }
+    let mut labels = (0..proof.sources.len()).collect::<Vec<_>>();
+    for nomination in nominations {
+        let mut by_audio = BTreeMap::<String, usize>::new();
+        for &i in nomination {
+            let Some(o) = held.get(&i).filter(|o| reusable_audio(&o.report)) else {
+                continue;
+            };
+            if aliases.contains(&i) {
+                continue;
+            }
+            if let Some(&j) = by_audio.get(&audio_key(&o.report)) {
+                let old = labels[i];
+                let new = labels[j];
+                for label in &mut labels {
+                    if *label == old {
+                        *label = new;
+                    }
+                }
+            } else {
+                by_audio.insert(audio_key(&o.report), i);
+            }
+        }
+    }
+    let mut groups = BTreeMap::<usize, Vec<usize>>::new();
+    for (i, label) in labels.into_iter().enumerate() {
+        groups.entry(label).or_default().push(i);
+    }
+    proof.groups = groups.into_values().collect();
+    proof.groups.sort_unstable_by_key(|g| g[0]);
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

@@ -9,6 +9,279 @@ use crate::commands::tracks::read_track_metadata;
 use std::{fs, process::Command};
 
 #[cfg(unix)]
+#[tokio::test]
+async fn exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_review() {
+    for (conflict, partial) in [(false, false), (true, false), (false, true)] {
+        let root = super::tests::temp_root();
+        let album = root.join("Lead/Album");
+        fs::create_dir_all(&album).unwrap();
+        let queue = WriteQueue::default();
+        let release = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+        let artist = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+        for position in 1..=15 {
+            let path = album.join(format!("{position:02}.flac"));
+            assert!(Command::new("ffmpeg")
+                .args([
+                    "-nostdin",
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    &format!("sine=frequency={}:duration=2", 300 + position * 13),
+                    "-c:a",
+                    "flac"
+                ])
+                .arg(&path)
+                .status()
+                .unwrap()
+                .success());
+            let patch = serde_json::from_value(serde_json::json!({"title":format!("Song {position}"), "artist":"Lead", "artists":["Lead"], "album":"Album", "trackNumber":position, "musicbrainzArtistId":artist})).unwrap();
+            write_track_queued(&queue, path, patch).await.unwrap();
+        }
+        let copy = album.join("16.flac");
+        fs::copy(album.join("04.flac"), &copy).unwrap();
+        let patch = serde_json::from_value(serde_json::json!({"title":if conflict {"Wrong song"} else {"Song 4"}, "artist":"Lead feat. Guest", "artists":["Lead", "Guest"]})).unwrap();
+        write_track_queued(&queue, copy.clone(), patch)
+            .await
+            .unwrap();
+        let files = collect_audio_files(&album);
+        let before = files
+            .iter()
+            .map(|file| {
+                (
+                    RecordingSource::capture(Path::new(file)).unwrap(),
+                    track_payload_digest(Path::new(file)).unwrap(),
+                )
+            })
+            .collect::<Vec<_>>();
+        let (base, stop, server) = review_fixture_server(move |request| {
+            let count = if partial { 16 } else { 15 };
+            let tracks = (1..=count).map(|position| serde_json::json!({"position":position.to_string(), "title":format!("Song {position}"), "recording":{"id":format!("11111111-1111-4111-8111-{position:012x}"),"title":format!("Song {position}"),"length":2000,"artist-credit":[{"name":"Lead"}]}})).collect::<Vec<_>>();
+            let body = if request.starts_with(&format!("GET /mb/release/{release}?")) {
+                serde_json::json!({"id":release,"title":"Album","artist-credit":[{"name":"Lead","artist":{"id":artist}}],"media":[{"position":1,"track-count":count,"tracks":tracks}]}).to_string()
+            } else if request.starts_with("GET /mb/release?") {
+                serde_json::json!({"releases":[{"id":release,"title":"Album","media":[{"track-count":count}]}],"release-count":1,"release-offset":0}).to_string()
+            } else {
+                "{}".into()
+            };
+            ("200 OK".into(), body)
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let cache = CacheState::new_in(root.join("cache"));
+        assert!(cache.initialize(None));
+        let result = resolve_and_apply_album(
+            &album,
+            &AutoTagConfig {
+                remote_lookup_enabled: Some(true),
+                discogs_enabled: Some(false),
+                acoustid_enabled: Some(false),
+                lyrics_download_enabled: Some(false),
+                ..AutoTagConfig::default()
+            },
+            AutoTagServices {
+                providers: &providers,
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("aliases.json"),
+            },
+            &AtomicBool::new(false),
+            |_, _| {},
+            |_, _, _| {},
+        )
+        .await;
+        stop.store(true, Ordering::Release);
+        let requests = server.join().unwrap();
+        let result = result.unwrap();
+        assert_eq!(collect_audio_files(&album), files);
+        assert_eq!(
+            result.written,
+            if conflict || partial { 0 } else { 16 },
+            "{result:?}"
+        );
+        assert_eq!(
+            result.outcome,
+            if conflict || partial {
+                AutoTagOutcome::NeedsReview
+            } else {
+                AutoTagOutcome::Applied
+            }
+        );
+        if conflict {
+            assert_eq!(
+                result.reason_code.as_deref(),
+                Some("duplicate_metadata_conflict")
+            );
+        }
+        if partial {
+            assert_eq!(result.reason_code.as_deref(), Some("partial_collection"));
+        }
+        let coverage = result
+            .diagnostics
+            .iter()
+            .find(|d| d["stage"] == "coverage")
+            .unwrap();
+        assert_eq!(coverage["provenAudioGroups"], 15);
+        assert!(
+            requests
+                .iter()
+                .any(|r| r.starts_with(&format!("GET /mb/release/{release}?"))),
+            "shorter release detail must be fetched"
+        );
+        for (file, (source, payload)) in files.iter().zip(before) {
+            assert_eq!(track_payload_digest(Path::new(file)).unwrap(), payload);
+            if conflict || partial {
+                assert_eq!(RecordingSource::capture(Path::new(file)).unwrap(), source);
+            }
+        }
+        if !conflict && !partial {
+            let written = read_track_metadata(&copy).unwrap();
+            assert_eq!(written.artists, vec!["Lead", "Guest"]);
+            assert_eq!(written.track_number, Some(4));
+            let coverage = result
+                .diagnostics
+                .iter()
+                .find(|d| d["stage"] == "coverage")
+                .unwrap();
+            assert_eq!(coverage["completeAlbum"], true);
+            assert_eq!(coverage["coveredProviderOccurrences"], 15);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[tokio::test]
+async fn provider_album_apply_rejects_replacement_after_queue_preflight() {
+    let root = super::tests::temp_root();
+    let album = root.join("Lead/Album");
+    fs::create_dir_all(&album).unwrap();
+    let file = album.join("Song.wav");
+    fs::copy(super::tests::corpus_wav(), &file).unwrap();
+    let mut request = build_lookup_request(&album).unwrap();
+    request.tracks[0].source = Some(RecordingSource::capture(&file).unwrap());
+    let candidate = AlbumCandidate {
+        tracks: request.tracks,
+        album: Some("Album".into()),
+        album_artists: vec!["Lead".into()],
+        source: LookupSource::Musicbrainz,
+        ..AlbumCandidate::default()
+    };
+    let queue = WriteQueue::default();
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let release = Arc::new(tokio::sync::Notify::new());
+    let (held, unlock, holder_queue) = (entered.clone(), release.clone(), queue.clone());
+    let holder = tokio::spawn(async move {
+        holder_queue
+            .run(async move {
+                held.notify_one();
+                unlock.notified().await;
+            })
+            .await;
+    });
+    entered.notified().await;
+    let mut writer = Box::pin(apply_candidate_tags(&album, &candidate, &queue));
+    std::future::poll_fn(|context| {
+        use std::future::Future;
+        assert!(writer.as_mut().poll(context).is_pending());
+        std::task::Poll::Ready(())
+    })
+    .await;
+    let mut replacement = fs::read(&file).unwrap();
+    let audio = replacement
+        .windows(4)
+        .position(|bytes| bytes == b"data")
+        .unwrap()
+        + 8;
+    replacement[audio] ^= 1;
+    fs::write(&file, &replacement).unwrap();
+    release.notify_one();
+    holder.await.unwrap();
+    assert!(
+        writer.await.is_err(),
+        "queued replacement must not receive provider tags"
+    );
+    assert_eq!(fs::read(&file).unwrap(), replacement);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn grouped_album_apply_revalidates_siblings_before_first_queued_write() {
+    let root = super::tests::temp_root();
+    let album = root.join("Lead/Album");
+    fs::create_dir_all(&album).unwrap();
+    for name in ["a.wav", "b.wav"] {
+        fs::copy(super::tests::corpus_wav(), album.join(name)).unwrap();
+    }
+    let mut request = build_lookup_request(&album).unwrap();
+    for (track, file) in request.tracks.iter_mut().zip(collect_audio_files(&album)) {
+        track.source = Some(RecordingSource::capture(Path::new(&file)).unwrap());
+    }
+    let candidate = AlbumCandidate {
+        tracks: request.tracks.clone(),
+        album: Some("Album".into()),
+        album_artists: vec!["Lead".into()],
+        source: LookupSource::Musicbrainz,
+        accepted_match: Some(editions::AcceptedMatch {
+            tracks: request.tracks,
+            provider_tracks: Vec::new(),
+            coverage: 1,
+            remote_indices: vec![Some(0), Some(0)],
+            evidence: vec![Some(MatchEvidence::TagTitle); 2],
+            local_year: None,
+            release_year: None,
+            duration_exception: None,
+        }),
+        ..AlbumCandidate::default()
+    };
+    let original = fs::read(album.join("a.wav")).unwrap();
+    let queue = WriteQueue::default();
+    let (entered, release) = (
+        Arc::new(tokio::sync::Notify::new()),
+        Arc::new(tokio::sync::Notify::new()),
+    );
+    let (held, unlock, holder_queue) = (entered.clone(), release.clone(), queue.clone());
+    let holder = tokio::spawn(async move {
+        holder_queue
+            .run(async move {
+                held.notify_one();
+                unlock.notified().await;
+            })
+            .await;
+    });
+    entered.notified().await;
+    let mut writer = Box::pin(apply_candidate_tags(&album, &candidate, &queue));
+    std::future::poll_fn(|context| {
+        use std::future::Future;
+        assert!(writer.as_mut().poll(context).is_pending());
+        std::task::Poll::Ready(())
+    })
+    .await;
+    let file = album.join("b.wav");
+    let mut replacement = fs::read(&file).unwrap();
+    let audio = replacement
+        .windows(4)
+        .position(|bytes| bytes == b"data")
+        .unwrap()
+        + 8;
+    replacement[audio] ^= 1;
+    fs::write(&file, &replacement).unwrap();
+    release.notify_one();
+    holder.await.unwrap();
+    assert!(writer.await.is_err());
+    assert_eq!(
+        fs::read(album.join("a.wav")).unwrap(),
+        original,
+        "a stale sibling invalidates the dependent assignment before any write"
+    );
+    assert_eq!(fs::read(&file).unwrap(), replacement);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
 fn review_fixture_server(
     mut respond: impl FnMut(&str) -> (String, String) + Send + 'static,
 ) -> (
@@ -46,6 +319,94 @@ fn review_fixture_server(
 #[cfg(unix)]
 fn review_fixture_release(recording: &str) -> String {
     serde_json::json!({"id":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","title":"Album","artist-credit":[{"name":"Lead","artist":{"id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}}],"media":[{"position":1,"tracks":[{"position":"1","title":"Song","recording":{"id":recording,"title":"Song","length":2000,"artist-credit":[{"name":"Lead"}]}}]}]}).to_string()
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn provider_tagging_retains_existing_cross_provider_artist_identity() {
+    for extension in ["wav", "flac", "mp3"] {
+        let root = super::tests::temp_root();
+        let album = root.join("Lead/Album");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join(format!("Song.{extension}"));
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus")
+                .join(format!("minimal.{extension}")),
+            &path,
+        )
+        .unwrap();
+        if extension == "mp3" {
+            let bytes = fs::read(&path).unwrap();
+            let tag_size = bytes[6..10]
+                .iter()
+                .fold(0_usize, |size, byte| (size << 7) | usize::from(*byte));
+            fs::write(&path, bytes[10 + tag_size..].repeat(8)).unwrap();
+        }
+        let recording = "11111111-1111-4111-8111-111111111111";
+        let patch: TrackPatch = serde_json::from_value(serde_json::json!({
+            "title": "Song", "artist": "Lead", "album": "Album", "genre": "Pop",
+            "musicbrainzTrackId": recording,
+            "musicbrainzAlbumId": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "musicbrainzArtistId": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "discogsArtistId": "52835"
+        }))
+        .unwrap();
+        let queue = WriteQueue::default();
+        write_track_queued(&queue, path.clone(), patch)
+            .await
+            .unwrap();
+        assert_eq!(
+            build_lookup_request(&album)
+                .unwrap()
+                .discogs_artist_id
+                .as_deref(),
+            Some("52835")
+        );
+        let (base, stop, server) = review_fixture_server(move |request| {
+            let body = if request.starts_with("GET /mb/release/") {
+                review_fixture_release(recording)
+            } else {
+                r#"{"releases":[],"release-count":0,"release-offset":0}"#.into()
+            };
+            ("200 OK".into(), body)
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let cache = CacheState::new_in(root.join("cache"));
+        assert!(cache.initialize(None));
+        let result = resolve_and_apply_album(
+            &album,
+            &AutoTagConfig {
+                remote_lookup_enabled: Some(true),
+                discogs_enabled: Some(false),
+                lyrics_download_enabled: Some(false),
+                ..AutoTagConfig::default()
+            },
+            AutoTagServices {
+                providers: &providers,
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("aliases.json"),
+            },
+            &AtomicBool::new(false),
+            |_, _| {},
+            |_, _, _| {},
+        )
+        .await;
+        stop.store(true, Ordering::Release);
+        server.join().unwrap();
+        let result = result.unwrap();
+        assert_eq!(result.outcome, AutoTagOutcome::Applied);
+        assert_eq!(result.written, 1);
+        let written = read_track_metadata(&path).unwrap();
+        assert_eq!(written.musicbrainz_track_id.as_deref(), Some(recording));
+        assert_eq!(written.discogs_artist_id.as_deref(), Some("52835"));
+        fs::remove_dir_all(root).unwrap();
+    }
 }
 
 #[cfg(unix)]

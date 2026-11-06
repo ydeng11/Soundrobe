@@ -14,6 +14,14 @@ use std::{
 
 const SCOPE: &str = "Read-only inventory; existing tags and historical decisions are not identity proof. Versioned terminal receipts are revalidated against current physical source hashes; legacy evidence remains source-unbound. Verified core, edition, enrichment and human approval remain separate; no recognition or approval is performed.";
 
+#[path = "artist_inventory/recovery_preview.rs"]
+mod recovery;
+pub use recovery::{export as recovery_preview, markdown as recovery_preview_markdown};
+
+#[cfg(test)]
+#[path = "artist_inventory/recovery_preview_tests.rs"]
+mod recovery_preview_tests;
+
 /// Current independently rooted M2 labels can contradict a proposal even when
 /// their retained facts are too sparse or differently worded to donate it.
 pub(crate) fn reuse_root(file: &Value, current_history: &[Value]) -> Result<Value, String> {

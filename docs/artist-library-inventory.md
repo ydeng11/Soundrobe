@@ -31,6 +31,102 @@ time. This is a stale-input check, not an audio fingerprint or proof of recordin
 identity. A scan is not a filesystem-wide snapshot. Changes after a file's
 observation require a new scan.
 
+## Offline recovery preview
+
+`--recovery-preview MANIFEST.json` adds a read-only `recoveryPreview` ledger.
+Use it on copies to inspect current embedded metadata beside retained catalog
+claims and explicit filename leads. Every physical row remains `needs_review`.
+The export never chooses a correction, approves a conflict, or creates a writable
+album candidate. Ordinary inventory accounting and proof fields stay unchanged.
+
+```sh copy Copy Recovery Preview Command
+cargo run --manifest-path src-tauri/Cargo.toml --no-default-features --features server \
+  --bin soundrobe-inventory -- /path/to/copied-media \
+  --recovery-preview /path/to/recovery/manifest.json --format markdown \
+  > /tmp/recovery-preview.md
+```
+
+The manifest lists expected audio files relative to the inventory root. Their
+immediate parents define the selected folder boundaries. All current or previously
+inventoried members of those folders remain visible, including unexpected and
+missing inputs. SHA-256 checks source stability, not musical identity.
+
+```json copy Copy Recovery Manifest
+{
+  "schemaVersion": 1,
+  "observationFiles": ["release.json"],
+  "files": [{
+    "path": "Album/track.flac",
+    "sha256": "<full SHA-256 from inventory>",
+    "leads": [{"title": "Possible title (Single Version)", "reason": "Explicit filename lead"}],
+    "claims": [{
+      "observationId": "retained-release",
+      "mediumIndex": 0,
+      "rowIndex": 3,
+      "reason": "Historical single-file comparison, not identification"
+    }]
+  }]
+}
+```
+
+`leads`, `claims`, and `observationFiles` may be omitted. Referenced observation
+paths are relative to the manifest directory and cannot escape it or use symlinks.
+Each observation file describes one retained release snapshot:
+
+```json copy Copy Recovery Observation
+{
+  "schemaVersion": 1,
+  "id": "retained-release",
+  "provider": "musicbrainz",
+  "releaseId": "<release ID>",
+  "completeness": "partial",
+  "observedAt": null,
+  "endpoint": null,
+  "omittedOccurrences": null,
+  "occurrences": [{
+    "mediumIndex": 0,
+    "rowIndex": 3,
+    "title": "Possible title (Single Version)",
+    "artists": ["Lead", "Guest"],
+    "discNumber": 1,
+    "trackNumber": 4,
+    "recordingId": "<MusicBrainz recording ID, or null>",
+    "duration": 193.213
+  }]
+}
+```
+
+Providers are `musicbrainz` or `discogs`. Completeness is `complete`, `partial`,
+or `unknown` for this retained snapshot, never the entire catalog. Durations are
+seconds for both providers. Medium and row indices are original snapshot indices,
+not a recording ID or normalized title. A recording repeated at two positions
+remains two occurrences. Include known provenance; leave unknown values null.
+All imported observations remain `imported_unverified`, and supplied comparisons
+remain `historical_unverified`. A digest detects changed input; it does not
+authenticate a provider response or transfer an old assessment to a new copy.
+
+The ledger retains titles, version wording, ordered performers, embedded
+positions, all five provider-ID fields, duration differences, and every claimant
+to a shared occurrence. Differences are review evidence, not new matching rules.
+It does not strip collaborator prefixes, infer positions from filenames, compare
+audio, collapse copies, or silently remove a version qualifier. A single visible
+alternative is still unverified. Source changes, unreadable metadata, missing
+details, unknown discovery completeness, and partial collision analysis remain
+explicit. Re-export after any source change; observations are not a filesystem lock.
+
+Limits are 64 physical inputs, eight retained release snapshots, 256 occurrences
+per snapshot, a 64 KiB regular-file manifest, and 4 MiB per observation file.
+Oversized or malformed imports fail explicitly. An oversized selected folder
+retains all inventory rows with `previewLimited` and unexamined sources rather
+than reporting a complete prefix.
+
+This mode rejects `--allow-network`, `--discovery-cache`, and other optional
+evidence modes. It reads no discovery cache and performs no provider request,
+decoding, recognition, approval, scheduling, or media write. It has no apply
+operation. Existing `--worker-data` remains a read-only historical input.
+
+## Retained inventory evidence
+
 `--worker-data` reads the existing `worker.db` through a read-only SQLite
 connection. Omit it to scan without worker evidence. A missing database means
 absent evidence; the command does not create a database or migrate its schema.

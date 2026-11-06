@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The offline inventory can preview per-file recovery hypotheses alongside current tags and retained catalog evidence. It preserves every file, version qualifier, and conflicting title or position in review, without network requests, tag writes, approval, or folder completion.
+- Auto-tagging recognizes compatible exact FLAC copies without deleting or renaming files. Every copy keeps its own credits and positions; conflicting titles, recording IDs, versions, or embedded positions stay in review. Album completion counts release-track occurrences separately from physical files.
 - The inventory can discover recording-specific catalog leads under an explicitly selected artist and version, preserving partial credits and competing alternatives in an isolated resumable cache. Networking requires an explicit opt-in; catalog hits never become verified tags by themselves.
 - Selected audio-pair diagnostics include per-channel window measurements and quiet unmatched material at a declared fixed offset, without changing matching thresholds or reuse eligibility.
 - Inventory review questions group byte-identical unresolved files for investigation while retaining every physical file, alternative, unknown count and stop/reopen condition. Grouping and user approval do not create recording proof.
@@ -129,6 +131,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Auto-tagging reserves exact recording-ID matches before other tracks can claim the same provider rows through stale titles.
+- Artist release browsing checks exact album identities before substring matches, so short titles such as `4` are not buried behind unrelated releases within the discovery limit.
+- Tagging through an existing recording ID retains a local studio-version or performance qualifier when the provider supplies only the same base title, instead of shortening titles such as `Grown Woman (Studio Version)`.
+- Provider-backed tagging preserves existing cross-provider artist IDs when no fresh artist lookup is needed. Browser album readback exposes stored MusicBrainz and Discogs IDs, and desktop MP3 readback exposes stored Discogs IDs, instead of reporting them as missing.
 - AI fallback tagging now receives existing ordered performer lists and distinguishes collaboration credits from single-act band names, reducing joined artist-list entries without blindly splitting ampersands or promoting remixers to performers. Desktop and browser album readback also preserve stored album-artist lists instead of collapsing them into the display credit.
 - Auto-tagging recognizes indexed album folders with year and audio-quality suffixes, instead of treating their library index and sample format as part of the album title. Existing album tags and provider acceptance checks remain unchanged.
 - Titles recovered from filenames retain live, instrumental and version qualifiers instead of losing them when a provider lists only the base song title.

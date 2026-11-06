@@ -18,9 +18,7 @@ use crate::{
         covers::{download_album_artwork_at, download_artist_artwork_at},
         library::collect_audio_files,
         lyrics::{fetch_album_lyrics, LyricsDocument, DEFAULT_BASE_URL},
-        mutations::{
-            track_payload_digest, write_track_queued, write_track_queued_guarded, TrackPatch,
-        },
+        mutations::{track_payload_digest, write_track_queued_guarded, TrackPatch},
         tracks::{read_album, read_extra_tags},
     },
     error::ApiError,
@@ -45,10 +43,20 @@ use crate::{
 #[cfg(any(feature = "desktop", feature = "server", test))]
 use crate::state::providers::ProviderRetryMetrics;
 
-use super::track_matcher::{match_remote_candidate_tracks, MatchEvidence, SkipKind};
+#[cfg(test)]
+use crate::commands::mutations::write_track_queued;
+
+use super::track_matcher::{
+    match_proven_audio_groups, match_remote_candidate_tracks, validate_proven_group_metadata,
+    MatchEvidence, MatchedCandidate, SkipKind,
+};
 
 #[path = "auto_tag_editions.rs"]
 pub(super) mod editions;
+
+#[cfg(test)]
+#[path = "auto_tag_duplicates_tests.rs"]
+mod duplicates_tests;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -401,6 +409,8 @@ pub struct AlbumCandidate {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct LookupRequest {
+    #[serde(skip)]
+    pub(crate) audio_groups: Option<crate::infra::audio_evidence::ProvenAudioGroups>,
     pub path: String,
     pub artist_hint: Option<String>,
     #[serde(default)]
@@ -552,6 +562,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .collect();
 
     Ok(LookupRequest {
+        audio_groups: None,
         path: album_path.to_string_lossy().into_owned(),
         artist_hint,
         artist_aliases: Vec::new(),
@@ -1471,7 +1482,10 @@ pub(crate) fn accept_acoustid_release(
     accepted.provider_tracks_for_evaluation = Some(candidate.tracks.clone());
     accepted.accepted_match = Some(editions::AcceptedMatch {
         tracks: mapped,
+        provider_tracks: candidate_tracks_for_request(request, candidate),
         coverage: request.tracks.len(),
+        remote_indices: (0..request.tracks.len()).map(Some).collect(),
+        evidence: vec![Some(MatchEvidence::MusicbrainzTrackId); request.tracks.len()],
         local_year: request.year_hint.clone(),
         release_year: candidate.year.clone(),
         duration_exception: None,
@@ -1723,6 +1737,31 @@ pub fn rank_artist_releases(
     rank_artist_releases_with_country(releases, album_hint, year_hint, None, None, None)
 }
 
+fn rank_releases_for_request(
+    mut releases: Vec<ProviderReleaseSummary>,
+    request: &LookupRequest,
+) -> Vec<ProviderReleaseSummary> {
+    let count = if has_audio_copies(request) {
+        let lower_bound = request.audio_groups.as_ref().unwrap().groups().len();
+        releases.retain(|release| {
+            release
+                .track_count
+                .is_none_or(|n| n as usize >= lower_bound)
+        });
+        None
+    } else {
+        u32::try_from(request.tracks.len()).ok()
+    };
+    rank_artist_releases_with_country(
+        releases,
+        request.album_hint.as_deref(),
+        request.year_hint.as_deref(),
+        request.country_hint.as_deref(),
+        request.release_type_hint.as_deref(),
+        count,
+    )
+}
+
 fn rank_artist_releases_with_country(
     releases: Vec<ProviderReleaseSummary>,
     album_hint: Option<&str>,
@@ -1738,6 +1777,7 @@ fn rank_artist_releases_with_country(
             !matches!((local_track_count, release.track_count), (Some(local), Some(remote)) if remote < local)
         })
         .map(|release| {
+            let exact_title = album_hint.is_some_and(|hint| exact_album_identity(hint, &release.title));
             let track_count_score = match (local_track_count, release.track_count) {
                 (Some(local), Some(remote)) if local == remote => 2,
                 (Some(_), None) => 1,
@@ -1759,14 +1799,15 @@ fn rank_artist_releases_with_country(
                 (Some(hint), Some(year)) if hint == year.to_string() => 1,
                 _ => 0,
             };
-            (track_count_score, type_score, year_score, country_score, release)
+            (exact_title, track_count_score, type_score, year_score, country_score, release)
         })
         .collect::<Vec<_>>();
     ranked.sort_by(
-        |(left_tracks, left_type, left_year, left_country, left),
-         (right_tracks, right_type, right_year, right_country, right)| {
-            right_tracks
-                .cmp(left_tracks)
+        |(left_title, left_tracks, left_type, left_year, left_country, left),
+         (right_title, right_tracks, right_type, right_year, right_country, right)| {
+            right_title
+                .cmp(left_title)
+                .then_with(|| right_tracks.cmp(left_tracks))
                 .then_with(|| right_type.cmp(left_type))
                 .then_with(|| right_year.cmp(left_year))
                 .then_with(|| right_country.cmp(left_country))
@@ -1776,7 +1817,7 @@ fn rank_artist_releases_with_country(
     );
     ranked
         .into_iter()
-        .map(|(_, _, _, _, release)| release)
+        .map(|(_, _, _, _, _, release)| release)
         .collect()
 }
 
@@ -1805,6 +1846,27 @@ fn rank_candidate_details(
         .into_iter()
         .enumerate()
         .map(|(order, candidate)| {
+            if has_audio_copies(request) {
+                let matched = provider_track_alignment(request, &candidate)
+                    .ok()
+                    .map(|(_, matched)| matched);
+                let covered = matched
+                    .as_ref()
+                    .map(|m| {
+                        m.remote_indices
+                            .iter()
+                            .flatten()
+                            .collect::<HashSet<_>>()
+                            .len()
+                    })
+                    .unwrap_or(0);
+                return (
+                    matched.map(|m| m.stats.matched).unwrap_or(0),
+                    candidate.tracks.len().saturating_sub(covered),
+                    order,
+                    candidate,
+                );
+            }
             let matched = match_remote_candidate_tracks(
                 &request.tracks,
                 &filenames,
@@ -1855,10 +1917,13 @@ fn select_credible_provider_candidate(
 ) -> Option<AlbumCandidate> {
     let mut credible = candidates
         .into_iter()
-        .filter_map(|candidate| {
-            provider_candidate_credibility(request, &candidate)
+        .filter_map(|mut candidate| {
+            provider_candidate_evaluation(request, &candidate)
                 .ok()
-                .map(|score| (score, candidate))
+                .map(|(score, accepted)| {
+                    candidate.accepted_match = accepted;
+                    (score, candidate)
+                })
         })
         .collect::<Vec<_>>();
     credible.sort_by(|(left_score, left), (right_score, right)| {
@@ -1885,10 +1950,6 @@ fn select_credible_provider_candidate(
             .then_with(|| provider_stable_id(left).cmp(provider_stable_id(right)))
     });
     let mut selected = credible.into_iter().next()?.1;
-    selected.accepted_match = None;
-    if strict_provider_candidate_credibility(request, &selected).is_err() {
-        selected.accepted_match = editions::accept_edition(request, &selected).ok();
-    }
     if selected.source == LookupSource::Musicbrainz && selected.discogs_release_id.is_none() {
         selected.discogs_release_id = selected.linked_discogs_release_id.clone();
     }
@@ -2009,10 +2070,135 @@ fn countries_match(left: &str, right: &str) -> bool {
     normalized_country(left) == normalized_country(right)
 }
 
+fn has_audio_copies(request: &LookupRequest) -> bool {
+    request
+        .audio_groups
+        .as_ref()
+        .is_some_and(|proof| proof.groups().len() < request.tracks.len())
+}
+
+fn lookup_sources(request: &LookupRequest) -> Option<Vec<(PathBuf, String)>> {
+    request
+        .tracks
+        .iter()
+        .map(|track| {
+            track
+                .source
+                .as_ref()
+                .map(|s| (s.path.clone(), s.fingerprint.clone()))
+        })
+        .collect()
+}
+
+fn provider_track_alignment(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> Result<(Vec<TrackCandidate>, MatchedCandidate), String> {
+    let artists = request.artist_hint.iter().cloned().collect::<Vec<_>>();
+    let source = lookup_source_name(candidate.source);
+    if !has_audio_copies(request) {
+        let tracks = candidate_tracks_for_request(request, candidate);
+        let filenames = request
+            .tracks
+            .iter()
+            .map(|track| track.filename.clone().unwrap_or_default())
+            .collect::<Vec<_>>();
+        let matched = match_remote_candidate_tracks(
+            &request.tracks,
+            &filenames,
+            &tracks,
+            source,
+            &artists,
+            &[],
+        );
+        return Ok((tracks, matched));
+    }
+    let proof = request.audio_groups.as_ref().unwrap();
+    if !lookup_sources(request).is_some_and(|sources| proof.matches_sources(&sources)) {
+        return Err("exact-audio track proof is stale or missing its source bindings".into());
+    }
+    let (local_release, provider_release) = if candidate.source == LookupSource::Musicbrainz {
+        (
+            &request.musicbrainz_album_id,
+            &candidate.musicbrainz_album_id,
+        )
+    } else {
+        (&request.discogs_release_id, &candidate.discogs_release_id)
+    };
+    if local_release
+        .as_ref()
+        .is_some_and(|id| provider_release.as_ref() != Some(id))
+    {
+        return Err("provider release ID conflicts with exact-audio track evidence".into());
+    }
+    let scoped = candidate
+        .tracks
+        .iter()
+        .enumerate()
+        .filter(|(_, track)| {
+            request.selected_disc_number.is_none_or(|disc| {
+                !candidate
+                    .tracks
+                    .iter()
+                    .any(|track| track.disc_number.is_some())
+                    || track.disc_number == Some(disc)
+            })
+        })
+        .map(|(index, track)| (index, track.clone()))
+        .collect::<Vec<_>>();
+    let media = scoped
+        .iter()
+        .map(|(_, track)| track.media_type.clone())
+        .collect::<HashSet<_>>();
+    let scopes = if media.len() > 1 {
+        media
+            .into_iter()
+            .map(|media| {
+                scoped
+                    .iter()
+                    .filter(|(_, track)| track.media_type == media)
+                    .cloned()
+                    .collect()
+            })
+            .collect::<Vec<Vec<_>>>()
+    } else {
+        vec![scoped]
+    };
+    let mut feasible = Vec::new();
+    let mut rejections = Vec::new();
+    for scope in scopes {
+        let tracks = scope
+            .iter()
+            .map(|(_, track)| track.clone())
+            .collect::<Vec<_>>();
+        match match_proven_audio_groups(&request.tracks, &tracks, source, &artists, proof) {
+            Ok(mut matched) => {
+                for index in matched.remote_indices.iter_mut().flatten() {
+                    *index = scope[*index].0;
+                }
+                feasible.push((tracks, matched));
+            }
+            Err(error) => rejections.push(error),
+        }
+    }
+    if feasible.len() != 1 {
+        return Err(format!(
+            "provider track media scope is missing or ambiguous: {}",
+            rejections.join("; ")
+        ));
+    }
+    Ok(feasible.pop().unwrap())
+}
+
 fn candidate_tracks_for_request(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Vec<TrackCandidate> {
+    if has_audio_copies(request) {
+        return provider_track_alignment(request, candidate)
+            .map(|(tracks, _)| tracks)
+            .unwrap_or_default();
+    }
     if let Some(disc_number) = request.selected_disc_number {
         let scoped = candidate
             .tracks
@@ -2063,6 +2249,10 @@ fn selected_track_match_diagnostic(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> serde_json::Value {
+    if let Some(accepted) = &candidate.accepted_match {
+        return serde_json::json!({"stage":"selected_track_evidence", "evidence":accepted.evidence,
+            "remoteIndices":accepted.remote_indices,"isFullOrderedMatch":false,"titleRejections":[]});
+    }
     let filenames = collect_audio_files(Path::new(&request.path))
         .into_iter()
         .filter_map(|path| Path::new(&path).file_name()?.to_str().map(str::to_string))
@@ -2102,23 +2292,59 @@ pub fn provider_candidate_credibility(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Result<CredibilityScore, String> {
-    strict_provider_candidate_credibility(request, candidate).or_else(|strict_error| {
-        let accepted = editions::accept_edition(request, candidate)
-            .map_err(|error| format!("{strict_error}; {error}"))?;
-        let mut normalized = candidate.clone();
-        normalized.year = request.year_hint.clone();
-        normalized.tracks = accepted.tracks;
-        let mut score = strict_provider_candidate_credibility(request, &normalized)?;
-        score.strict_match = false;
-        score.exact_year = request.year_hint.is_some() && request.year_hint == candidate.year;
-        Ok(score)
-    })
+    provider_candidate_evaluation(request, candidate).map(|(score, _)| score)
+}
+
+fn provider_candidate_evaluation(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> Result<(CredibilityScore, Option<editions::AcceptedMatch>), String> {
+    strict_provider_evaluation(request, candidate)
+        .map(|(score, matched, provider_tracks)| {
+            let accepted = has_audio_copies(request).then(|| editions::AcceptedMatch {
+                coverage: matched
+                    .remote_indices
+                    .iter()
+                    .flatten()
+                    .collect::<HashSet<_>>()
+                    .len(),
+                remote_indices: matched.remote_indices,
+                evidence: matched.evidence,
+                tracks: matched.tracks,
+                provider_tracks,
+                local_year: request.year_hint.clone(),
+                release_year: candidate.year.clone(),
+                duration_exception: None,
+            });
+            (score, accepted)
+        })
+        .or_else(|strict_error| {
+            if has_audio_copies(request) {
+                return Err(strict_error);
+            }
+            let accepted = editions::accept_edition(request, candidate)
+                .map_err(|error| format!("{strict_error}; {error}"))?;
+            let mut normalized = candidate.clone();
+            normalized.year = request.year_hint.clone();
+            normalized.tracks = accepted.tracks.clone();
+            let mut score = strict_provider_candidate_credibility(request, &normalized)?;
+            score.strict_match = false;
+            score.exact_year = request.year_hint.is_some() && request.year_hint == candidate.year;
+            Ok((score, Some(accepted)))
+        })
 }
 
 fn strict_provider_candidate_credibility(
     request: &LookupRequest,
     candidate: &AlbumCandidate,
 ) -> Result<CredibilityScore, String> {
+    strict_provider_evaluation(request, candidate).map(|(score, _, _)| score)
+}
+
+fn strict_provider_evaluation(
+    request: &LookupRequest,
+    candidate: &AlbumCandidate,
+) -> Result<(CredibilityScore, MatchedCandidate, Vec<TrackCandidate>), String> {
     if !matches!(
         candidate.source,
         LookupSource::Musicbrainz | LookupSource::Discogs
@@ -2168,26 +2394,7 @@ fn strict_provider_candidate_credibility(
         }
     }
 
-    let provider_tracks = candidate_tracks_for_request(request, candidate);
-    let filenames = request
-        .tracks
-        .iter()
-        .map(|track| track.filename.clone().unwrap_or_default())
-        .collect::<Vec<_>>();
-    let artists = request.artist_hint.iter().cloned().collect::<Vec<_>>();
-    let source = if candidate.source == LookupSource::Musicbrainz {
-        "musicbrainz"
-    } else {
-        "discogs"
-    };
-    let matched = match_remote_candidate_tracks(
-        &request.tracks,
-        &filenames,
-        &provider_tracks,
-        source,
-        &artists,
-        &[],
-    );
+    let (provider_tracks, matched) = provider_track_alignment(request, candidate)?;
     if matched.stats.matched != request.tracks.len()
         || matched
             .evidence
@@ -2239,32 +2446,43 @@ fn strict_provider_candidate_credibility(
         ));
     }
 
-    Ok(CredibilityScore {
-        strict_match: true,
-        explicit_id: match candidate.source {
-            LookupSource::Musicbrainz => request
-                .musicbrainz_album_id
-                .as_ref()
-                .is_some_and(|_| request.musicbrainz_album_id == candidate.musicbrainz_album_id),
-            LookupSource::Discogs => request
-                .discogs_release_id
-                .as_ref()
-                .is_some_and(|_| request.discogs_release_id == candidate.discogs_release_id),
-            _ => false,
+    let covered = matched
+        .remote_indices
+        .iter()
+        .flatten()
+        .collect::<HashSet<_>>()
+        .len();
+    Ok((
+        CredibilityScore {
+            strict_match: true,
+            explicit_id: match candidate.source {
+                LookupSource::Musicbrainz => {
+                    request.musicbrainz_album_id.as_ref().is_some_and(|_| {
+                        request.musicbrainz_album_id == candidate.musicbrainz_album_id
+                    })
+                }
+                LookupSource::Discogs => request
+                    .discogs_release_id
+                    .as_ref()
+                    .is_some_and(|_| request.discogs_release_id == candidate.discogs_release_id),
+                _ => false,
+            },
+            edition_matches: usize::from(
+                request.country_hint.is_some()
+                    && request
+                        .country_hint
+                        .as_deref()
+                        .zip(candidate.country.as_deref())
+                        .is_some_and(|(hint, provider)| countries_match(hint, provider)),
+            ),
+            exact_track_count: provider_tracks.len() == covered,
+            provider_extras: provider_tracks.len().saturating_sub(covered),
+            exact_year: request.year_hint.is_some()
+                && request.year_hint.as_deref() == candidate.year.as_deref(),
         },
-        edition_matches: usize::from(
-            request.country_hint.is_some()
-                && request
-                    .country_hint
-                    .as_deref()
-                    .zip(candidate.country.as_deref())
-                    .is_some_and(|(hint, provider)| countries_match(hint, provider)),
-        ),
-        exact_track_count: provider_tracks.len() == request.tracks.len(),
-        provider_extras: provider_tracks.len().saturating_sub(request.tracks.len()),
-        exact_year: request.year_hint.is_some()
-            && request.year_hint.as_deref() == candidate.year.as_deref(),
-    })
+        matched,
+        provider_tracks,
+    ))
 }
 
 fn provider_rejection_code(reason: &str) -> &'static str {
@@ -2499,14 +2717,7 @@ async fn musicbrainz_artist_candidates(
     .await?;
     let mut candidates = Vec::new();
     let mut detail_error = None;
-    let ranked_releases = rank_artist_releases_with_country(
-        releases,
-        request.album_hint.as_deref(),
-        request.year_hint.as_deref(),
-        request.country_hint.as_deref(),
-        request.release_type_hint.as_deref(),
-        u32::try_from(request.tracks.len()).ok(),
-    );
+    let ranked_releases = rank_releases_for_request(releases, request);
     let (window, unexamined) = ranked_detail_window(ranked_releases, |release| {
         cached_release_detail(cache, "musicbrainz-v4", &release.id).is_some()
     });
@@ -2567,14 +2778,7 @@ async fn discogs_artist_candidates(
     )
     .await?;
     let mut candidates = Vec::new();
-    let ranked_releases = rank_artist_releases_with_country(
-        releases,
-        request.album_hint.as_deref(),
-        request.year_hint.as_deref(),
-        request.country_hint.as_deref(),
-        request.release_type_hint.as_deref(),
-        u32::try_from(request.tracks.len()).ok(),
-    );
+    let ranked_releases = rank_releases_for_request(releases, request);
     let (window, unexamined) = ranked_detail_window(ranked_releases, |release| {
         cached_release_detail(cache, "discogs-v4", &release.id).is_some()
     });
@@ -2765,7 +2969,11 @@ fn album_coverage(
             if let Some(tracks) = &candidate.provider_tracks_for_evaluation {
                 full.tracks = tracks.clone();
             }
-            let tracks = candidate_tracks_for_request(request, &full);
+            let tracks = candidate
+                .accepted_match
+                .as_ref()
+                .map(|accepted| accepted.provider_tracks.clone())
+                .unwrap_or_else(|| candidate_tracks_for_request(request, &full));
             let mut disc_totals = HashMap::<u32, usize>::new();
             for track in &tracks {
                 disc_totals
@@ -2787,11 +2995,10 @@ fn album_coverage(
                 .len()
         })
         .unwrap_or(0);
-    let covered = if unique_recordings > 0 {
-        unique_recordings
-    } else {
-        verified
-    };
+    let covered = candidate
+        .and_then(|candidate| candidate.accepted_match.as_ref())
+        .map(|accepted| accepted.coverage)
+        .unwrap_or(verified);
     let provider = candidate.filter(|candidate| {
         matches!(
             candidate.source,
@@ -2804,6 +3011,9 @@ fn album_coverage(
         provider.filter(|candidate| candidate.verification.as_deref() != Some("recording_only"));
     serde_json::json!({"stage":"coverage", "localFiles":local, "verifiedTracks":verified, "uniqueVerifiedRecordings":unique_recordings,
         "writtenFiles":written, "releaseTracks":release_tracks,
+        "provenAudioGroups":request.audio_groups.as_ref().map(|proof| proof.groups().len()).unwrap_or(local),
+        "coveredProviderOccurrences":covered,
+        "unmatchedProviderOccurrences":release_tracks.map(|total| total.saturating_sub(covered)),
         "providerVerifiedCoreTracks":provider.map(|candidate| candidate.tracks.iter().filter(|track| track.title.is_some() && track.artist.is_some()).count()).unwrap_or(0),
         "providerVerifiedAlbumTracks":edition_provider.filter(|candidate| candidate.album.is_some()).map(|_| written).unwrap_or(0),
         "providerVerifiedEditionTracks":edition_provider.filter(|candidate| candidate.musicbrainz_album_id.is_some() || candidate.discogs_release_id.is_some()).map(|_| written).unwrap_or(0),
@@ -3674,6 +3884,15 @@ fn finalize_album_coverage(
         .find(|row| row["stage"] == "coverage")
         .cloned()
         .unwrap_or_else(|| album_coverage(request, result.candidate.as_ref(), result.written));
+    // Early review results have no accepted candidate or proof in the outer request.
+    if let Some(groups) = result
+        .diagnostics
+        .iter()
+        .find(|row| row["stage"] == "exact_audio_groups")
+        .and_then(|row| row["groups"].as_array())
+    {
+        coverage["provenAudioGroups"] = groups.len().into();
+    }
     if measured_core {
         coverage["completeTrackCore"] =
             (result.completion_basis == Some("verified_track_core")).into();
@@ -3702,17 +3921,62 @@ async fn resolve_and_apply_album_with_acoustid_override(
     mut report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
     progress(1, "Parsing folder hints...");
-    let mut request = build_lookup_request(album_path)?;
     let sources = collect_audio_files(album_path);
+    let bindings = sources
+        .iter()
+        .map(|file| RecordingSource::capture(Path::new(file)))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut request = build_lookup_request(album_path)?;
     if sources.len() != request.tracks.len() {
         return Err(ApiError::Message(
             "audio source coverage changed before lookup".into(),
         ));
     }
-    for (file, track) in sources.iter().zip(&mut request.tracks) {
-        track.source = Some(RecordingSource::capture(Path::new(file))?);
+    for (source, track) in bindings.into_iter().zip(&mut request.tracks) {
+        track.source = Some(source);
+    }
+    validate_recording_sources(&sources, &request.tracks)?;
+    let mut nominated = HashSet::new();
+    for (i, a) in request.tracks.iter().enumerate() {
+        for (j, b) in request.tracks.iter().enumerate().skip(i + 1) {
+            if a.length.zip(b.length).is_some_and(|(a, b)| {
+                a.is_finite() && b.is_finite() && a > 0.0 && b > 0.0 && (a - b).abs() <= 0.1
+            }) || a
+                .musicbrainz_track_id
+                .as_ref()
+                .is_some_and(|id| b.musicbrainz_track_id.as_ref() == Some(id))
+                || a.title
+                    .as_deref()
+                    .zip(b.title.as_deref())
+                    .is_some_and(|(a, b)| {
+                        !a.trim().is_empty()
+                            && normalized_release_identity(a) == normalized_release_identity(b)
+                    })
+            {
+                nominated.extend([i, j]);
+            }
+        }
+    }
+    if !nominated.is_empty() {
+        let mut nominated = nominated.into_iter().collect::<Vec<_>>();
+        nominated.sort_unstable();
+        progress(2, "Checking nominated exact FLAC copies...");
+        request.audio_groups = Some(
+            crate::infra::audio_evidence::prove_duplicate_groups(
+                &album_path.canonicalize()?,
+                &lookup_sources(&request).unwrap(),
+                &[nominated],
+                cancelled,
+            )
+            .await,
+        );
+        validate_recording_sources(&sources, &request.tracks)?;
     }
     check_cancelled(cancelled)?;
+    let duplicate_conflict = request
+        .audio_groups
+        .as_ref()
+        .and_then(|proof| validate_proven_group_metadata(&request.tracks, proof).err());
     let identity_available = has_tagging_identity(&request);
     let use_acoustid =
         config.acoustid_enabled == Some(true) && config.remote_lookup_enabled != Some(false);
@@ -3720,7 +3984,10 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let mut early_acoustid_attempt = None;
     let mut early_acoustid_evidence = None;
     let mut early_acoustid_diagnostics = Vec::new();
-    if (!identity_available || recording_collection_hint(&request)) && use_acoustid {
+    if (!identity_available || recording_collection_hint(&request))
+        && use_acoustid
+        && duplicate_conflict.is_none()
+    {
         progress(3, "Fingerprinting album tracks...");
         let result = if let Some((client, fpcalc)) = acoustid_override {
             super::auto_tag_acoustid::resolve_with(
@@ -3958,7 +4225,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
         request.musicbrainz_artist_id.is_none() && config.remote_lookup_enabled != Some(false);
     let needs_discogs_identity =
         request.discogs_artist_id.is_none() && config.discogs_enabled != Some(false);
-    let resolved_identity = if (needs_musicbrainz_identity || needs_discogs_identity)
+    if (needs_musicbrainz_identity || needs_discogs_identity)
         && request
             .artist_hint
             .as_deref()
@@ -3991,10 +4258,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
             }
         }
         fill_request_artist_identity(&mut request, &resolution.identity);
-        Some(resolution.identity)
-    } else {
-        None
-    };
+    }
     check_cancelled(cancelled)?;
 
     if config.remote_lookup_enabled != Some(false) && identity_available {
@@ -4138,6 +4402,19 @@ async fn resolve_and_apply_album_with_acoustid_override(
         provider_authority_decision(&request, fresh.clone(), &provider_attempts);
     let mut provider_diagnostics =
         provider_selection_diagnostics(&request, &fresh, &provider_attempts);
+    if let Some(proof) = &request.audio_groups {
+        provider_diagnostics.push(serde_json::json!({"stage":"exact_audio_groups", "groups":proof.groups(), "diagnostics":proof.diagnostics()}));
+    }
+    if let Some(conflict) = duplicate_conflict {
+        provider_diagnostics
+            .push(serde_json::json!({"stage":"duplicate_metadata_conflict", "reason":conflict}));
+        return Ok(AutoTagRunResult {
+            reason_code: Some("duplicate_metadata_conflict".into()),
+            diagnostics: provider_diagnostics,
+            provider_attempts,
+            ..AutoTagRunResult::default()
+        });
+    }
     provider_diagnostics.extend(discogs_discovery.diagnostics);
     provider_diagnostics.extend(early_acoustid_diagnostics);
     if let Some(evidence) = early_acoustid_evidence {
@@ -4166,7 +4443,14 @@ async fn resolve_and_apply_album_with_acoustid_override(
         && (candidate.is_none()
             || album_coverage(&request, candidate.as_ref(), 0)["releaseTracks"]
                 .as_u64()
-                .is_some_and(|count| count as usize > request.tracks.len()))
+                .is_some_and(|count| {
+                    count as usize
+                        > candidate
+                            .as_ref()
+                            .and_then(|c| c.accepted_match.as_ref())
+                            .map(|m| m.coverage)
+                            .unwrap_or(request.tracks.len())
+                }))
     {
         // A provider subset does not establish an album edition. Retain
         // only independently verified recording fields from this fallback.
@@ -4369,7 +4653,14 @@ async fn resolve_and_apply_album_with_acoustid_override(
 
     if album_coverage(&request, Some(&candidate), 0)["releaseTracks"]
         .as_u64()
-        .is_some_and(|count| count as usize > request.tracks.len())
+        .is_some_and(|count| {
+            count as usize
+                > candidate
+                    .accepted_match
+                    .as_ref()
+                    .map(|m| m.coverage)
+                    .unwrap_or(request.tracks.len())
+        })
     {
         return Ok(AutoTagRunResult { reason_code:Some("partial_collection".into()), provider_attempts, diagnostics:provider_diagnostics.into_iter().chain(std::iter::once(serde_json::json!({"reason":"partial collection requires recording evidence before changing an album edition"}))).collect(), ..AutoTagRunResult::default() });
     }
@@ -4377,11 +4668,9 @@ async fn resolve_and_apply_album_with_acoustid_override(
     if request.musicbrainz_album_id.is_none() && request.discogs_release_id.is_none() {
         let credible = fresh
             .iter()
-            .filter(|other| {
-                other.source == candidate.source
-                    && provider_candidate_credibility(&request, other).is_ok()
-            })
-            .map(|other| protect_candidate_tracks(&request, other))
+            .filter(|other| other.source == candidate.source)
+            .filter_map(|other| select_credible_provider_candidate(&request, vec![other.clone()]))
+            .map(|other| protect_candidate_tracks(&request, &other))
             .collect::<Vec<_>>();
         let editions = credible
             .iter()
@@ -4471,9 +4760,14 @@ async fn resolve_and_apply_album_with_acoustid_override(
     );
     check_cancelled(cancelled)?;
     progress(8, "Resolving genre...");
-    if let Some(identity) = &resolved_identity {
-        fill_candidate_artist_identity(&mut candidate, identity);
-    }
+    fill_candidate_artist_identity(
+        &mut candidate,
+        &ArtistIdentity {
+            musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
+            discogs_artist_id: request.discogs_artist_id.clone(),
+            ..ArtistIdentity::default()
+        },
+    );
     let (candidate, genre_outcome) = if candidate.source == LookupSource::Llm {
         (candidate, None)
     } else {
@@ -4623,6 +4917,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
     let ai_status = (candidate.source == LookupSource::Llm).then(|| "accepted".to_string());
     let ai_confidence = candidate.confidence;
     let ai_threshold = ai_status.as_ref().map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
+    provider_diagnostics.push(album_coverage(&request, Some(&candidate), written));
     Ok(AutoTagRunResult {
         completion_basis: None,
         proof_version: None,
@@ -5399,6 +5694,24 @@ async fn apply_candidate_tags_reported(
 
     let files = collect_audio_files(album_path);
     validate_recording_sources(&files, &candidate.tracks)?;
+    let group_sources = if candidate
+        .accepted_match
+        .as_ref()
+        .is_some_and(|accepted| accepted.coverage < candidate.tracks.len())
+    {
+        let sources = candidate
+            .tracks
+            .iter()
+            .map(|track| {
+                track.source.clone().ok_or_else(|| {
+                    ApiError::Message("grouped track source binding is missing".into())
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Some(std::sync::Arc::new(std::sync::Mutex::new(sources)))
+    } else {
+        None
+    };
     let mut written = 0;
     let mut failures = Vec::new();
     for (index, file_path) in files.into_iter().enumerate() {
@@ -5437,7 +5750,42 @@ async fn apply_candidate_tags_reported(
         apply_clear_tag_fields(&mut fields, clear_tags);
         let patch: TrackPatch = serde_json::from_value(fields.into())
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
-        match write_track_queued(queue, file_path.clone().into(), patch).await {
+        let guard_sources = group_sources.clone();
+        let observe_sources = group_sources.clone();
+        match write_track_queued_guarded(
+            queue,
+            file_path.clone().into(),
+            patch,
+            false,
+            track.and_then(|track| track.source.clone()),
+            move |_| {
+                if let Some(sources) = guard_sources {
+                    for expected in sources
+                        .lock()
+                        .map_err(|_| ApiError::Message("grouped source guard failed".into()))?
+                        .iter()
+                    {
+                        if RecordingSource::capture(&expected.path)? != *expected {
+                            return Err(ApiError::Message(
+                                "exact-audio group source changed while waiting for a write".into(),
+                            ));
+                        }
+                    }
+                }
+                Ok(())
+            },
+            move |path, _, _| {
+                if let Some(sources) = observe_sources {
+                    sources
+                        .lock()
+                        .map_err(|_| ApiError::Message("grouped source guard failed".into()))?
+                        [index] = RecordingSource::capture(path)?;
+                }
+                Ok(())
+            },
+        )
+        .await
+        {
             Ok(()) => {
                 written += 1;
                 report_write(&file_path);
@@ -8854,6 +9202,57 @@ mod tests {
             vec!["exact", "unknown", "extended"],
             "known short editions are excluded and exact track totals lead local ranking"
         );
+    }
+
+    #[test]
+    fn release_ranking_prioritizes_exact_album_identity_over_containment() {
+        let mut releases = (0..41)
+            .map(|index| ProviderReleaseSummary {
+                id: format!("substring-{index}"),
+                title: format!("Collection 4 Volume {index}"),
+                year: Some(2024),
+                country: Some("US".into()),
+                kind: Some("Album".into()),
+                track_count: Some(16),
+                ..ProviderReleaseSummary::default()
+            })
+            .collect::<Vec<_>>();
+        releases.extend([
+            ProviderReleaseSummary {
+                id: "exact".into(),
+                title: "4".into(),
+                year: Some(2011),
+                ..ProviderReleaseSummary::default()
+            },
+            ProviderReleaseSummary {
+                id: "edition".into(),
+                title: "4 (Deluxe Edition)".into(),
+                year: Some(2013),
+                ..ProviderReleaseSummary::default()
+            },
+            ProviderReleaseSummary {
+                id: "short".into(),
+                title: "4".into(),
+                track_count: Some(12),
+                ..ProviderReleaseSummary::default()
+            },
+        ]);
+
+        let ranked = rank_artist_releases_with_country(
+            releases,
+            Some("4"),
+            Some("2024"),
+            Some("US"),
+            Some("Album"),
+            Some(16),
+        );
+
+        assert_eq!(ranked.len(), 43);
+        assert_eq!(ranked[0].id, "edition");
+        assert_eq!(ranked[1].id, "exact");
+        assert!(ranked[2..]
+            .iter()
+            .all(|release| release.id.starts_with("substring-")));
     }
 
     #[test]
