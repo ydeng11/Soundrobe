@@ -131,6 +131,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Clearing an MP3's disc total preserves its disc number instead of replacing it with the track number.
 - Auto-tagging reserves exact recording-ID matches before other tracks can claim the same provider rows through stale titles.
 - Artist release browsing checks exact album identities before substring matches, so short titles such as `4` are not buried behind unrelated releases within the discovery limit.
 - Tagging through an existing recording ID retains a local studio-version or performance qualifier when the provider supplies only the same base title, instead of shortening titles such as `Grown Woman (Studio Version)`.

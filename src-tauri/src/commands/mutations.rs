@@ -3343,7 +3343,14 @@ fn apply_patch(tag: &mut Id3v2Tag, patch: &TrackPatch, use_id3v23: bool) -> Resu
     }
     match patch.disc_total {
         Patch::Omitted => {}
-        Patch::Null => tag.remove_disk_total(),
+        Patch::Null => {
+            // Lofty's ID3 remove_disk_total restores the track number as TPOS.
+            let disc = tag.disk();
+            tag.remove_disk();
+            if let Some(disc) = disc {
+                tag.set_disk(disc);
+            }
+        }
         Patch::Value(value) => tag.set_disk_total(value),
     }
     apply_list(tag, "ARTISTS", &patch.artists);
@@ -5096,6 +5103,26 @@ mod tests {
         write_mp3_atomic(&path, &patch).unwrap();
         assert_eq!(read_track_metadata(&path).unwrap().title, None);
         fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn clearing_id3_disc_total_preserves_disc_number_not_track_number() {
+        for disc in [Some(2), None] {
+            let (root, path) = copy_fixture();
+            let initial: TrackPatch = serde_json::from_value(
+                serde_json::json!({"trackNumber":7,"discNumber":disc,"discTotal":3}),
+            )
+            .unwrap();
+            write_mp3_atomic(&path, &initial).unwrap();
+            let clear: TrackPatch =
+                serde_json::from_value(serde_json::json!({"discTotal":null})).unwrap();
+            write_mp3_atomic(&path, &clear).unwrap();
+            let read = read_track_metadata(&path).unwrap();
+            assert_eq!(read.disc_number, disc);
+            assert_eq!(read.disc_total, None);
+            assert_eq!(read.track_number, Some(7));
+            fs::remove_dir_all(root).unwrap();
+        }
     }
 
     #[test]
