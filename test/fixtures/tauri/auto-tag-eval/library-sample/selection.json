@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sourceLabel": "Volumes/downloads/music",
+  "samplingPolicy": "Purposeful bounded structural sample, not a random or accuracy-representative sample. Include current complete physical folders; tags and folder edition claims remain unverified.",
+  "folders": [
+    {"folder": "Compilations/2018-人际关系事务所 电视原声带", "artist": "Various Artists", "releaseType": "compilation", "labels": ["tv_ost", "multiple_performers", "cjk"], "reason": "TV soundtrack under Compilations, not a Various Artists discography browse."},
+    {"folder": "Compilations/終極一班2 (電視原聲帶)", "artist": "Various Artists", "releaseType": "compilation", "labels": ["tv_ost", "multiple_performers", "cjk", "mp3"], "reason": "Traditional-Chinese soundtrack names and per-track MP3 credits."},
+    {"folder": "Compilations/2013-友情岁月 3CD[香港首版][WAV]", "artist": "Various Artists", "releaseType": "compilation", "labels": ["multidisc", "repeated_track_numbers", "misleading_format_hint"], "reason": "51 physical tracks in one directory with a 3CD/WAV folder claim; preserve observed disc and track positions rather than flattening them."},
+    {"folder": "Compilations/Slam Dunk Best Collection", "artist": "Various Artists", "releaseType": "compilation", "labels": ["soundtrack", "multiple_performers", "missing_disc_tags"], "reason": "32-track anime collection with multiple artists but no captured disc tags; do not infer disc structure from track count."},
+    {"folder": "Compilations/2024 -《時光代理人》影視劇原聲帶", "artist": "Various Artists", "releaseType": "compilation", "labels": ["tv_ost", "cjk", "small_tracklist"], "reason": "Short TV soundtrack provides a contrast to large compilation collections."},
+    {"folder": "Queen/[1973] Queen I", "artist": "Queen", "labels": ["partial_album", "edition_pair"], "reason": "Only two physical tracks; compare with the separately retained collector-edition folder, not an assumed complete album."},
+    {"folder": "Queen/[1973] Queen I (Collector's Edition)", "artist": "Queen", "labels": ["partial_album", "edition_pair", "edition_qualifier"], "reason": "One-track collector-edition input must not acquire an edition solely from the folder label."},
+    {"folder": "Queen/[1982] Hot Space (2011 Remaster)", "artist": "Queen", "labels": ["partial_album", "edition_pair", "remaster"], "reason": "Four-track remaster input paired with a separate deluxe folder."},
+    {"folder": "Queen/[1982] Hot Space (Deluxe Edition 2011 Remaster)", "artist": "Queen", "labels": ["partial_album", "edition_pair", "remaster"], "reason": "One-track deluxe input with overlapping release-family wording; no automatic edition assignment."},
+    {"folder": "Queen/[1992] Live At Wembley Stadium", "artist": "Queen", "labels": ["live", "partial_album"], "reason": "Two-track live release must preserve live/version evidence and incompleteness."},
+    {"folder": "宇多田光/Hikaru Utada - Utada Hikaru Single Collection Vol.2", "artist": "宇多田光", "labels": ["artist_alias", "missing_disc_tags", "japanese"], "reason": "Japanese and romanized artist names in an 18-track artist compilation without captured disc tags; do not infer disc structure."},
+    {"folder": "草东没有派对/醜奴兒", "artist": "草东没有派对", "labels": ["artist_alias", "cjk", "ordinary_album_control"], "reason": "Ordinary 12-track control with simplified folder and traditional metadata spellings."},
+    {"folder": "久石让/Brother (Original Motion Picture Soundtrack)", "artist": "久石让", "labels": ["artist_alias", "soundtrack", "edition_pair"], "reason": "English-titled 13-track soundtrack beside a distinct Japanese-titled 10-track folder; do not merge by normalized album name."},
+    {"folder": "久石让/Brother サウンドトラック", "artist": "久石让", "labels": ["artist_alias", "soundtrack", "edition_pair", "unicode_normalization"], "reason": "Japanese decomposed-Unicode folder name and different physical track count from the English-titled soundtrack."}
+  ]
+}

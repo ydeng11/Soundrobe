@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-09-12.inventory-1",
+  "reviewPolicy": "Independent frozen provider tracklist review, selected before native replay. Every local occurrence has a distinct title/version-compatible provider occurrence and measured duration evidence. Acceptable IDs identify content-compatible releases, not proven source pressings or acoustic identity. Album artist is an allowed output policy; collaborative-credit recovery is not scored.",
+  "cases": [
+    {
+      "caseId": "60ebec7ffadb",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "03651c58-0658-4fee-96be-199ad9b08541",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-71f29e4821a34dfe.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "Guitar Songs: both distinct local files map exactly to TV and The 30th; release-track durations differ by at most 0.001 seconds."
+    },
+    {
+      "caseId": "4060f1de6662",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "2ca2b5dd-1695-40e2-8947-9baf4b4c12b0",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-372d24bff6c7bfdf.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "Lo Vas A Olvidar: capitalization-only title difference and exact 203.464-second duration. Raw release and recording credits include Billie Eilish and ROSALÍA; using Billie Eilish uniformly is allowed but does not recover those collaborative credits."
+    },
+    {
+      "caseId": "0e7c8a578cea",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "6884af9c-40e3-4553-ad1b-1fff4db194b5",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-f8a99d8d4a458b57.json",
+      "hardNegativeIds": ["69af85f4-2b7a-4cf1-bdba-05ef1c49f616"],
+      "reviewNotes": "Marian Hill remix: preserve the remix qualifier. Local duration 220.8 seconds versus provider 220 seconds. The separately captured ordinary bellyache release has no remix qualifier and lasts 179 seconds; it is a version/duration hard negative, not an alternative pressing."
+    },
+    {
+      "caseId": "07e09ba5552a",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "120e42f5-1a70-490c-a525-df22642bfc85",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-a727437c25c86a19.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "my future: exact title, local duration 208.155 seconds versus the frozen recording's 210 seconds. The release-track duration is null, not zero. This vinyl release is content-compatible; its medium does not establish the original local format or pressing."
+    },
+    {
+      "caseId": "fb0a478438a7",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "b2a6554b-5fa9-4bfe-baa0-a9bbcf2ccaa2",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-38a1b745a74f48c2.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "Ocean Eyes: capitalization-only title difference and exact 200.56-second duration."
+    },
+    {
+      "caseId": "e61daee1518d",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "69af85f4-2b7a-4cf1-bdba-05ef1c49f616",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-bb7f75d4a5d553e6.json",
+      "hardNegativeIds": ["6884af9c-40e3-4553-ad1b-1fff4db194b5"],
+      "reviewNotes": "Ordinary bellyache: exact title, local 179.172 seconds versus release track 179 seconds (recording 179.172). The 220-second Marian Hill remix is the reciprocal version/duration hard negative."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-11-06.artist-batch-1",
+  "reviewPolicy": "Independent frozen provider title/version/duration review before native replay. Explicit artist aliases are case-scoped simplified/traditional spellings, not a generic transliteration or fuzzy-match rule. Compatible release IDs do not prove source pressing, mastering or acoustic identity.",
+  "cases": [
+    {
+      "caseId": "d587d60846f0",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "951fa695-68dd-47cd-a715-91af431ad4b5",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-0dc6923b7e3ae3dc.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "100種生活: all 12 distinct occurrences have exact local/provider titles and duration differences at most 0.001 seconds, including short PAZ/Boring interludes and the bilingual final title. 卢广仲 and 盧廣仲 are reviewed simplified/traditional spellings of the same name; captured local and provider artist IDs also agree on 2ccc975f-ea40-4f0e-b861-8d80f967fe81. IDs corroborate, not replace, the full tracklist review."
+    },
+    {
+      "caseId": "90d6af52dacf",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "a11b1ed0-710c-4bf6-9fe2-ead4830946d9",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-9c9e1ea4563f772f.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "幾分之幾: all three titles match exactly, preserving 明仔載 (正式版). Duration deltas in local file order are 1.295, 2.021 and 0.006 seconds. The same explicitly reviewed 卢广仲/盧廣仲 spelling pair applies; provider and captured artist IDs agree."
+    }
+  ]
+}

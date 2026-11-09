@@ -155,15 +155,18 @@ def score_results(corpus: dict[str, Any], expectations: dict[str, Any], results:
         partition = stable_partition(str(case.get("releaseGroupId", ""))) if case else "development"
         partitions[partition][outcome] += 1
         phases = invocations.get(case_id, {})
+        folder = folder_by_id.get(case_id) or {}
+        cold_id = identity_id(folder.get("coldIdentity"))
+        warm_id = identity_id(folder.get("warmIdentity"))
         case_results.append(
             {
                 "caseId": case_id,
                 "status": status,
                 "outcome": outcome,
                 "partition": partition,
-                "selectedIdentity": identity_id((folder_by_id.get(case_id) or {}).get("selectedIdentity")),
-                "coldIdentity": identity_id(phases.get("cold", {}).get("selectedIdentity")),
-                "warmIdentity": identity_id(phases.get("warm", {}).get("selectedIdentity")),
+                "selectedIdentity": identity_id(folder.get("selectedIdentity")),
+                "coldIdentity": cold_id,
+                "warmIdentity": warm_id,
             }
         )
         if any(provider_has_unavailable(record) for record in phases.values()):
@@ -172,8 +175,6 @@ def score_results(corpus: dict[str, Any], expectations: dict[str, Any], results:
         warm = phases.get("warm", {})
         if cold.get("classification") == "incomplete" and warm.get("classification") == "confirmed_success":
             warm_recovery.add(case_id)
-        cold_id = identity_id(cold.get("selectedIdentity"))
-        warm_id = identity_id(warm.get("selectedIdentity"))
         if cold_id and warm_id and cold_id != warm_id:
             identity_inconsistent.add(case_id)
         if outcome == "correct" and any(evidence_contains(record, "GuardedTitle") for record in phases.values()):

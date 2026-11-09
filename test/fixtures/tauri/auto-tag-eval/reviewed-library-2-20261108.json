@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-11-06.library-sample-1",
+  "reviewPolicy": "Independent frozen title/version/occurrence/duration review before native replay. Artist aliases are exact case-scoped reviewed spellings corroborated by provider identity, never generic transliteration. Unresolved duration and content conflicts remain unscored, not verified no-matches. No acoustic identity, mastering or pressing claim.",
+  "cases": [
+    {
+      "caseId": "6f2e1cfe0454",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "8c3d0f30-247e-4b56-809c-79f795f66d4e",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-8c3d0f30-247e-4b56-809c-79f795f66d4e.json",
+      "artistAliases": ["宇多田ヒカル"],
+      "hardNegativeIds": [],
+      "reviewNotes": "All 18 occurrences map completely across the provider's two media, preserving disc-qualified provider positions and local file order. Complete durations have maximum delta 4.013 seconds on Beautiful World (PLANiTb Acoustica Mix). The ordinary Beautiful World and Acoustica Mix remain distinct; Ballad Version and Single Version qualifiers survive punctuation-only normalization. 宇多田光 and 宇多田ヒカル name the same artist, corroborated by captured and raw artist ID b539e453-c4fe-47e3-8a07-8517eac74429. Filename remaster claims and acoustic version identity are not established."
+    },
+    {
+      "caseId": "b4276f145b7a",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-d6b810f1-517b-4a7c-bb26-93becdc52faa.json",
+      "hardNegativeIds": [],
+      "reason": "Brother has 13 local files versus 15 provider tracks and major title/duration association conflicts. Local Drifter… in LAX is 85.187 seconds versus provider 262.040; local Blood Brother is 457.667 versus provider 217.226. Several local durations closely resemble different provider titles, but duration alone does not prove a retitling. Captured release ID cannot override these conflicts. Needs independent occurrence/version evidence and explicit review of provider extras; do not map positionally, guess renamed songs or call this a verified no-match."
+    }
+  ]
+}

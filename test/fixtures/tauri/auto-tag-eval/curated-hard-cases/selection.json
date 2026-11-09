@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "sourceLabel": "Downloads/Music/Curated",
+  "evidenceThread": "https://ampcode.com/threads/T-01a1ad54-f1b8-75a1-8f82-48e86f2644ac",
+  "policy": "Capture current membership only. Historical acoustic hypotheses and completed runs are not truth. Dummy audio cannot prove original recording or duplicate identity.",
+  "folders": [
+    {"folder": "Beyonc Giselle Knowles/keep/4 (Deluxe Edition)", "artist": "Beyonc Giselle Knowles", "labels": ["short_album_title", "conflicting_titles", "conflicting_positions", "physical_duplicates"], "reason": "Exact-title ranking and recording-ID row reservation regression; Schoolin' Life filenames disagree with embedded titles and positions. Keep every physical row."},
+    {"folder": "Beyonc Giselle Knowles/keep/B'day", "artist": "Beyonc Giselle Knowles", "labels": ["version_qualifiers", "partial_album", "mixed_codecs"], "reason": "Current post-quarantine membership. Album/extended Get Me Bodied versions and ambiguous provider associations must remain distinct; a missing candidate occurrence is not proof of no release."},
+    {"folder": "Beyonc Giselle Knowles/keep/Beyoncé", "artist": "Beyonc Giselle Knowles", "labels": ["conflicting_titles", "conflicting_positions", "collaborator_filenames", "version_ambiguity"], "reason": "Current 14-file membership after Heaven quarantine. Preserve filename/tag disagreements and Blow/Blow Remix ambiguity without adopting acoustic or catalog hypotheses."},
+    {"folder": "Beyonc Giselle Knowles/keep/I AM...SASHA FIERCE", "artist": "Beyonc Giselle Knowles", "labels": ["version_qualifiers", "html_entities", "same_stem", "partial_album"], "reason": "Single-version and base-title claims, Single Ladies filename variants, and HTML entities. Dummy silence is not evidence that variants are equal recordings."},
+    {"folder": "Beyonc Giselle Knowles/keep/Grown Woman  - Single", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["version_qualifiers", "existing_ids"], "reason": "Preserve the observed Studio Version qualifier on existing-ID lookup; do not infer it from synthetic audio."},
+    {"folder": "Beyonc Giselle Knowles/keep/7_11", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["existing_ids", "unicode_filename"], "reason": "Discogs artist-ID preservation regression and the 7、11 filename variant."},
+    {"folder": "Beyonc Giselle Knowles/keep/Perfect Duet", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["ordered_credits"], "reason": "Preserve captured collaborator credit lists and their order."},
+    {"folder": "Beyonc Giselle Knowles/keep/Make Me Say It Again, Girl", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["ordered_credits", "group_name"], "reason": "The Isley Brothers is one act, not a delimiter-separated list of people."},
+    {"folder": "Beyonc Giselle Knowles/keep/DELRESTO (ECHOES)", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["ordered_credits", "collaborator_filenames"], "reason": "Retain observed plural artist and album-artist billing independently."},
+    {"folder": "Beyonc Giselle Knowles/keep/I Was Here Remix Single", "artist": "Beyonc Giselle Knowles", "releaseType": "single", "labels": ["version_qualifiers", "mixed_codecs"], "reason": "Keep Album Version, J-C Main Club Mix, StrictLove Beach House Club Mix and WAWA Anthem Mix separate without blessing their identities."}
+  ]
+}

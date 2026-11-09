@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-09-12.inventory-1",
+  "reviewPolicy": "Independent raw-provider metadata-content review before native replay. Each positive has complete distinct title/version occurrences and measured compatible durations. Accepted IDs name compatible whole-content representatives, not proven source pressings, mastering, acoustic identity or clean/explicit versions. Physical cases stay separate, including repeated content. Existing reviewed answers and title rules are unchanged.",
+  "cases": [
+    {
+      "caseId": "2069ef64bb7b",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "09958e6b-5c1b-40a0-8d32-faa82862030f",
+      "snapshot": "provider-snapshots/discovery/folder-identities-2026-11-07/musicbrainz-0aea2c0356d60239.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 11 Watermark titles map to distinct occurrences with complete durations and maximum delta 0.001 seconds. Captured release ID corroborates the independently checked tracklist. Germany, P+O pressing and mastering are not established. This physical folder remains separate from the misprint-labelled folder with the same content."
+    },
+    {
+      "caseId": "3ac2bcb77f5a",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "2c67f46d-1a66-3d71-9e0c-f696297063b9",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-7ae5c7e754f516fa.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 15 The Celts titles and distinct occurrences match with complete durations and maximum delta 0.907 seconds. Portrait (Out of the Blue), the full Triad title and To Go Beyond parts I and II remain distinct. This standalone whole-content representative covers the local box-set subfolder but does not establish the enclosing box or Japanese pressing."
+    },
+    {
+      "caseId": "3b95f81ac351",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "2ca2b5dd-1695-40e2-8947-9baf4b4c12b0",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-372d24bff6c7bfdf.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "Separate physical Lo Vas A Olvidar case with capitalization-only title differences and matching 203.464-second durations. Release, track and recording credits identify Billie Eilish and ROSALÍA. Local artist and albumArtist name the same duet; the case-level Billie Eilish name is a batch identity, not a solo-credit claim. Keep separate from reviewed case 4060f1de6662 without claiming an independent recording or acoustic identity."
+    },
+    {
+      "caseId": "4713ee42bece",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "0051ff2a-d495-4e6c-8f7b-ef8a88226687",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-27b0220acbb8a44a.json",
+      "hardNegativeIds": ["0ca50ac4-48f1-4903-a70e-a9b8676d85d3"],
+      "reviewNotes": "Amala deluxe: all 16 local MP3 titles map in order to distinct provider tracks with complete durations and maximum delta 1.372 seconds on Juicy. Juicy, Tia Tamera and MOOO! are present after the original 13 tracks. Track credits include Konshens on Wine Pon You and Rico Nasty on Tia Tamera. The negative is the complete 13-track Amala release missing those three local bonus tracks. Discogs 14844198 and 21401758 are compatible deluxe content, not negatives. Selected evidence is not a 360 Reality Audio edition. Local clean/explicit status and original-codec writes are not established."
+    },
+    {
+      "caseId": "54e7923a3000",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "13898510",
+      "snapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json",
+      "hardNegativeIds": ["10882698"],
+      "reviewNotes": "All nine dont smile at me tracks, including &burn, map in order to distinct provider occurrences with complete durations and maximum delta 2.331 seconds on Bellyache. Raw track 9 credits Vince Staples as Guest [With], although local artist tags name only Billie Eilish. This credit must be audited in native output, not assumed recovered. The eight-track negative lacks &burn. Discogs 37353822 has compatible nine-track content; sticker and matrix differences are not content negatives."
+    },
+    {
+      "caseId": "608569c877f5",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "4e8efc2a-17a5-42f9-a4c8-54ae521dd014",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-68ab295d5444ae6e.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 14 Dark Sky Island deluxe-content tracks match distinct occurrences with complete durations and maximum delta 0.000 seconds. Solace, Pale Grass Blue and Remember Your Smile are required. The release-track Loxian Gate versus recording-level Loxian Gates spelling is retained as a provider discrepancy, not a different version. UK pressing and mastering are not established."
+    },
+    {
+      "caseId": "612d0c67b7a0",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "4946da8e-73bc-4399-b10d-61803bfe7bd7",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-a446eaa7aa676b49.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 15 expanded Memory of Trees occurrences match with complete durations and maximum delta 0.933 seconds. Eclipse, I May Not Awaken and Boadicea retain B-side annotations; Only If retains its single annotation. On My Way Home is the approximately 309-second occurrence, not the approximately 339-second occurrence in the 12-track Japanese-folder case. Taiwanese box-set provenance is not established."
+    },
+    {
+      "caseId": "70610c97a105",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "df9f70a2-aa86-3f11-8ebe-95f770217674",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-3b1ebd36b56e4b4f.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 12 Memory of Trees occurrences match with complete durations and maximum delta 0.001 seconds. Includes Oriel Window and the 338.800-second On My Way Home occurrence. Captured release ID is corroboration after content review, not proof of the source pressing or mastering."
+    },
+    {
+      "caseId": "8209f30e21ef",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "09958e6b-5c1b-40a0-8d32-faa82862030f",
+      "snapshot": "provider-snapshots/discovery/folder-identities-2026-11-07/musicbrainz-0aea2c0356d60239.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 11 Watermark occurrences match with complete durations and maximum delta 0.001 seconds. The source folder remains a separate physical case, but its misprint claim and a distinct pressing or mastering are not established by this shared content representative."
+    },
+    {
+      "caseId": "84953c4f5ea8",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "668fe054-1ff3-420c-9137-280ad01a78fd",
+      "snapshot": "provider-snapshots/discovery/folder-identities-2026-11-07/musicbrainz-8f031853849fac3f.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 15 expanded Watermark occurrences match with complete durations and maximum delta 0.907 seconds. Out Of The Blue, Morning Glory and Oiche Chiun retain EP annotations. The approximately 245-second album Storms in Africa and approximately 181-second Part II single are distinct occurrences. No claim establishes Taiwanese box-set provenance."
+    },
+    {
+      "caseId": "872fee627bfd",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "8d9aa53f-8d47-45ab-829a-8352078a39d4",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-730231224291bcac.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 12 Shepherd Moons occurrences match with complete durations and maximum delta 0.014 seconds. The unqualified Book of Days release-track title has an explicitly Gaelic-only recording and a duration compatible with local 153.867 seconds, not the approximately 176-second English/Gaelic recording. The captured local release separately spells out the Gaelic-only qualifier; that qualified-title correspondence is not added to the unchanged validator. This representative does not establish the Japanese box set or acoustic language identity."
+    },
+    {
+      "caseId": "bc220ea08c35",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "61f15983-3ca2-4a97-9263-1ffa0f97b34b",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-c2c947f7adead223.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 16 expanded Shepherd Moons occurrences match with complete durations and maximum delta 0.907 seconds. Book of Days at position 7 is the approximately 176-second English/Gaelic occurrence; position 16 is the approximately 154-second explicitly Gaelic occurrence, with a different recording ID. Oriel Window, 'S Fagain Mo Bhaile and As Baile retain B-side annotations. Taiwanese box-set provenance is not established."
+    },
+    {
+      "caseId": "e77a1d38de17",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "6d3f7acb-77a4-48fa-a292-c2b6b8db32d1",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-516316964be32d49.json",
+      "hardNegativeIds": ["417082"],
+      "reviewNotes": "All 12 A Day Without Rain occurrences match with complete durations and maximum delta 0.001 seconds. Isobella is required at position 11, with local/provider durations 270.307/270.306 seconds. Frozen Discogs 417082 substitutes The First Of Autumn and contains no Isobella, so equal track count does not make it compatible. Japanese pressing and mastering remain unproven."
+    },
+    {
+      "caseId": "f7756354af37",
+      "status": "verified_match",
+      "provider": "discogs",
+      "releaseId": "636215",
+      "snapshot": "provider-snapshots/discovery/details-2026-11-07/discogs-f46bfbbb038a012f.json",
+      "hardNegativeIds": [],
+      "reviewNotes": "All 16 Paint The Sky With Stars compilation occurrences match with complete durations and maximum delta 3.907 seconds. Compilation-specific timings, including Book Of Days and On My Way Home, are compatible. The captured release ID is retained only after raw-content review. Country, pressing and filename remaster claims are not established; closer timing on another edition is not grounds to reject this compatible representative."
+    }
+  ]
+}

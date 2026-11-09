@@ -70,9 +70,101 @@ it("imports locked raw detail snapshots from existing pools for offline review",
   expect((await (await fetch(`${base}/musicbrainz/ws/2/artist/?query=artist%3A%22Enya%22&fmt=json&limit=5`)).json()).artists[0].id).toBe("4967c0a1-b9f3-465e-8440-4598fd9fc33c");
   expect((await fetch(`${base}/discogs/releases/1459867?unexpected=query`)).status).toBe(501);
   const artistReleases = await fetch(`${base}/discogs/artists/9807/releases?page=1&per_page=100&sort=year&sort_order=desc`);
-  expect(artistReleases.status).toBe(404);
-  expect((await artistReleases.json()).releases).toEqual([]);
+  expect(artistReleases.status).toBe(200);
+  expect((await artistReleases.json()).pagination).toMatchObject({ page: 1, per_page: 100 });
   expect((await fetch(`${base}/musicbrainz/ws/2/release?query=anything`)).status).toBe(501);
+  const celts = await fetch(`${base}/musicbrainz/ws/2/release/2c67f46d-1a66-3d71-9e0c-f696297063b9?fmt=json&inc=recordings%2Bartist-credits%2Blabels%2Burl-rels`);
+  expect(celts.status).toBe(200);
+  const celtsBody = await celts.json();
+  expect(celtsBody).toMatchObject({ id: "2c67f46d-1a66-3d71-9e0c-f696297063b9", title: "The Celts" });
+  expect(celtsBody.media[0].tracks).toHaveLength(15);
+  const single = await fetch(`${base}/discogs/releases/21035242`);
+  expect(single.status).toBe(200);
+  const singleBody = await single.json();
+  expect(singleBody).toMatchObject({ id: 21035242, title: "Noche De Paz - The Celts" });
+  expect(singleBody.tracklist).toHaveLength(4);
+  const alternate = await fetch(`${base}/discogs/releases/1600135`);
+  expect(alternate.status).toBe(200);
+  expect((await alternate.json()).id).toBe(1600135);
+  expect((await fetch(`${base}/discogs/releases/21035242?unexpected=query`)).status).toBe(501);
+  const exileQuery = new URLSearchParams({ fmt: "json", limit: "10", query: 'artist:"Enya" AND release:"Exile   Five Inch CD Single"' });
+  const exile = await fetch(`${base}/musicbrainz/ws/2/release?${exileQuery}`);
+  expect(exile.status).toBe(200);
+  expect((await exile.json()).releases).toEqual([]);
+  exileQuery.set("query", 'artist:"Enya" AND release:"Exile Five Inch CD Single"');
+  expect((await fetch(`${base}/musicbrainz/ws/2/release?${exileQuery}`)).status).toBe(501);
+  const celtsSearch = await fetch(`${base}/discogs/database/search?page=1&per_page=10&q=Enya+The+Celts&type=release`);
+  expect(celtsSearch.status).toBe(200);
+  const celtsSearchBody = await celtsSearch.json();
+  expect(celtsSearchBody.results).toContainEqual(expect.objectContaining({ id: 6961860, title: "Enya - The Celts" }));
+  expect(celtsSearchBody.pagination).toMatchObject({ page: 1, per_page: 10 });
+  const stormsQuery = new URLSearchParams({ country: "United States", page: "1", per_page: "10", q: "Enya Storms In Africa   Single, Promo", type: "release" });
+  expect((await fetch(`${base}/discogs/database/search?${stormsQuery}`)).status).toBe(200);
+  const stormsDetail = await fetch(`${base}/musicbrainz/ws/2/release/4f45e662-f5fa-44af-ba11-f202ee324df8?fmt=json&inc=recordings%2Bartist-credits%2Blabels%2Burl-rels`);
+  expect(stormsDetail.status).toBe(200);
+  expect(await stormsDetail.json()).toMatchObject({
+    relations: expect.arrayContaining([expect.objectContaining({
+      type: "discogs", url: expect.objectContaining({ resource: "https://www.discogs.com/release/1459867" }),
+    })]),
+  });
+  const exileDetail = await fetch(`${base}/discogs/releases/3420328`);
+  expect(exileDetail.status).toBe(200);
+  expect((await exileDetail.json()).id).toBe(3420328);
+  const dreamsDetail = await fetch(`${base}/musicbrainz/ws/2/release/76969f4f-cb44-453b-af6f-cc48a68d2a2a?fmt=json&inc=recordings%2Bartist-credits%2Blabels%2Burl-rels`);
+  expect(dreamsDetail.status).toBe(200);
+  expect((await dreamsDetail.json()).id).toBe("76969f4f-cb44-453b-af6f-cc48a68d2a2a");
+  const dreamsQuery = new URLSearchParams({ fmt: "json", limit: "10", query: 'artist:"Enya" AND release:"A Box of Dreams"' });
+  const dreamsSearch = await fetch(`${base}/musicbrainz/ws/2/release?${dreamsQuery}`);
+  expect(dreamsSearch.status).toBe(200);
+  expect(Array.isArray((await dreamsSearch.json()).releases)).toBe(true);
+  dreamsQuery.set("limit", "5");
+  expect((await fetch(`${base}/musicbrainz/ws/2/release?${dreamsQuery}`)).status).toBe(501);
+});
+
+it("replays current artist browsing and pagination without substituting placeholder artist IDs", async () => {
+  const manifest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-browse-")), "manifest.json");
+  roots.push(path.dirname(manifest));
+  importPools(path.resolve("test/fixtures/tauri/auto-tag-eval/candidate-pools.json"), manifest);
+  const server = createService(manifest);
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const eminem = await (await fetch(`${base}/musicbrainz/ws/2/artist/?query=artist%3A%22Eminem%22&fmt=json&limit=5`)).json();
+  expect(eminem.artists[0]).toMatchObject({ id: "b95ce3ff-3d05-4e87-9e01-c97b66af13d4", name: "Eminem" });
+  const enya = await (await fetch(`${base}/discogs/database/search?q=Enya&type=artist&per_page=5`)).json();
+  expect(enya.results[0]).toMatchObject({ id: 9807, title: "Enya" });
+  for (const artist of ["4967c0a1-b9f3-465e-8440-4598fd9fc33c", "b95ce3ff-3d05-4e87-9e01-c97b66af13d4",
+    "5df62a88-cac9-490a-b62c-c7c88f4020f4", "f46bd570-5768-462e-b84c-c7c993bbf47e", "33ca19f4-18c8-4411-98df-ac23890ce9f5"]) {
+    let offset = 0;
+    let total = 1;
+    while (offset < total) {
+      const query = new URLSearchParams({ artist, limit: "100", offset: String(offset), fmt: "json", inc: "artist-credits+media+release-groups" });
+      const response = await fetch(`${base}/musicbrainz/ws/2/release?${query}`);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body["release-offset"]).toBe(offset);
+      expect(body["release-count"]).toBeGreaterThan(0);
+      expect(body.releases.length).toBeGreaterThan(0);
+      expect(body.releases[0]).toHaveProperty("release-group.id");
+      offset += body.releases.length;
+      total = body["release-count"];
+    }
+    expect(offset).toBe(total);
+  }
+  for (const artist of ["9807", "38661"]) {
+    let pages = 1;
+    for (let page = 1; page <= pages; page++) {
+      const response = await fetch(`${base}/discogs/artists/${artist}/releases?page=${page}&per_page=100&sort=year&sort_order=desc`);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.pagination).toMatchObject({ page, per_page: 100 });
+      expect(body.releases.length).toBeGreaterThan(0);
+      expect(body.pagination.pages).toBeGreaterThan(1);
+      if (page === 1) pages = body.pagination.pages;
+      expect(body.pagination.pages).toBe(pages);
+    }
+    expect((await fetch(`${base}/discogs/artists/${artist}/releases?page=2&per_page=25&sort=year&sort_order=desc`)).status).toBe(501);
+  }
 });
 
 it("fails on overlapping routes and tampered snapshot evidence", () => {

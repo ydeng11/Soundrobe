@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-11-06.artist-batch-1",
+  "reviewPolicy": "Independent frozen metadata-content review before native replay. Positive mappings require every distinct title/version occurrence and measured compatible durations. Exact artistAliases are case-scoped reviewed spellings corroborated by provider identity, never generic transliteration. Traditional/simplified title spellings, semantic aliases and duration conflicts are not silently normalized into truth. Unresolved cases are unscored, not verified no-matches. No acoustic, source-pressing or mastering claim.",
+  "cases": [
+    {
+      "caseId": "036e0a00e45b",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "7935e252-463d-4207-bce9-594d0a84e63a",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "勵志論: all 11 distinct titles match exactly with complete durations and maximum delta 0.848 seconds. Includes short Intro and the complete movie-theme and Acoustic Ver. qualifiers on 英雄. 卢广仲/盧廣仲 is the exact reviewed simplified/traditional artist-name pair; captured and raw artist IDs agree on 2ccc975f-ea40-4f0e-b861-8d80f967fe81. All raw track credits name that solo artist."
+    },
+    {
+      "caseId": "0edc5d8e7e8a",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "646854d3-f128-4688-b56b-2d262db672c3",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-646854d3-f128-4688-b56b-2d262db672c3.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "七天: all 12 distinct titles match exactly with complete durations and maximum delta 0.001 seconds. Tomato at 27.987 seconds and A at 47.133 seconds are separate short occurrences, not missing-content noise. The reviewed 卢广仲/盧廣仲 artist spellings and captured/raw ID 2ccc975f-ea40-4f0e-b861-8d80f967fe81 identify one solo artist."
+    },
+    {
+      "caseId": "1f228683ec6f",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-31af82b2-592d-4aa3-849e-a8db7dec5fd3.json",
+      "hardNegativeIds": [],
+      "reason": "真爱新曲+真正精选 has three unreviewed local/provider title correspondences, including 我等得花儿也谢了 and 让你愉快(让我孤独版). Twelve of 15 rows pass the unchanged title/duration validator. Needs explicit per-title simplified/traditional and version-alias adjudication for every remaining occurrence. Matching captured release ID and equal count do not complete the review."
+    },
+    {
+      "caseId": "204915b5a4ec",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "9d734894-1bbc-4123-b4eb-f29f08a201b0",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-9d734894-1bbc-4123-b4eb-f29f08a201b0.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "What a Folk !!!!!!: all 11 distinct titles match exactly with complete durations and maximum delta 0.980 seconds. 手機仔 (一), 258.943 seconds, and 手機仔 (二), 104.447 seconds, remain separate part-specific occurrences. The exact reviewed 卢广仲/盧廣仲 spelling pair is corroborated by captured/raw artist ID 2ccc975f-ea40-4f0e-b861-8d80f967fe81; raw track credits are solo."
+    },
+    {
+      "caseId": "2508e8259d36",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-9b993d05-cd37-4bb7-b0e1-1a43031ab11b.json",
+      "hardNegativeIds": [],
+      "reason": "Smile SACD needs individual simplified/traditional title review and duration reconciliation. Even title-identical 交叉算了 has local/provider durations 188.407/181.000 seconds, outside the existing tolerance. 輕撫妳的臉 and 溫柔 also differ by 7.329 and 9.475 seconds before title-alias review. Do not repair this by character conversion or a wider duration threshold; source/version evidence is still needed."
+    },
+    {
+      "caseId": "5da2dcff8d52",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "c43cfd25-2d37-4bce-8676-4bb11466065a",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-c43cfd25-2d37-4bce-8676-4bb11466065a.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "有吉他的流行歌曲: all 13 distinct occurrences map with complete durations and maximum delta 1.093 seconds. jam①, jam② and jam③ correspond to jam 1, jam 2 and jam 3 through Unicode compatibility-digit normalization, preserving their numbers and distinct positions. No lexical or version qualifier is dropped. The exact 卢广仲/盧廣仲 artist spellings share captured/raw ID 2ccc975f-ea40-4f0e-b861-8d80f967fe81."
+    },
+    {
+      "caseId": "671aaf17d6a9",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-3f164314-59c6-424d-9e94-03b83688161c.json",
+      "hardNegativeIds": [],
+      "reason": "Love Fire Flower 爱火花 has eight unreviewed simplified/traditional title correspondences among ten occurrences, including 爱火花/愛、火、花 and 夜了……又破晓. Only two rows pass the unchanged title/duration validator. Needs explicit full per-title and credit review; a matching captured release ID is not enough, and no generic character conversion is introduced."
+    },
+    {
+      "caseId": "68f67fce6d18",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-78c13a43-69f5-4a6b-b71c-80b9905fe3c8.json",
+      "hardNegativeIds": [],
+      "reason": "国语精选集 has nine unreviewed simplified/traditional title correspondences among 15 occurrences. Six rows pass the unchanged title/duration validator. Needs explicit title aliases and complete occurrence-level version review, not automatic promotion from the captured ID or a bulk conversion rule."
+    },
+    {
+      "caseId": "7634f48421db",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "2c0a9e26-5867-4e0d-8340-4d199d72bdbb",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-2c0a9e26-5867-4e0d-8340-4d199d72bdbb.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "慢靈魂: all 11 distinct titles match exactly with complete durations and maximum delta 0.001 seconds. Local file order and every provider occurrence were checked independently of numbering tags. The exact reviewed 卢广仲/盧廣仲 spellings and captured/raw ID 2ccc975f-ea40-4f0e-b861-8d80f967fe81 identify the same solo artist."
+    },
+    {
+      "caseId": "772eef17d959",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-fca95479-6e1d-48c1-b3b7-bec9d14d2109.json",
+      "hardNegativeIds": [],
+      "reason": "丝丝记忆 情歌精选 needs explicit title aliases, including 妳/你 and Smile Again 玛利亚 spellings, plus duration/version reconciliation. The title-identical Amour occurrence is 276.341 seconds locally versus 263.293 seconds in the provider, a 13.048-second conflict. Do not let general simplified/traditional normalization hide that conflict or establish a verified no-match."
+    },
+    {
+      "caseId": "9d3311ea3100",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-5cfb654f-6f8b-488f-b308-1251197ff59b.json",
+      "hardNegativeIds": [],
+      "reason": "真-qin流露 has ten unreviewed local/provider title correspondences among 12 occurrences. 偷闲加油站 I and II must remain distinct; only two rows pass the unchanged title/duration validator. Needs explicit per-title script and part-number review, not a guessed mapping from position or captured release ID."
+    },
+    {
+      "caseId": "a8f656115f15",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-05fa0541-1334-4d28-990b-331cb78154bf.json",
+      "hardNegativeIds": [],
+      "reason": "Amour 遥远的她 has unreviewed simplified/traditional title correspondences and a separate title-identical Amour duration conflict: local 279.963 seconds versus provider 262.720, delta 17.243 seconds. Needs version/duration evidence as well as explicit title aliases. Do not widen the tolerance or flatten this into a verified negative for every edition."
+    },
+    {
+      "caseId": "ac693cdf577b",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "65e47b62-1568-4c9a-8aff-0f4e372da6d3",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-65e47b62-1568-4c9a-8aff-0f4e372da6d3.json",
+      "artistAliases": ["盧廣仲"],
+      "hardNegativeIds": [],
+      "reviewNotes": "HeartBreakFast 傷心早餐店: all ten distinct titles match exactly with complete measured durations and maximum delta 0.000 seconds. Album, source-folder and raw release identity agree. The exact reviewed 卢广仲/盧廣仲 spellings and captured/raw artist ID 2ccc975f-ea40-4f0e-b861-8d80f967fe81 identify one solo artist."
+    },
+    {
+      "caseId": "d988cfb6a275",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7ab37223-d416-4336-82c9-12039b3ae44f.json",
+      "hardNegativeIds": [],
+      "reason": "Life Is Like A Dream has five unreviewed title correspondences among ten occurrences. Several are script variants, but 讲你知/講妳知 and 瑶瑶/搖瑤 also need explicit lexical adjudication. Durations and captured artist/release IDs support investigation, not an automatic alias. Needs a complete reviewed title map before promotion."
+    },
+    {
+      "caseId": "e63832ca53b8",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-b7d085da-c759-41cb-ac1d-8b0fa1d781e3.json",
+      "hardNegativeIds": [],
+      "reason": "The local 刻在我心底的名字 title includes the complete movie-theme subtitle 電影《刻在你心底的名字》主題曲, while the frozen release-track title omits it. Durations 320.166/320.000 seconds and matching captured IDs support compatibility but do not constitute a reviewed subtitle alias. Needs explicit case-scoped title/recording adjudication; do not globally strip parentheses or claim a verified no-match."
+    }
+  ]
+}

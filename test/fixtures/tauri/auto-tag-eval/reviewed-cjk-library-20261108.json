@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-11-06.library-sample-1",
+  "reviewPolicy": "Independent frozen provider title/version/duration review before native replay. Only complete supported local occurrence mappings are scored. Missing evidence or unreviewed version aliases remain unresolved, never verified abstentions. Compatible release IDs do not establish acoustic or exact-pressing truth.",
+  "cases": [
+    {
+      "caseId": "5fdcfd7d2149",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "53b74bc7-1337-4e76-af81-dc78e2e04558",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-bb0319021810552c.json",
+      "artistAliases": ["草東沒有派對"],
+      "hardNegativeIds": [],
+      "reviewNotes": "醜奴兒: all 12 local titles are exact provider matches and all duration deltas are below 0.5 seconds. 草东没有派对/草東沒有派對 is the reviewed simplified/traditional artist-name pair; captured and provider artist IDs corroborate it as 1636f82a-b541-4867-9eb7-e4b224552eef."
+    },
+    {
+      "caseId": "f4454df1c63a",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-0fdf81a371899cb1.json",
+      "hardNegativeIds": [],
+      "reason": "The frozen 終極一班2 release has ten tracks versus nine local files, different order and simplified/traditional title forms. Its track and recording durations are all absent. Review must establish each version-specific occurrence (Dreaming/Lonely Time and three 發飆 versions) and explicitly allow the unmatched 數不盡的星空 occurrence before promotion. Do not flatten qualifiers, map positionally, infer duration zero or call this a verified no-match."
+    }
+  ]
+}

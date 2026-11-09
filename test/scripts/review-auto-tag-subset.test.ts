@@ -133,4 +133,108 @@ describe("review_auto_tag_subset.py", () => {
       "--output-dir", path.join(root, "out"),
     ], { encoding: "utf8", stdio: "pipe" })).toThrow(/invalid provider positions/);
   });
+
+  it("accepts only an explicitly reviewed artist alias without relaxing track evidence", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-subset-alias-"));
+    temporaryRoots.push(root);
+    const payload = { artist: "盧廣仲", tracks: [{ title: "明仔載 (正式版)", track_number: 1, length: 212173 }] };
+    const row = { caseId: "case", status: "verified_match", provider: "musicbrainz",
+      releaseId: "release", snapshot: "release.json", artistAliases: ["盧廣仲"] };
+    fs.writeFileSync(path.join(root, "release.json"), JSON.stringify(payload));
+    fs.writeFileSync(path.join(root, "corpus.json"), JSON.stringify({ corpusVersion: "test", cases: [
+      { caseId: "case", artist: "卢广仲", tracks: [{ title: "明仔載 (正式版)", duration: 210.152 }] },
+    ] }));
+    const manifest = { schemaVersion: 1, cases: [row] };
+    const manifestFile = path.join(root, "manifest.json");
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    const command = [scriptPath, "--corpus", path.join(root, "corpus.json"),
+      "--manifest", manifestFile, "--fixture-root", root, "--output-dir", path.join(root, "out")];
+    execFileSync("python3", command, { stdio: "pipe" });
+    const result = JSON.parse(fs.readFileSync(path.join(root, "out/review.json"), "utf8"));
+    expect(result.cases[0]).toMatchObject({ status: "verified_match", flags: ["reviewed-artist-alias"],
+      mapping: [{ localTrack: 1, providerTrack: "1", durationDeltaSeconds: 2.021 }] });
+    row.artistAliases = [];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    expect(() => execFileSync("python3", command, { stdio: "pipe" })).toThrow(/artist conflict/);
+    row.artistAliases = ["另一位歌手"];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    expect(() => execFileSync("python3", command, { stdio: "pipe" })).toThrow(/artist conflict/);
+    fs.writeFileSync(manifestFile, JSON.stringify({ ...manifest, cases: [
+      { ...row, artistAliases: "不可以用字串包含盧廣仲" },
+    ] }));
+    expect(() => execFileSync("python3", command, { stdio: "pipe" })).toThrow(/artistAliases must be/);
+    row.artistAliases = ["盧廣仲"];
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    payload.tracks[0].title = "明仔載 (Live版)";
+    fs.writeFileSync(path.join(root, "release.json"), JSON.stringify(payload));
+    expect(() => execFileSync("python3", command, { stdio: "pipe" })).toThrow(/not complete/);
+  });
+
+  it("uses a frozen recording duration only when the release track has none", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-subset-recording-duration-"));
+    temporaryRoots.push(root);
+    fs.writeFileSync(path.join(root, "release.json"), JSON.stringify({
+      "artist-credit": [{ artist: { name: "Artist" } }], media: [{ position: 1, tracks: [
+        { position: 1, title: "Song", length: null, recording: { length: 210000 } },
+        { position: 2, title: "Song (Edit)", length: 120000, recording: { length: 210000 } },
+      ] }],
+    }));
+    fs.writeFileSync(path.join(root, "corpus.json"), JSON.stringify({ corpusVersion: "test", cases: [
+      { caseId: "case", artist: "Artist", tracks: [
+        { title: "Song", duration: 208.155 }, { title: "Song (Edit)", duration: 120 },
+      ] },
+    ] }));
+    fs.writeFileSync(path.join(root, "manifest.json"), JSON.stringify({ schemaVersion: 1, cases: [
+      { caseId: "case", status: "verified_match", provider: "musicbrainz", releaseId: "release", snapshot: "release.json" },
+    ] }));
+    execFileSync("python3", [scriptPath, "--corpus", path.join(root, "corpus.json"),
+      "--manifest", path.join(root, "manifest.json"), "--fixture-root", root,
+      "--output-dir", path.join(root, "out")], { stdio: "pipe" });
+    const result = JSON.parse(fs.readFileSync(path.join(root, "out/review.json"), "utf8"));
+    expect(result.cases[0]).toMatchObject({ flags: [], mapping: [
+      { localTrack: 1, durationDeltaSeconds: 1.845 }, { localTrack: 2, durationDeltaSeconds: 0 },
+    ] });
+  });
+
+  it("replays the CJK and holdout reviews without blessing the unresolved soundtrack", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-subset-expansion-"));
+    temporaryRoots.push(root);
+    const groups = [
+      { manifest: "reviewed-billie-20261108.json", corpus: "corpus.json", matches: 6, tracks: 7, unresolved: 0 },
+      { manifest: "reviewed-cjk-artist-20261108.json", corpus: "artist-batch-extension/corpus.json", matches: 2, tracks: 15, unresolved: 0 },
+      { manifest: "reviewed-cjk-library-20261108.json", corpus: "library-sample/corpus.json", matches: 1, tracks: 12, unresolved: 1 },
+    ];
+    for (const group of groups) {
+      const output = path.join(root, group.manifest);
+      execFileSync("python3", [scriptPath, "--corpus", path.join(fixtureRoot, group.corpus),
+        "--manifest", path.join(fixtureRoot, group.manifest), "--fixture-root", fixtureRoot,
+        "--output-dir", output], { stdio: "pipe" });
+      const result = JSON.parse(fs.readFileSync(path.join(output, "review.json"), "utf8"));
+      expect(result.statusCounts).toEqual({ verified_match: group.matches, unresolved: group.unresolved });
+      expect(result.final).toEqual({ strongMatches: group.tracks, completeCases: group.matches });
+      for (const row of result.cases) {
+        if (row.status === "unresolved") {
+          expect(row.mapping).toEqual([]);
+          expect(row.acceptableEditionIds).toEqual([]);
+          continue;
+        }
+        expect(new Set(row.mapping.map((item: { providerTrack: string }) => item.providerTrack)).size)
+          .toBe(row.trackCount);
+        expect(row.mapping.every((item: { durationDeltaSeconds: number | null }) =>
+          item.durationDeltaSeconds !== null && item.durationDeltaSeconds <= 2.021)).toBe(true);
+      }
+    }
+    const manifest = JSON.parse(fs.readFileSync(path.join(fixtureRoot, groups[0].manifest), "utf8"));
+    for (const caseId of ["0e7c8a578cea", "e61daee1518d"]) {
+      const row = manifest.cases.find((item: { caseId: string }) => item.caseId === caseId);
+      const wrong = manifest.cases.find((item: { releaseId: string }) => item.releaseId === row.hardNegativeIds[0]);
+      const negativeManifest = path.join(root, "negative.json");
+      fs.writeFileSync(negativeManifest, JSON.stringify({ ...manifest, cases: [
+        { ...row, releaseId: wrong.releaseId, snapshot: wrong.snapshot },
+      ] }));
+      expect(() => execFileSync("python3", [scriptPath, "--corpus", corpusPath,
+        "--manifest", negativeManifest, "--fixture-root", fixtureRoot,
+        "--output-dir", path.join(root, "negative")], { stdio: "pipe" })).toThrow(/not complete/);
+    }
+  });
 });

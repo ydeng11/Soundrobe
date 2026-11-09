@@ -142,7 +142,7 @@ def provider_tracks(payload: dict[str, Any], provider: str) -> list[dict[str, An
                         else str(item.get("position") or "")
                     ),
                     "title": title,
-                    "duration": item.get("length"),
+                    "duration": item.get("length") or (item.get("recording") or {}).get("length"),
                     "artists": artists,
                 }
             )
@@ -307,9 +307,13 @@ def compare_case(case: dict[str, Any], row: dict[str, Any], fixture_root: Path) 
         raise ValueError(f"verified case {case['caseId']} has an unnecessary provider track policy")
     local_artist = str(case.get("artist") or "")
     provider_artist = artist_name(payload, provider)
+    aliases = row.get("artistAliases", [])
+    if not isinstance(aliases, list) or any(not isinstance(alias, str) or not alias.strip() for alias in aliases):
+        raise ValueError(f"verified case {case['caseId']} artistAliases must be a list of non-empty strings")
     if provider_artist and title_keys(provider_artist).isdisjoint(title_keys(local_artist)):
-        flags.add("artist-conflict")
-        raise ValueError(f"verified case {case['caseId']} has provider artist conflict: {provider_artist}")
+        if provider_artist not in aliases:
+            raise ValueError(f"verified case {case['caseId']} has provider artist conflict: {provider_artist}")
+        flags.add("reviewed-artist-alias")
     return {
         "caseId": case["caseId"],
         "artist": case["artist"],

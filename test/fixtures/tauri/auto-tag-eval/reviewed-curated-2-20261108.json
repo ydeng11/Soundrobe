@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-11-06.curated-hard-1",
+  "reviewPolicy": "Independent frozen metadata-content review before native replay. A captured provider ID is an investigation lead, not truth. Artist aliases apply only to the exact reviewed case and provider identity. Missing version evidence stays unresolved. No acoustic, mastering, pressing or clean/explicit claim.",
+  "cases": [
+    {
+      "caseId": "fbd49f56b4d7",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "a50c69a4-4eed-467d-9907-feb39e53cd21",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-a50c69a4-4eed-467d-9907-feb39e53cd21.json",
+      "artistAliases": ["Beyoncé"],
+      "hardNegativeIds": [],
+      "reviewNotes": "The sole local 7/11 occurrence matches the sole release track exactly, with complete durations 213.507 versus 217.000 seconds and delta 3.493 seconds. Beyoncé is the reviewed stage-name spelling for this corpus's Beyonc Giselle Knowles batch label, corroborated by captured and raw artist ID 859d0860-d480-4efd-970c-c05d5f1776b8. The filename 7_11 is punctuation-equivalent to the captured/provider title. No clean/explicit or source-pressing truth is established."
+    },
+    {
+      "caseId": "6e2f46055e18",
+      "status": "unresolved",
+      "snapshot": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-a352f6e8-af49-44c8-aa79-f9ca5c7f969b.json",
+      "hardNegativeIds": [],
+      "reason": "Local Grown Woman (Studio Version), 315.141 seconds, has a substantive Studio Version qualifier absent from the frozen Grown Woman release-track title, 310.863 seconds. Compatible duration and captured release ID do not establish the omitted version correspondence. Needs explicit recording/version review or a case-scoped reviewed title alias before promotion; do not strip qualifiers or label the release a verified negative."
+    }
+  ]
+}

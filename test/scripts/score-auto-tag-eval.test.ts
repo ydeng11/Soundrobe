@@ -68,12 +68,16 @@ describe("score_auto_tag_eval.py", () => {
           caseId: "match",
           classification: "confirmed_success",
           selectedIdentity: "release-1",
+          coldIdentity: "release-1",
+          warmIdentity: "release-1",
         },
         { caseId: "abstain", classification: "safe_abstention", selectedIdentity: null },
         {
           caseId: "wrong",
           classification: "confirmed_success",
           selectedIdentity: "hard-negative",
+          coldIdentity: "old",
+          warmIdentity: "hard-negative",
         },
         {
           caseId: "unverified",
@@ -90,22 +94,20 @@ describe("score_auto_tag_eval.py", () => {
           caseId: "match",
           phase: "cold",
           classification: "incomplete",
-          selectedIdentity: "release-1",
           selectedTrackEvidence: { evidence: ["GuardedTitle"] },
-          native: { providerAttempts: [{ status: "unavailable" }] },
+          native: { candidate: { discogs_release_id: "release-1" }, providerAttempts: [{ status: "unavailable" }] },
         },
         {
           caseId: "match",
           phase: "warm",
           classification: "confirmed_success",
-          selectedIdentity: "release-1",
           selectedTrackEvidence: { evidence: ["GuardedTitle"] },
-          native: { providerAttempts: [] },
+          native: { candidate: { discogs_release_id: "release-1" }, providerAttempts: [] },
         },
-        { caseId: "abstain", phase: "cold", classification: "safe_abstention", selectedIdentity: null },
-        { caseId: "abstain", phase: "warm", classification: "safe_abstention", selectedIdentity: null },
-        { caseId: "wrong", phase: "cold", classification: "confirmed_success", selectedIdentity: "old" },
-        { caseId: "wrong", phase: "warm", classification: "confirmed_success", selectedIdentity: "hard-negative" },
+        { caseId: "abstain", phase: "cold", classification: "safe_abstention", native: { candidate: null } },
+        { caseId: "abstain", phase: "warm", classification: "safe_abstention", native: { candidate: null } },
+        { caseId: "wrong", phase: "cold", classification: "confirmed_success", native: { candidate: { musicbrainz_albumid: "old" } } },
+        { caseId: "wrong", phase: "warm", classification: "confirmed_success", native: { candidate: { musicbrainz_albumid: "hard-negative" } } },
       ],
     });
     const reviewedTruth = writeJson("reviewed-truth.json", {
@@ -146,6 +148,11 @@ describe("score_auto_tag_eval.py", () => {
       guardedTitleInvocationRecords: 2,
       coldWarmIdentityInconsistencies: [
         expect.objectContaining({
+          caseId: "wrong",
+          coldIdentity: "old",
+          warmIdentity: "hard-negative",
+        }),
+        expect.objectContaining({
           caseId: "unverified",
           coldIdentity: "provider-old",
           warmIdentity: "provider-new",
@@ -154,9 +161,9 @@ describe("score_auto_tag_eval.py", () => {
     });
     expect(score.scored.coverage).toBeCloseTo(2 / 3);
     expect(score.scored.cases).toEqual([
-      expect.objectContaining({ caseId: "abstain", outcome: "correct" }),
-      expect.objectContaining({ caseId: "match", outcome: "correct", selectedIdentity: "release-1" }),
-      expect.objectContaining({ caseId: "wrong", outcome: "wrong_match", selectedIdentity: "hard-negative" }),
+      expect.objectContaining({ caseId: "abstain", outcome: "correct", coldIdentity: null, warmIdentity: null }),
+      expect.objectContaining({ caseId: "match", outcome: "correct", selectedIdentity: "release-1", coldIdentity: "release-1", warmIdentity: "release-1" }),
+      expect.objectContaining({ caseId: "wrong", outcome: "wrong_match", selectedIdentity: "hard-negative", coldIdentity: "old", warmIdentity: "hard-negative" }),
     ]);
     expect(score.inputSha256).toEqual({
       corpus: expect.stringMatching(/^[a-f0-9]{64}$/),
