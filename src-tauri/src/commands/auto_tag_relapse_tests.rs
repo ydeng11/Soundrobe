@@ -149,7 +149,15 @@ async fn relapse_discovery_and_write_preserve_title_identity_with_reordered_bonu
         for (index, local) in request.tracks.iter().enumerate() {
             let path = album.join(format!("{}.flac", local.filename.as_ref().unwrap()));
             let read = crate::commands::tracks::read_track_metadata(&path).unwrap();
-            assert_eq!(read.title, local.title);
+            let title = match index {
+                0 => "Dr. West (Skit)",
+                6 => "Tonya (Skit)",
+                10 => "Paul (Skit)",
+                14 => "Mr. Mathers (Skit)",
+                18 => "Steve Berman (Skit)",
+                _ => local.title.as_deref().unwrap(),
+            };
+            assert_eq!(read.title.as_deref(), Some(title));
             assert_eq!(
                 read.track_number,
                 Some(match index {

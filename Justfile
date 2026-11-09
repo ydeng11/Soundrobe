@@ -28,6 +28,8 @@ default:
     @echo "  just eval-auto-tag-repro  audit frozen pools, equivalence, and cold/warm identity"
     @echo "  just eval-auto-tag-profiles  report deterministic metrics for all three input profiles"
     @echo "  just eval-auto-tag-subset  review the frozen representative corpus subset"
+    @echo "  just eval-auto-tag-suite  check expanded batch membership and frozen input locks"
+    @echo "  just eval-auto-tag-dummies <corpus> <output>  create offline silent dummy media"
     @echo "  just collect-auto-tag-evidence  plan or run one bounded resumable evidence batch"
     @echo "  just eval-auto-tag-score  score reviewed native evaluation results offline"
     @echo "  just eval-auto-tag-live   run the explicit credentialed native evaluation"
@@ -201,6 +203,39 @@ eval-auto-tag-subset:
         --manifest "${SOUNDROBE_AUTO_TAG_SUBSET_MANIFEST:-$PWD/test/fixtures/tauri/auto-tag-eval/reviewed-subset.json}" \
         --fixture-root "${SOUNDROBE_AUTO_TAG_SUBSET_FIXTURE_ROOT:-$PWD/test/fixtures/tauri/auto-tag-eval}" \
         --output-dir "$output_dir"
+
+# Check the frozen multi-corpus suite without regenerating reviewed membership.
+eval-auto-tag-suite:
+    python3 -B scripts/build_auto_tag_eval_suite.py \
+        --fixture-root test/fixtures/tauri \
+        --corpus test/fixtures/tauri/auto-tag-eval/corpus.json \
+        --corpus test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json \
+        --corpus test/fixtures/tauri/auto-tag-eval/curated-hard-cases/corpus.json \
+        --corpus test/fixtures/tauri/auto-tag-eval/library-sample/corpus.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-subset.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-billie-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-cjk-artist-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-cjk-library-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-expansion-2-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-cjk-artist-2-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-library-2-20261108.json \
+        --reviewed-manifest test/fixtures/tauri/auto-tag-eval/reviewed-curated-2-20261108.json \
+        --candidate-pools test/fixtures/tauri/auto-tag-eval/candidate-pools.json \
+        --discovery test/fixtures/tauri/auto-tag-eval/provider-discovery.json \
+        --output test/fixtures/tauri/auto-tag-eval/batch-suite.json --check
+
+# Offline silent media from captured metadata; requires a new, disposable output directory.
+eval-auto-tag-dummies corpus output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    corpus="{{corpus}}"
+    output="{{output}}"
+    [[ "$corpus" = /* ]] || corpus="$PWD/$corpus"
+    [[ "$output" = /* ]] || output="$PWD/$output"
+    SOUNDROBE_AUTO_TAG_EVAL_CORPUS="$corpus" \
+        SOUNDROBE_AUTO_TAG_EVAL_DUMMY_DIR="$output" \
+        cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features server \
+        --lib materialize_auto_tag_eval_dummies -- --ignored --nocapture
 
 # Bounded, resumable live evidence collection; planning is offline by default.
 collect-auto-tag-evidence:

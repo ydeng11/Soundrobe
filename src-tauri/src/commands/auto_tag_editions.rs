@@ -483,6 +483,21 @@ mod tests {
         for (existing, provider, expected) in [
             (vec!["???"], vec!["Artist"], vec!["Artist"]),
             (
+                vec!["Billie Eilish | ROSALÍA"],
+                vec!["Billie Eilish", "Rosalía"],
+                vec!["Billie Eilish", "Rosalía"],
+            ),
+            (
+                vec!["Billie Eilish | ROSALÍA | Guest"],
+                vec!["Billie Eilish", "Rosalía"],
+                vec!["Billie Eilish", "ROSALÍA", "Guest"],
+            ),
+            (
+                vec!["Earth, Wind & Fire", "Florence + the Machine"],
+                vec!["Earth, Wind & Fire", "Florence + the Machine"],
+                vec!["Earth, Wind & Fire", "Florence + the Machine"],
+            ),
+            (
                 vec!["Artist", "Guest B"],
                 vec!["Artist", "Guest C"],
                 vec!["Artist", "Guest C", "Guest B"],

@@ -12,6 +12,7 @@ WORKDIR /workspace
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
 COPY src-tauri/build.rs ./src-tauri/build.rs
 COPY src-tauri/src ./src-tauri/src
+COPY data/provider-title-aliases.json ./data/provider-title-aliases.json
 RUN cargo build --release --manifest-path src-tauri/Cargo.toml \
     --locked --no-default-features --features server --bin soundrobe-server
 

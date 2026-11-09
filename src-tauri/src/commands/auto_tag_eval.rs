@@ -750,7 +750,7 @@ fn safe_relative_folder(relative: &str) -> PathBuf {
 fn readback_matches(
     album: &Path,
     result: Option<&AutoTagRunResult>,
-    expectation: &Expectation,
+    baseline: &[TrackData],
 ) -> bool {
     let Some(result) = result else {
         return false;
@@ -761,12 +761,49 @@ fn readback_matches(
     let Ok(detail) = crate::commands::tracks::read_album(album) else {
         return false;
     };
+    if candidate.verification.as_deref() == Some("recording_only") {
+        if !candidate_track_count_matches(candidate, detail.tracks.len())
+            || baseline.len() != detail.tracks.len()
+            || result.written
+                != candidate
+                    .tracks
+                    .iter()
+                    .filter(|track| has_recording_patch(track))
+                    .count()
+        {
+            return false;
+        }
+        return detail
+            .tracks
+            .iter()
+            .zip(baseline)
+            .zip(&candidate.tracks)
+            .all(|((actual, before), track)| {
+                let mut expected = before.clone();
+                if has_recording_patch(track) {
+                    if let Some(title) = &track.title {
+                        expected.title = Some(title.clone());
+                    }
+                    if let Some(artist) = &track.artist {
+                        expected.artist = Some(artist.clone());
+                        expected.artists = vec![artist.clone()];
+                    }
+                    if !track.artists.is_empty() {
+                        expected.artists = track.artists.clone();
+                    }
+                    if let Some(id) = &track.musicbrainz_track_id {
+                        expected.musicbrainz_track_id = Some(id.clone());
+                    }
+                }
+                // Tag size can change container-derived bitrate; audio is hashed separately.
+                expected.size_bytes = actual.size_bytes;
+                expected.bitrate = actual.bitrate;
+                *actual == expected
+            });
+    }
     if result.outcome != AutoTagOutcome::Applied
         || result.written != detail.tracks.len()
         || !candidate_track_count_matches(candidate, detail.tracks.len())
-        || (expectation.status == "verified_match"
-            && (!reviewed_mapping_matches(candidate, &expectation.mapping)
-                || !reviewed_provider_policy_matches(candidate, expectation)))
     {
         return false;
     }
@@ -803,6 +840,12 @@ fn readback_matches(
                     .is_none_or(|value| written.album_artist.as_deref() == Some(value))
                 && (candidate.album_artists.is_empty()
                     || written.album_artists == candidate.album_artists)
+                && (candidate.verification.as_deref() != Some("album_content")
+                    || (written.musicbrainz_album_id.is_none()
+                        && written.discogs_release_id.is_none()
+                        && written.musicbrainz_track_id.is_none()
+                        && written.track_total == expected.track_total
+                        && written.genre == candidate.genre))
                 && candidate
                     .year
                     .as_deref()
@@ -1016,6 +1059,144 @@ async fn materialize_synthetic_case(
         materialized.peak_bytes = materialized.peak_bytes.max(materialized.bytes);
     }
     Ok(materialized)
+}
+
+async fn materialize_frozen_corpus(
+    mut corpus: Value,
+    destination: &Path,
+) -> Result<Value, ApiError> {
+    serde_json::from_value::<EvalCorpus>(corpus.clone())
+        .map_err(|error| ApiError::Message(format!("invalid frozen corpus: {error}")))?;
+    // A new directory is mandatory: this fixture utility must never target a real library.
+    fs::create_dir(destination)?;
+    let queue = WriteQueue::default();
+    let mut folders = Vec::new();
+    for case in corpus["cases"].as_array_mut().unwrap() {
+        let original_folder = case["sourceRelativeFolder"].as_str().unwrap().to_string();
+        let mut relative_folder = safe_relative_folder(&original_folder);
+        let artist = case["artist"].as_str().unwrap();
+        if !relative_folder
+            .components()
+            .any(|part| part.as_os_str() == artist)
+        {
+            relative_folder = safe_relative_folder(artist).join(relative_folder);
+        }
+        let folder = destination.join("media").join(&relative_folder);
+        fs::create_dir_all(&folder)?;
+        let mut stems = HashMap::<PathBuf, usize>::new();
+        for track in case["tracks"].as_array_mut().unwrap() {
+            let original_path = track["relativePath"].as_str().unwrap().to_string();
+            let relative = safe_relative_folder(&original_path);
+            let ordinal = stems.entry(relative.with_extension("")).or_insert(0);
+            let path = synthetic_flac_path(&folder, &relative, *ordinal);
+            *ordinal += 1;
+            fs::create_dir_all(path.parent().unwrap())?;
+            let duration = track["duration"]
+                .as_f64()
+                .ok_or_else(|| ApiError::Message(format!("missing duration: {original_path}")))?;
+            // Unknown source duration cannot produce a valid zero-frame FLAC.
+            // Keep the observation separate from the explicitly marked placeholder.
+            let placeholder = duration <= 0.0;
+            let actual = generate_synthetic_flac(&path, if placeholder { 1.0 } else { duration })?;
+            track["originalDuration"] = json!(duration);
+            track["durationIsPlaceholder"] = json!(placeholder);
+            track["duration"] = json!(actual);
+            let mut fields = track.as_object().unwrap().clone();
+            if let Some(ids) = track["providerIds"].as_object() {
+                fields.extend(ids.clone());
+            }
+            let patch: TrackPatch = serde_json::from_value(Value::Object(fields))
+                .map_err(|error| ApiError::Message(format!("invalid frozen track: {error}")))?;
+            write_track_queued(&queue, path.clone(), patch).await?;
+            track["originalRelativePath"] = json!(original_path);
+            track["originalSourceSha256"] = track["sourceSha256"].clone();
+            track["originalFormat"] = track["format"].clone();
+            track["relativePath"] = json!(relative_audio_key(&folder, &path));
+            track["filename"] = json!(path.file_name().unwrap().to_string_lossy());
+            track["format"] = json!("flac");
+            track["bytes"] = json!(fs::metadata(&path)?.len());
+            track["sourceSha256"] = json!(hash_file(&path));
+        }
+        let tracks = case["tracks"].as_array().unwrap().clone();
+        let discovery = tracks
+            .iter()
+            .map(|track| {
+                let mut value = serde_json::Map::new();
+                for key in [
+                    "relativePath",
+                    "filename",
+                    "duration",
+                    "format",
+                    "trackNumber",
+                    "trackTotal",
+                    "discNumber",
+                    "discTotal",
+                ] {
+                    value.insert(key.into(), track[key].clone());
+                }
+                Value::Object(value)
+            })
+            .collect::<Vec<_>>();
+        let assisted = tracks
+            .iter()
+            .map(|track| {
+                let mut value = track.clone();
+                value["providerIds"] = json!({});
+                value
+            })
+            .collect::<Vec<_>>();
+        case["inputProfiles"][PROFILE_DISCOVERY]["tracks"] = json!(discovery);
+        case["inputProfiles"][PROFILE_ASSISTED]["tracks"] = json!(assisted);
+        case["inputProfiles"][PROFILE_RECOVERY]["tracks"] = json!(tracks);
+        case["originalSourceRelativeFolder"] = json!(original_folder);
+        case["sourceRelativeFolder"] = json!(relative_folder.to_string_lossy());
+        case["physicalFolders"] = json!([relative_folder.to_string_lossy()]);
+        folders.push(relative_folder.to_string_lossy().into_owned());
+    }
+    corpus["sourceRoot"] = json!(".");
+    corpus["physicalFolderIndex"] = json!(folders);
+    corpus["mediaMode"] = json!("dummy_silent_flac");
+    corpus["acousticGroundTruth"] = json!(false);
+    Ok(corpus)
+}
+
+#[tokio::test]
+#[ignore = "explicit offline fixture creation; requires corpus JSON, new output directory and ffmpeg"]
+async fn materialize_auto_tag_eval_dummies() {
+    let input =
+        PathBuf::from(std::env::var("SOUNDROBE_AUTO_TAG_EVAL_CORPUS").expect("set corpus JSON"));
+    let destination = PathBuf::from(
+        std::env::var("SOUNDROBE_AUTO_TAG_EVAL_DUMMY_DIR")
+            .expect("set a new dummy output directory"),
+    );
+    let bytes = fs::read(&input).unwrap();
+    let corpus = serde_json::from_slice(&bytes).unwrap();
+    let mut output = materialize_frozen_corpus(corpus, &destination)
+        .await
+        .unwrap();
+    output["inputCorpusSha256"] = json!(digest_reader(std::io::Cursor::new(bytes)));
+    fs::write(
+        destination.join("corpus.json"),
+        serde_json::to_vec_pretty(&output).unwrap(),
+    )
+    .unwrap();
+    fs::copy(
+        input.with_file_name("expectations.json"),
+        destination.join("expectations.json"),
+    )
+    .unwrap();
+    if let Some(name) = output["selectionManifest"].as_str() {
+        let relative = safe_relative_folder(name);
+        fs::copy(
+            input.parent().unwrap().join(&relative),
+            destination.join(relative),
+        )
+        .unwrap();
+    }
+    println!(
+        "Dummy corpus: {}",
+        destination.join("corpus.json").display()
+    );
 }
 
 fn assert_lookup_requests_equivalent(real: &LookupRequest, synthetic: &LookupRequest) {
@@ -1488,13 +1669,10 @@ fn write_report(path: &Path, records: &[Value], corpus: &EvalCorpus, run_id: &st
         .count();
     let readback_failure_count = records
         .iter()
-        .filter(|record| {
-            record.get("outcome").and_then(Value::as_str) == Some("applied")
-                && record.get("readback") == Some(&Value::Bool(false))
-        })
+        .filter(|record| record.get("readback") == Some(&Value::Bool(false)))
         .count();
     report.push_str(&format!(
-        "\n## Verification gates\n\n- Native invocation records: {} (cold {}, warm {}; expected {})\n- Timeout records: {timeout_count}\n- Resolver-error records: {resolver_error_count}\n- Synthetic payload failures: {payload_failure_count}\n- Applied readback failures: {readback_failure_count}\n- Reconciled failed-verification folders: {}\n\n",
+        "\n## Verification gates\n\n- Native invocation records: {} (cold {}, warm {}; expected {})\n- Timeout records: {timeout_count}\n- Resolver-error records: {resolver_error_count}\n- Synthetic payload failures: {payload_failure_count}\n- Readback failures: {readback_failure_count}\n- Reconciled failed-verification folders: {}\n\n",
         records.len(),
         cold_invocations,
         warm_invocations,
@@ -2326,6 +2504,258 @@ fn readback_rejects_a_candidate_with_a_different_track_count() {
     assert!(candidate_track_count_matches(&candidate, 1));
 }
 
+#[tokio::test]
+async fn basic_tag_readback_is_independent_of_reviewed_edition_identity() {
+    let root = super::tests::temp_root();
+    let album = root.join("Lead/Album");
+    fs::create_dir_all(&album).unwrap();
+    let file = album.join("01.wav");
+    fs::copy(super::tests::corpus_wav(), &file).unwrap();
+    let baseline = crate::commands::tracks::read_album(&album).unwrap().tracks;
+    let candidate = AlbumCandidate {
+        album: Some("Album".into()),
+        album_artist: Some("Lead".into()),
+        album_artists: vec!["Lead".into()],
+        verification: Some("album_content".into()),
+        source: LookupSource::Musicbrainz,
+        tracks: vec![TrackCandidate {
+            title: Some("Song (instrumental)".into()),
+            artist: Some("Lead".into()),
+            artists: vec!["Lead".into()],
+            track_number: Some(1),
+            track_total: Some(1),
+            disc_number: Some(1),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
+        .await
+        .unwrap();
+    let result = AutoTagRunResult {
+        outcome: AutoTagOutcome::Applied,
+        completion_basis: Some("album_content"),
+        written,
+        candidate: Some(candidate),
+        ..Default::default()
+    };
+    let mut case = load_corpus().cases[0].clone();
+    case.expectation.status = "verified_match".into();
+    case.expectation.acceptable_edition_ids = vec!["a-different-edition".into()];
+    assert!(readback_matches(&album, Some(&result), &baseline));
+    assert_eq!(
+        native_classification(&case, Some(&result), false, false, true),
+        EvalOutcome::Unresolved
+    );
+    write_track_queued(
+        &WriteQueue::default(),
+        file,
+        serde_json::from_value(json!({"title":"Wrong song"})).unwrap(),
+    )
+    .await
+    .unwrap();
+    assert!(!readback_matches(&album, Some(&result), &baseline));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn edition_readback_does_not_impose_another_editions_disc_layout() {
+    let root = super::tests::temp_root();
+    let album = root.join("Lead/Album");
+    fs::create_dir_all(&album).unwrap();
+    for name in ["01.wav", "02.wav"] {
+        fs::copy(super::tests::corpus_wav(), album.join(name)).unwrap();
+    }
+    let baseline = crate::commands::tracks::read_album(&album).unwrap().tracks;
+    let queue = WriteQueue::default();
+    let candidate = AlbumCandidate {
+        album: Some("Album".into()),
+        album_artists: vec!["Lead".into()],
+        musicbrainz_album_id: Some("selected-single-disc-edition".into()),
+        source: LookupSource::Musicbrainz,
+        tracks: ["First song", "Bonus song (Live)"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, title)| TrackCandidate {
+                title: Some(title.into()),
+                artist: Some("Lead".into()),
+                artists: vec!["Lead".into()],
+                track_number: Some(index as u32 + 1),
+                disc_number: Some(1),
+                ..Default::default()
+            })
+            .collect(),
+        ..Default::default()
+    };
+    let written = apply_candidate_tags(&album, &candidate, &queue)
+        .await
+        .unwrap();
+    let result = AutoTagRunResult {
+        outcome: AutoTagOutcome::Applied,
+        written,
+        candidate: Some(candidate),
+        ..Default::default()
+    };
+    let mut case = load_corpus().cases[0].clone();
+    case.expectation.status = "verified_match".into();
+    case.expectation.acceptable_edition_ids = vec!["reviewed-two-disc-edition".into()];
+    case.expectation.mapping = vec![
+        json!({"localTrack":1, "providerTrack":"1-1"}),
+        json!({"localTrack":2, "providerTrack":"2-1"}),
+    ];
+    case.expectation.provider_track_count = Some(3);
+    case.expectation.provider_track_policy = Some(ProviderTrackPolicy {
+        kind: "allowed_extras".into(),
+        media_position: None,
+        provider_tracks: vec!["2-2".into()],
+    });
+    case.expectation.unmatched_provider_tracks = Some(vec!["2-2".into()]);
+    assert_eq!(written, 2);
+    assert!(readback_matches(&album, Some(&result), &baseline));
+    assert_eq!(
+        native_classification(&case, Some(&result), false, false, true),
+        EvalOutcome::Unresolved
+    );
+    let candidate = result.candidate.as_ref().unwrap();
+    let mut same_id_wrong_layout = candidate.clone();
+    same_id_wrong_layout.musicbrainz_album_id = Some("reviewed-two-disc-edition".into());
+    assert_eq!(
+        candidate_is_expected(&case, &same_id_wrong_layout),
+        EvalOutcome::Unresolved,
+        "even a reviewed ID must satisfy its reviewed mapping and provider policy"
+    );
+    for bad in [
+        json!({"title":"Wrong song"}),
+        json!({"discNumber":2,"trackNumber":1}),
+        json!({"musicbrainzAlbumId":"reviewed-two-disc-edition"}),
+    ] {
+        write_track_queued(
+            &queue,
+            album.join("02.wav"),
+            serde_json::from_value(bad.clone()).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(
+            !readback_matches(&album, Some(&result), &baseline),
+            "readback must reject an actual write mismatch: {bad}"
+        );
+        apply_candidate_tags(&album, candidate, &queue)
+            .await
+            .unwrap();
+    }
+    assert!(readback_matches(&album, Some(&result), &baseline));
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn recording_only_readback_verifies_partial_writes_without_blessing_an_edition() {
+    let root = super::tests::temp_root();
+    let album = root.join("Collection");
+    fs::create_dir_all(&album).unwrap();
+    let queue = WriteQueue::default();
+    for name in ["01.wav", "02.wav"] {
+        let file = album.join(name);
+        fs::copy(super::tests::corpus_wav(), &file).unwrap();
+        write_track_queued(
+            &queue,
+            file,
+            serde_json::from_value(json!({
+                "title":"Personal edit", "artist":"Collector", "album":"Personal collection",
+                "albumArtist":"Archivist", "year":"1999", "trackNumber":7,
+                "discNumber":2, "musicbrainzAlbumId":"kept-edition"
+            }))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+    }
+    let baseline = crate::commands::tracks::read_album(&album).unwrap().tracks;
+    let candidate = AlbumCandidate {
+        verification: Some("recording_only".into()),
+        album: Some("Consensus album is not written".into()),
+        tracks: vec![
+            TrackCandidate {
+                title: Some("Verified (Live)".into()),
+                artist: Some("Singer feat. Guest".into()),
+                artists: vec!["Singer".into(), "Guest".into()],
+                musicbrainz_track_id: Some("verified-recording".into()),
+                ..Default::default()
+            },
+            TrackCandidate {
+                title: Some("Insufficient evidence must not be written".into()),
+                ..Default::default()
+            },
+        ],
+        ..Default::default()
+    };
+    let (written, _) = apply_recording_tags(&album, &candidate.tracks, &queue, None)
+        .await
+        .unwrap();
+    assert_eq!(written, 1);
+    let mut result = AutoTagRunResult {
+        outcome: AutoTagOutcome::NeedsReview,
+        candidate: Some(candidate),
+        written,
+        reason_code: Some("ambiguous_edition".into()),
+        ..Default::default()
+    };
+    let case = load_corpus().cases[0].clone();
+    assert!(readback_matches(&album, Some(&result), &baseline));
+    assert_eq!(
+        native_classification(&case, Some(&result), false, false, true),
+        EvalOutcome::Unresolved
+    );
+    result.written = 2;
+    assert!(!readback_matches(&album, Some(&result), &baseline));
+    result.written = 1;
+    for (bad, restore) in [
+        (
+            json!({"title":"Wrong recording"}),
+            json!({"title":"Verified (Live)"}),
+        ),
+        (
+            json!({"artists":["Guest","Singer"]}),
+            json!({"artists":["Singer","Guest"]}),
+        ),
+        (
+            json!({"album":"Guessed edition"}),
+            json!({"album":"Personal collection"}),
+        ),
+        (json!({"trackNumber":1}), json!({"trackNumber":7})),
+        (
+            json!({"musicbrainzAlbumId":"guessed-edition"}),
+            json!({"musicbrainzAlbumId":"kept-edition"}),
+        ),
+    ] {
+        write_track_queued(
+            &queue,
+            album.join("01.wav"),
+            serde_json::from_value(bad).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(!readback_matches(&album, Some(&result), &baseline));
+        write_track_queued(
+            &queue,
+            album.join("01.wav"),
+            serde_json::from_value(restore).unwrap(),
+        )
+        .await
+        .unwrap();
+    }
+    assert!(readback_matches(&album, Some(&result), &baseline));
+    write_track_queued(
+        &queue,
+        album.join("02.wav"),
+        serde_json::from_value(json!({"title":"Stray write"})).unwrap(),
+    )
+    .await
+    .unwrap();
+    assert!(!readback_matches(&album, Some(&result), &baseline));
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn verified_abstention_rejects_an_applied_candidate() {
     let mut case = load_corpus().cases[0].clone();
@@ -2484,6 +2914,80 @@ fn evaluation_sanitization_redacts_nested_credentials_and_queries() {
     assert_eq!(value["headers"], "[redacted]");
     assert_eq!(value["nested"][0]["apiKey"], "[redacted]");
     assert_eq!(value["nested"][0]["safe"], "value");
+}
+
+#[tokio::test]
+#[ignore = "requires ffmpeg; materializes frozen metadata without original audio"]
+async fn frozen_dummy_corpus_preserves_conflicting_rows_and_profiles() {
+    let mut corpus: Value =
+        serde_json::from_str(&fs::read_to_string(corpus_path()).unwrap()).unwrap();
+    let mut case = corpus["cases"][0].clone();
+    case["sourceRelativeFolder"] = json!("Artist/Conflict");
+    case["artist"] = json!("Artist");
+    case["tracks"] = json!([
+        {"relativePath":"Same.flac", "filename":"Same.flac", "duration":1.25,
+         "title":"First version", "artist":"First", "artists":["First", "Second"],
+         "albumArtists":["Band", "Guest"], "trackNumber":14, "discNumber":2,
+         "sourceSha256":"not-an-existing-source", "providerIds":{"discogsArtistId":"52835"}},
+        {"relativePath":"Same.mp3", "filename":"Same.mp3", "duration":2.75,
+         "title":"Conflicting version", "artist":"Other", "trackNumber":15,
+         "sourceSha256":"another-missing-source", "providerIds":{}},
+        {"relativePath":"Unknown.flac", "filename":"Unknown.flac", "duration":0.0,
+         "title":"Unknown duration", "trackNumber":16,
+         "sourceSha256":"unknown-duration-source", "providerIds":{}}
+    ]);
+    corpus["cases"] = json!([case]);
+    let root =
+        std::env::temp_dir().join(format!("soundrobe-frozen-dummy-{}", uuid::Uuid::new_v4()));
+    let output = materialize_frozen_corpus(corpus, &root).await.unwrap();
+    let tracks = output["cases"][0]["tracks"].as_array().unwrap();
+    assert_eq!(tracks.len(), 3);
+    assert_ne!(tracks[0]["relativePath"], tracks[1]["relativePath"]);
+    for (index, expected) in [
+        (0, "First version"),
+        (1, "Conflicting version"),
+        (2, "Unknown duration"),
+    ] {
+        let path = root
+            .join("media/Artist/Conflict")
+            .join(tracks[index]["relativePath"].as_str().unwrap());
+        let read = crate::commands::tracks::read_track_metadata(&path).unwrap();
+        assert_eq!(read.title.as_deref(), Some(expected));
+        assert_eq!(read.track_number, Some(14 + index as u32));
+        assert!((read.duration - tracks[index]["duration"].as_f64().unwrap()).abs() < 0.01);
+        assert_eq!(
+            hash_file(&path),
+            tracks[index]["sourceSha256"].as_str().unwrap()
+        );
+        if index == 0 {
+            assert_eq!(read.artists, ["First", "Second"]);
+            assert_eq!(read.album_artists, ["Band", "Guest"]);
+            assert_eq!(read.discogs_artist_id.as_deref(), Some("52835"));
+        }
+    }
+    assert_eq!(tracks[1]["originalRelativePath"], "Same.mp3");
+    assert_eq!(tracks[0]["duration"], 1.25);
+    assert_eq!(tracks[0]["durationIsPlaceholder"], false);
+    assert_eq!(tracks[2]["originalDuration"], 0.0);
+    assert_eq!(tracks[2]["duration"], 1.0);
+    assert_eq!(tracks[2]["durationIsPlaceholder"], true);
+    let profiles = &output["cases"][0]["inputProfiles"];
+    assert!(profiles[PROFILE_DISCOVERY]["tracks"][0]
+        .get("title")
+        .is_none());
+    assert_eq!(
+        profiles[PROFILE_ASSISTED]["tracks"][0]["providerIds"],
+        json!({})
+    );
+    assert_eq!(
+        profiles[PROFILE_RECOVERY]["tracks"][0]["providerIds"]["discogsArtistId"],
+        "52835"
+    );
+    assert!(
+        materialize_frozen_corpus(output, &root).await.is_err(),
+        "must never overwrite an existing library"
+    );
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]
@@ -2853,13 +3357,10 @@ async fn live_auto_tag_eval() {
                     .any(|component| component.as_os_str() == case.artist.as_str()),
                 "copy hierarchy lost the artist folder component"
             );
+            // Codec-only folders can legitimately produce no parsed hints.
             assert!(
-                preflight.folder_artist_hint.is_some(),
-                "copy hierarchy lost the artist folder hint"
-            );
-            assert!(
-                preflight.folder_album_hint.is_some(),
-                "copy hierarchy lost the album folder hint"
+                destination.ends_with(safe_relative_folder(&case.source_relative_folder)),
+                "copy hierarchy lost the source folder components"
             );
             if preflight.selected_disc_number.is_some() {
                 assert!(
@@ -2880,6 +3381,9 @@ async fn live_auto_tag_eval() {
                 );
             }
             let baseline = hash_map(&destination);
+            let baseline_tracks = crate::commands::tracks::read_album(&destination)
+                .unwrap()
+                .tracks;
             let cache_before = cache_counts(&cache_path);
             let started = Instant::now();
             let cancelled = AtomicBool::new(false);
@@ -2946,11 +3450,12 @@ async fn live_auto_tag_eval() {
                         .zip(before.get("payloadSha256"))
                         .is_some_and(|(left, right)| left == right)
                 });
-            let readback = if outcome == "applied" {
-                readback_matches(&destination, native.as_ref(), &case.expectation)
-            } else {
-                native.as_ref().is_none_or(|value| value.written == 0) && after == baseline
-            };
+            let readback =
+                if outcome == "applied" || native.as_ref().is_some_and(|value| value.written > 0) {
+                    readback_matches(&destination, native.as_ref(), &baseline_tracks)
+                } else {
+                    native.as_ref().is_none_or(|value| value.written == 0) && after == baseline
+                };
             let classification = native_classification(
                 case,
                 native.as_ref(),
@@ -2963,6 +3468,14 @@ async fn live_auto_tag_eval() {
                 json!({"runId":run_id,"phase":phase,"caseId":case.case_id,"artist":case.artist,"releaseType":case.release_type,"difficulty":case.difficulty,"sourceRelativeFolder":case.source_relative_folder,"outcome":outcome,"classification":classification.as_str(),"error":error,"elapsedMs":elapsed_ms,"native":native,"selectedTrackEvidence":selected_evidence,"progressEvents":progress_events.into_inner(),"reportEvents":report_events.into_inner(),"cacheBefore":cache_before,"cacheAfter":cache_counts(&cache_path),"copiedBeforeProfile":copied_before,"profileBaseline":baseline,"after":after,"payloadUnchanged":payload_unchanged,"readback":readback,"profile":profile,"mediaMode":"synthetic_flac","syntheticTrackCount":synthetic.track_count,"syntheticBytes":synthetic.bytes,"syntheticPeakBytes":synthetic.peak_bytes,"oracleStatus":case.expectation.status}),
             );
             let mut record = record;
+            record["readbackTracks"] = sanitise(
+                serde_json::to_value(
+                    crate::commands::tracks::read_album(&destination)
+                        .unwrap()
+                        .tracks,
+                )
+                .unwrap(),
+            );
             record["providerMode"] = json!(if mock_url.is_some() {
                 "offline_fixtures"
             } else {
@@ -3078,6 +3591,8 @@ pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String
         // fixture server, which never forwards traffic to another host.
         .proxy(reqwest::Proxy::all(base).map_err(|error| error.to_string())?)
         .redirect(reqwest::redirect::Policy::none())
+        // Synchronous media work can hide the fixture server's idle socket closure.
+        .pool_max_idle_per_host(0)
         .timeout(Duration::from_secs(5))
         .build()
         .map_err(|error| error.to_string())?;
@@ -3130,8 +3645,19 @@ async fn offline_fixture_service_uses_both_production_provider_parsers() {
         .success());
     let mut server = ServerProcess(
         Command::new("node")
+            .arg("-e")
+            .arg(
+                r#"
+                const server = require(process.argv[1]).createService(process.argv[2]);
+                server.keepAliveTimeout = 50;
+                server.keepAliveTimeoutBuffer = 0;
+                server.on('connection', socket => socket.on('close', () => console.log('closed')));
+                server.listen(0, '127.0.0.1', () => console.log(JSON.stringify({
+                    discogs: `http://127.0.0.1:${server.address().port}/discogs`
+                })));
+            "#,
+            )
             .arg(&script)
-            .arg("serve")
             .arg(&manifest)
             .stdout(Stdio::piped())
             .spawn()
@@ -3139,15 +3665,28 @@ async fn offline_fixture_service_uses_both_production_provider_parsers() {
         root,
     );
     let mut line = String::new();
-    std::io::BufReader::new(server.0.stdout.take().unwrap())
-        .read_line(&mut line)
-        .unwrap();
+    let mut output = std::io::BufReader::new(server.0.stdout.take().unwrap());
+    output.read_line(&mut line).unwrap();
     let endpoints: Value = serde_json::from_str(&line).unwrap();
     let base = endpoints["discogs"]
         .as_str()
         .unwrap()
         .trim_end_matches("/discogs");
     let providers = offline_eval_providers(base).unwrap();
+    let first: Value = providers
+        .http()
+        .get(format!("{base}/discogs/releases/1459867"))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(first["id"], 1459867);
+    // Reproduce synchronous warm-phase work: the runtime cannot observe the idle close.
+    line.clear();
+    output.read_line(&mut line).unwrap();
+    assert_eq!(line.trim(), "closed");
     let discogs = DiscogsClient::at(providers.http(), None, providers.discogs_base());
     let album = discogs.release_metadata_result("1459867").await.unwrap();
     assert_eq!(album.id, "1459867");
@@ -3161,6 +3700,41 @@ async fn offline_fixture_service_uses_both_production_provider_parsers() {
         .await
         .unwrap();
     assert_eq!(album.tracks.len(), 15);
+    let album = mb
+        .release_by_id_result("2c67f46d-1a66-3d71-9e0c-f696297063b9")
+        .await
+        .unwrap();
+    assert_eq!(album.id, "2c67f46d-1a66-3d71-9e0c-f696297063b9");
+    assert_eq!(album.tracks.len(), 15);
+    let single = discogs.release_metadata_result("21035242").await.unwrap();
+    assert_eq!(single.id, "21035242");
+    assert_eq!(single.tracks.len(), 4);
+    let first = mb
+        .artist_release_summary_page_result("4967c0a1-b9f3-465e-8440-4598fd9fc33c", 0, 100)
+        .await
+        .unwrap();
+    assert_eq!(first.next_offset(), Some(100));
+    assert_eq!(first.returned, 100);
+    let second = mb
+        .artist_release_summary_page_result("4967c0a1-b9f3-465e-8440-4598fd9fc33c", 100, 100)
+        .await
+        .unwrap();
+    assert!(!second.summaries.is_empty());
+    assert_ne!(first.summaries[0].id, second.summaries[0].id);
+    for artist in ["9807", "38661"] {
+        let first = discogs
+            .artist_release_summary_page_result(artist, 1, 100)
+            .await
+            .unwrap();
+        assert_eq!(first.next_page(), Some(2));
+        assert_eq!(first.returned, 100);
+        let second = discogs
+            .artist_release_summary_page_result(artist, 2, 100)
+            .await
+            .unwrap();
+        assert_eq!(second.returned, 100);
+        assert_ne!(first.summaries[0].id, second.summaries[0].id);
+    }
     assert!(discogs
         .release_metadata_result("not-captured")
         .await

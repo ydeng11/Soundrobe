@@ -7,5 +7,6 @@ dist
 src-tauri/target
 coverage
 graphify-out
-data
+data/*
+!data/provider-title-aliases.json
 *.log

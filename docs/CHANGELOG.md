@@ -9,8 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The offline tagging evaluation inventory includes CJK artist libraries, difficult Curated Beyoncé albums, partial editions and independent soundtrack/instrumental compilations, with frozen input checks and batch-level development and holdout partitions. Silent dummy tracks can be generated without original audio. Unreviewed inputs remain outside scored accuracy.
+- Provider-backed evaluation answers now cover 51 positive cases and 539 tracks, including CJK artist aliases and Billie Eilish holdout cases. Ordinary and remixed versions remain separate, and the soundtrack without enough version and duration evidence stays unscored.
 - The offline inventory can preview per-file recovery hypotheses alongside current tags and retained catalog evidence. It preserves every file, version qualifier, and conflicting title or position in review, without network requests, tag writes, approval, or folder completion.
-- Auto-tagging recognizes compatible exact FLAC copies without deleting or renaming files. Every copy keeps its own credits and positions; conflicting titles, recording IDs, versions, or embedded positions stay in review. Album completion counts release-track occurrences separately from physical files.
+- Auto-tagging recognizes compatible exact FLAC copies without deleting or renaming files. Every copy keeps its own credits; conflicting titles, recording IDs, versions, or embedded positions stay in review. Album completion counts release-track occurrences separately from physical files.
 - The inventory can discover recording-specific catalog leads under an explicitly selected artist and version, preserving partial credits and competing alternatives in an isolated resumable cache. Networking requires an explicit opt-in; catalog hits never become verified tags by themselves.
 - Selected audio-pair diagnostics include per-channel window measurements and quiet unmatched material at a declared fixed offset, without changing matching thresholds or reuse eligibility.
 - Inventory review questions group byte-identical unresolved files for investigation while retaining every physical file, alternative, unknown count and stop/reopen condition. Grouping and user approval do not create recording proof.
@@ -41,6 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional AcoustID audio recognition can identify complete albums and track positions when ordinary metadata lookups cannot. Ambiguous or incomplete matches remain marked for review. Configure its application key in Tag sources or provider settings.
 
 ### Changed
+
+- Reviewed, hash-checked catalog title localizations can resolve filename-only tracks while retaining canonical provider display titles and source receipts. Aliases apply only to their reviewed release and track occurrence with compatible durations; conflicting live, mix and remaster claims remain blocked.
+- Auto-tagging retains provider release remaster evidence and recognizes wave-delimited version tags before falling back to filenames. Explicit version conflicts cannot be bypassed by recording IDs or shorter title matches, and a local remaster-year claim requires matching provider evidence. Catalog support still does not verify the local audio's mastering.
+- Auto-tagging searches album-specific Discogs releases and versions before browsing an artist's broader catalog, so crowded catalogs do not consume the lookup budget before a matching album version can be checked.
+- When an exact edition cannot be established, auto-tagging can finish basic album tags from a fully aligned provider tracklist. It preserves per-track artist credits, numbers files in folder order, and leaves release and recording IDs unset. A complete provider's evidence remains usable when unrelated Discogs discovery reaches its detail limit; outages, other incomplete discovery and conflicting track evidence still prevent this fallback. Run details distinguish basic-tag completion from edition or acoustic verification.
+- Complete album auto-tag writes retain collaborators and ordered artist lists while keeping Album Artist shared. Track numbers follow local file order even when a confirmed edition orders bonus tracks differently; manual selected-track edits and recording-only recovery keep their existing numbering behavior.
+- Matched provider titles retain supported instrumental and skit labels when shorter local titles omit them.
+- Matched titles no longer retain a known artist prefix when the provider confirms the unprefixed title, including simplified/traditional Chinese artist names.
+- Pipe-separated collaborator credits no longer duplicate performers already named by the matched release.
+- Filename-only tagging reads year/month folder prefixes and artist folders above Single containers correctly, removes known collaborative artist prefixes, and preserves remix and performance labels in album hints. Artist matching recognizes simplified/traditional Chinese names, and basic album tags retain a validated Chinese display name instead of replacing it with an English alias.
+- Filename-only tagging also finds artists above nested Albums, keep and annotated multi-CD containers, separates catalog-labelled Deluxe and Misprint suffixes from album names, and cleans artist prefixes after provider aliases resolve. CJK artist lookups can use an exact provider alias when the primary-name search is empty. Unique, duration-supported track comparisons tolerate word-spacing differences without changing display titles or accepting version conflicts.
+
+- Conflicting folder countries no longer prevent recording-only tagging when multiple fully aligned releases unanimously agree on every recording's title, artist credits and identity. Edition details stay unresolved, and incomplete provider discovery still prevents these writes.
 
 - Live track titles and ordered artist credits can be verified without choosing a recording ID when every acoustic candidate agrees on the title, credits and explicit live annotation, and the written title preserves its supported live label. Verification remains stable on retry after guest credits are added.
 
@@ -132,6 +147,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Clearing an MP3's disc total preserves its disc number instead of replacing it with the track number.
+- Offline evaluation no longer reports correctly written tags as a write failure when the selected release has a different disc layout from the reviewed edition. Exact-edition accuracy remains unresolved unless the reviewed identity and layout match.
+- Offline auto-tag evaluation no longer aborts on codec-only album folders with no parsed hints, and scored reports now show native cold/warm release identities and detect identity changes correctly.
+- Offline auto-tag fixtures now cover current MusicBrainz artist browsing and the advertised Discogs catalog pages for Enya and Eminem, with corrected artist lookup identities instead of missing-page or placeholder responses.
+- Offline reviewed-case evaluation can replay the MusicBrainz and Discogs release details and exact searches reached after artist browsing and folder identity cleanup, replacing uncaptured placeholders and missing requests with genuine provider responses. Unrecorded requests still fail explicitly, and reviewed answers are unchanged.
+- Offline evaluation recognizes Storms In Africa's reviewed edition through MusicBrainz's explicit Discogs link, without changing the accepted answers.
+- Offline evaluation verifies permitted recording-only writes without treating unresolved editions as matches, rejects unrelated metadata changes, and avoids stale fixture-server connections between replay phases.
+- Folder-based tagging separates leading dates and annotated release-format labels from album titles, recognizes named disc folders, and finds the artist above explicitly marked box-set containers instead of searching for the box title as an artist.
+- Folder-based tagging preserves Germany edition annotations when comparing releases, so Wild Child's German edition is not left ambiguous with Japanese and Korean releases.
 - Auto-tagging reserves exact recording-ID matches before other tracks can claim the same provider rows through stale titles.
 - Artist release browsing checks exact album identities before substring matches, so short titles such as `4` are not buried behind unrelated releases within the discovery limit.
 - Tagging through an existing recording ID retains a local studio-version or performance qualifier when the provider supplies only the same base title, instead of shortening titles such as `Grown Woman (Studio Version)`.

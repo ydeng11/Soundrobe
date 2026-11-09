@@ -16,6 +16,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use unicode_normalization::{char::is_combining_mark, UnicodeNormalization};
 
+pub use super::provider_title_aliases::TitleAliasEvidence;
+
 const USER_AGENT: &str = concat!(
     "soundrobe/",
     env!("CARGO_PKG_VERSION"),
@@ -391,7 +393,7 @@ impl ProviderState {
                     identity: ArtistIdentity {
                         musicbrainz_artist_id: Some(id.clone()),
                         discogs_artist_id: None,
-                        english_aliases: resolved.aliases,
+                        aliases: resolved.aliases,
                     },
                     stored: Instant::now(),
                 },
@@ -410,7 +412,7 @@ impl Default for ProviderState {
 pub struct ArtistIdentity {
     pub musicbrainz_artist_id: Option<String>,
     pub discogs_artist_id: Option<String>,
-    pub english_aliases: Vec<String>,
+    pub aliases: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -437,6 +439,8 @@ pub struct ProviderArtist {
 pub struct ProviderTrack {
     pub title: Option<String>,
     pub match_titles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub title_alias_evidence: Vec<TitleAliasEvidence>,
     pub artist: Option<String>,
     pub artists: Vec<String>,
     pub track_number: Option<u32>,
@@ -457,6 +461,8 @@ pub struct ProviderTrack {
 pub struct ProviderAlbum {
     pub id: String,
     pub title: String,
+    #[serde(default)]
+    pub disambiguation: Option<String>,
     pub artist: Option<String>,
     pub artists: Vec<String>,
     pub artist_id: Option<String>,
@@ -1187,12 +1193,12 @@ impl MusicBrainzClient {
             return Ok(None);
         }
         let query = format!("artist:\"{}\"", escape_musicbrainz_query(artist));
-        let query = vec![
+        let mut query = vec![
             ("query", query),
             ("fmt", "json".to_string()),
             ("limit", "5".to_string()),
         ];
-        let response = request_musicbrainz_json(
+        let mut response = request_musicbrainz_json(
             &self.http,
             format!("{}/artist/", self.base_url),
             &query,
@@ -1200,6 +1206,22 @@ impl MusicBrainzClient {
             self.retry_context.as_ref(),
         )
         .await?;
+        let alias_lookup = contains_cjk(artist)
+            && response
+                .get("artists")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(Vec::is_empty);
+        if alias_lookup {
+            query[0].1 = format!("alias:\"{}\"", escape_musicbrainz_query(artist));
+            response = request_musicbrainz_json(
+                &self.http,
+                format!("{}/artist/", self.base_url),
+                &query,
+                "artist alias",
+                self.retry_context.as_ref(),
+            )
+            .await?;
+        }
         let artists = response
             .get("artists")
             .and_then(serde_json::Value::as_array)
@@ -1207,7 +1229,7 @@ impl MusicBrainzClient {
         let Some(candidate) = artists
             .iter()
             .find(|candidate| musicbrainz_artist_matches_name(candidate, artist))
-            .or_else(|| artists.first())
+            .or_else(|| (!alias_lookup).then(|| artists.first()).flatten())
         else {
             return Ok(None);
         };
@@ -1221,15 +1243,20 @@ impl MusicBrainzClient {
             .and_then(serde_json::Value::as_str)
             .ok_or_else(|| "MusicBrainz artist response has an invalid artist name".to_string())?
             .to_string();
-        let aliases = candidate
+        let mut aliases = candidate
             .get("aliases")
             .and_then(serde_json::Value::as_array)
             .into_iter()
             .flatten()
             .filter_map(|alias| alias.get("name").and_then(serde_json::Value::as_str))
-            .filter(|alias| alias.is_ascii())
             .map(str::to_string)
-            .collect();
+            .collect::<Vec<_>>();
+        if musicbrainz_artist_matches_name(candidate, artist)
+            && name != artist
+            && !aliases.contains(&name)
+        {
+            aliases.push(name.clone());
+        }
         Ok(Some(ProviderArtist { id, name, aliases }))
     }
 
@@ -1510,7 +1537,11 @@ pub async fn resolve_artist_identity_with_clients_result(
     if discogs_artist_id.is_none() && use_discogs {
         let mut found = None;
         if let Some(musicbrainz_artist) = musicbrainz_artist.as_ref() {
-            for alias in &musicbrainz_artist.aliases {
+            for alias in musicbrainz_artist
+                .aliases
+                .iter()
+                .filter(|alias| alias.is_ascii())
+            {
                 match discogs.search_artist_exact_result(alias).await {
                     Ok(Some(id)) => {
                         found = Some(id);
@@ -1533,7 +1564,7 @@ pub async fn resolve_artist_identity_with_clients_result(
         identity: ArtistIdentity {
             musicbrainz_artist_id: musicbrainz_artist.as_ref().map(|artist| artist.id.clone()),
             discogs_artist_id,
-            english_aliases: musicbrainz_artist
+            aliases: musicbrainz_artist
                 .map(|artist| artist.aliases)
                 .unwrap_or_default(),
         },
@@ -1823,6 +1854,7 @@ fn parse_musicbrainz_release(
                     .filter(|recording_title| Some(*recording_title) != title.as_deref())
                     .map(|title| vec![title.to_string()])
                     .unwrap_or_default(),
+                title_alias_evidence: Vec::new(),
                 title,
                 artist: track_artist,
                 artists: track_artists,
@@ -1842,13 +1874,17 @@ fn parse_musicbrainz_release(
         }
     }
 
-    Some(ProviderAlbum {
+    let mut album = ProviderAlbum {
         id: value
             .get("id")
             .and_then(serde_json::Value::as_str)
             .unwrap_or(fallback_id)
             .to_string(),
         title,
+        disambiguation: value
+            .get("disambiguation")
+            .and_then(serde_json::Value::as_str)
+            .map(str::to_string),
         artist,
         artists,
         artist_id,
@@ -1896,7 +1932,9 @@ fn parse_musicbrainz_release(
                     .map(str::to_string)
             }),
         tracks,
-    })
+    };
+    super::provider_title_aliases::enrich(&mut album);
+    Some(album)
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, Deserialize)]
@@ -2129,6 +2167,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
                 .and_then(serde_json::Value::as_str)
                 .map(str::to_string),
             match_titles: Vec::new(),
+            title_alias_evidence: Vec::new(),
             artist: artist_display_name(&track_artists, artist.as_deref()),
             artists: if track_artists.is_empty() {
                 artists.clone()
@@ -2157,6 +2196,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
             })
             .unwrap_or_else(|| fallback_id.to_string()),
         title,
+        disambiguation: None,
         artist,
         artists,
         artist_id: value
@@ -2236,7 +2276,7 @@ pub(crate) fn clean_discogs_artist(name: &str) -> String {
 }
 
 pub(crate) fn split_artist_names(names: &[String]) -> Vec<String> {
-    let separator = Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,＋+、，；·‧]\s*")
+    let separator = Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,|＋+、，；·‧]\s*")
         .expect("valid multi-artist regex");
     let mut output = Vec::new();
     for name in names {
@@ -2775,6 +2815,7 @@ impl DiscogsClient {
             albums.push(ProviderAlbum {
                 id: release_id.map(|id| id.to_string()).unwrap_or_default(),
                 title: result_album.to_string(),
+                disambiguation: None,
                 artist: artist_display_name(&artists, Some(result_artist)),
                 artists,
                 artist_id: None,
@@ -5445,10 +5486,118 @@ mod tests {
     }
 
     #[test]
+    fn reviewed_title_alias_ingestion_matches_filename_without_discarding_versions() {
+        let raw: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/review-expansion-2-20261108/musicbrainz-release-8c3d0f30-247e-4b56-809c-79f795f66d4e.json"
+        )).unwrap();
+        let album = parse_musicbrainz_release(&raw, "unused").unwrap();
+        let candidate = crate::commands::auto_tag::musicbrainz_candidate(album);
+        let remote = &candidate.tracks[16];
+        assert!(remote
+            .match_titles
+            .contains(&"Hymne A L'Amour - Ai No Anthem".into()));
+        assert_eq!(
+            serde_json::to_value(remote).unwrap()["title_alias_evidence"][0]["receiptId"],
+            "apple-1440748484-utada-vol2-localization-20261108"
+        );
+        for (suffix, expected) in [
+            ("2014 Remastered", true),
+            ("2010 Remastered", false),
+            ("2014 Remastered) (Live", false),
+        ] {
+            let local = crate::commands::auto_tag::TrackCandidate {
+                length: Some(389.947),
+                filename: Some(format!(
+                    "17 Hikaru Utada - Hymne A L'Amour -Ai No Anthem- ({suffix}).flac"
+                )),
+                ..Default::default()
+            };
+            let request = crate::commands::auto_tag::LookupRequest {
+                artist_hint: candidate.artist.clone(),
+                album_hint: candidate.album.clone(),
+                tracks: vec![local],
+                ..Default::default()
+            };
+            let mut selected = candidate.clone();
+            selected.tracks = vec![remote.clone()];
+            assert_eq!(
+                crate::commands::auto_tag::provider_candidate_credibility(&request, &selected)
+                    .is_ok(),
+                expected,
+                "{suffix}"
+            );
+        }
+        for duration in [None, Some(0.0), Some(f64::NAN), Some(420.0)] {
+            let request = crate::commands::auto_tag::LookupRequest {
+                artist_hint: candidate.artist.clone(),
+                album_hint: candidate.album.clone(),
+                tracks: vec![crate::commands::auto_tag::TrackCandidate {
+                    title: Some("Hymne A L'Amour - Ai No Anthem (2014 Remastered)".into()),
+                    length: duration,
+                    ..Default::default()
+                }],
+                ..Default::default()
+            };
+            let mut selected = candidate.clone();
+            selected.tracks = vec![remote.clone()];
+            assert!(
+                crate::commands::auto_tag::provider_candidate_credibility(&request, &selected)
+                    .is_err(),
+                "{duration:?}"
+            );
+        }
+        for (pointer, replacement) in [
+            ("/id", serde_json::json!("different-release")),
+            (
+                "/artist-credit/0/artist/id",
+                serde_json::json!("different-artist"),
+            ),
+            (
+                "/media/0/tracks/16/recording/id",
+                serde_json::json!("different-recording"),
+            ),
+            ("/media/0/tracks/16/number", serde_json::json!("18")),
+            (
+                "/media/0/tracks/16/recording/length",
+                serde_json::json!(400000),
+            ),
+            (
+                "/media/0/tracks/16/title",
+                serde_json::json!("Hymne à l'amour (Live)"),
+            ),
+            ("/disambiguation", serde_json::json!("2010 Remastered")),
+            ("/media/0/position", serde_json::json!(2)),
+            (
+                "/media/0/tracks/16/recording/title",
+                serde_json::json!("Hymne à l'amour (Live)"),
+            ),
+            (
+                "/media/0/tracks/16/artist-credit/0/name",
+                serde_json::json!("Other artist"),
+            ),
+            (
+                "/media/0/tracks/15/recording/id",
+                serde_json::json!("331ad074-f703-4816-b7e1-3ed225e6b225"),
+            ),
+        ] {
+            let mut changed = raw.clone();
+            *changed.pointer_mut(pointer).unwrap() = replacement;
+            let album = parse_musicbrainz_release(&changed, "unused").unwrap();
+            assert!(
+                !album.tracks[16]
+                    .match_titles
+                    .contains(&"Hymne A L'Amour - Ai No Anthem".into()),
+                "{pointer}"
+            );
+        }
+    }
+
+    #[test]
     fn musicbrainz_release_exposes_edition_and_linked_discogs_evidence() {
         let value = serde_json::json!({
             "id": "e01b7fc8-7ead-3ee0-afbf-daabef5f0d04",
             "title": "Emotions",
+            "disambiguation": "2014 Remastered, 96kHz/24bit",
             "artist-credit": [{"name": "Mariah Carey", "artist": {"id": "artist-id"}}],
             "date": "1991-09-17",
             "country": "JP",
@@ -5479,6 +5628,11 @@ mod tests {
         assert_eq!(
             release.linked_discogs_release_id.as_deref(),
             Some("1521689")
+        );
+        let candidate = crate::commands::auto_tag::musicbrainz_candidate(release);
+        assert_eq!(
+            serde_json::to_value(candidate).unwrap()["tracks"][0]["release_disambiguation"],
+            "2014 Remastered, 96kHz/24bit"
         );
     }
 
@@ -5763,7 +5917,7 @@ mod tests {
 
         assert_eq!(identity.musicbrainz_artist_id.as_deref(), Some("mb"));
         assert_eq!(identity.discogs_artist_id.as_deref(), Some("7"));
-        assert_eq!(identity.english_aliases, vec!["Alias"]);
+        assert_eq!(identity.aliases, vec!["Alias"]);
         let paths = (0..4)
             .map(|_| requests.recv().unwrap().lines().next().unwrap().to_string())
             .collect::<Vec<_>>();
@@ -6201,6 +6355,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn reviewed_blockers_find_exact_cjk_alias_after_empty_name_search() {
+        for name in ["宇多田光", "未確認"] {
+            let (base, _requests) = server(2, |path, _| {
+                let body = if path.contains("alias%3A") || path.contains("alias%3a") {
+                    r#"{"artists":[{"id":"right","name":"宇多田ヒカル","aliases":[{"name":"宇多田光"},{"name":"Hikaru Utada"}]}]}"#
+                } else {
+                    r#"{"artists":[]}"#
+                };
+                ("200 OK", body.to_string(), "application/json")
+            });
+            let musicbrainz = MusicBrainzClient::at(ProviderState::new().http(), &base);
+            let found = musicbrainz
+                .search_artist_by_name_result(name)
+                .await
+                .unwrap();
+            if name == "未確認" {
+                assert!(found.is_none());
+            } else {
+                let found = found.unwrap();
+                assert_eq!(found.id, "right");
+                assert!(found.aliases.contains(&"Hikaru Utada".to_string()));
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn musicbrainz_artist_search_prefers_exact_alias_over_first_result() {
         let (base, _requests) = server(1, |path, _| {
             assert!(path.starts_with("/artist/?query="));
@@ -6220,7 +6400,8 @@ mod tests {
 
         assert_eq!(artist.id, "right");
         assert_eq!(artist.name, "Jacky Cheung");
-        assert!(artist.aliases.is_empty());
+        assert!(artist.aliases.contains(&"张学友".to_string()));
+        assert!(artist.aliases.contains(&"Jacky Cheung".to_string()));
     }
 
     #[tokio::test]

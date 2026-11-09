@@ -49,6 +49,8 @@ pub struct TrackCandidate {
     pub title: Option<String>,
     #[serde(default)]
     pub match_titles: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub title_alias_evidence: Vec<crate::state::providers::TitleAliasEvidence>,
     pub artist: Option<String>,
     #[serde(default)]
     pub artists: Vec<String>,
@@ -218,6 +220,7 @@ pub fn musicbrainz_candidate(album: ProviderAlbum) -> AlbumCandidate {
             .map(|track| TrackCandidate {
                 title: track.title,
                 match_titles: track.match_titles,
+                title_alias_evidence: track.title_alias_evidence,
                 artist: track.artist,
                 artists: track.artists,
                 track_number: track.track_number,
@@ -772,6 +775,7 @@ pub async fn album_preview_release_match(
         .map(|t| TrackCandidate {
             title: t.title.clone(),
             match_titles: vec![t.title.clone().unwrap_or_default()],
+            title_alias_evidence: Vec::new(),
             artist: t.artist.clone(),
             artists: t.artists.clone(),
             track_number: t.track_number,
@@ -808,6 +812,8 @@ pub async fn album_preview_release_match(
         source: None,
         title: track.title.clone(),
         match_titles: track.match_titles.clone(),
+        title_alias_evidence: track.title_alias_evidence.clone(),
+        release_disambiguation: None,
         artist: track.artist.clone(),
         artists: track.artists.clone(),
         track_number: track.track_number,
@@ -825,7 +831,11 @@ pub async fn album_preview_release_match(
     let matcher_remote_tracks = album_candidate
         .tracks
         .iter()
-        .map(matcher_track)
+        .map(|track| {
+            let mut track = matcher_track(track);
+            track.release_disambiguation = request.release.disambiguation.clone();
+            track
+        })
         .collect::<Vec<_>>();
 
     // Run track matching
@@ -1511,6 +1521,7 @@ mod tests {
                 tracks: vec![crate::state::providers::ProviderTrack {
                     title: Some("Track 1".into()),
                     match_titles: vec![],
+                    title_alias_evidence: vec![],
                     artist: Some("Artist".into()),
                     artists: vec!["Artist".into()],
                     track_number: Some(1),
@@ -1552,6 +1563,7 @@ mod tests {
                     crate::state::providers::ProviderTrack {
                         title: Some("Track 1".into()),
                         match_titles: vec![],
+                        title_alias_evidence: vec![],
                         artist: Some("Artist".into()),
                         artists: vec!["Artist".into()],
                         track_number: Some(1),
@@ -1564,6 +1576,7 @@ mod tests {
                     crate::state::providers::ProviderTrack {
                         title: Some("Track 2".into()),
                         match_titles: vec![],
+                        title_alias_evidence: vec![],
                         artist: Some("Artist".into()),
                         artists: vec!["Artist".into()],
                         track_number: Some(2),

@@ -33,6 +33,8 @@ pub mod library;
 #[cfg(feature = "server")]
 pub mod operation;
 #[cfg(any(feature = "desktop", feature = "server"))]
+mod provider_title_aliases;
+#[cfg(any(feature = "desktop", feature = "server"))]
 pub mod providers;
 #[cfg(feature = "desktop")]
 pub mod quit_guard;

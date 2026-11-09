@@ -252,7 +252,12 @@ async fn exact_flac_groups_never_expand_nominations_or_merge_transformed_audio()
         &AtomicBool::new(false),
     )
     .await;
-    assert_eq!(proof.groups(), &[vec![0, 1, 2], vec![3], vec![4]]);
+    assert_eq!(
+        proof.groups(),
+        &[vec![0, 1, 2], vec![3], vec![4]],
+        "{}",
+        proof.diagnostics()
+    );
     let mut stale = sources.clone();
     f.audio("b.flac", "sine=frequency=880:sample_rate=44100");
     let proof = prove_duplicate_groups(&f.0, &stale, &[vec![0, 1]], &AtomicBool::new(false)).await;
@@ -296,7 +301,12 @@ async fn exact_flac_groups_preserve_native_precision_channels_and_full_frame_cou
         &AtomicBool::new(false),
     )
     .await;
-    assert_eq!(proof.groups(), &[vec![0, 1], vec![2], vec![3], vec![4]]);
+    assert_eq!(
+        proof.groups(),
+        &[vec![0, 1], vec![2], vec![3], vec![4]],
+        "{}",
+        proof.diagnostics()
+    );
     assert_eq!(
         proof.diagnostics()["observations"][0]["observation"]["interpretation"]["pcmFormat"],
         "s24le"

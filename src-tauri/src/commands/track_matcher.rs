@@ -265,7 +265,7 @@ pub fn match_remote_candidate_tracks(
                     strip_known_artist_prefix(title, &artists).unwrap_or_else(|| title.to_string())
                 })
                 .or_else(|| clean_filename_identity(&filename, &artists))
-                .map(|title| guarded_title(&title))
+                .map(|title| guarded_match_key(&title))
                 .unwrap_or_default();
             let (tag, filename_forms) = title_forms(track.title.as_deref(), &filename, &artists);
             let fallback = alternate_titles
@@ -293,7 +293,7 @@ pub fn match_remote_candidate_tracks(
     }
     let mut remote_guarded_index: HashMap<String, Vec<usize>> = HashMap::new();
     for (index, track) in remote_tracks.iter().enumerate() {
-        let title = guarded_title(track.title.as_deref().unwrap_or_default());
+        let title = guarded_match_key(track.title.as_deref().unwrap_or_default());
         if !title.is_empty() {
             remote_guarded_index.entry(title).or_default().push(index);
         }
@@ -346,6 +346,23 @@ pub fn match_remote_candidate_tracks(
     let mut evidence = vec![None; local_tracks.len()];
     let mut alternate_remote_title = vec![false; local_tracks.len()];
     let mut ambiguous_local_ids = HashSet::new();
+    let compatible = |local_index: usize, remote_index: usize| {
+        !is_api_title_source(source)
+            || (track_versions_compatible(
+                &local_tracks[local_index],
+                filenames
+                    .get(local_index)
+                    .map(String::as_str)
+                    .unwrap_or_default(),
+                &remote_tracks[remote_index],
+            ) && (remote_tracks[remote_index].title_alias_evidence.is_empty()
+                || normalize_duration(local_tracks[local_index].length, "local")
+                    .zip(normalize_duration(
+                        remote_tracks[remote_index].length,
+                        source,
+                    ))
+                    .is_some_and(|(local, remote)| durations_match(local, remote))))
+    };
 
     // Reserve recording identities across the album before weaker title matches.
     for (local_index, local_track) in local_tracks.iter().enumerate() {
@@ -356,7 +373,9 @@ pub fn match_remote_candidate_tracks(
                     .into_iter()
                     .flatten()
                     .copied()
-                    .filter(|index| !matched_remote.contains(index))
+                    .filter(|index| {
+                        !matched_remote.contains(index) && compatible(local_index, *index)
+                    })
                     .collect::<Vec<_>>();
                 if available.len() == 1 {
                     accept_match(
@@ -419,7 +438,7 @@ pub fn match_remote_candidate_tracks(
                 .into_iter()
                 .flatten()
                 .copied()
-                .filter(|index| !matched_remote.contains(index))
+                .filter(|index| !matched_remote.contains(index) && compatible(local_index, *index))
                 .collect::<Vec<_>>();
             if available.is_empty() {
                 continue;
@@ -455,7 +474,9 @@ pub fn match_remote_candidate_tracks(
                 } else {
                     let remote_index = candidates[0];
                     proposed_remote = Some(remote_index);
-                    if matched_remote.contains(&remote_index) {
+                    if !compatible(local_index, remote_index) {
+                        guarded_rejection = Some(SkipKind::NoTitleMatch);
+                    } else if matched_remote.contains(&remote_index) {
                         guarded_rejection = Some(SkipKind::ComparisonAmbiguous);
                     } else {
                         match (
@@ -506,7 +527,9 @@ pub fn match_remote_candidate_tracks(
             let contained = remote_meta
                 .iter()
                 .enumerate()
-                .filter(|(index, _)| !matched_remote.contains(index))
+                .filter(|(index, _)| {
+                    !matched_remote.contains(index) && compatible(local_index, *index)
+                })
                 .filter(|(_, remote)| {
                     replacement_title(current_title, Some(&remote.primary), &remote.variants)
                         .is_some()
@@ -624,6 +647,7 @@ pub fn match_remote_candidate_tracks(
                 .enumerate()
                 .filter(|(remote_index, track)| {
                     !matched_remote.contains(remote_index)
+                        && compatible(local_index, *remote_index)
                         && position_key(track.disc_number, track.track_number) == Some(key)
                 })
                 .map(|(remote_index, _)| remote_index)
@@ -736,6 +760,9 @@ fn aligned_track(
 ) -> TrackCandidate {
     let mut result = local.clone();
     let api_source = is_api_title_source(source);
+    if api_source {
+        result.title_alias_evidence = remote.title_alias_evidence.clone();
+    }
     let title_replacement = api_source
         .then(|| {
             replacement_title(
@@ -791,6 +818,44 @@ fn aligned_track(
     } else {
         local.title.clone()
     };
+
+    // Bilingual comparison can match the title after an artist prefix. Remove
+    // that prefix only when its artist is known and the provider confirms the remainder.
+    if api_source && evidence.is_some_and(|value| value != MatchEvidence::Position) {
+        if let (Some(display), Some(provider)) = (&result.title, &remote.title) {
+            if let Some((artist, title)) = split_spaced_artist_prefix(display) {
+                let artist = normalize_title(&convert_chinese_text(artist, "traditional"));
+                let known_artist = artist_hints
+                    .iter()
+                    .chain(local.artist.iter())
+                    .chain(local.artists.iter())
+                    .any(|known| {
+                        normalize_title(&convert_chinese_text(known, "traditional")) == artist
+                    });
+                if known_artist && guarded_title(title) == guarded_title(provider) {
+                    result.title = Some(title.trim().to_string());
+                }
+            }
+        }
+    }
+
+    // Comparison may omit these descriptors, but a proven provider row must
+    // not lose them merely because the local spelling lacks the suffix.
+    static DESCRIPTOR: OnceLock<Regex> = OnceLock::new();
+    let descriptor = DESCRIPTOR.get_or_init(|| {
+        Regex::new(r"(?i)\s*[\[(](?:skit|instrumental)[\])]\s*$")
+            .expect("valid display descriptor regex")
+    });
+    if api_source && evidence.is_some_and(|value| value != MatchEvidence::Position) {
+        if let (Some(display), Some(provider)) = (&result.title, &remote.title) {
+            if descriptor.is_match(provider)
+                && !descriptor.is_match(display)
+                && guarded_title(&descriptor.replace(provider, "")) == guarded_title(display)
+            {
+                result.title = Some(provider.clone());
+            }
+        }
+    }
 
     if remote.musicbrainz_track_id.is_some() {
         result.musicbrainz_track_id = remote.musicbrainz_track_id.clone();
@@ -912,6 +977,12 @@ fn normalize_title(value: &str) -> String {
         .join(" ")
 }
 
+// Word boundaries are comparison-only, and only under the complete-list
+// uniqueness and finite-duration gate. Display and audio-group identity keep them.
+fn guarded_match_key(value: &str) -> String {
+    guarded_title(value).replace(' ', "")
+}
+
 /// Comparison only: retain performance qualifiers and non-Latin diacritics.
 fn guarded_title(value: &str) -> String {
     static SKIT: OnceLock<Regex> = OnceLock::new();
@@ -947,7 +1018,7 @@ fn strip_annotations(value: &str) -> String {
     static PAREN: OnceLock<Regex> = OnceLock::new();
     static BRACKET: OnceLock<Regex> = OnceLock::new();
     static TRAILING: OnceLock<Regex> = OnceLock::new();
-    let mut value = value.nfkc().collect::<String>().trim().to_string();
+    let mut value = version_delimiters(value);
     for regex in [
         PAREN.get_or_init(|| {
             Regex::new(&format!(
@@ -967,6 +1038,91 @@ fn strip_annotations(value: &str) -> String {
         value = regex.replace(&value, "").trim().to_string();
     }
     value
+}
+
+fn version_delimiters(value: &str) -> String {
+    static WAVE: OnceLock<Regex> = OnceLock::new();
+    WAVE.get_or_init(|| Regex::new(r"[～〜~]([^～〜~]+)[～〜~]").unwrap())
+        .replace_all(&value.nfkc().collect::<String>(), "($1)")
+        .trim()
+        .to_string()
+}
+
+fn track_versions_compatible(
+    local: &TrackCandidate,
+    filename: &str,
+    remote: &TrackCandidate,
+) -> bool {
+    static BRACKETS: OnceLock<Regex> = OnceLock::new();
+    static REMASTER: OnceLock<Regex> = OnceLock::new();
+    static PERFORMANCE: OnceLock<Regex> = OnceLock::new();
+    let brackets = BRACKETS.get_or_init(|| Regex::new(r"[\[(]([^\])]+)[\])]").unwrap());
+    let remaster = REMASTER.get_or_init(|| {
+        Regex::new(r"(?i)\b(?:(\d{4})\s+)?remaster(?:ed)?(?:\s+(\d{4}))?\b").unwrap()
+    });
+    let performance = PERFORMANCE.get_or_init(|| {
+        Regex::new(
+            r"(?i)\b(version|mix|remix|live|edit|demo|acoustic|instrumental|karaoke|mono|stereo)\b",
+        )
+        .unwrap()
+    });
+    let qualifiers = |title: &str| {
+        brackets
+            .captures_iter(&version_delimiters(title))
+            .filter_map(|capture| {
+                let value = remaster.replace_all(&capture[1], "");
+                let value =
+                    normalize_title(value.trim_matches(|c: char| c.is_whitespace() || c == '_'));
+                (!value.is_empty()).then_some(value)
+            })
+            .collect::<Vec<_>>()
+    };
+    let primary = version_delimiters(remote.title.as_deref().unwrap_or_default());
+    let primary_qualifiers = qualifiers(&primary);
+    let remote_qualifiers = if primary_qualifiers.is_empty() {
+        remote
+            .match_titles
+            .iter()
+            .flat_map(|title| qualifiers(title))
+            .collect::<Vec<_>>()
+    } else {
+        primary_qualifiers
+    };
+    // Release context cannot repair a contradictory track-level remaster claim.
+    let context = version_delimiters(if remaster.is_match(&primary) {
+        &primary
+    } else {
+        remote.release_disambiguation.as_deref().unwrap_or_default()
+    });
+    for title in local
+        .title
+        .iter()
+        .chain(local.filename.iter())
+        .map(String::as_str)
+        .chain(std::iter::once(filename))
+    {
+        let title = version_delimiters(title);
+        for claim in remaster.captures_iter(&title) {
+            let year = claim.get(1).or(claim.get(2)).map(|m| m.as_str());
+            if !remaster.captures_iter(&context).any(|evidence| {
+                year.is_none() || year == evidence.get(1).or(evidence.get(2)).map(|m| m.as_str())
+            }) {
+                return false;
+            }
+        }
+        let local_qualifiers = qualifiers(&title);
+        if !local_qualifiers.is_empty()
+            && !remote_qualifiers.is_empty()
+            && local_qualifiers
+                .iter()
+                .chain(&remote_qualifiers)
+                .any(|q| performance.is_match(q))
+            && local_qualifiers != remote_qualifiers
+        {
+            return false;
+        }
+    }
+    true
 }
 
 fn bilingual_components(value: &str) -> impl Iterator<Item = String> + '_ {
@@ -1672,11 +1828,6 @@ mod tests {
             ("Song (Live)", "Song", "Song (Live)"),
             ("Song (Instrumental)", "Song", "Song (Instrumental)"),
             ("Stale Title (Studio Version)", "Grown Woman", "Grown Woman"),
-            (
-                "Grown Woman (Studio Version)",
-                "Grown Woman (Live)",
-                "Grown Woman (Live)",
-            ),
             ("Grown Woman", "Grown Woman", "Grown Woman"),
             ("Ｇｒｏｗｎ　Ｗｏｍａｎ", "Grown Woman", "Grown Woman"),
             ("微光(亚特兰提斯)(24bit-48Hz)", "微光", "微光"),
