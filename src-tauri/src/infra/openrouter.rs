@@ -5,7 +5,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::fmt;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use tokio::time::Instant;
 use tracing;
 
 const OPENROUTER_BASE: &str = "https://openrouter.ai/api/v1";
@@ -1153,29 +1154,89 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[tokio::test(start_paused = true)]
     async fn schema_repair_and_body_read_share_the_original_deadline() {
+        let first_body = Arc::new(AtomicBool::new(false));
+        let second_body = Arc::new(AtomicBool::new(false));
         let mut first =
             TestResponse::json(json!({"choices": [{"message": {"content": "not JSON"}}]}));
-        first.body_delay_ms = 40;
+        first.body_gate = Some(Arc::clone(&first_body));
         let mut second = TestResponse::json(json!({"choices": [{"message": {"content": "{}"}}]}));
-        second.body_delay_ms = 100;
+        second.body_gate = Some(second_body);
         let server = TestServer::start(vec![first, second]);
+        let client = OpenRouterClient::at("secret", "test/model", server.base_url())
+            .with_timeout(Duration::from_millis(90));
+        let cancelled = AtomicBool::new(false);
         let mut diagnostics = CompletionDiagnostics::default();
-        let result = OpenRouterClient::at("secret", "test/model", server.base_url())
-            .with_timeout(Duration::from_millis(90))
-            .complete_json_observed(
+        let result = {
+            let completion = client.complete_json_observed(
                 vec![],
                 "Test",
                 json!({}),
-                &AtomicBool::new(false),
+                &cancelled,
                 &mut diagnostics,
-            )
-            .await;
+            );
+            tokio::pin!(completion);
+            let watchdog = std::time::Instant::now();
+            for count in 1..=2 {
+                while server.request_count() < count {
+                    // Keep virtual time fixed while the real loopback socket progresses.
+                    tokio::select! {
+                        biased;
+                        result = &mut completion => panic!("completion ended before request {count}: {result:?}"),
+                        () = tokio::task::yield_now() => {}
+                    }
+                    assert!(
+                        watchdog.elapsed() < Duration::from_secs(10),
+                        "fixture stalled"
+                    );
+                }
+                if count == 1 {
+                    tokio::time::advance(Duration::from_millis(40)).await;
+                    first_body.store(true, Ordering::Release);
+                }
+            }
+            tokio::time::advance(Duration::from_millis(50)).await;
+            tokio::time::timeout(Duration::from_millis(1), &mut completion)
+                .await
+                .expect("schema repair must not get a fresh deadline")
+        };
         assert!(matches!(result, Err(OpenRouterError::Timeout(90))));
         assert_eq!(diagnostics.attempts.len(), 2);
         assert_eq!(diagnostics.attempts[1].schema_repair, 1);
-        assert!(diagnostics.total_elapsed_ms < 140);
+        assert_eq!(diagnostics.total_elapsed_ms, 90);
+    }
+
+    #[tokio::test]
+    async fn response_body_read_obeys_the_original_deadline() {
+        let mut reply = TestResponse::json(json!({"ok":true}));
+        reply.body_gate = Some(Arc::new(AtomicBool::new(false)));
+        let server = TestServer::start(vec![reply]);
+        let response = Client::new()
+            .post(server.base_url())
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap();
+        tokio::time::pause();
+        let cancelled = AtomicBool::new(false);
+        let body = read_response_text(
+            response,
+            &cancelled,
+            Instant::now() + Duration::from_millis(90),
+            90,
+        );
+        tokio::pin!(body);
+        tokio::select! {
+            biased;
+            result = &mut body => panic!("body completed before deadline: {result:?}"),
+            () = tokio::task::yield_now() => {}
+        }
+        tokio::time::advance(Duration::from_millis(90)).await;
+        let result = tokio::time::timeout(Duration::from_millis(1), &mut body)
+            .await
+            .expect("body read must expire at the original deadline");
+        assert!(matches!(result, Err(OpenRouterError::Timeout(90))));
     }
 
     #[tokio::test]
@@ -1477,6 +1538,7 @@ mod tests {
         body: String,
         headers_delay_ms: u64,
         body_delay_ms: u64,
+        body_gate: Option<Arc<AtomicBool>>,
     }
 
     impl TestResponse {
@@ -1486,6 +1548,7 @@ mod tests {
                 body: body.to_string(),
                 headers_delay_ms: 0,
                 body_delay_ms: 0,
+                body_gate: None,
             }
         }
 
@@ -1495,6 +1558,7 @@ mod tests {
                 body: body.to_string(),
                 headers_delay_ms: 0,
                 body_delay_ms: 0,
+                body_gate: None,
             }
         }
     }
@@ -1555,6 +1619,14 @@ mod tests {
                     );
                     thread::sleep(Duration::from_millis(response.headers_delay_ms));
                     let _ = stream.write_all(reply.as_bytes());
+                    while response
+                        .body_gate
+                        .as_ref()
+                        .is_some_and(|gate| !gate.load(Ordering::Acquire))
+                        && !server_stopped.load(Ordering::Acquire)
+                    {
+                        thread::sleep(Duration::from_millis(1));
+                    }
                     thread::sleep(Duration::from_millis(response.body_delay_ms));
                     let _ = stream.write_all(response.body.as_bytes());
                 }
