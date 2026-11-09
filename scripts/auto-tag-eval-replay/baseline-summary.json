@@ -1,0 +1,234 @@
+{
+  "matrixComplete": true,
+  "cleanMetadataPass": false,
+  "freshNativeProcesses": 153,
+  "nativeProcessFailures": 0,
+  "evaluations": 306,
+  "appliedEvaluations": 294,
+  "cleanWrittenEvaluations": 288,
+  "writtenTracks": 3132,
+  "profiles": {
+    "folder_filename": {
+      "cold": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 49
+      },
+      "warm": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 49
+      }
+    },
+    "assisted_without_ids": {
+      "cold": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 48
+      },
+      "warm": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 48
+      }
+    },
+    "tagged_recovery": {
+      "cold": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 47
+      },
+      "warm": {
+        "evaluated": 51,
+        "applied": 49,
+        "cleanMetadataWrites": 47
+      }
+    }
+  },
+  "missingRoutes": [
+    {
+      "caseId": "0e7c8a578cea",
+      "profile": "folder_filename",
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Billie Eilish\" AND release:\"Bellyache (Marian Hill Remix)\""
+        ]
+      ],
+      "status": 501
+    },
+    {
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": [
+        [
+          "fmt",
+          "json"
+        ],
+        [
+          "limit",
+          "10"
+        ],
+        [
+          "query",
+          "artist:\"Enya\" AND release:\"Paint The Sky With Stars - The Best Of Enya\""
+        ]
+      ],
+      "status": 501
+    },
+    {
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "provider": "discogs",
+      "path": "/masters/27623/versions",
+      "query": [
+        [
+          "page",
+          "1"
+        ],
+        [
+          "per_page",
+          "100"
+        ]
+      ],
+      "status": 501
+    }
+  ],
+  "strictTitleMismatches": [
+    {
+      "caseId": "872fee627bfd",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "localTrack": 7,
+      "title": "Book of Days (Gaelic only version)",
+      "status": "conflict",
+      "prefix": false,
+      "expected": {
+        "localTrack": 7,
+        "providerTrack": "7",
+        "localTitle": "Book Of Days",
+        "providerTitle": "Book of Days",
+        "durationDeltaSeconds": 0.001
+      }
+    },
+    {
+      "caseId": "872fee627bfd",
+      "profile": "tagged_recovery",
+      "phase": "warm",
+      "localTrack": 7,
+      "title": "Book of Days (Gaelic only version)",
+      "status": "conflict",
+      "prefix": false,
+      "expected": {
+        "localTrack": 7,
+        "providerTrack": "7",
+        "localTitle": "Book Of Days",
+        "providerTitle": "Book of Days",
+        "durationDeltaSeconds": 0.001
+      }
+    }
+  ],
+  "missingReviewedCollaborators": [
+    {
+      "caseId": "54e7923a3000",
+      "profile": "assisted_without_ids",
+      "phase": "cold",
+      "localTrack": 9,
+      "title": "&burn",
+      "missingArtists": [
+        "Vince Staples"
+      ],
+      "actualArtists": [
+        "Billie Eilish"
+      ],
+      "selectedRepresentative": [
+        "discogs",
+        "37353822"
+      ],
+      "reviewedProvider": "discogs",
+      "reviewedReleaseId": "13898510",
+      "reviewedSnapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json",
+      "selectedProviderCreditStatus": "exact"
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "assisted_without_ids",
+      "phase": "warm",
+      "localTrack": 9,
+      "title": "&burn",
+      "missingArtists": [
+        "Vince Staples"
+      ],
+      "actualArtists": [
+        "Billie Eilish"
+      ],
+      "selectedRepresentative": [
+        "discogs",
+        "37353822"
+      ],
+      "reviewedProvider": "discogs",
+      "reviewedReleaseId": "13898510",
+      "reviewedSnapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json",
+      "selectedProviderCreditStatus": "exact"
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "localTrack": 9,
+      "title": "&burn",
+      "missingArtists": [
+        "Vince Staples"
+      ],
+      "actualArtists": [
+        "Billie Eilish"
+      ],
+      "selectedRepresentative": [
+        "discogs",
+        "37353822"
+      ],
+      "reviewedProvider": "discogs",
+      "reviewedReleaseId": "13898510",
+      "reviewedSnapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json",
+      "selectedProviderCreditStatus": "exact"
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "phase": "warm",
+      "localTrack": 9,
+      "title": "&burn",
+      "missingArtists": [
+        "Vince Staples"
+      ],
+      "actualArtists": [
+        "Billie Eilish"
+      ],
+      "selectedRepresentative": [
+        "discogs",
+        "37353822"
+      ],
+      "reviewedProvider": "discogs",
+      "reviewedReleaseId": "13898510",
+      "reviewedSnapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json",
+      "selectedProviderCreditStatus": "exact"
+    }
+  ],
+  "integrityFailures": [],
+  "coldWarmOutputDifferences": [],
+  "cacheIsolationFailures": [],
+  "scope": "Synthetic FLAC metadata and write verification, not acoustic or mastering proof",
+  "nativeBinarySha256": "cf1f241375a820929bf8f3495b3696a808c4d654c7a67ff230ded9f5adede181"
+}

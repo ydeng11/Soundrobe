@@ -66,6 +66,180 @@ fail startup. Imported release details use the exact production query tuple
 (`fmt` and `inc` for MusicBrainz, no query for Discogs); they do not simulate
 arbitrary inclusion queries.
 
+## Shared browse captures from 2026-11-07
+
+`provider-snapshots/discovery/browse-2026-11-07/` contains 100 raw HTTP
+responses: three artist lookups and 97 catalog pages. Each discovery record
+locks the original response bytes and records its credential-free request URL,
+capture time and HTTP status. These are provider evidence, not reviewed answers.
+
+The MusicBrainz pages use the current production inclusion tuple,
+`artist-credits+media+release-groups`, for Enya, Eminem, Doja Cat, Eagles and
+Ellie Goulding. Their captured pages cover all advertised offsets. The corrected
+Eminem artist lookup returns `b95ce3ff-3d05-4e87-9e01-c97b66af13d4`, not the
+legacy fixture placeholder. Discogs lookups identify Enya as `9807`, not the
+invalid legacy artist ID `900397`; the capture includes all 16 advertised Enya
+pages and all 55 Eminem pages at 100 items per page, sorted by descending year.
+
+Discogs advertises 5,489 Eminem items but returns 5,488 rows across those pages:
+page 3 contains 99 rows. An independent request reproduced that page's exact
+SHA-256. The discrepancy is retained as upstream evidence; no row or empty
+terminal page was invented. Pagination coverage does not imply a unique or
+atomically consistent artist inventory.
+
+Historical body files remain unchanged so earlier replay manifests still resolve
+their original hashes. The new responses replace overlapping discovery routes,
+including the old unavailable placeholder for Enya's first Discogs page. Other
+queries still return 501 when uncaptured. Search and release-detail gaps may
+remain after browsing succeeds; neither the matcher nor the reviewed ledger is
+changed by these captures.
+
+## Release-detail captures from 2026-11-07
+
+`provider-snapshots/discovery/details-2026-11-07/` contains 242 raw release-detail
+responses: 175 from MusicBrainz and 67 from Discogs. The initial capture covers
+185 missing detail routes and two detail routes previously marked as uncaptured,
+all from the reviewed-case replay after the shared browse repair.
+
+Discogs discovery stops at its first detail error, so that replay did not expose
+every candidate request. Another 55 responses cover the uncaptured details in
+the production-ranked cold and warm candidate windows. A temporary native probe
+used the existing profile builder, provider parser, ranking and detail-window
+functions against disposable dummies. It did not change discovery limits or
+duplicate the ranking logic. The remaining unavailable placeholders at that
+stage were searches. The search captures below supersede those placeholders.
+
+MusicBrainz details use the exact production query,
+`fmt=json&inc=recordings+artist-credits+labels+url-rels`. Discogs details have no
+query parameters. Each record retains the raw body hash, HTTP status, capture
+time and credential-free request URL. Historical bodies remain unchanged.
+The captures do not approve candidates or change the reviewed answers, matcher,
+provider budgets or source media. Uncaptured queries still return 501.
+
+## Search captures from 2026-11-07
+
+`provider-snapshots/discovery/searches-2026-11-07/` contains raw responses for
+the exact searches missing from the reviewed-case replay after detail capture.
+The initial 44 requests comprise 12 MusicBrainz artist or album searches and
+32 Discogs artist, release or master searches. Nine replace explicit
+`provider_evidence_not_captured` placeholders with genuine provider responses.
+
+Successful empty structured searches expose generic Discogs fallbacks. Search
+results also expose concrete release details and master-version pages. The
+capture inventory includes these dependent requests within the existing
+production limits. A request plan derives fallback queries and up to ten
+concrete details from each raw release-search page. Offline replay supplies
+the remaining observed misses. No missing page is treated as empty.
+
+The completed capture contains 124 HTTP 200 responses: 12 MusicBrainz searches,
+42 Discogs searches, 68 Discogs release details and two Discogs master-version
+pages. Twelve replace old placeholders, including three reached only after
+the initial capture. Historical placeholder bodies remain available for older
+replay manifests.
+
+Request keys preserve exact whitespace, punctuation, filters, page sizes and
+offsets. In these historical captures, nested box-set searches use the parsed
+parent folder as the artist. Capturing a genuine empty result does not establish that
+the album is absent from the provider. It establishes only what that exact
+query returned. Normalized aliases and guessed empty responses are not added.
+
+Every record retains raw response bytes, SHA-256, HTTP status, capture time and
+a credential-free request URL. Historical bodies remain unchanged. Search
+captures do not change matcher behavior, budgets, reviewed answers or media.
+An unrecorded query still returns 501, including whitespace variants.
+
+## Captures after folder identity repair
+
+`provider-snapshots/discovery/folder-identities-2026-11-07/` contains responses
+for requests reached after correcting decorated titles, date prefixes and nested
+box-set identities. The initial 64 requests comprise 47 MusicBrainz details,
+seven Discogs details, two MusicBrainz searches and eight Discogs searches.
+All 64 returned HTTP 200 during capture. They previously returned loopback 501.
+
+Follow-up replay and production-ranked detail planning added 51 dependent
+Discogs requests. A complete MusicBrainz response for Storms In Africa also
+restores its explicit link to reviewed Discogs release `1459867`. The complete
+capture has 116 HTTP 200 responses: 48
+MusicBrainz details, 55 Discogs details, two MusicBrainz searches, nine Discogs
+searches and two Discogs master-version pages. The imported manifest has 691
+routes. Suite membership remains 378 cases and 3,506 tracks, with 730 input locks.
+
+The refreshed Storms response uses a new body filename; its source record names
+the historical body and hash it supersedes. The old body remains unchanged for
+earlier replay manifests. The evaluator recognizes the existing reviewed answer
+through the provider's relationship, without adding an acceptable-ID override.
+
+The new searches use corrected identities such as Enya with A Box of Dreams,
+not the enclosing box title as the artist. Raw bytes, hashes, capture times,
+credential-free URLs and exact query values remain part of each record.
+Historical responses and reviewed answers are unchanged. Capture coverage does
+not approve an edition, and subsequent replay can expose additional requests.
+
+Recognizing Wild Child's explicit Germany annotation reaches two additional
+Discogs searches and their dependent release details and master-version page.
+These add 15 genuine HTTP 200 captures: two searches, twelve release details
+and one master-version page. No existing route or body is replaced. The imported
+manifest now has 706 routes and the suite has 745 input locks; case membership,
+reviewed answers and discovery budgets are unchanged.
+
+## Nine-case discovery captures from 2026-11-08
+
+`provider-snapshots/nine-case-discovery-20261108/` adds 173 raw HTTP 200 responses:
+59 MusicBrainz and 114 Discogs requests. These cover the nine newly reviewed
+cases' searches, artist catalog pages, release details, and master-version pages.
+The original 77 missing requests exposed more dependent requests once answered.
+Seven capture/replay passes reached complete coverage without changing the
+native binary, request budgets, or reviewed answers. Existing records and bodies
+remain unchanged. Each new record retains its exact query, credential-free URL,
+capture time, HTTP status, and response hash.
+
+The imported mock now has 889 routes, and the suite locks 931 inputs. The final
+54-invocation native run records 560 HTTP 200 responses and zero missing routes.
+All 173 new routes also pass direct HTTP status and raw-byte hash probes.
+Successful fixture coverage does not imply successful tagging. The
+[evaluation results](auto-tag-evaluation.md#provider-review-expansion-2026-11-08)
+separate applied writes, reviewed title and artist checks, and edition recovery.
+
+## Reviewed-case fixture completion from 2026-11-08
+
+`provider-snapshots/reviewed-completion-20261108/` contains raw responses for
+requests exposed by the 29-case replay. These cover Memory of Trees, Oceans,
+Clouds, Japan And Winter Came, Dark Sky Island, and Relapse. Each record keeps
+the exact request query, credential-free URL, capture time, HTTP status, and
+SHA-256 of the response bytes.
+
+The captured Relapse search replaces an unavailable-evidence placeholder with
+a genuine HTTP 200 response. The old placeholder body remains available for
+historical replay manifests. Other existing records and bodies are unchanged.
+New searches can expose additional release-detail requests, so capture and
+replay continue until the affected paths have no missing responses. The suite
+keeps its reviewed answers, case membership, native binary, and discovery
+budgets unchanged.
+
+## Second reviewed expansion fixture completion, 2026-11-08
+
+`provider-snapshots/reviewed-22-completion-20261108/` adds 478 raw HTTP 200
+responses for exact requests reached by the 22 new reviewed cases: 58
+MusicBrainz and 420 Discogs responses. Eight capture/replay rounds follow
+searches into release details, edition lists and artist-catalog pages. Each
+record retains its query, credential-free URL, timestamp, status and raw-byte
+SHA-256. All 962 earlier discovery records and bodies remain unchanged.
+
+The 54 initially affected case/profile pairs were rerun cold and warm; 12
+fixture-complete baseline pairs were retained. Later rounds reran only pairs
+with missing responses. Final accounting covers 132 evaluations with zero
+missing routes and 2,352 recorded HTTP 200 requests. All 478 added routes also
+pass direct HTTP status and byte-hash probes. The imported mock has 1,451 routes,
+and the frozen suite locks 1,497 inputs.
+
+The native executable, production request limits and reviewed answers remain
+unchanged. Complete fixture coverage does not imply a clean tagging result:
+abstentions, two title discrepancies and the missing Vince Staples credit remain.
+See the [fixture-complete results](auto-tag-evaluation.md#fixture-complete-replay-2026-11-08).
+Evidence is under `.amp/in/artifacts/reviewed-22-fixture-completion-20261108/`
+and `.amp/in/artifacts/reviewed-22-fixtures-replay-8-20261108/`; per-round run
+plans distinguish newly executed jobs from reused evidence.
+
 ## Native evaluation
 
 Start the service, then run the existing ignored native evaluation against it:
@@ -81,8 +255,10 @@ Despite the recipe name, the mock URL selects offline provider fixtures, skips
 user-config and environment-config loading and credential requirements, disables environment proxies and
 redirects, and records `providerMode: offline_fixtures` per invocation. A forced
 loopback proxy also rejects ancillary external HTTP/HTTPS artwork attempts rather
-than allowing them onto the network. The URL
-must be an HTTP origin on `127.0.0.1`. Synthetic media generation still requires
+than allowing them onto the network. The offline client does not retain idle
+connections because synchronous media work can delay detection of the fixture
+server closing a socket between phases. Production pooling and retry rules are
+unchanged. The URL must be an HTTP origin on `127.0.0.1`. Synthetic media generation still requires
 the runner's existing prerequisites and source hash/equivalence checks. The
 native runner saves the final `GET /__fixtures` inventory as
 `provider-inventory.json` and marks `command.log` as `incomplete` when the

@@ -1,0 +1,4 @@
+9f00dde47fe7395a052b4e53792da534e78790ddef1dca54ee024fdc25ce6f40  scripts/auto-tag-eval-replay/run-native.cjs
+84ec123377b7c281821d336186b9b6360c20d7e2912b0fce226099b37c8beec5  scripts/auto-tag-eval-replay/audit.py
+121e22d4ed75a887e06be6ad2b4f5280df7d6a349b298a9c5dc85b39832e303b  scripts/auto-tag-eval-replay/score-best-aligned.py
+6dde12fe06ce3ec8f168d59d373e71b3bf452bc4167eb8176695f2738b91efb5  scripts/auto-tag-eval-replay/baseline-summary.json
