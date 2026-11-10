@@ -190,7 +190,15 @@ export function AutoTagReview({
         {error ?? "Review unavailable"}
       </p>
     );
-  const skipped = review.outcome === "needs_review";
+  const skipped =
+    review.outcome === "needs_review" &&
+    !(typeof review.result?.written === "number" && review.result.written > 0);
+  const candidate = review.result?.candidate;
+  const inferredGenre =
+    candidate && typeof candidate === "object" &&
+    "assisted_genre" in candidate && candidate.assisted_genre &&
+    "genre" in candidate && typeof candidate.genre === "string"
+      ? candidate.genre : null;
   const paths = Array.from(
     new Set(
       [...review.before.tracks, ...review.after.tracks].map(
@@ -214,6 +222,11 @@ export function AutoTagReview({
           Review and full undo are available until Soundrobe exits. Keeping
           changes marks this album reviewed and retains undo.
         </p>
+        {inferredGenre && (
+          <p className="text-xs font-medium">
+            AI-inferred genre is not provider-verified. Keeping changes acknowledges review, not verification.
+          </p>
+        )}
       </div>
       {error && (
         <p role="alert" className="text-red-600">
@@ -370,6 +383,10 @@ export function AutoTagReview({
                       >
                         <th className="text-left align-top p-1 font-normal">
                           {label(key)}
+                          {key === "genre" && inferredGenre &&
+                            !String(before[key] ?? "").trim() && after[key] === inferredGenre && (
+                            <span className="block font-semibold">AI-inferred · unverified</span>
+                          )}
                         </th>
                         <td className="align-top p-1 whitespace-pre-wrap break-words">
                           {valueText(before[key])}

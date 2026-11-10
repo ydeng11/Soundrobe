@@ -10,6 +10,43 @@ import { afterEach, expect, it, vi } from "vitest";
 import { AutoTagReview } from "../../src/components/AutoTagReview";
 
 afterEach(cleanup);
+
+it.each([
+  { original: null, inferred: "Pop", written: "Pop" },
+  { original: "  ", inferred: "Pop", written: "Pop" },
+  { original: null, inferred: "搖滾", written: "摇滚" },
+])("labels inferred genre per file after display conversion or keeping: $original → $written", async ({ original, inferred, written }) => {
+  const applied = {
+    ...review,
+    outcome: "needs_review",
+    canRevert: true,
+    result: { written: 2, candidate: { source: "musicbrainz", genre: written, assisted_genre: {
+      value: inferred, model: "scripted/genre-v1", input_sha256: "a".repeat(64),
+    } } },
+    before: { ...review.before, tracks: [
+      { path: "/music/album/1.flac", title: "One", genre: original },
+      { path: "/music/album/2.flac", title: "Two", genre: "User genre" },
+    ] },
+    after: { ...review.after, tracks: [
+      { path: "/music/album/1.flac", title: "One", genre: written },
+      { path: "/music/album/2.flac", title: "Two", genre: "User genre" },
+    ] },
+  };
+  window.api = {
+    getAutoTagReview: vi.fn().mockResolvedValue(applied),
+    markAutoTagReviewed: vi.fn().mockResolvedValue({ ...applied, decision: "kept" }),
+  } as any;
+  render(<AutoTagReview reviewId="run" onRetry={vi.fn()} onSearch={vi.fn()} onChanged={vi.fn()} busy={false} />);
+  expect(await screen.findByText("AI-inferred · unverified")).toBeTruthy();
+  expect(screen.queryByText(/No changes written/)).toBeNull();
+  expect(screen.getByText(/Keeping changes acknowledges review, not verification/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "All metadata" }));
+  expect(screen.getAllByText("AI-inferred · unverified")).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "Keep changes" }));
+  await waitFor(() => expect(window.api.markAutoTagReviewed).toHaveBeenCalledWith("run"));
+  expect(screen.getByText("AI-inferred · unverified")).toBeTruthy();
+});
+
 const review = {
   id: "run",
   albumPath: "/music/album",

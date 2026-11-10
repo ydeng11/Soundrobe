@@ -2276,6 +2276,19 @@ pub(crate) fn clean_discogs_artist(name: &str) -> String {
 }
 
 pub(crate) fn split_artist_names(names: &[String]) -> Vec<String> {
+    let mut output = Vec::new();
+    for part in split_artist_name_occurrences(names) {
+        if !output
+            .iter()
+            .any(|existing: &String| existing.eq_ignore_ascii_case(&part))
+        {
+            output.push(part);
+        }
+    }
+    output
+}
+
+pub(crate) fn split_artist_name_occurrences(names: &[String]) -> Vec<String> {
     let separator = Regex::new(r"(?i)\s+(?:feat\.?|ft\.?|featuring)\s+|\s*[&/;,|＋+、，；·‧]\s*")
         .expect("valid multi-artist regex");
     let mut output = Vec::new();
@@ -2283,11 +2296,7 @@ pub(crate) fn split_artist_names(names: &[String]) -> Vec<String> {
         let name = replace_cjk_dots(name);
         for part in separator.split(&name) {
             let part = part.trim();
-            if !part.is_empty()
-                && !output
-                    .iter()
-                    .any(|existing: &String| existing.eq_ignore_ascii_case(part))
-            {
+            if !part.is_empty() {
                 output.push(part.to_string());
             }
         }

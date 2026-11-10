@@ -352,6 +352,9 @@ pub struct TrackCandidate {
     /// against an AcoustID recording assignment.
     #[serde(skip)]
     pub tagged_track_number: Option<u32>,
+    /// Captured total, distinct from the file-count total used for lookup.
+    #[serde(skip)]
+    pub tagged_track_total: Option<u32>,
     pub track_total: Option<u32>,
     pub disc_number: Option<u32>,
     pub disc_total: Option<u32>,
@@ -365,6 +368,14 @@ pub struct TrackCandidate {
     /// File stem (without extension) for LLM title inference.
     #[serde(default)]
     pub filename: Option<String>,
+}
+
+/// Inference provenance, not provider verification or a source-grounded claim.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AssistedGenre {
+    pub value: String,
+    pub model: String,
+    pub input_sha256: String,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -386,6 +397,8 @@ pub struct AlbumCandidate {
     pub album_artists: Vec<String>,
     pub year: Option<String>,
     pub genre: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assisted_genre: Option<AssistedGenre>,
     #[serde(default)]
     pub country: Option<String>,
     #[serde(default)]
@@ -409,6 +422,18 @@ pub struct AlbumCandidate {
     pub confidence: Option<f64>,
     pub source: LookupSource,
     pub verification: Option<String>,
+}
+
+impl AlbumCandidate {
+    pub(crate) fn review_reason(&self) -> &'static str {
+        if self.source == LookupSource::Llm {
+            "ai_fallback"
+        } else if self.assisted_genre.is_some() {
+            "ai_genre_fill"
+        } else {
+            "recording_identity"
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -587,6 +612,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
                     .or(track.track_number)
                     .or_else(|| u32::try_from(index + 1).ok()),
                 tagged_track_number,
+                tagged_track_total: track.track_total,
                 track_total: total,
                 disc_number: track.disc_number,
                 disc_total: track.disc_total,
@@ -1751,6 +1777,183 @@ pub fn protect_candidate_tracks(
     protected
 }
 
+fn complete_provider_credits(
+    request: &LookupRequest,
+    selected: &mut AlbumCandidate,
+    candidates: &[AlbumCandidate],
+) -> Result<Vec<serde_json::Value>, String> {
+    #[cfg(test)]
+    eval_tests::trace_provider_donors("credits", request, selected, candidates);
+    let mut evidence = Vec::new();
+    let is_primary_alias = |name: &str| {
+        request
+            .artist_hint
+            .iter()
+            .chain(&request.artist_aliases)
+            .any(|alias| exact_artist_identity(name, alias))
+    };
+    let same_artist = |left: &str, right: &str| {
+        exact_artist_identity(left, right) || (is_primary_alias(left) && is_primary_alias(right))
+    };
+    let subset = |left: &[String], right: &[String]| {
+        left.iter()
+            .all(|name| right.iter().any(|other| same_artist(name, other)))
+    };
+    // Inspect the selected provider's original mapped assertions, not a union
+    // produced by collaborator fallback. This changes no source eligibility.
+    let selected_assertions = selected
+        .provider_tracks_for_evaluation
+        .as_ref()
+        .map(|tracks| {
+            let mut raw = selected.clone();
+            raw.tracks = tracks.clone();
+            raw.accepted_match = None;
+            provider_track_alignment(request, &raw)
+        })
+        .transpose()?;
+    for (index, local) in request.tracks.iter().enumerate() {
+        let names = split_collaborative_artists(&local.artist, &local.artists);
+        if names.len() <= 1
+            || names
+                .iter()
+                .any(|name| is_placeholder_artist_identity(name))
+        {
+            continue;
+        }
+        // Match explicit entities to contiguous display segments using the
+        // existing identity comparison. Never substitute artist text with
+        // markers: compound spelling can differ and input can contain markers.
+        let display = crate::state::providers::split_artist_name_occurrences(&[local
+            .artist
+            .clone()
+            .unwrap_or_default()]);
+        let listed = split_collaborative_artists(&None, &local.artists);
+        let mut pending = vec![(0, vec![false; listed.len()])];
+        let mut visited = HashSet::new();
+        let mut comparisons_remaining = 10_000;
+        let mut consistent = false;
+        // A shared substring can belong to several compound names. Find a
+        // complete assignment instead of committing to the first match.
+        while let Some((start, used)) = pending.pop() {
+            if start == display.len() {
+                if used.iter().all(|used| *used) {
+                    consistent = true;
+                    break;
+                }
+                continue;
+            }
+            if !visited.insert((start, used.clone())) {
+                continue;
+            }
+            for (entity, name) in listed.iter().enumerate().filter(|(i, _)| !used[*i]) {
+                for end in start + 1..=display.len() {
+                    if comparisons_remaining == 0 {
+                        return Err(format!(
+                            "track {} has unresolved local performer representations: comparison limit reached",
+                            index + 1
+                        ));
+                    }
+                    comparisons_remaining -= 1;
+                    if same_artist(name, &display[start..end].join(" ")) {
+                        let mut next = used.clone();
+                        next[entity] = true;
+                        pending.push((end, next));
+                    }
+                }
+            }
+        }
+        if !display.is_empty() && !listed.is_empty() && !consistent {
+            return Err(format!(
+                "track {} has inconsistent local performer representations",
+                index + 1
+            ));
+        }
+        if let Some((tracks, mapping)) = &selected_assertions {
+            if let Some(remote) = mapping.remote_indices[index].and_then(|i| tracks.get(i)) {
+                let remote = split_collaborative_artists(&remote.artist, &remote.artists);
+                if !subset(&remote, &names) && !subset(&names, &remote) {
+                    return Err(format!(
+                        "track {} has incompatible local and selected performer credits",
+                        index + 1
+                    ));
+                }
+            }
+        }
+    }
+    for candidate in candidates {
+        let Ok((_, aligned, _)) = strict_provider_evaluation(request, candidate) else {
+            continue;
+        };
+        for (index, (current, other)) in selected.tracks.iter_mut().zip(&aligned.tracks).enumerate()
+        {
+            let current_names = split_collaborative_artists(&current.artist, &current.artists);
+            let other_names = split_collaborative_artists(&other.artist, &other.artists);
+            if !subset(&current_names, &other_names) {
+                if !subset(&other_names, &current_names) {
+                    return Err(format!(
+                        "track {} has incompatible provider performer credits",
+                        index + 1
+                    ));
+                }
+                continue;
+            }
+            if other_names.iter().any(|name| {
+                !current_names
+                    .iter()
+                    .any(|current| same_artist(name, current))
+            }) {
+                evidence.push(serde_json::json!({
+                    "stage":"provider_track_credits", "localIndex":index,
+                    "filename":request.tracks[index].filename,
+                    "provider":candidate.source, "releaseId":provider_stable_id(candidate),
+                    "originalArtists":current_names, "artists":other_names,
+                    "scope":"performer credits only; selected edition unchanged"
+                }));
+                current.artist = other.artist.clone();
+                current.artists = other_names;
+            }
+        }
+    }
+    for (index, (local, current)) in request.tracks.iter().zip(&mut selected.tracks).enumerate() {
+        let existing = split_collaborative_artists(&local.artist, &local.artists);
+        if existing.len() <= 1
+            || existing
+                .iter()
+                .any(|name| is_placeholder_artist_identity(name))
+        {
+            continue;
+        }
+        let proposed = split_collaborative_artists(&current.artist, &current.artists);
+        if subset(&proposed, &existing) {
+            let artist = local
+                .artist
+                .clone()
+                .filter(|s| !s.trim().is_empty())
+                .or_else(|| Some(existing.join(" & ")));
+            let artists = if local.artists.is_empty() {
+                existing
+            } else {
+                local.artists.clone()
+            };
+            if current.artist != artist || current.artists != artists {
+                evidence.push(
+                    serde_json::json!({"stage":"local_track_preservation", "localIndex":index,
+                    "filename":local.filename, "fields":["artist","artists"],
+                    "scope":"existing collaborator presentation; no new performer authority"}),
+                );
+            }
+            current.artist = artist;
+            current.artists = artists;
+        } else if !subset(&existing, &proposed) {
+            return Err(format!(
+                "track {} has incompatible local and completed performer credits",
+                index + 1
+            ));
+        }
+    }
+    Ok(evidence)
+}
+
 #[cfg(test)]
 fn select_protect_and_canonicalize_candidate(
     request: &LookupRequest,
@@ -1863,7 +2066,9 @@ fn rank_artist_releases_with_country(
 ) -> Vec<ProviderReleaseSummary> {
     let mut ranked = releases
         .into_iter()
-        .filter(|release| album_hint.is_none_or(|hint| album_names_match(hint, &release.title)))
+        .filter(|release| album_hint.is_none_or(|hint| {
+            exact_album_identity(hint, &release.title) || album_names_match(hint, &release.title)
+        }))
         .filter(|release| {
             !matches!((local_track_count, release.track_count), (Some(local), Some(remote)) if remote < local)
         })
@@ -2055,11 +2260,83 @@ fn provider_stable_id(candidate: &AlbumCandidate) -> &str {
         .unwrap_or_default()
 }
 
+fn complete_provider_genre(
+    request: &LookupRequest,
+    selected: &mut AlbumCandidate,
+    candidates: &[AlbumCandidate],
+) -> Option<serde_json::Value> {
+    #[cfg(test)]
+    eval_tests::trace_provider_donors("genre", request, selected, candidates);
+    if !matches!(
+        selected.source,
+        LookupSource::Musicbrainz | LookupSource::Discogs
+    ) {
+        return None;
+    }
+    let has_genre = |candidate: &AlbumCandidate| {
+        candidate
+            .genre
+            .as_deref()
+            .is_some_and(|genre| !genre.trim().is_empty())
+    };
+    let donor = if has_genre(selected) {
+        selected.clone()
+    } else {
+        selected.genre = None;
+        // Genre is content evidence, not a claim about the local pressing.
+        // Keep artist, album, file mapping, duration and version checks.
+        let mut content_request = request.clone();
+        content_request.year_hint = None;
+        content_request.country_hint = None;
+        content_request.musicbrainz_album_id = None;
+        content_request.discogs_release_id = None;
+        for track in &mut content_request.tracks {
+            track.musicbrainz_track_id = None;
+        }
+        let eligible = candidates
+            .iter()
+            .filter(|candidate| has_genre(candidate))
+            .filter_map(|candidate| {
+                let (_, aligned, remote) =
+                    strict_provider_evaluation(&content_request, candidate).ok()?;
+                let compatible = content_request
+                    .tracks
+                    .iter()
+                    .zip(&aligned.remote_indices)
+                    .all(|(local, index)| {
+                        let Some(remote) = index.and_then(|index| remote.get(index)) else {
+                            return false;
+                        };
+                        let local_title = local
+                            .title
+                            .as_deref()
+                            .or(local.filename.as_deref())
+                            .unwrap_or_default();
+                        super::track_matcher::track_versions_compatible(remote, "", local)
+                            && super::auto_tag_acoustid::recording_versions_compatible(
+                                remote,
+                                local_title,
+                                None,
+                            )
+                    });
+                compatible.then(|| candidate.clone())
+            })
+            .collect();
+        select_credible_provider_candidate(&content_request, eligible)?
+    };
+    selected.genre = donor.genre.clone();
+    Some(serde_json::json!({
+        "stage":"provider_field", "field":"genre", "value":donor.genre,
+        "provider":donor.source, "releaseId":provider_stable_id(&donor),
+        "scope":"compatible content genre; edition identity unchanged"
+    }))
+}
+
 fn album_content_candidate(
     request: &LookupRequest,
     candidates: &[AlbumCandidate],
     attempts: &[ProviderAttempt],
-) -> Option<(AlbumCandidate, serde_json::Value)> {
+) -> Result<Option<(AlbumCandidate, serde_json::Value)>, String> {
     if request.tracks.is_empty()
         || attempts.is_empty()
         || attempts.iter().any(|attempt| {
@@ -2078,7 +2355,7 @@ fn album_content_candidate(
                     ))
         })
     {
-        return None;
+        return Ok(None);
     }
     let mut content_request = request.clone();
     content_request.year_hint = None;
@@ -2101,23 +2378,38 @@ fn album_content_candidate(
             })
         })
         .cloned()
-        .collect();
-    let selected = select_credible_provider_candidate(&content_request, completed_candidates)?;
+        .collect::<Vec<_>>();
+    let Some(selected) =
+        select_credible_provider_candidate(&content_request, completed_candidates.clone())
+    else {
+        return Ok(None);
+    };
     // Selection has already validated the request name or its provider-resolved alias.
-    let artist = request
+    let Some(artist) = request
         .artist_hint
         .clone()
         .filter(|name| has_cjk_text(name))
-        .or_else(|| selected.album_artist.clone().or(selected.artist.clone()))?;
+        .or_else(|| selected.album_artist.clone().or(selected.artist.clone()))
+    else {
+        return Ok(None);
+    };
     let selected = if has_cjk_text(&artist) {
         apply_canonical_artist_name(selected, Some(&artist))
     } else {
         selected
     };
-    let diagnostic = serde_json::json!({"stage":"album_content", "representativeReleaseId":provider_stable_id(&selected),
+    let mut diagnostic = serde_json::json!({"stage":"album_content", "representativeReleaseId":provider_stable_id(&selected),
         "source":selected.source, "editionResolved":false, "acousticProof":false,
-        "artistPolicy":"track_credits", "positionPolicy":"local_file_order", "mapping":selected_track_match_diagnostic(&content_request, &selected)});
-    let protected = protect_candidate_tracks(&content_request, &selected);
+        "artistPolicy":"track_credits", "positionPolicy":"captured_tags_else_local_file_order", "mapping":selected_track_match_diagnostic(&content_request, &selected)});
+    let mut protected = protect_candidate_tracks(&content_request, &selected);
+    let mut field_evidence =
+        complete_provider_credits(&content_request, &mut protected, &completed_candidates)?;
+    if let Some(receipt) =
+        complete_provider_genre(&content_request, &mut protected, &completed_candidates)
+    {
+        field_evidence.push(receipt);
+    }
+    diagnostic["fieldEvidence"] = serde_json::json!(field_evidence);
     let prefix = format!("{artist} - ");
     let tracks = protected
         .tracks
@@ -2140,7 +2432,7 @@ fn album_content_candidate(
                     .as_deref()
                     .or(selected.artist.as_deref())
                     .is_some_and(|album_artist| exact_artist_identity(name, album_artist))
-                    && track.artists.len() <= 1
+                    && split_collaborative_artists(&track.artist, &track.artists).len() <= 1
             });
             let (track_artist, track_artists) = if uses_album_artist {
                 (Some(artist.clone()), vec![artist.clone()])
@@ -2152,15 +2444,26 @@ fn album_content_candidate(
                 title,
                 artist: track_artist,
                 artists: track_artists,
-                track_number: Some(index as u32 + 1),
-                track_total: Some(request.tracks.len() as u32),
-                disc_number: request.selected_disc_number.or(Some(1)),
+                genre: request.tracks[index].genre.clone(),
+                track_number: request.tracks[index]
+                    .tagged_track_number
+                    .filter(|n| *n > 0)
+                    .or(Some(index as u32 + 1)),
+                track_total: request.tracks[index]
+                    .tagged_track_total
+                    .filter(|n| *n > 0)
+                    .or(Some(request.tracks.len() as u32)),
+                disc_number: request.tracks[index]
+                    .disc_number
+                    .or(request.selected_disc_number)
+                    .or(Some(1)),
+                disc_total: request.tracks[index].disc_total,
                 length: request.tracks[index].length,
                 ..Default::default()
             }
         })
         .collect();
-    Some((
+    Ok(Some((
         AlbumCandidate {
             album: selected.album,
             album_artist: Some(artist.clone()),
@@ -2168,7 +2471,7 @@ fn album_content_candidate(
             artist: Some(artist.clone()),
             artists: vec![artist],
             year: request.year_hint.clone().or(selected.year),
-            genre: selected.genre,
+            genre: protected.genre,
             tracks,
             source: selected.source,
             verification: Some("album_content".into()),
@@ -2177,7 +2480,7 @@ fn album_content_candidate(
             ..Default::default()
         },
         diagnostic,
-    ))
+    )))
 }
 
 fn safe_provider_error(error: &str) -> String {
@@ -2232,6 +2535,7 @@ fn normalized_release_identity(value: &str) -> String {
         .expect("valid trailing disc suffix regex")
         .replace_all(&without_annotations, " ")
         .chars()
+        .filter(|character| !matches!(character, '\'' | '’' | '‘'))
         .flat_map(char::to_lowercase)
         .map(|character| {
             if character.is_alphanumeric() || character.is_whitespace() {
@@ -3398,9 +3702,9 @@ pub(crate) fn auto_tag_completion_message(candidate: &AlbumCandidate) -> &'stati
     }
 }
 
-fn candidate_apply_outcome(source: LookupSource) -> (AutoTagOutcome, Option<&'static str>) {
-    if source == LookupSource::Llm {
-        (AutoTagOutcome::NeedsReview, Some("ai_fallback"))
+fn candidate_apply_outcome(candidate: &AlbumCandidate) -> (AutoTagOutcome, Option<&'static str>) {
+    if candidate.source == LookupSource::Llm || candidate.assisted_genre.is_some() {
+        (AutoTagOutcome::NeedsReview, Some(candidate.review_reason()))
     } else {
         (AutoTagOutcome::Applied, None)
     }
@@ -3616,6 +3920,25 @@ pub fn validated_ai_candidate(
             ));
         }
         let title = required_ai_string(track, "title")?;
+        let proposed = TrackCandidate {
+            title: Some(title.clone()),
+            ..Default::default()
+        };
+        let local = &request.tracks[index];
+        if !super::track_matcher::track_versions_compatible(
+            local,
+            local.filename.as_deref().unwrap_or_default(),
+            &proposed,
+        ) || !super::auto_tag_acoustid::recording_versions_compatible(local, &title, None)
+        {
+            return Err(ai_failure(
+                "ai_version_conflict",
+                format!(
+                    "track {}: AI metadata cannot resolve conflicting local version evidence",
+                    index + 1
+                ),
+            ));
+        }
         let track_artist = required_ai_string(track, "artist")?;
         let track_artists = required_ai_strings(track, "artists")?;
         let track_number = required_ai_u32(track, "trackNumber")?;
@@ -3892,7 +4215,18 @@ async fn fill_genre_if_missing(
             )),
         );
     }
-    if candidate.genre.is_some() {
+    if candidate.genre.is_some()
+        || configured_clear_tag_ids(config)
+            .iter()
+            .any(|tag| tag == "genre")
+        || (!request.tracks.is_empty()
+            && request.tracks.iter().all(|track| {
+                track
+                    .genre
+                    .as_deref()
+                    .is_some_and(|genre| !genre.trim().is_empty())
+            }))
+    {
         return (candidate.clone(), None);
     }
     let Some(api_key) = config.llm_api_key.as_deref().filter(|key| !key.is_empty()) else {
@@ -3942,8 +4276,51 @@ async fn fill_genre_if_missing(
     let mut filled = candidate.clone();
     if let GenreFillOutcome::Applied(genre) = &outcome {
         filled.genre = Some(genre.clone());
+        filled.assisted_genre = Some(AssistedGenre {
+            value: genre.clone(),
+            model: model.to_string(),
+            input_sha256: format!("{:x}", Sha256::digest(payload.to_string().as_bytes())),
+        });
+        for (track, local) in filled.tracks.iter_mut().zip(&request.tracks) {
+            track.genre = local.genre.clone();
+        }
     }
     (filled, Some(outcome))
+}
+
+fn report_genre_fill(
+    outcome: Option<GenreFillOutcome>,
+    diagnostics: &mut Vec<serde_json::Value>,
+    report: &mut impl FnMut(&'static str, String, Option<serde_json::Value>),
+) {
+    match outcome {
+        Some(GenreFillOutcome::Applied(genre)) => report(
+            "source",
+            format!("Genre inferred by LLM: {genre}"),
+            Some(serde_json::json!({"source": "llm", "genre": genre})),
+        ),
+        Some(GenreFillOutcome::Rejected { genre, confidence }) => {
+            tracing::warn!(genre = ?genre, confidence = ?confidence, threshold = 0.6, "auto-tag genre fill rejected");
+            report(
+                "warning",
+                "Genre remains missing: LLM response was empty or below the confidence threshold"
+                    .into(),
+                Some(
+                    serde_json::json!({"source":"llm", "genre":genre, "confidence":confidence, "threshold":0.6}),
+                ),
+            );
+        }
+        Some(GenreFillOutcome::Failed(error)) => {
+            diagnostics.push(serde_json::json!({"stage":"genre", "reason":error}));
+            tracing::warn!(%error, "auto-tag genre fill failed");
+            report(
+                "warning",
+                format!("Genre remains missing: {error}"),
+                Some(serde_json::json!({"source":"llm", "error":error})),
+            );
+        }
+        None => {}
+    }
 }
 
 /// Reuse auto-tag's conservative genre fill for a manually resolved release.
@@ -4824,9 +5201,23 @@ async fn resolve_and_apply_album_with_acoustid_override(
         partial || competing
     });
     if edition_unresolved && !acoustic_release_selected {
-        if let Some((mut basic, diagnostic)) =
-            album_content_candidate(&request, &fresh, &provider_attempts)
-        {
+        let basic = match album_content_candidate(&request, &fresh, &provider_attempts) {
+            Ok(basic) => basic,
+            Err(reason) => {
+                return Ok(AutoTagRunResult {
+                    reason_code: Some("provider_credit_conflict".into()),
+                    diagnostics: provider_diagnostics
+                        .into_iter()
+                        .chain(std::iter::once(serde_json::json!({
+                            "stage":"album_content", "reason":reason
+                        })))
+                        .collect(),
+                    provider_attempts,
+                    ..Default::default()
+                });
+            }
+        };
+        if let Some((mut basic, diagnostic)) = basic {
             check_cancelled(cancelled)?;
             let clear_tags = configured_clear_tag_ids(config);
             if clear_tags.iter().any(|tag| {
@@ -4859,7 +5250,20 @@ async fn resolve_and_apply_album_with_acoustid_override(
             }
             if clear_tags.iter().any(|tag| tag == "genre") {
                 basic.genre = None;
+                for track in &mut basic.tracks {
+                    track.genre = None;
+                }
             }
+            if clear_tags.iter().any(|tag| tag == "discTotal") {
+                for track in &mut basic.tracks {
+                    track.disc_total = None;
+                }
+            }
+            let (filled, genre_outcome) =
+                fill_genre_if_missing(&basic, &request, config, cancelled).await;
+            basic = filled;
+            report_genre_fill(genre_outcome, &mut provider_diagnostics, &mut report);
+            check_cancelled(cancelled)?;
             review_intent(&basic)?;
             let written = apply_candidate_tags_reported(
                 album_path,
@@ -4889,7 +5293,12 @@ async fn resolve_and_apply_album_with_acoustid_override(
                             || actual.track_total != expected.track_total
                             || actual.disc_number != expected.disc_number
                             || actual.year != basic.year
-                            || actual.genre != basic.genre
+                            || actual.genre.as_ref()
+                                != expected
+                                    .genre
+                                    .as_ref()
+                                    .filter(|genre| !genre.trim().is_empty())
+                                    .or(basic.genre.as_ref())
                             || actual.disc_total != expected.disc_total
                             || actual.musicbrainz_album_id.is_some()
                             || actual.discogs_release_id.is_some()
@@ -4901,15 +5310,21 @@ async fn resolve_and_apply_album_with_acoustid_override(
                 ));
             }
             provider_diagnostics.push(diagnostic);
+            let (outcome, reason_code) = candidate_apply_outcome(&basic);
+            let ai_status = basic
+                .assisted_genre
+                .as_ref()
+                .map(|_| "genre_inferred".into());
             return Ok(AutoTagRunResult {
-                outcome: AutoTagOutcome::Applied,
+                outcome,
                 completion_basis: Some("album_content"),
                 written,
                 authority: Some(basic.source),
                 candidate: Some(basic),
-                reason_code: Some("edition_unresolved".into()),
+                reason_code: Some(reason_code.unwrap_or("edition_unresolved").into()),
                 provider_attempts,
                 diagnostics: provider_diagnostics,
+                ai_status,
                 cleared_tags: configured_clear_tag_labels(config),
                 kept_tags: configured_kept_tag_labels(config),
                 ..Default::default()
@@ -5135,10 +5550,44 @@ async fn resolve_and_apply_album_with_acoustid_override(
         "coverage": request.tracks.len(), "editionEvidence": candidate.accepted_match,
     }));
     candidate = protect_candidate_tracks(&request, &candidate);
+    match complete_provider_credits(&request, &mut candidate, &fresh) {
+        Ok(evidence) => provider_diagnostics.extend(evidence),
+        Err(reason) => {
+            return Ok(AutoTagRunResult {
+                reason_code: Some("provider_credit_conflict".into()),
+                diagnostics: provider_diagnostics
+                    .into_iter()
+                    .chain(std::iter::once(
+                        serde_json::json!({"stage":"provider_track_credits", "reason":reason}),
+                    ))
+                    .collect(),
+                provider_attempts,
+                ..Default::default()
+            })
+        }
+    }
+    if let Some(receipt) = complete_provider_genre(&request, &mut candidate, &fresh) {
+        provider_diagnostics.push(receipt);
+    }
     for (index, (track, local)) in candidate.tracks.iter_mut().zip(&request.tracks).enumerate() {
         track.source = local.source.clone();
-        track.track_number = Some(index as u32 + 1);
-        track.track_total = Some(request.tracks.len() as u32);
+        if local
+            .genre
+            .as_deref()
+            .is_some_and(|genre| !genre.trim().is_empty())
+        {
+            track.genre = local.genre.clone();
+        }
+        track.track_number = local
+            .tagged_track_number
+            .filter(|n| *n > 0)
+            .or(Some(index as u32 + 1));
+        track.track_total = local
+            .tagged_track_total
+            .filter(|n| *n > 0)
+            .or(Some(request.tracks.len() as u32));
+        track.disc_number = local.disc_number.or(track.disc_number);
+        track.disc_total = local.disc_total.or(track.disc_total);
     }
     report(
         "source",
@@ -5163,42 +5612,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
     } else {
         fill_genre_if_missing(&candidate, &request, config, cancelled).await
     };
-    match genre_outcome {
-        Some(GenreFillOutcome::Applied(genre)) => report(
-            "source",
-            format!("Genre inferred by LLM: {genre}"),
-            Some(serde_json::json!({"source": "llm", "genre": genre})),
-        ),
-        Some(GenreFillOutcome::Rejected { genre, confidence }) => {
-            tracing::warn!(
-                genre = ?genre,
-                confidence = ?confidence,
-                threshold = 0.6,
-                "auto-tag genre fill rejected"
-            );
-            report(
-                "warning",
-                "Genre remains missing: LLM response was empty or below the confidence threshold"
-                    .to_string(),
-                Some(serde_json::json!({
-                    "source": "llm",
-                    "genre": genre,
-                    "confidence": confidence,
-                    "threshold": 0.6
-                })),
-            );
-        }
-        Some(GenreFillOutcome::Failed(error)) => {
-            provider_diagnostics.push(serde_json::json!({"stage":"genre", "reason":error}));
-            tracing::warn!(%error, "auto-tag genre fill failed");
-            report(
-                "warning",
-                format!("Genre remains missing: {error}"),
-                Some(serde_json::json!({"source": "llm", "error": error})),
-            );
-        }
-        None => {}
-    }
+    report_genre_fill(genre_outcome, &mut provider_diagnostics, &mut report);
     report(
         "source",
         format!(
@@ -5296,17 +5710,22 @@ async fn resolve_and_apply_album_with_acoustid_override(
         }
     }
     check_cancelled(cancelled)?;
-    let (outcome, reason_code) = candidate_apply_outcome(candidate.source);
+    let (outcome, reason_code) = candidate_apply_outcome(&candidate);
     if outcome == AutoTagOutcome::NeedsReview {
         report(
             "needs_review",
-            "AI fallback tags require review".to_string(),
+            "AI-assisted tags require review".to_string(),
             Some(serde_json::json!({"reasonCode": reason_code})),
         );
     }
-    let ai_status = (candidate.source == LookupSource::Llm).then(|| "accepted".to_string());
+    let ai_status = if candidate.assisted_genre.is_some() {
+        Some("genre_inferred".to_string())
+    } else {
+        (candidate.source == LookupSource::Llm).then(|| "accepted".to_string())
+    };
     let ai_confidence = candidate.confidence;
-    let ai_threshold = ai_status.as_ref().map(|_| AI_TAG_CONFIDENCE_THRESHOLD);
+    let ai_threshold =
+        (candidate.source == LookupSource::Llm).then_some(AI_TAG_CONFIDENCE_THRESHOLD);
     provider_diagnostics.push(album_coverage(&request, Some(&candidate), written));
     Ok(AutoTagRunResult {
         completion_basis: None,
@@ -5331,7 +5750,7 @@ fn checkpoint_candidate_review(
     candidate: &AlbumCandidate,
     review_intent: &mut impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
 ) -> Result<(), ApiError> {
-    if candidate.source == LookupSource::Llm {
+    if candidate.source == LookupSource::Llm || candidate.assisted_genre.is_some() {
         review_intent(candidate)?;
     }
     Ok(())
@@ -5473,15 +5892,7 @@ pub fn album_auto_tag(
                 Some(AutoTagRetryContexts::new(Arc::clone(&cancelled))),
                 |candidate| {
                     worker
-                        .record_review_flag(
-                            &path,
-                            if candidate.source == LookupSource::Llm {
-                                "ai_fallback"
-                            } else {
-                                "recording_identity"
-                            },
-                            &spawned_task_id,
-                        )
+                        .record_review_flag(&path, candidate.review_reason(), &spawned_task_id)
                         .map_err(ApiError::Message)
                 },
                 move |step, message| {
@@ -6106,10 +6517,9 @@ async fn apply_candidate_tags_reported(
         album_fields.insert("genre".into(), genre.clone().into());
     }
     if candidate.verification.as_deref() == Some("album_content") {
-        // Basic-tag output has one shared value, including unknown, rather
-        // than retaining conflicting old genres/dates or a guessed disc count.
+        // Edition identity remains unresolved. Keep the existing date policy
+        // and omit a guessed disc count; per-file genres are handled below.
         insert_option(&mut album_fields, "year", &candidate.year);
-        insert_option(&mut album_fields, "genre", &candidate.genre);
         album_fields.insert("discTotal".into(), serde_json::Value::Null);
     }
     insert_option(
@@ -6162,6 +6572,13 @@ async fn apply_candidate_tags_reported(
         }
         let mut fields = album_fields.clone();
         if let Some(track) = track {
+            if let Some(genre) = track
+                .genre
+                .as_ref()
+                .filter(|genre| !genre.trim().is_empty())
+            {
+                fields.insert("genre".into(), serde_json::json!(genre));
+            }
             // In the all-track auto-tag scope, an empty candidate row still
             // receives album fields but leaves its per-track tags untouched.
             if has_writable_track_fields(track) {
@@ -7312,6 +7729,71 @@ mod tests {
 
         assert!(called);
         assert!(error.to_string().contains("review store unavailable"));
+    }
+
+    #[test]
+    fn provider_genre_assistance_requires_review_before_writes() {
+        let candidate: AlbumCandidate = serde_json::from_value(serde_json::json!({
+            "source":"musicbrainz", "genre":"Pop", "assisted_genre":{
+                "value":"Pop", "model":"scripted/genre-v1", "input_sha256":"fixture"
+            }
+        }))
+        .unwrap();
+        let error = checkpoint_candidate_review(&candidate, &mut |_| {
+            Err(ApiError::Message("review store unavailable".into()))
+        })
+        .expect_err("provider identity must not hide an assisted field's review obligation");
+        assert!(error.to_string().contains("review store unavailable"));
+    }
+
+    #[tokio::test]
+    async fn provider_and_inferred_genres_preserve_existing_per_file_genres() {
+        let root = temp_root();
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join("01.wav");
+        fs::copy(corpus_wav(), &path).unwrap();
+        let queue = WriteQueue::default();
+        let patch = serde_json::from_value(serde_json::json!({"genre":"User choice"})).unwrap();
+        write_track_queued(&queue, path.clone(), patch)
+            .await
+            .unwrap();
+        let request = build_lookup_request(&album).unwrap();
+        let (unchanged, outcome) = fill_genre_if_missing(
+            &AlbumCandidate::default(),
+            &request,
+            &AutoTagConfig {
+                llm_api_key: Some("offline-test".into()),
+                llm_base_url: Some("http://127.0.0.1:1".into()),
+                ..Default::default()
+            },
+            &AtomicBool::new(false),
+        )
+        .await;
+        assert!(
+            outcome.is_none(),
+            "existing genres must not become AI review work"
+        );
+        assert!(unchanged.assisted_genre.is_none());
+        fs::copy(corpus_wav(), album.join("02.wav")).unwrap();
+        for inferred in [false, true] {
+            let mut candidate: AlbumCandidate = serde_json::from_value(serde_json::json!({
+                "source":"musicbrainz", "genre":"Pop", "assisted_genre":{
+                    "value":"Pop", "model":"scripted/genre-v1", "input_sha256":"fixture"
+                }, "tracks":[{"title":"Song", "genre":"User choice"}, {"title":"Second"}]
+            }))
+            .unwrap();
+            if !inferred {
+                candidate.assisted_genre = None;
+            }
+            apply_candidate_tags(&album, &candidate, &queue)
+                .await
+                .unwrap();
+            let readback = read_album(&album).unwrap();
+            assert_eq!(readback.tracks[0].genre.as_deref(), Some("User choice"));
+            assert_eq!(readback.tracks[1].genre.as_deref(), Some("Pop"));
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -10628,13 +11110,155 @@ mod tests {
             retry_after_seconds: None,
             retryable: false,
         }];
-        let (basic, _) =
-            album_content_candidate(&request, &[candidate.clone()], &attempts).unwrap();
+        let (basic, _) = album_content_candidate(&request, &[candidate.clone()], &attempts)
+            .unwrap()
+            .unwrap();
         assert_eq!(basic.album_artist.as_deref(), Some("郑少秋"));
         assert_eq!(basic.tracks[0].artist.as_deref(), Some("郑少秋"));
         let mut unrelated = candidate;
         unrelated.artist = Some("Unrelated".into());
-        assert!(album_content_candidate(&request, &[unrelated], &attempts).is_none());
+        assert!(album_content_candidate(&request, &[unrelated], &attempts)
+            .unwrap()
+            .is_none());
+    }
+
+    #[test]
+    fn provider_credit_donors_cannot_launder_local_credits_into_a_union() {
+        let local = TrackCandidate {
+            length: Some(191.0),
+            ..track("Song", "Lead & Original guest")
+        };
+        let request = LookupRequest {
+            artist_hint: Some("Lead".into()),
+            album_hint: Some("Album".into()),
+            tracks: vec![local.clone()],
+            ..Default::default()
+        };
+        let mut selected = AlbumCandidate {
+            artist: Some("Lead".into()),
+            album: Some("Album".into()),
+            tracks: vec![local],
+            source: LookupSource::Musicbrainz,
+            ..Default::default()
+        };
+        let donor = AlbumCandidate {
+            tracks: vec![TrackCandidate {
+                length: Some(191.0),
+                ..track("Song", "Lead & Different guest")
+            }],
+            source: LookupSource::Discogs,
+            ..selected.clone()
+        };
+        assert!(
+            complete_provider_credits(&request, &mut selected, &[donor]).is_err(),
+            "a provider disagreement is not permission to union credits with the local tag"
+        );
+    }
+
+    #[test]
+    fn content_match_keeps_compatible_provider_genre_before_requesting_assistance() {
+        let request = LookupRequest {
+            artist_hint: Some("Lead".into()),
+            album_hint: Some("Album".into()),
+            tracks: vec![TrackCandidate {
+                length: Some(191.0),
+                ..track("Song", "Lead")
+            }],
+            ..Default::default()
+        };
+        let musicbrainz = AlbumCandidate {
+            artist: Some("Lead".into()),
+            album: Some("Album".into()),
+            tracks: vec![TrackCandidate {
+                length: Some(191000.0),
+                ..track("Song", "Lead")
+            }],
+            source: LookupSource::Musicbrainz,
+            musicbrainz_album_id: Some("mb-release".into()),
+            ..Default::default()
+        };
+        let discogs = AlbumCandidate {
+            tracks: request.tracks.clone(),
+            source: LookupSource::Discogs,
+            musicbrainz_album_id: None,
+            discogs_release_id: Some("discogs-release".into()),
+            genre: Some("Electronic, Pop".into()),
+            ..musicbrainz.clone()
+        };
+        let attempts = ["musicbrainz", "discogs"].map(|provider| ProviderAttempt {
+            provider,
+            status: ProviderAttemptStatus::Matched,
+            diagnostic: None,
+            retry_count: 0,
+            retry_after_seconds: None,
+            retryable: false,
+        });
+        let (basic, diagnostic) =
+            album_content_candidate(&request, &[musicbrainz.clone(), discogs.clone()], &attempts)
+                .unwrap()
+                .unwrap();
+        assert_eq!(basic.genre.as_deref(), Some("Electronic, Pop"));
+        assert!(basic.assisted_genre.is_none());
+        assert!(basic.musicbrainz_album_id.is_none() && basic.discogs_release_id.is_none());
+        assert!(diagnostic["fieldEvidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|row| {
+                row["field"] == "genre"
+                    && row["provider"] == "discogs"
+                    && row["releaseId"] == "discogs-release"
+            }));
+        let conflicting_genre = AlbumCandidate {
+            genre: Some("Rock".into()),
+            discogs_release_id: Some("z-other-release".into()),
+            ..discogs.clone()
+        };
+        let (basic, _) = album_content_candidate(
+            &request,
+            &[musicbrainz.clone(), conflicting_genre, discogs.clone()],
+            &attempts,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(
+            basic.genre.as_deref(),
+            Some("Electronic, Pop"),
+            "genre disagreement is not absence; use the existing stable provider ranking"
+        );
+        let selected_with_genre = AlbumCandidate {
+            genre: Some("Folk".into()),
+            ..musicbrainz.clone()
+        };
+        let (basic, _) =
+            album_content_candidate(&request, &[selected_with_genre, discogs.clone()], &attempts)
+                .unwrap()
+                .unwrap();
+        assert_eq!(
+            basic.genre.as_deref(),
+            Some("Folk"),
+            "retain selected provider evidence over another provider's genre"
+        );
+        for invalid in [
+            "title", "version", "remaster", "duration", "artist", "album", "empty",
+        ] {
+            let mut unrelated = discogs.clone();
+            match invalid {
+                "title" => unrelated.tracks[0].title = Some("Unrelated".into()),
+                "version" => unrelated.tracks[0].title = Some("Song (Live)".into()),
+                "remaster" => unrelated.tracks[0].title = Some("Song (Remastered 1997)".into()),
+                "duration" => unrelated.tracks[0].length = Some(300.0),
+                "artist" => unrelated.artist = Some("Another lead".into()),
+                "album" => unrelated.album = Some("Another album".into()),
+                "empty" => unrelated.genre = Some("  ".into()),
+                _ => unreachable!(),
+            }
+            let (basic, _) =
+                album_content_candidate(&request, &[musicbrainz.clone(), unrelated], &attempts)
+                    .unwrap()
+                    .unwrap();
+            assert!(basic.genre.is_none(), "{invalid} cannot donate a genre");
+        }
     }
 
     #[test]
@@ -10681,6 +11305,7 @@ mod tests {
             &[candidate.clone()],
             &[completed.clone(), budget.clone()],
         )
+        .unwrap()
         .unwrap();
         assert_eq!(basic.tracks[0].title.as_deref(), Some("Song"));
         assert_eq!(basic.tracks[0].track_number, Some(1));
@@ -10698,6 +11323,7 @@ mod tests {
             };
             assert!(
                 album_content_candidate(&request, &[candidate.clone()], &[completed.clone(), bad])
+                    .unwrap()
                     .is_none(),
                 "{diagnostic}"
             );
@@ -10711,6 +11337,7 @@ mod tests {
             &[candidate.clone()],
             &[completed.clone(), outage]
         )
+        .unwrap()
         .is_none());
         let same_provider = ProviderAttempt {
             provider: "musicbrainz",
@@ -10721,19 +11348,30 @@ mod tests {
             &[candidate.clone()],
             &[same_provider, budget.clone()]
         )
+        .unwrap()
         .is_none());
         let mut wrong = candidate;
         wrong.tracks[0].title = Some("Other Song".into());
-        assert!(album_content_candidate(&request, &[wrong], &[completed, budget]).is_none());
+        assert!(
+            album_content_candidate(&request, &[wrong], &[completed, budget])
+                .unwrap()
+                .is_none()
+        );
     }
 
     #[test]
     fn ai_fallback_candidate_is_marked_for_review_after_a_write() {
-        let (outcome, reason_code) = candidate_apply_outcome(LookupSource::Llm);
+        let (outcome, reason_code) = candidate_apply_outcome(&AlbumCandidate {
+            source: LookupSource::Llm,
+            ..Default::default()
+        });
         assert_eq!(outcome, AutoTagOutcome::NeedsReview);
         assert_eq!(reason_code, Some("ai_fallback"));
 
-        let (outcome, reason_code) = candidate_apply_outcome(LookupSource::Musicbrainz);
+        let (outcome, reason_code) = candidate_apply_outcome(&AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            ..Default::default()
+        });
         assert_eq!(outcome, AutoTagOutcome::Applied);
         assert_eq!(reason_code, None);
     }
@@ -11054,6 +11692,42 @@ mod tests {
         assert_eq!(
             validated_ai_candidate(&request, &low).unwrap_err().code,
             "ai_low_confidence"
+        );
+    }
+
+    #[test]
+    fn metadata_assistance_cannot_erase_filename_or_tag_version_claims() {
+        let value = serde_json::json!({
+            "artist":"Lead", "artists":["Lead"], "albumArtist":"Lead", "albumArtists":["Lead"],
+            "album":"Record", "year":"1997", "genre":"Pop", "confidence":0.99,
+            "tracks":[{"index":0,"title":"Song","artist":"Lead","artists":["Lead"],
+                "trackNumber":1,"trackTotal":1,"discNumber":1,"discTotal":1}]
+        });
+        for (title, filename) in [
+            ("Song", "01 - Song (Remastered 1997)"),
+            ("Song (1997 Remaster)", "01 - Song"),
+            ("Song (Live)", "01 - Song (Live)"),
+            ("Song", "01 - Song (Named Remix)"),
+        ] {
+            let request = LookupRequest {
+                tracks: vec![TrackCandidate {
+                    filename: Some(filename.into()),
+                    ..track(title, "Lead")
+                }],
+                ..Default::default()
+            };
+            assert!(
+                validated_ai_candidate(&request, &value).is_err(),
+                "{title} / {filename}"
+            );
+        }
+        let ordinary = LookupRequest {
+            tracks: vec![track("Old title", "Lead")],
+            ..Default::default()
+        };
+        assert!(
+            validated_ai_candidate(&ordinary, &value).is_ok(),
+            "ordinary corrections remain useful"
         );
     }
 

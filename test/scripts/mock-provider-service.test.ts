@@ -51,6 +51,60 @@ it("preserves recorded errors and publishes sanitized misses for extending the d
   expect(stats.groundTruth).toBe("unreviewed_provider_evidence");
 });
 
+it("denies model calls by default and bounds explicitly scripted genre exchanges", async () => {
+  const { base } = await start([]);
+  expect((await fetch(`${base}/model/chat/completions`, { method: "POST", body: "{}" })).status).toBe(405);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-model-mock-"));
+  roots.push(root);
+  const manifest = path.join(root, "manifest.json");
+  const payload = { artist: "Billie Eilish", album: "Ocean Eyes", tracks: ["ocean eyes"] };
+  fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [], scriptedModel: {
+    maxRequests: 1, payload, response: { genre: "Pop", confidence: 0.8 },
+  } }));
+  const server = createService(manifest);
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  const request = { model: "scripted/genre-v1", messages: [{ role: "user", content: JSON.stringify(payload) }],
+    response_format: { json_schema: { name: "GenreFillResponse" } } };
+  const post = (body: unknown) => fetch(`${url}/model/chat/completions`, {
+    method: "POST", body: JSON.stringify(body), headers: { Authorization: "Bearer private" },
+  });
+  expect((await post(request)).status).toBe(200);
+  expect((await post(request)).status).toBe(501);
+  const stats = await (await fetch(`${url}/__fixtures`)).json();
+  expect(stats.modelRequests).toHaveLength(2);
+  expect(stats.modelRequests[0].body).toEqual(request);
+  expect(stats.modelRequests[0].response.choices[0].message.content).toBe(JSON.stringify({ genre: "Pop", confidence: 0.8 }));
+  expect(stats.misses).toHaveLength(1);
+  expect(JSON.stringify(stats)).not.toContain("private");
+});
+
+it("replays metadata rejection controls without accepting arbitrary schemas, paths, or file sets", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-metadata-model-mock-"));
+  roots.push(root);
+  const manifest = path.join(root, "manifest.json");
+  const payload = { full_path: "$EVAL_MEDIA/case/Enya/Album", current_tracks: [{ index: 0, filename: "Remastered" }] };
+  fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [], scriptedModel: {
+    maxRequests: 4, schemaName: "TagCorrectionResponse", payload, response: { confidence: 0.99, tracks: [] },
+  } }));
+  const server = createService(manifest);
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const url = `http://127.0.0.1:${server.address().port}`;
+  const actual = { ...payload, full_path: "/private/tmp/soundrobe-auto-tag-eval-12345678-1234-1234-1234-123456789abc/media/cold/case/Enya/Album" };
+  const post = (input: unknown, schema = "TagCorrectionResponse") => fetch(`${url}/model/chat/completions`, {
+    method: "POST", body: JSON.stringify({ model: "scripted/genre-v1", messages: [{ role: "user", content: JSON.stringify(input) }],
+      response_format: { json_schema: { name: schema } } }),
+  });
+  expect((await post(actual)).status).toBe(200);
+  expect((await post({ ...actual, full_path: "/Users/real/Music/Enya/Album" })).status).toBe(501);
+  expect((await post({ ...actual, current_tracks: [] })).status).toBe(501);
+  expect((await post(actual, "ArbitraryTool" )).status).toBe(501);
+  const stats = await (await fetch(`${url}/__fixtures`)).json();
+  expect(stats.misses).toHaveLength(3);
+});
+
 it("imports locked raw detail snapshots from existing pools for offline review", async () => {
   const manifest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-import-")), "manifest.json");
   roots.push(path.dirname(manifest));

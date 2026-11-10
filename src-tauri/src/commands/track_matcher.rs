@@ -1048,7 +1048,7 @@ fn version_delimiters(value: &str) -> String {
         .to_string()
 }
 
-fn track_versions_compatible(
+pub(super) fn track_versions_compatible(
     local: &TrackCandidate,
     filename: &str,
     remote: &TrackCandidate,

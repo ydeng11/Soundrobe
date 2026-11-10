@@ -818,6 +818,7 @@ pub async fn album_preview_release_match(
         artists: track.artists.clone(),
         track_number: track.track_number,
         tagged_track_number: None,
+        tagged_track_total: None,
         track_total: track.track_total,
         disc_number: track.disc_number,
         disc_total: track.disc_total,

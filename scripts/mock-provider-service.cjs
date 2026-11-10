@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const crypto = require('node:crypto');
+const { isDeepStrictEqual } = require('node:util');
 
 const prefixes = { musicbrainz: '/musicbrainz/ws/2', discogs: '/discogs' };
 const sensitive = /token|secret|password|authorization|api[-_]?key|^key$/i;
@@ -72,7 +73,17 @@ function loadRecords(manifestPath) {
 
 function createService(manifestPath) {
   const records = loadRecords(manifestPath);
+  const scripted = readJson(manifestPath).scriptedModel;
+  if (scripted && (!Number.isInteger(scripted.maxRequests) || scripted.maxRequests < 1
+      || scripted.maxRequests > 8 || !scripted.payload || !scripted.response)) {
+    throw new Error('Scripted model requires a payload, response and allowance of 1–8 requests');
+  }
+  const schemaName = scripted?.schemaName ?? 'GenreFillResponse';
+  if (scripted && !['GenreFillResponse', 'TagCorrectionResponse'].includes(schemaName)) {
+    throw new Error('Unsupported scripted tagging schema');
+  }
   const requests = [];
+  const modelRequests = [];
   const misses = new Map();
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
@@ -81,11 +92,45 @@ function createService(manifestPath) {
       response.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': bytes.length, ...headers });
       response.end(bytes);
     };
+    if (scripted && request.method === 'POST' && url.pathname === '/model/chat/completions') {
+      let bytes = '';
+      request.on('data', chunk => {
+        bytes += chunk;
+        if (bytes.length > 65536) request.destroy();
+      });
+      request.on('end', () => {
+        let body;
+        try { body = JSON.parse(bytes); } catch { return send(400, { error: 'invalid_json' }); }
+        const user = body.messages?.filter(message => message.role === 'user');
+        let payload;
+        try { payload = JSON.parse(user?.[0]?.content); } catch { /* Deny unsupported prompts. */ }
+        if (schemaName === 'TagCorrectionResponse' && typeof payload?.full_path === 'string') {
+          // Only the disposable evaluator prefix varies. The case, folder,
+          // hints and complete physical-file payload must still match exactly.
+          payload.full_path = payload.full_path.replace(
+            /^\/private\/tmp\/soundrobe-auto-tag-eval-[0-9a-f-]{36}\/media\/(cold|warm)\//,
+            '$EVAL_MEDIA/');
+        }
+        const allowed = modelRequests.length < scripted.maxRequests
+          && body.model === 'scripted/genre-v1'
+          && body.response_format?.json_schema?.name === schemaName
+          && user?.length === 1 && isDeepStrictEqual(payload, scripted.payload);
+        const status = allowed ? (scripted.status ?? 200) : 501;
+        const result = status === 200 ? {
+          model: 'scripted/genre-v1', choices: [{ message: { content: JSON.stringify(scripted.response) } }],
+        } : { error: allowed ? 'scripted_service_failure' : 'offline_model_fixture_missing' };
+        // Only the body is retained, never authentication or other headers.
+        modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)) });
+        if (!allowed) misses.set(`model-${modelRequests.length}`, { provider: 'scripted_model', status });
+        send(status, result);
+      });
+      return;
+    }
     if (request.method !== 'GET') return send(405, { error: 'read_only_fixture_service' });
     if (url.pathname === '/__fixtures') {
       return send(200, { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
         records: records.map(({ bytes, ...record }) => ({ ...record, body: JSON.parse(bytes.toString()) })),
-        requests, misses: [...misses.values()] });
+        requests, modelRequests, misses: [...misses.values()] });
     }
     const provider = Object.keys(prefixes).find((key) => url.pathname.startsWith(`${prefixes[key]}/`));
     const fixturePath = provider ? url.pathname.slice(prefixes[provider].length) : url.pathname;

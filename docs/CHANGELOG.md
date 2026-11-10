@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Offline tagging replay can export hash-bound prewrite and provider observations without authorizing tag changes. Catalog support, unresolved versions, incomplete mappings, and performer conflicts remain separate from edition or acoustic identity.
 - The offline tagging evaluation inventory includes CJK artist libraries, difficult Curated Beyoncé albums, partial editions and independent soundtrack/instrumental compilations, with frozen input checks and batch-level development and holdout partitions. Silent dummy tracks can be generated without original audio. Unreviewed inputs remain outside scored accuracy.
 - Provider-backed evaluation answers now cover 51 positive cases and 539 tracks, including CJK artist aliases and Billie Eilish holdout cases. Ordinary and remixed versions remain separate, and the soundtrack without enough version and duration evidence stays unscored.
 - The offline inventory can preview per-file recovery hypotheses alongside current tags and retained catalog evidence. It preserves every file, version qualifier, and conflicting title or position in review, without network requests, tag writes, approval, or folder completion.
@@ -146,6 +147,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Album-content tagging retains a preserved collaborator display and artist list even when multiple performers share one list entry, rather than replacing them with the album-artist presentation.
+- Automatic tagging preserves captured per-file track/disc numbering and totals instead of replacing them with file order or file count. Missing track positions still use file-order numbering. Coherent existing collaborator displays and lists retain their spelling, order, and relationships when performer identities are unchanged.
+- AI metadata fallback rejects titles that erase conflicting local live, remix, or remaster evidence, rather than treating high model confidence as permission to write them.
+- Auto-tag discovery recognizes apostrophe variants of album names and retains fuller, independently aligned provider performer credits without replacing the selected edition. Incompatible collaborator credits stay in review without writes.
+- Auto-tagging fills missing genre from compatible provider evidence before using optional AI assistance, for both resolved editions and content-only matches. Existing per-file genre choices and explicit cleanup remain authoritative. Provider genre retains its source receipt; AI-only fills remain marked unverified. Incompatible recordings cannot donate genre.
+- Auto-tagged genres inferred by AI retain provider-backed track identity, preserve existing per-file genres, and require review. Content-only album matches use the same missing-genre assistance without claiming a resolved edition. Provider genres also preserve per-file choices unless genre cleanup was explicitly requested. Album review labels the inferred genre as unverified, including after acknowledgment, rather than reporting that no changes were written.
 - Clearing an MP3's disc total preserves its disc number instead of replacing it with the track number.
 - Offline evaluation no longer reports correctly written tags as a write failure when the selected release has a different disc layout from the reviewed edition. Exact-edition accuracy remains unresolved unless the reviewed identity and layout match.
 - Offline auto-tag evaluation no longer aborts on codec-only album folders with no parsed hints, and scored reports now show native cold/warm release identities and detect identity changes correctly.

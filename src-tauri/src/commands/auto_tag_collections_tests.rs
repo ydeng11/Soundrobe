@@ -9,6 +9,357 @@ use crate::commands::tracks::read_track_metadata;
 use std::{fs, process::Command};
 
 #[tokio::test]
+async fn explicit_edition_keeps_independently_aligned_performer_credits() {
+    run_edition_credit_controls(&[
+        "richer",
+        "genre_gap",
+        "wrong_title",
+        "wrong_duration",
+        "conflicting_credit",
+    ])
+    .await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_preserves_captured_positions_not_filename_or_array_order() {
+    run_edition_credit_controls(&["protected_numbering", "multi_disc_positions"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_preserves_unchanged_collaborator_presentation() {
+    run_edition_credit_controls(&["protected_presentation", "composite_presentation"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_holds_incompatible_protected_credit_representations() {
+    run_edition_credit_controls(&["inconsistent_credit", "conflicting_selected_credit"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_does_not_protect_placeholders_as_performers() {
+    run_edition_credit_controls(&["placeholder_credit"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_keeps_explicit_compound_band_entities() {
+    run_edition_credit_controls(&["band_presentation"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_matches_compound_identity_without_masking_artist_text() {
+    run_edition_credit_controls(&["compound_spelling"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_rejects_literal_text_in_place_of_a_compound_identity() {
+    run_edition_credit_controls(&["mask_collision"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_preserves_literal_artist_text_beside_a_compound_identity() {
+    run_edition_credit_controls(&["literal_credit"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_preserves_a_separately_billed_compound_member() {
+    run_edition_credit_controls(&["compound_member"]).await;
+}
+
+#[tokio::test]
+async fn automatic_enrichment_reconciles_reordered_overlapping_compound_names() {
+    run_edition_credit_controls(&["overlapping_compounds"]).await;
+}
+
+async fn run_edition_credit_controls(controls: &[&'static str]) {
+    for &control in controls {
+        let root = super::tests::temp_root();
+        let album = root.join("Lead/dont stop");
+        fs::create_dir_all(&album).unwrap();
+        let queue = WriteQueue::default();
+        for (index, title) in ["First", "Second"].into_iter().enumerate() {
+            let mut wav = fs::read(super::tests::corpus_wav()).unwrap();
+            wav.resize(44 + 176400, 0);
+            wav[4..8].copy_from_slice(&176436_u32.to_le_bytes());
+            wav[40..44].copy_from_slice(&176400_u32.to_le_bytes());
+            let file = album.join(format!("{:02} - {title}.wav", index + 1));
+            fs::write(&file, wav).unwrap();
+            let artists = match (index, control) {
+                (1, "conflicting_credit" | "conflicting_selected_credit") => {
+                    vec!["Lead", "Original guest"]
+                }
+                (1, "protected_presentation" | "inconsistent_credit") => vec!["GUEST", "Lead"],
+                (1, "composite_presentation") => vec!["GUEST feat. Lead"],
+                (1, "placeholder_credit") => vec!["Lead", "???"],
+                (1, "band_presentation") => vec!["Earth, Wind & Fire", "Lead"],
+                (1, "compound_spelling") => vec!["AC/DC", "Lead"],
+                (1, "mask_collision") => vec!["Earth & Fire", "Lead"],
+                (1, "literal_credit") => vec!["Earth & Fire", "soundrobecredit0", "Lead"],
+                (1, "compound_member") => vec!["Daryl Hall & John Oates", "Daryl Hall", "Lead"],
+                (1, "overlapping_compounds") => {
+                    vec!["Earth & Fire", "X & Earth", "Fire & Y", "Lead"]
+                }
+                _ => vec!["Lead"],
+            };
+            let display = if index == 1 && control == "inconsistent_credit" {
+                "Lead feat. Different Guest".into()
+            } else if index == 1 && control == "compound_spelling" {
+                "AC / DC feat. Lead".into()
+            } else if index == 1 && control == "mask_collision" {
+                "soundrobecredit0 & Lead".into()
+            } else if index == 1 && control == "overlapping_compounds" {
+                "X & Earth & Fire & Y & Earth & Fire & Lead".into()
+            } else if index == 1
+                && matches!(control, "protected_presentation" | "composite_presentation")
+            {
+                "GUEST feat. Lead".into()
+            } else {
+                artists.join(" & ")
+            };
+            write_track_queued(&queue, file, serde_json::from_value(serde_json::json!({
+            "title":title,"artist":display,"artists":artists,"albumArtist":"Lead",
+            "trackNumber":match control {"protected_numbering" => Some(22-index), "multi_disc_positions" => Some(1), _ => None},
+            "trackTotal":matches!(control,"protected_numbering"|"multi_disc_positions").then_some(24),
+            "discNumber":(control=="multi_disc_positions").then_some(index+1),
+            "discTotal":(control=="multi_disc_positions").then_some(2),
+            "album":"Don't Stop","year":"2019","discogsReleaseId":if control == "genre_gap" {None} else {Some("37")},
+            "musicbrainzAlbumId":if control == "genre_gap" {Some("full")} else {None},
+            "discogsArtistId":"42","musicbrainzArtistId":"mb-lead"
+        })).unwrap()).await.unwrap();
+        }
+        let files = collect_audio_files(&album);
+        let originals = files
+            .iter()
+            .map(fs::read)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let payloads = files
+            .iter()
+            .map(|file| track_payload_digest(Path::new(file)).unwrap())
+            .collect::<Vec<_>>();
+        let (base, stop, server) = review_fixture_server(move |request| {
+            let path = request.split_whitespace().nth(1).unwrap();
+            let body = if path.starts_with("/discogs/releases/37")
+                || path.starts_with("/discogs/releases/38")
+            {
+                let donor = path.starts_with("/discogs/releases/38");
+                serde_json::json!({"id":if donor {38} else {37},"title":"Don't Stop","year":2019,"artists":[{"name":"Lead","id":42}],
+                "genres":if donor {vec!["Rock"]} else {vec!["Pop"]},"tracklist":[
+                    {"position":"1","title":"First","duration":"0:02","type_":"track"},
+                    {"position":"2","title":"Second","duration":"0:02","type_":"track",
+                    "artists":if control=="conflicting_selected_credit" {serde_json::json!([{"name":"Lead"},{"name":"Different Guest"}])} else {serde_json::Value::Null}}]})
+            } else if control == "genre_gap" && path.starts_with("/discogs/database/search") {
+                serde_json::json!({"pagination":{"page":1,"pages":1,"items":1},"results":[
+                    {"id":38,"title":"Lead - Don't Stop","year":2019,"type":"release"}]})
+            } else if path.starts_with("/mb/release?") && path.contains("artist=mb-lead") {
+                serde_json::json!({"release-count":1,"release-offset":0,"releases":[
+                {"id":"full","title":"dont stop","date":"2019","artist-credit":[{"name":"Lead"}],
+                    "media":[{"track-count":2}]}]})
+            } else if path.starts_with("/mb/release/full?") {
+                let second_title = if matches!(control, "wrong_title" | "placeholder_credit") {
+                    "Unrelated"
+                } else {
+                    "Second"
+                };
+                let second_length = if control == "wrong_duration" {
+                    200000
+                } else {
+                    2000
+                };
+                serde_json::json!({"id":"full","title":"dont stop","date":"2019","artist-credit":[{"name":"Lead"}],
+                "media":[{"position":1,"track-count":2,"tracks":[
+                    {"number":"1","title":"First","length":2000,"recording":{"id":"first","title":"First","length":2000,"artist-credit":[{"name":"Lead"}]}},
+                    {"number":"2","title":second_title,"length":second_length,"recording":{"id":"second","title":second_title,"length":second_length,
+                        "artist-credit":[{"name":"Lead","joinphrase":" & "},{"name":match control {"band_presentation" => "Earth, Wind & Fire", "compound_spelling" => "AC/DC", "mask_collision"|"literal_credit"|"overlapping_compounds" => "Earth & Fire", "compound_member" => "Daryl Hall & John Oates", _ => "Guest"}}]}}]}]})
+            } else if path.starts_with("/mb/release?") {
+                serde_json::json!({"release-count":0,"releases":[]})
+            } else {
+                return ("404 Not Found".into(), "{}".into());
+            };
+            ("200 OK".into(), body.to_string())
+        });
+        let providers = ProviderState::at(
+            ProviderState::new().http(),
+            &format!("{base}/mb"),
+            &format!("{base}/discogs"),
+        );
+        let cache = CacheState::new_in(root.join("cache"));
+        assert!(cache.initialize(None));
+        let result = resolve_and_apply_album(
+            &album,
+            &AutoTagConfig {
+                acoustid_enabled: Some(false),
+                lyrics_download_enabled: Some(false),
+                ..Default::default()
+            },
+            AutoTagServices {
+                providers: &providers,
+                cache: &cache,
+                queue: &queue,
+                alias_file: &root.join("aliases.json"),
+            },
+            &AtomicBool::new(false),
+            |_, _| {},
+            |_, _, _| {},
+        )
+        .await
+        .unwrap();
+        stop.store(true, Ordering::Release);
+        server.join().unwrap();
+        if matches!(
+            control,
+            "conflicting_credit"
+                | "inconsistent_credit"
+                | "conflicting_selected_credit"
+                | "mask_collision"
+        ) {
+            assert_eq!(result.written, 0);
+            assert_eq!(
+                result.reason_code.as_deref(),
+                Some("provider_credit_conflict")
+            );
+            assert_eq!(
+                files
+                    .iter()
+                    .map(fs::read)
+                    .collect::<Result<Vec<_>, _>>()
+                    .unwrap(),
+                originals
+            );
+            fs::remove_dir_all(root).unwrap();
+            continue;
+        }
+        assert_eq!(result.written, 2);
+        let written = read_track_metadata(Path::new(&files[1])).unwrap();
+        assert_eq!(written.genre.as_deref(), Some(if control == "genre_gap" {"Rock"} else {"Pop"}),
+                   "compatible provider genre precedes optional assistance without changing the selected edition");
+        if control == "genre_gap" {
+            assert!(result
+                .diagnostics
+                .iter()
+                .any(|row| row["stage"] == "provider_field"
+                    && row["field"] == "genre"
+                    && row["releaseId"] == "38"));
+            assert!(result.candidate.as_ref().unwrap().assisted_genre.is_none());
+        }
+        if control == "band_presentation" {
+            assert_eq!(written.artist.as_deref(), Some("Earth, Wind & Fire & Lead"));
+            assert_eq!(written.artists, ["Earth, Wind & Fire", "Lead"]);
+        } else if control == "compound_spelling" {
+            assert_eq!(written.artist.as_deref(), Some("AC / DC feat. Lead"));
+            assert_eq!(written.artists, ["AC/DC", "Lead"]);
+        } else if control == "literal_credit" {
+            assert_eq!(
+                written.artist.as_deref(),
+                Some("Earth & Fire & soundrobecredit0 & Lead")
+            );
+            assert_eq!(
+                written.artists,
+                ["Earth & Fire", "soundrobecredit0", "Lead"]
+            );
+        } else if control == "compound_member" {
+            assert_eq!(
+                written.artist.as_deref(),
+                Some("Daryl Hall & John Oates & Daryl Hall & Lead")
+            );
+            assert_eq!(
+                written.artists,
+                ["Daryl Hall & John Oates", "Daryl Hall", "Lead"]
+            );
+        } else if control == "overlapping_compounds" {
+            assert_eq!(
+                written.artist.as_deref(),
+                Some("X & Earth & Fire & Y & Earth & Fire & Lead")
+            );
+            assert_eq!(
+                written.artists,
+                ["Earth & Fire", "X & Earth", "Fire & Y", "Lead"]
+            );
+        } else if matches!(control, "protected_presentation" | "composite_presentation") {
+            assert_eq!(
+                written.artist.as_deref(),
+                Some("GUEST feat. Lead"),
+                "{control}"
+            );
+            assert_eq!(
+                written.artists,
+                if control == "composite_presentation" {
+                    vec!["GUEST feat. Lead"]
+                } else {
+                    vec!["GUEST", "Lead"]
+                },
+                "{control}"
+            );
+        } else if matches!(
+            control,
+            "richer" | "genre_gap" | "protected_numbering" | "multi_disc_positions"
+        ) {
+            assert_eq!(
+                written.artists,
+                ["Lead", "Guest"],
+                "an explicit edition does not erase fuller recording credits"
+            );
+            if control == "richer" {
+                assert!(result
+                    .diagnostics
+                    .iter()
+                    .any(|row| row["stage"] == "provider_track_credits"
+                        && row["releaseId"] == "full"));
+            }
+        } else {
+            assert_eq!(
+                written.artists,
+                ["Lead"],
+                "{control} cannot donate performer credits"
+            );
+        }
+        if control == "genre_gap" {
+            assert_eq!(
+                written.musicbrainz_album_id.as_deref(),
+                Some("full"),
+                "borrowing genre must not replace the selected MusicBrainz edition"
+            );
+        } else {
+            assert_eq!(
+                written.discogs_release_id.as_deref(),
+                Some("37"),
+                "credit evidence must not replace the edition"
+            );
+        }
+        assert_eq!(
+            read_track_metadata(Path::new(&files[0])).unwrap().artists,
+            ["Lead"]
+        );
+        if matches!(control, "protected_numbering" | "multi_disc_positions") {
+            for (index, file) in files.iter().enumerate() {
+                let read = read_track_metadata(Path::new(file)).unwrap();
+                assert_eq!(
+                    read.track_number,
+                    Some(if control == "protected_numbering" {
+                        22 - index as u32
+                    } else {
+                        1
+                    }),
+                    "{control}: physical binding"
+                );
+                assert_eq!(
+                    read.track_total,
+                    Some(24),
+                    "captured total is not physical file count"
+                );
+                if control == "multi_disc_positions" {
+                    assert_eq!(read.disc_number, Some(index as u32 + 1));
+                    assert_eq!(read.disc_total, Some(2));
+                }
+            }
+        }
+        for (file, payload) in files.iter().zip(payloads) {
+            assert_eq!(track_payload_digest(Path::new(file)).unwrap(), payload);
+        }
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[tokio::test]
 async fn album_version_discovery_recovers_before_a_crowded_artist_catalog_spends_the_budget() {
     let root = super::tests::temp_root();
     let album = root.join("Lead/2000 - Test Record");
@@ -116,17 +467,61 @@ async fn album_version_discovery_recovers_before_a_crowded_artist_catalog_spends
 
 #[tokio::test]
 async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() {
-    for mode in [
+    run_album_content_controls(&[
         "clear_year",
+        "clear_genre",
         "confirmed",
         "clear_title",
         "aligned",
         "wrong_song",
         "wrong_version",
         "wrong_duration",
-    ] {
+    ])
+    .await;
+}
+
+#[tokio::test]
+async fn content_enrichment_preserves_captured_numbering_and_credit_presentation() {
+    run_album_content_controls(&["protected_content", "content_conflict"]).await;
+}
+
+#[tokio::test]
+async fn content_cleanup_still_clears_captured_disc_totals() {
+    run_album_content_controls(&["clear_disc_total"]).await;
+}
+
+#[tokio::test]
+async fn content_construction_preserves_composite_collaborator_presentation() {
+    run_album_content_controls(&["composite_preserved"]).await;
+}
+
+#[tokio::test]
+async fn content_composite_preservation_keeps_fallback_conflict_and_cleanup_boundaries() {
+    run_album_content_controls(&[
+        "album_fallback",
+        "composite_missing",
+        "composite_conflict",
+        "composite_cleanup",
+    ])
+    .await;
+}
+
+async fn run_album_content_controls(modes: &[&'static str]) {
+    for &mode in modes {
         let root = super::tests::temp_root();
-        let album = root.join("Lead/2000 - Test Record (Germany)");
+        let composite = mode.starts_with("composite_");
+        let album_artist = if mode == "composite_missing" {
+            "Billie Eilish"
+        } else if composite {
+            "Billie Eilish & Rosalía"
+        } else {
+            "Lead"
+        };
+        let album = root.join(if composite {
+            "Billie Eilish/2000 - Test Record (Germany)"
+        } else {
+            "Lead/2000 - Test Record (Germany)"
+        });
         fs::create_dir_all(&album).unwrap();
         for (name, seconds) in [("01 - Song (Live).wav", 2_u32), ("02 - Second.wav", 3)] {
             let mut wav = fs::read(super::tests::corpus_wav()).unwrap();
@@ -135,10 +530,44 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
             wav[4..8].copy_from_slice(&(36 + bytes).to_le_bytes());
             wav[40..44].copy_from_slice(&bytes.to_le_bytes());
             fs::write(album.join(name), wav).unwrap();
-            if mode == "aligned" {
+            if matches!(
+                mode,
+                "aligned" | "confirmed" | "clear_genre" | "clear_disc_total"
+            ) {
                 write_track_queued(&WriteQueue::default(), album.join(name),
                     serde_json::from_value(serde_json::json!({"genre":if seconds == 2 {"Rock"} else {"Pop"}, "discTotal":seconds})).unwrap()
                 ).await.unwrap();
+            }
+            if matches!(mode, "protected_content" | "content_conflict") {
+                write_track_queued(&WriteQueue::default(), album.join(name),
+                    serde_json::from_value(serde_json::json!({
+                        "artist":if seconds==3 {"GUEST feat. Lead"} else {"Lead"},
+                        "artists":if seconds==3 {vec![if mode=="content_conflict" {"Different Guest"} else {"GUEST"},"Lead"]} else {vec!["Lead"]},
+                        "albumArtist":"Lead", "trackNumber":if seconds==2 {22} else {21},
+                        "trackTotal":24, "discNumber":seconds-1, "discTotal":2
+                    })).unwrap()
+                ).await.unwrap();
+            }
+            if composite && mode != "composite_missing" {
+                let display = if mode == "composite_conflict" && seconds == 3 {
+                    "Billie Eilish | Different Guest"
+                } else {
+                    "Billie Eilish | ROSALÍA"
+                };
+                write_track_queued(
+                    &WriteQueue::default(),
+                    album.join(name),
+                    serde_json::from_value(serde_json::json!({
+                        "artist":display, "artists":[display], "albumArtist":"Billie Eilish",
+                        "trackNumber":if seconds==2 {22} else {21}, "discTotal":2
+                    }))
+                    .unwrap(),
+                )
+                .await
+                .unwrap();
+                let captured = read_track_metadata(&album.join(name)).unwrap();
+                assert_eq!(captured.artist.as_deref(), Some(display));
+                assert_eq!(captured.artists, vec![display]);
             }
         }
         let files = collect_audio_files(&album);
@@ -151,7 +580,13 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
                 )
             })
             .collect::<Vec<_>>();
+        let model_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let seen_model_calls = Arc::clone(&model_calls);
         let (base, stop, server) = review_fixture_server(move |request| {
+            if request.starts_with("POST ") {
+                seen_model_calls.fetch_add(1, Ordering::SeqCst);
+                return ("400 Bad Request".into(), "{}".into());
+            }
             let ids = [
                 "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
                 "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
@@ -167,10 +602,11 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
                     "wrong_version" => "Song (Remix)",
                     _ => "Song (Live)",
                 };
+                let composite_credits = serde_json::json!([{"name":"Billie Eilish","joinphrase":" & "},{"name":"Rosalía"}]);
                 serde_json::json!({"id":id,"title":"Test Record","date":if mode == "confirmed" {"2000"} else {"1991"},"country":if mode == "confirmed" {"DE"} else {"JP"},
-                    "artist-credit":[{"name":"Lead"}], "media":[{"position":1,"track-count":2,"tracks":[
-                        {"position":"1","title":"Second","recording":{"id":"22222222-2222-4222-8222-222222222222","title":"Second","length":3000,"artist-credit":[{"name":"Lead"}]}},
-                        {"position":"2","title":title,"recording":{"id":"11111111-1111-4111-8111-111111111111","title":title,"length":if mode == "wrong_duration" {99000} else {2000},"artist-credit":[{"name":"Lead","joinphrase":" feat. "},{"name":"Guest"}]}}
+                    "artist-credit":[{"name":album_artist}], "media":[{"position":1,"track-count":2,"tracks":[
+                        {"position":"1","title":"Second","recording":{"id":"22222222-2222-4222-8222-222222222222","title":"Second","length":3000,"artist-credit":if composite {composite_credits.clone()} else if mode=="album_fallback" {serde_json::json!([])} else if matches!(mode,"protected_content"|"content_conflict") {serde_json::json!([{"name":"Lead","joinphrase":" & "},{"name":"Guest"}])} else {serde_json::json!([{"name":"Lead"}])}}},
+                        {"position":"2","title":title,"recording":{"id":"11111111-1111-4111-8111-111111111111","title":title,"length":if mode == "wrong_duration" {99000} else {2000},"artist-credit":if composite {composite_credits} else if mode=="album_fallback" {serde_json::json!([])} else {serde_json::json!([{"name":"Lead","joinphrase":" feat. "},{"name":"Guest"}])}}}
                     ]}]}).to_string()
             } else if request.contains("/release?") {
                 let releases = ids[..if mode == "confirmed" {1} else {2}].iter().map(|id|serde_json::json!({"id":id,"title":"Test Record","media":[{"track-count":2}]})).collect::<Vec<_>>();
@@ -193,12 +629,19 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
             &album,
             &AutoTagConfig {
                 remote_lookup_enabled: Some(true),
+                llm_api_key: mode.ends_with("conflict").then(|| "offline-fixture".into()),
+                llm_model: mode.ends_with("conflict").then(|| "mock".into()),
+                llm_base_url: mode.ends_with("conflict").then(|| format!("{base}/model")),
                 discogs_enabled: Some(false),
                 acoustid_enabled: Some(false),
                 lyrics_download_enabled: Some(false),
-                clear_tags_enabled: Some(mode.starts_with("clear_")),
+                clear_tags_enabled: Some(mode.starts_with("clear_") || mode == "composite_cleanup"),
                 clear_tags: Some(vec![if mode == "clear_title" {
                     "title".into()
+                } else if mode == "clear_genre" {
+                    "genre".into()
+                } else if matches!(mode, "clear_disc_total" | "composite_cleanup") {
+                    "discTotal".into()
                 } else {
                     "year".into()
                 }]),
@@ -218,8 +661,19 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
         stop.store(true, Ordering::Release);
         server.join().unwrap();
         let result = result.unwrap();
-        if mode.starts_with("wrong_") || mode == "clear_title" {
+        if mode.starts_with("wrong_") || mode.ends_with("conflict") || mode == "clear_title" {
             assert_eq!(result.written, 0, "{mode}: {result:?}");
+            if mode.ends_with("conflict") {
+                assert_eq!(
+                    model_calls.load(Ordering::SeqCst),
+                    0,
+                    "protected-credit rejection is not absence of provider evidence"
+                );
+                assert_eq!(
+                    result.reason_code.as_deref(),
+                    Some("provider_credit_conflict")
+                );
+            }
             if mode == "clear_title" {
                 assert_eq!(result.outcome, AutoTagOutcome::NeedsReview);
                 assert_eq!(
@@ -274,8 +728,18 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
                 );
                 assert_eq!(
                     read.artist.as_deref(),
-                    Some(if index == 0 {
+                    Some(if composite {
+                        if mode == "composite_missing" {
+                            "Billie Eilish & Rosalía"
+                        } else {
+                            "Billie Eilish | ROSALÍA"
+                        }
+                    } else if mode == "album_fallback" {
+                        "Lead"
+                    } else if index == 0 {
                         "Lead feat. Guest"
+                    } else if mode == "protected_content" {
+                        "GUEST feat. Lead"
                     } else {
                         "Lead"
                     }),
@@ -283,27 +747,80 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
                 );
                 assert_eq!(
                     read.artists,
-                    if index == 0 {
+                    if composite {
+                        if mode == "composite_missing" {
+                            vec!["Billie Eilish", "Rosalía"]
+                        } else {
+                            vec!["Billie Eilish | ROSALÍA"]
+                        }
+                    } else if mode == "album_fallback" {
+                        vec!["Lead"]
+                    } else if index == 0 {
                         vec!["Lead", "Guest"]
+                    } else if mode == "protected_content" {
+                        vec!["GUEST", "Lead"]
                     } else {
                         vec!["Lead"]
                     }
                 );
-                assert_eq!(read.album_artist.as_deref(), Some("Lead"));
+                assert_eq!(read.album_artist.as_deref(), Some(album_artist));
                 assert_eq!(
                     read.track_number,
-                    Some(index as u32 + 1),
-                    "{mode}: output follows local file order"
+                    Some(
+                        if mode == "protected_content" || composite && mode != "composite_missing" {
+                            22 - index as u32
+                        } else {
+                            index as u32 + 1
+                        }
+                    ),
+                    "{mode}: captured position precedes file-order fallback"
                 );
-                assert_eq!(read.track_total, Some(2));
+                assert_eq!(
+                    read.track_total,
+                    Some(if mode == "protected_content" { 24 } else { 2 })
+                );
+                assert_eq!(
+                    read.genre.as_deref(),
+                    matches!(mode, "aligned" | "confirmed" | "clear_disc_total")
+                        .then_some(if index == 0 { "Rock" } else { "Pop" }),
+                    "{mode}: preserve distinct file decisions unless genre cleanup was explicitly requested"
+                );
                 if mode != "confirmed" {
                     assert_eq!(
-                        read.genre, None,
-                        "unknown genre must not preserve conflicting per-file values"
+                        read.disc_total,
+                        if matches!(mode, "protected_content" | "composite_preserved") {
+                            Some(2)
+                        } else if matches!(mode, "aligned" | "clear_genre") {
+                            Some(index as u32 + 2)
+                        } else {
+                            None
+                        },
+                        "captured per-file totals survive; missing edition totals are not guessed"
                     );
-                    assert_eq!(read.disc_total, None, "no guessed edition disc count");
+                    if mode == "protected_content" {
+                        assert_eq!(read.disc_number, Some(index as u32 + 1));
+                    }
                     assert!(
                         read.musicbrainz_album_id.is_none() && read.musicbrainz_track_id.is_none()
+                    );
+                }
+                if matches!(mode, "composite_preserved" | "composite_cleanup") {
+                    assert_eq!(candidate.tracks[index].artist, read.artist);
+                    assert_eq!(candidate.tracks[index].artists, read.artists);
+                    assert!(
+                        result.diagnostics.iter().any(|diagnostic| {
+                            diagnostic["fieldEvidence"]
+                                .as_array()
+                                .is_some_and(|receipts| {
+                                    receipts.iter().any(|receipt| {
+                                        receipt["stage"] == "local_track_preservation"
+                                            && receipt["localIndex"] == index
+                                            && receipt["fields"]
+                                                == serde_json::json!(["artist", "artists"])
+                                    })
+                                })
+                        }),
+                        "a preservation receipt must be fulfilled by candidate and readback"
                     );
                 }
                 assert_eq!(
@@ -353,6 +870,11 @@ async fn exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_re
         write_track_queued(&queue, copy.clone(), patch)
             .await
             .unwrap();
+        assert_eq!(
+            read_track_metadata(&copy).unwrap().track_number,
+            Some(4),
+            "the physical copy retains its captured position, not filename 16"
+        );
         let files = collect_audio_files(&album);
         let before = files
             .iter()
@@ -427,7 +949,7 @@ async fn exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_re
             let written = read_track_metadata(&copy).unwrap();
             assert_eq!(written.title.as_deref(), Some("Song 4"));
             assert_eq!(written.artists, vec!["Lead", "Guest"]);
-            assert_eq!(written.track_number, Some(16));
+            assert_eq!(written.track_number, Some(4));
             assert!(written.musicbrainz_album_id.is_none());
             assert!(written.musicbrainz_track_id.is_none());
         }
@@ -456,7 +978,7 @@ async fn exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_re
         if !conflict && !partial {
             let written = read_track_metadata(&copy).unwrap();
             assert_eq!(written.artists, vec!["Lead", "Guest"]);
-            assert_eq!(written.track_number, Some(16));
+            assert_eq!(written.track_number, Some(4));
             let coverage = result
                 .diagnostics
                 .iter()
@@ -783,7 +1305,11 @@ async fn album_content_accepts_country_and_recording_id_differences_but_not_inco
             assert_eq!(after.album, before.album);
             assert_eq!(after.album_artist, before.album_artist);
             assert_eq!(after.year, before.year);
-            assert_eq!(after.track_number, Some(if unavailable { 7 } else { 1 }));
+            assert_eq!(
+                after.track_number,
+                Some(7),
+                "automatic enrichment retains the captured physical-file position"
+            );
             assert_eq!(after.title.as_deref(), Some("Song (Demo)"));
             assert!(after.musicbrainz_album_id.is_none() && after.discogs_release_id.is_none());
             assert!(

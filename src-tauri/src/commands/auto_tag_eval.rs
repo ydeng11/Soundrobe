@@ -36,6 +36,172 @@ const PROFILE_RECOVERY: &str = "tagged_recovery";
 const PER_FOLDER_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 const RUN_TIMEOUT: Duration = Duration::from_secs(8 * 60 * 60);
 
+#[path = "auto_tag_evidence.rs"]
+mod evidence;
+
+tokio::task_local! { static DONOR_TRACE: RefCell<Vec<Value>>; }
+
+pub(super) fn trace_provider_donors(
+    field: &str,
+    request: &LookupRequest,
+    selected: &AlbumCandidate,
+    candidates: &[AlbumCandidate],
+) {
+    let _ = DONOR_TRACE.try_with(|rows| {
+        let mut probe = request.clone();
+        if field == "genre" {
+            probe.year_hint = None;
+            probe.country_hint = None;
+            probe.musicbrainz_album_id = None;
+            probe.discogs_release_id = None;
+            for track in &mut probe.tracks {
+                track.musicbrainz_track_id = None;
+            }
+        }
+        let candidates = candidates.iter().map(|candidate| {
+            let result = strict_provider_evaluation(&probe, candidate);
+            let (error, mapping, versions) = match result {
+                Err(error) => (Some(error), Vec::new(), Vec::new()),
+                Ok((_, aligned, remote)) => {
+                    let versions = probe.tracks.iter().zip(&aligned.remote_indices)
+                        .map(|(local, index)| {
+                            let remote = index.and_then(|index| remote.get(index));
+                            let title = local.title.as_deref().or(local.filename.as_deref()).unwrap_or_default();
+                            json!({
+                                "local":local, "remote":remote,
+                                "trackCompatible":remote.is_some_and(|remote| super::super::track_matcher::track_versions_compatible(remote, "", local)),
+                                "recordingCompatible":remote.is_some_and(|remote| super::super::auto_tag_acoustid::recording_versions_compatible(remote, title, None))
+                            })
+                        }).collect::<Vec<_>>();
+                    (None, aligned.remote_indices, versions)
+                }
+            };
+            let genre_eligible = error.is_none()
+                && candidate.genre.as_deref().is_some_and(|genre| !genre.trim().is_empty())
+                && versions.iter().all(|row| row["trackCompatible"] == true && row["recordingCompatible"] == true);
+            json!({
+                "candidate":candidate,
+                "originalProviderTracks":candidate.provider_tracks_for_evaluation,
+                "strictError":error, "remoteIndices":mapping, "versions":versions,
+                "genreEligible":genre_eligible
+            })
+        }).collect::<Vec<_>>();
+        rows.borrow_mut().push(json!({
+            "field":field, "request":request, "probeRequest":probe,
+            "audioGroups":request.audio_groups.as_ref().map(|groups| groups.groups()), "selected":selected,
+            "selectedAlreadyHasGenre":selected.genre.as_deref().is_some_and(|genre| !genre.trim().is_empty()),
+            "method":"read-only re-evaluation of native strict predicates; selected genre uses its prior selection, not the donor fallback guard",
+            "candidates":candidates
+        }));
+    });
+}
+
+#[tokio::test]
+async fn donor_trace_distinguishes_rejection_without_changing_genre_authority() {
+    let request = LookupRequest {
+        artist_hint: Some("Lead".into()),
+        album_hint: Some("Album".into()),
+        tracks: vec![TrackCandidate {
+            title: Some("Song".into()),
+            length: Some(191.0),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let selected = AlbumCandidate {
+        artist: Some("Lead".into()),
+        album: Some("Album".into()),
+        tracks: request.tracks.clone(),
+        source: LookupSource::Musicbrainz,
+        musicbrainz_album_id: Some("selected".into()),
+        ..Default::default()
+    };
+    let donor = AlbumCandidate {
+        source: LookupSource::Discogs,
+        musicbrainz_album_id: None,
+        discogs_release_id: Some("compatible".into()),
+        genre: Some("Pop".into()),
+        ..selected.clone()
+    };
+    let wrong_album = AlbumCandidate {
+        album: Some("Unrelated".into()),
+        discogs_release_id: Some("wrong".into()),
+        genre: Some("Rock".into()),
+        ..donor.clone()
+    };
+    let rows = DONOR_TRACE
+        .scope(RefCell::new(Vec::new()), async {
+            let mut actual = selected.clone();
+            complete_provider_genre(&request, &mut actual, &[wrong_album, donor]).unwrap();
+            assert_eq!(actual.genre.as_deref(), Some("Pop"));
+            assert_eq!(actual.musicbrainz_album_id, selected.musicbrainz_album_id);
+            assert!(actual.discogs_release_id.is_none());
+            DONOR_TRACE.with(|rows| rows.take())
+        })
+        .await;
+    assert_eq!(
+        rows.len(),
+        1,
+        "native donor decisions must be observable in the scoped evaluator"
+    );
+    assert_eq!(
+        rows[0]["candidates"][0]["strictError"],
+        "provider album title conflicts with local evidence"
+    );
+    assert_eq!(rows[0]["candidates"][1]["strictError"], Value::Null);
+    assert_eq!(rows[0]["candidates"][1]["genreEligible"], true);
+}
+
+#[derive(Default, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EvalSafetyInput {
+    #[serde(default)]
+    genres: BTreeMap<String, String>,
+    #[serde(default)]
+    cancel_after_genre: bool,
+}
+
+impl EvalSafetyInput {
+    fn validate_endpoint(&self, mock_url: Option<&str>) -> Result<(), String> {
+        offline_eval_providers(mock_url.ok_or("safety inputs require offline providers")?)?;
+        Ok(())
+    }
+
+    async fn apply(&self, album: &Path, queue: &WriteQueue) -> Result<(), ApiError> {
+        let files = collect_audio_files(album);
+        let by_name = files
+            .iter()
+            .map(|path| {
+                (
+                    Path::new(path)
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string(),
+                    path,
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        if self.genres.keys().any(|name| !by_name.contains_key(name)) {
+            return Err(ApiError::Message(
+                "safety input names an unknown physical file".into(),
+            ));
+        }
+        for (name, genre) in &self.genres {
+            write_track_queued(
+                queue,
+                PathBuf::from(by_name[name]),
+                TrackPatch {
+                    genre: Patch::Value(genre.clone()),
+                    ..TrackPatch::default()
+                },
+            )
+            .await?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct EvalCorpus {
@@ -801,8 +967,7 @@ fn readback_matches(
                 *actual == expected
             });
     }
-    if result.outcome != AutoTagOutcome::Applied
-        || result.written != detail.tracks.len()
+    if result.written != detail.tracks.len()
         || !candidate_track_count_matches(candidate, detail.tracks.len())
     {
         return false;
@@ -845,7 +1010,12 @@ fn readback_matches(
                         && written.discogs_release_id.is_none()
                         && written.musicbrainz_track_id.is_none()
                         && written.track_total == expected.track_total
-                        && written.genre == candidate.genre))
+                        && written.genre.as_ref()
+                            == expected
+                                .genre
+                                .as_ref()
+                                .filter(|genre| !genre.trim().is_empty())
+                                .or(candidate.genre.as_ref())))
                 && candidate
                     .year
                     .as_deref()
@@ -2516,12 +2686,14 @@ async fn basic_tag_readback_is_independent_of_reviewed_edition_identity() {
         album: Some("Album".into()),
         album_artist: Some("Lead".into()),
         album_artists: vec!["Lead".into()],
+        genre: Some("Pop".into()),
         verification: Some("album_content".into()),
         source: LookupSource::Musicbrainz,
         tracks: vec![TrackCandidate {
             title: Some("Song (instrumental)".into()),
             artist: Some("Lead".into()),
             artists: vec!["Lead".into()],
+            genre: Some("User choice".into()),
             track_number: Some(1),
             track_total: Some(1),
             disc_number: Some(1),
@@ -2532,7 +2704,7 @@ async fn basic_tag_readback_is_independent_of_reviewed_edition_identity() {
     let written = apply_candidate_tags(&album, &candidate, &WriteQueue::default())
         .await
         .unwrap();
-    let result = AutoTagRunResult {
+    let mut result = AutoTagRunResult {
         outcome: AutoTagOutcome::Applied,
         completion_basis: Some("album_content"),
         written,
@@ -2547,6 +2719,21 @@ async fn basic_tag_readback_is_independent_of_reviewed_edition_identity() {
         native_classification(&case, Some(&result), false, false, true),
         EvalOutcome::Unresolved
     );
+    result.outcome = AutoTagOutcome::NeedsReview;
+    assert!(
+        readback_matches(&album, Some(&result), &baseline),
+        "review status must not turn correct written tags into a readback failure"
+    );
+    for (genre, correct) in [("Pop", false), ("User choice", true)] {
+        write_track_queued(
+            &WriteQueue::default(),
+            file.clone(),
+            serde_json::from_value(json!({"genre":genre})).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(readback_matches(&album, Some(&result), &baseline), correct);
+    }
     write_track_queued(
         &WriteQueue::default(),
         file,
@@ -3270,6 +3457,19 @@ async fn live_auto_tag_eval() {
         .collect::<Vec<_>>();
     assert!(!selected.is_empty(), "filters selected no evaluation cases");
     let mock_url = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").ok();
+    let safety_input = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SAFETY_INPUT")
+        .ok()
+        .map(|path| {
+            assert_eq!(selected.len(), 1, "safety inputs require one physical case");
+            let input: EvalSafetyInput =
+                serde_json::from_str(&fs::read_to_string(path).expect("read safety input"))
+                    .expect("parse safety input");
+            input
+                .validate_endpoint(mock_url.as_deref())
+                .expect("invalid safety endpoint");
+            input
+        })
+        .unwrap_or_default();
     let config_path = dirs::home_dir()
         .expect("home directory")
         .join(".soundrobe/config.yaml");
@@ -3289,7 +3489,18 @@ async fn live_auto_tag_eval() {
                 .is_some_and(|token| !token.trim().is_empty()),
         "Discogs token required for live evaluation"
     );
-    config.llm_api_key = None;
+    let assistance = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE").ok();
+    configure_eval_assistance(&mut config, mock_url.as_deref(), assistance.as_deref())
+        .expect("invalid evaluation assistance mode");
+    let trace_donors = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_DONOR_TRACE").as_deref() == Ok("1");
+    if trace_donors {
+        offline_eval_providers(
+            mock_url
+                .as_deref()
+                .expect("donor probes require offline fixtures"),
+        )
+        .expect("donor probes require a loopback endpoint");
+    }
     config.remote_lookup_enabled = Some(true);
     config.discogs_enabled = Some(true);
     config.lyrics_download_enabled = Some(false);
@@ -3307,6 +3518,9 @@ async fn live_auto_tag_eval() {
     };
     let queue = WriteQueue::default();
     let alias_file = temp_root.join("aliases.json");
+    let worker_root = temp_root.join("worker");
+    let worker = crate::state::worker::WorkerStore::new_in(worker_root.clone());
+    assert!(worker.initialize());
     let mut records = Vec::new();
     let source_hashes_before = selected
         .iter()
@@ -3350,6 +3564,10 @@ async fn live_auto_tag_eval() {
             apply_profile(&destination, &profile, &queue)
                 .await
                 .expect("apply evaluation input profile");
+            safety_input
+                .apply(&destination, &queue)
+                .await
+                .expect("apply disposable safety input");
             let preflight = build_lookup_request(&destination).expect("build clean lookup request");
             assert!(
                 destination
@@ -3389,9 +3607,14 @@ async fn live_auto_tag_eval() {
             let cancelled = AtomicBool::new(false);
             let progress_events = RefCell::new(Vec::<Value>::new());
             let report_events = RefCell::new(Vec::<Value>::new());
+            let attempt_id = format!("{phase}-{}", case.case_id);
+            worker
+                .enqueue(std::slice::from_ref(&destination), "manual")
+                .unwrap();
+            worker.mark_running(&destination, &attempt_id).unwrap();
             let result = tokio::time::timeout(
                 PER_FOLDER_TIMEOUT,
-                resolve_and_apply_album_with_retry_context(
+                resolve_and_apply_album_with_review_intent(
                     &destination,
                     &config,
                     AutoTagServices {
@@ -3402,19 +3625,38 @@ async fn live_auto_tag_eval() {
                     },
                     &cancelled,
                     None,
+                    |_| {
+                        worker
+                            .record_review_flag(&destination, "tagging_review", &attempt_id)
+                            .map_err(ApiError::Message)
+                    },
                     |progress, message| {
                         progress_events
                             .borrow_mut()
                             .push(json!({"progress": progress, "message": message}));
                     },
                     |kind, message, data| {
+                        if safety_input.cancel_after_genre
+                            && message.starts_with("Genre inferred by LLM:")
+                        {
+                            cancelled.store(true, Ordering::Release);
+                        }
                         report_events
                             .borrow_mut()
                             .push(json!({"kind": kind, "message": message, "data": data}));
                     },
                 ),
-            )
-            .await;
+            );
+            let (result, donor_trace) = if trace_donors {
+                DONOR_TRACE
+                    .scope(RefCell::new(Vec::new()), async {
+                        let result = result.await;
+                        (result, DONOR_TRACE.with(|rows| rows.take()))
+                    })
+                    .await
+            } else {
+                (result.await, Vec::new())
+            };
             let elapsed_ms = started.elapsed().as_millis();
             let (outcome, error, native, resolver_error, timed_out) = match result {
                 Ok(Ok(value)) => (
@@ -3464,10 +3706,50 @@ async fn live_auto_tag_eval() {
                 payload_unchanged && readback,
             );
             let selected_evidence = selected_track_evidence(native.as_ref());
+            let evidence = native
+                .as_ref()
+                .map(|value| serde_json::to_value(value).unwrap())
+                .unwrap_or_else(|| json!({"outcome":outcome,"error":error}));
+            worker
+                .finish_with_evidence(
+                    &destination,
+                    &attempt_id,
+                    if outcome == "applied" {
+                        "completed"
+                    } else {
+                        outcome
+                    },
+                    native
+                        .as_ref()
+                        .and_then(|value| value.reason_code.as_deref()),
+                    None,
+                    &evidence,
+                )
+                .unwrap();
+            let reopened = crate::state::worker::WorkerStore::new_in(worker_root.clone());
+            assert!(reopened.initialize());
+            let review_pending = reopened
+                .unreviewed_review_paths()
+                .unwrap()
+                .contains(&destination);
+            let actionable_review = reopened
+                .actionable_review_paths()
+                .unwrap()
+                .contains(&destination);
             let record = sanitise(
                 json!({"runId":run_id,"phase":phase,"caseId":case.case_id,"artist":case.artist,"releaseType":case.release_type,"difficulty":case.difficulty,"sourceRelativeFolder":case.source_relative_folder,"outcome":outcome,"classification":classification.as_str(),"error":error,"elapsedMs":elapsed_ms,"native":native,"selectedTrackEvidence":selected_evidence,"progressEvents":progress_events.into_inner(),"reportEvents":report_events.into_inner(),"cacheBefore":cache_before,"cacheAfter":cache_counts(&cache_path),"copiedBeforeProfile":copied_before,"profileBaseline":baseline,"after":after,"payloadUnchanged":payload_unchanged,"readback":readback,"profile":profile,"mediaMode":"synthetic_flac","syntheticTrackCount":synthetic.track_count,"syntheticBytes":synthetic.bytes,"syntheticPeakBytes":synthetic.peak_bytes,"oracleStatus":case.expectation.status}),
             );
             let mut record = record;
+            record["beforeTracks"] = sanitise(serde_json::to_value(&baseline_tracks).unwrap());
+            record["persistedEvidence"] = sanitise(
+                reopened
+                    .evidence(&destination, &attempt_id)
+                    .unwrap()
+                    .unwrap(),
+            );
+            record["reviewPendingAfterRestart"] = json!(review_pending);
+            record["actionableReviewAfterRestart"] = json!(actionable_review);
+            record["assistanceMode"] = json!(assistance.as_deref().unwrap_or("disabled"));
             record["readbackTracks"] = sanitise(
                 serde_json::to_value(
                     crate::commands::tracks::read_album(&destination)
@@ -3476,11 +3758,75 @@ async fn live_auto_tag_eval() {
                 )
                 .unwrap(),
             );
+            record["cancellationRequested"] = json!(cancelled.load(Ordering::Acquire));
             record["providerMode"] = json!(if mock_url.is_some() {
                 "offline_fixtures"
             } else {
                 "live"
             });
+            if trace_donors {
+                fs::write(
+                    artifact_dir.join(format!("donors-{phase}-{}.json", case.case_id)),
+                    serde_json::to_vec_pretty(&donor_trace).unwrap(),
+                )
+                .unwrap();
+                let mut inventory = providers
+                    .http()
+                    .get(format!(
+                        "{}/__fixtures",
+                        mock_url.as_deref().unwrap().trim_end_matches('/')
+                    ))
+                    .send()
+                    .await
+                    .unwrap()
+                    .error_for_status()
+                    .unwrap()
+                    .json::<Value>()
+                    .await
+                    .unwrap();
+                fs::write(
+                    artifact_dir.join(format!("evidence-{phase}-{}.json", case.case_id)),
+                    serde_json::to_vec_pretty(&json!({
+                        "schemaVersion":1, "purpose":"non_authorizing_evidence_only",
+                        "profile":profile, "caseId":case.case_id, "phase":phase,
+                        "request":preflight, "baselineTracks":baseline_tracks,
+                        "baselineHashes":baseline,
+                        "compiledPolicySha256":{
+                            "track_matcher.rs":format!("{:x}",Sha256::digest(include_bytes!("track_matcher.rs"))),
+                            "auto_tag_acoustid.rs":format!("{:x}",Sha256::digest(include_bytes!("auto_tag_acoustid.rs"))),
+                            "auto_tag.rs":format!("{:x}",Sha256::digest(include_bytes!("auto_tag.rs"))),
+                            "auto_tag_eval.rs":format!("{:x}",Sha256::digest(include_bytes!("auto_tag_eval.rs"))),
+                            "auto_tag_evidence.rs":format!("{:x}",Sha256::digest(include_bytes!("auto_tag_evidence.rs")))
+                        },
+                        "nativeRouteTraces":donor_trace,
+                        "positions":preflight.tracks.iter().map(|track| json!({
+                            "tagged":track.tagged_track_number,
+                            "filenameDerived":track.filename.as_deref().and_then(filename_track_number),
+                            "lookupPosition":track.track_number,
+                            "fileCountDerivedTotal":track.track_total
+                        })).collect::<Vec<_>>(),
+                        "guards":evidence::guard_observations(&preflight,&inventory),
+                        "attempt":{
+                            "closed":true,"closureReason":outcome,"searchComplete":false,
+                            "requests":inventory["requests"],"misses":inventory["misses"],
+                            "modelRequests":inventory["modelRequests"],
+                            "scope":"cumulative isolated-process requests; warm may reuse cold receipts; unobserved pending work is unknown"
+                        },
+                        "writableDelta":[]
+                    })).unwrap(),
+                ).unwrap();
+                let slim = json!({
+                    "scope":"cumulative requests through this phase; parsed candidates may come from the isolated cache",
+                    "requests":inventory["requests"].take(),
+                    "modelRequests":inventory["modelRequests"].take(),
+                    "misses":inventory["misses"].take()
+                });
+                fs::write(
+                    artifact_dir.join(format!("requests-{phase}-{}.json", case.case_id)),
+                    serde_json::to_vec_pretty(&slim).unwrap(),
+                )
+                .unwrap();
+            }
             let line = serde_json::to_string(&record).unwrap();
             fs::OpenOptions::new()
                 .create(true)
@@ -3573,6 +3919,29 @@ async fn live_auto_tag_eval() {
     fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
 }
 
+fn configure_eval_assistance(
+    config: &mut AutoTagConfig,
+    mock_url: Option<&str>,
+    mode: Option<&str>,
+) -> Result<(), String> {
+    config.llm_api_key = None;
+    match mode {
+        None | Some("disabled") => Ok(()),
+        Some("scripted") => {
+            let base = mock_url.ok_or("scripted assistance requires offline providers")?;
+            offline_eval_providers(base)?;
+            config.llm_api_key = Some("offline-scripted-not-a-secret".into());
+            config.llm_model = Some("scripted/genre-v1".into());
+            config.llm_provider = Some("openai".into());
+            config.llm_base_url = Some(format!("{}/model", base.trim_end_matches('/')));
+            Ok(())
+        }
+        Some(_) => Err(
+            "assistance must be disabled or scripted; live model calls are not supported".into(),
+        ),
+    }
+}
+
 pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String> {
     let url = reqwest::Url::parse(base).map_err(|error| error.to_string())?;
     if url.scheme() != "http"
@@ -3616,6 +3985,70 @@ fn offline_eval_rejects_external_endpoints_and_credentials() {
         assert!(offline_eval_providers(url).is_err(), "accepted {url}");
     }
     assert!(offline_eval_providers("http://127.0.0.1:1234").is_ok());
+}
+
+#[test]
+fn evaluation_assistance_is_disabled_unless_explicitly_scripted_on_loopback() {
+    let mut config = AutoTagConfig {
+        llm_api_key: Some("must-not-use-user-key".into()),
+        ..Default::default()
+    };
+    configure_eval_assistance(&mut config, None, None).unwrap();
+    assert!(config.llm_api_key.is_none());
+    assert!(configure_eval_assistance(&mut config, None, Some("scripted")).is_err());
+    assert!(
+        configure_eval_assistance(&mut config, Some("https://example.com"), Some("scripted"))
+            .is_err()
+    );
+    assert!(
+        configure_eval_assistance(&mut config, Some("http://127.0.0.1:1234"), Some("live"))
+            .is_err()
+    );
+    configure_eval_assistance(&mut config, Some("http://127.0.0.1:1234"), Some("scripted"))
+        .unwrap();
+    assert_eq!(config.llm_model.as_deref(), Some("scripted/genre-v1"));
+    assert_eq!(
+        config.llm_base_url.as_deref(),
+        Some("http://127.0.0.1:1234/model")
+    );
+    assert_ne!(config.llm_api_key.as_deref(), Some("must-not-use-user-key"));
+}
+
+#[tokio::test]
+async fn offline_safety_input_binds_genre_decisions_to_files_not_order() {
+    let root = super::tests::temp_root();
+    let queue = WriteQueue::default();
+    for filename in ["01.wav", "02.wav"] {
+        fs::copy(super::tests::corpus_wav(), root.join(filename)).unwrap();
+    }
+    let input: EvalSafetyInput = serde_json::from_value(json!({
+        "genres": {"02.wav":"User folk", "01.wav":"User acoustic"},
+        "cancelAfterGenre":true
+    }))
+    .unwrap();
+    assert!(input.validate_endpoint(None).is_err());
+    assert!(input
+        .validate_endpoint(Some("https://example.com"))
+        .is_err());
+    input
+        .validate_endpoint(Some("http://127.0.0.1:1234"))
+        .unwrap();
+    input.apply(&root, &queue).await.unwrap();
+    let tracks = crate::commands::tracks::read_album(&root).unwrap().tracks;
+    assert_eq!(tracks[0].genre.as_deref(), Some("User acoustic"));
+    assert_eq!(tracks[1].genre.as_deref(), Some("User folk"));
+    assert!(input.cancel_after_genre);
+    let invalid: EvalSafetyInput = serde_json::from_value(json!({
+        "genres": {"../outside.wav":"Must not write", "01.wav":"Must not change"}
+    }))
+    .unwrap();
+    assert!(invalid.apply(&root, &queue).await.is_err());
+    assert_eq!(
+        crate::commands::tracks::read_album(&root).unwrap().tracks[0].genre,
+        tracks[0].genre,
+        "invalid controls must fail before any write"
+    );
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[tokio::test]

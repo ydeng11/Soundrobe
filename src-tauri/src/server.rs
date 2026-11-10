@@ -599,13 +599,7 @@ fn start_background_batch(
                                 review_worker
                                     .record_review_flag(
                                         &review_album,
-                                        if candidate.source
-                                            == crate::commands::auto_tag::LookupSource::Llm
-                                        {
-                                            "ai_fallback"
-                                        } else {
-                                            "recording_identity"
-                                        },
+                                        candidate.review_reason(),
                                         &review_run_id,
                                     )
                                     .map_err(|error| {
@@ -1998,12 +1992,7 @@ fn start_auto_tag_task(state: &ServerState, album_path: PathBuf) -> Response {
                         review_worker
                             .record_review_flag(
                                 &review_album,
-                                if candidate.source == crate::commands::auto_tag::LookupSource::Llm
-                                {
-                                    "ai_fallback"
-                                } else {
-                                    "recording_identity"
-                                },
+                                candidate.review_reason(),
                                 &review_run_id,
                             )
                             .map_err(|error| {
