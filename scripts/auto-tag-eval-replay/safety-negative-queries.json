@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "kind": "scripted_negative_visibility_queries",
+  "records": [
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "artist": "Bil Cutie",
+        "per_page": "5",
+        "type": "artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "per_page": "5",
+        "q": "Bil Cutie",
+        "type": "artist"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "page": "1",
+        "per_page": "10",
+        "q": "Billie Eilish Bellyache (Marian Hill Remix)",
+        "type": "release"
+      }
+    },
+    {
+      "provider": "musicbrainz",
+      "path": "/release",
+      "query": {
+        "fmt": "json",
+        "limit": "10",
+        "query": "artist:\"Billie Eilish\" AND release:\"Bellyache\""
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "page": "1",
+        "per_page": "10",
+        "q": "Billie Eilish Bellyache",
+        "type": "release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "page": "1",
+        "per_page": "10",
+        "q": "Billie Eilish bellyache",
+        "type": "release"
+      }
+    },
+    {
+      "provider": "discogs",
+      "path": "/database/search",
+      "query": {
+        "page": "1",
+        "per_page": "10",
+        "q": "Billie Eilish bellyache (Marian Hill remix)",
+        "type": "release"
+      }
+    }
+  ]
+}

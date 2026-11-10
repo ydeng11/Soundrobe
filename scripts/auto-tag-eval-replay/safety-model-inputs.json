@@ -1,0 +1,728 @@
+{
+  "schemaVersion": 1,
+  "kind": "scripted_adversarial_metadata_not_ground_truth",
+  "review": "Before tuning: ordinary provider titles cannot authorize removing fourteen remaster claims. Confidence does not supply remaster evidence. The no-write oracle remains unchanged.",
+  "source": "test/fixtures/tauri/auto-tag-eval/provider-snapshots/discovery/details-2026-11-07/discogs-f46bfbbb038a012f.json",
+  "payloads": {
+    "assisted_without_ids": {
+      "current_tracks": [
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "01. Enya - Orinoco Flow (Remastered 1997)",
+          "genre": null,
+          "index": 0,
+          "title": "Orinoco Flow",
+          "track_number": 1
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "02. Enya - Caribbean Blue (Remastered 1997)",
+          "genre": null,
+          "index": 1,
+          "title": "Caribbean Blue",
+          "track_number": 2
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "03. Enya - Book Of Days (Remastered 1997)",
+          "genre": null,
+          "index": 2,
+          "title": "Book Of Days",
+          "track_number": 3
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "04. Enya - Anywhere Is (Remastered 1997)",
+          "genre": null,
+          "index": 3,
+          "title": "Anywhere Is",
+          "track_number": 4
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "05. Enya - Only If...",
+          "genre": null,
+          "index": 4,
+          "title": "Only If...",
+          "track_number": 5
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "06. Enya - The Celts (Remastered 1997)",
+          "genre": null,
+          "index": 5,
+          "title": "The Celts",
+          "track_number": 6
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "07. Enya - China Roses (Remastered 1997)",
+          "genre": null,
+          "index": 6,
+          "title": "China Roses",
+          "track_number": 7
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "08. Enya - Shepherd Moons (Remastered 1997)",
+          "genre": null,
+          "index": 7,
+          "title": "Shepherd Moons",
+          "track_number": 8
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "09. Enya - Ebudae (Remastered 1997)",
+          "genre": null,
+          "index": 8,
+          "title": "Ebudae",
+          "track_number": 9
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "10. Enya - Storms In Africa (Remastered 1997)",
+          "genre": null,
+          "index": 9,
+          "title": "Storms In Africa",
+          "track_number": 10
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "11. Enya - Watermark (Remastered 1997)",
+          "genre": null,
+          "index": 10,
+          "title": "Watermark",
+          "track_number": 11
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "12. Enya - Paint The Sky With Stars",
+          "genre": null,
+          "index": 11,
+          "title": "Paint The Sky With Stars",
+          "track_number": 12
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "13. Enya - Marble Halls (Remastered 1997)",
+          "genre": null,
+          "index": 12,
+          "title": "Marble Halls",
+          "track_number": 13
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "14. Enya - On My Way Home (Remastered 1997)",
+          "genre": null,
+          "index": 13,
+          "title": "On My Way Home",
+          "track_number": 14
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "15. Enya - The Memory Of Trees (Remastered 1997)",
+          "genre": null,
+          "index": 14,
+          "title": "The Memory Of Trees",
+          "track_number": 15
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "16. Enya - Boadicea (Remastered 1997)",
+          "genre": null,
+          "index": 15,
+          "title": "Boadicea",
+          "track_number": 16
+        }
+      ],
+      "folder_name": "1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)",
+      "full_path": "$EVAL_MEDIA/f7756354af37/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)",
+      "parent_name": "Enya",
+      "parsed_hints": {
+        "album": "Paint The Sky With Stars (The Best Of Enya)",
+        "artist": "Enya",
+        "year": "1997"
+      }
+    },
+    "tagged_recovery": {
+      "current_tracks": [
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "01. Enya - Orinoco Flow (Remastered 1997)",
+          "genre": null,
+          "index": 0,
+          "title": "Orinoco Flow",
+          "track_number": 1
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "02. Enya - Caribbean Blue (Remastered 1997)",
+          "genre": null,
+          "index": 1,
+          "title": "Caribbean Blue",
+          "track_number": 2
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "03. Enya - Book Of Days (Remastered 1997)",
+          "genre": null,
+          "index": 2,
+          "title": "Book Of Days",
+          "track_number": 3
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "04. Enya - Anywhere Is (Remastered 1997)",
+          "genre": null,
+          "index": 3,
+          "title": "Anywhere Is",
+          "track_number": 4
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "05. Enya - Only If...",
+          "genre": null,
+          "index": 4,
+          "title": "Only If...",
+          "track_number": 5
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "06. Enya - The Celts (Remastered 1997)",
+          "genre": null,
+          "index": 5,
+          "title": "The Celts",
+          "track_number": 6
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "07. Enya - China Roses (Remastered 1997)",
+          "genre": null,
+          "index": 6,
+          "title": "China Roses",
+          "track_number": 7
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "08. Enya - Shepherd Moons (Remastered 1997)",
+          "genre": null,
+          "index": 7,
+          "title": "Shepherd Moons",
+          "track_number": 8
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "09. Enya - Ebudae (Remastered 1997)",
+          "genre": null,
+          "index": 8,
+          "title": "Ebudae",
+          "track_number": 9
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "10. Enya - Storms In Africa (Remastered 1997)",
+          "genre": null,
+          "index": 9,
+          "title": "Storms In Africa",
+          "track_number": 10
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "11. Enya - Watermark (Remastered 1997)",
+          "genre": null,
+          "index": 10,
+          "title": "Watermark",
+          "track_number": 11
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "12. Enya - Paint The Sky With Stars",
+          "genre": null,
+          "index": 11,
+          "title": "Paint The Sky With Stars",
+          "track_number": 12
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "13. Enya - Marble Halls (Remastered 1997)",
+          "genre": null,
+          "index": 12,
+          "title": "Marble Halls",
+          "track_number": 13
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "14. Enya - On My Way Home (Remastered 1997)",
+          "genre": null,
+          "index": 13,
+          "title": "On My Way Home",
+          "track_number": 14
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "15. Enya - The Memory Of Trees (Remastered 1997)",
+          "genre": null,
+          "index": 14,
+          "title": "The Memory Of Trees",
+          "track_number": 15
+        },
+        {
+          "artist": "Enya",
+          "artists": [
+            "Enya"
+          ],
+          "filename": "16. Enya - Boadicea (Remastered 1997)",
+          "genre": null,
+          "index": 15,
+          "title": "Boadicea",
+          "track_number": 16
+        }
+      ],
+      "folder_name": "1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)",
+      "full_path": "$EVAL_MEDIA/f7756354af37/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)",
+      "parent_name": "Enya",
+      "parsed_hints": {
+        "album": "Paint The Sky With Stars (The Best Of Enya)",
+        "artist": "Enya",
+        "year": "1997"
+      }
+    }
+  },
+  "response": {
+    "artist": "Enya",
+    "artists": [
+      "Enya"
+    ],
+    "albumArtist": "Enya",
+    "albumArtists": [
+      "Enya"
+    ],
+    "album": "Paint The Sky With Stars (The Best Of Enya)",
+    "year": "1997",
+    "genre": null,
+    "confidence": 0.99,
+    "tracks": [
+      {
+        "index": 0,
+        "title": "Orinoco Flow",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 1,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 1,
+        "title": "Caribbean Blue",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 2,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 2,
+        "title": "Book Of Days",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 3,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 3,
+        "title": "Anywhere Is",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 4,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 4,
+        "title": "Only If...",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 5,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 5,
+        "title": "The Celts",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 6,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 6,
+        "title": "China Roses",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 7,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 7,
+        "title": "Shepherd Moons",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 8,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 8,
+        "title": "Ebudae",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 9,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 9,
+        "title": "Storms In Africa",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 10,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 10,
+        "title": "Watermark",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 11,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 11,
+        "title": "Paint The Sky With Stars",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 12,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 12,
+        "title": "Marble Halls",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 13,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 13,
+        "title": "On My Way Home",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 14,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 14,
+        "title": "The Memory Of Trees",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 15,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      },
+      {
+        "index": 15,
+        "title": "Boadicea",
+        "artist": "Enya",
+        "artists": [
+          "Enya"
+        ],
+        "trackNumber": 16,
+        "trackTotal": 16,
+        "discNumber": 1,
+        "discTotal": 1
+      }
+    ]
+  },
+  "rejections": {
+    "wrong-remix-only-assisted_without_ids": {
+      "current_tracks": [
+        {
+          "artist": "Billie Eilish",
+          "artists": [
+            "Billie Eilish"
+          ],
+          "filename": "Billie Eilish - bellyache (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "bellyache",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.02-Bellyache[flac]",
+      "full_path": "$EVAL_MEDIA/e61daee1518d/Billie Eilish/2017.02-Bellyache[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "bellyache",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    },
+    "wrong-remix-only-folder_filename": {
+      "current_tracks": [
+        {
+          "artist": null,
+          "artists": [],
+          "filename": "Billie Eilish - bellyache (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "Billie Eilish - bellyache (2017)",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.02-Bellyache[flac]",
+      "full_path": "$EVAL_MEDIA/e61daee1518d/Billie Eilish/2017.02-Bellyache[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "Bellyache",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    },
+    "wrong-remix-only-tagged_recovery": {
+      "current_tracks": [
+        {
+          "artist": "Billie Eilish",
+          "artists": [
+            "Billie Eilish"
+          ],
+          "filename": "Billie Eilish - bellyache (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "bellyache",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.02-Bellyache[flac]",
+      "full_path": "$EVAL_MEDIA/e61daee1518d/Billie Eilish/2017.02-Bellyache[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "bellyache",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    },
+    "wrong-studio-only-assisted_without_ids": {
+      "current_tracks": [
+        {
+          "artist": "Billie Eilish",
+          "artists": [
+            "Billie Eilish"
+          ],
+          "filename": "Billie Eilish - Bellyache (Marian Hill Remix) (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "Bellyache (Marian Hill Remix)",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "full_path": "$EVAL_MEDIA/0e7c8a578cea/Billie Eilish/2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "bellyache (Marian Hill remix)",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    },
+    "wrong-studio-only-folder_filename": {
+      "current_tracks": [
+        {
+          "artist": null,
+          "artists": [],
+          "filename": "Billie Eilish - Bellyache (Marian Hill Remix) (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "Billie Eilish - Bellyache (Marian Hill Remix) (2017)",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "full_path": "$EVAL_MEDIA/0e7c8a578cea/Billie Eilish/2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "Bellyache (Marian Hill Remix)",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    },
+    "wrong-studio-only-tagged_recovery": {
+      "current_tracks": [
+        {
+          "artist": "Billie Eilish",
+          "artists": [
+            "Billie Eilish"
+          ],
+          "filename": "Billie Eilish - Bellyache (Marian Hill Remix) (2017)",
+          "genre": null,
+          "index": 0,
+          "title": "Bellyache (Marian Hill Remix)",
+          "track_number": 1
+        }
+      ],
+      "folder_name": "2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "full_path": "$EVAL_MEDIA/0e7c8a578cea/Billie Eilish/2017.05-Bellyache (Marian Hill Remix)[flac]",
+      "parent_name": "Billie Eilish",
+      "parsed_hints": {
+        "album": "bellyache (Marian Hill remix)",
+        "artist": "Billie Eilish",
+        "year": "2017"
+      }
+    }
+  }
+}

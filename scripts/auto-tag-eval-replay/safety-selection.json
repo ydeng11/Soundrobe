@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-11-09",
+  "reviewMethod": "Source review independent of model answers and native outputs, before this cycle's baseline or tuning. Existing inspected development regressions; no untouched holdouts and no new human sign-off claimed. Existing source review manifests remain unchanged. Explicit local genre decisions are controlled test inputs, not observed library tags.",
+  "groundedAssistedAccuracyCredit": 0,
+  "profiles": ["folder_filename", "assisted_without_ids", "tagged_recovery"],
+  "evidence": {
+    "60ebec7ffadb": {"manifest": "reviewed-billie-20261108.json", "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-71f29e4821a34dfe.json", "titles": ["TV", "The 30th"], "artists": [["Billie Eilish"], ["Billie Eilish"]], "notes": "Two distinct source occurrences; preserve the exact physical-file mapping. Neither provider genre nor acoustic identity is established by this receipt."},
+    "4060f1de6662": {"manifest": "reviewed-billie-20261108.json", "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-372d24bff6c7bfdf.json", "titles": ["Lo Vas A Olvidar"], "artists": [["Billie Eilish", "ROSALÍA"]], "notes": "Release, track and recording credit the duet. Case-only performer capitalization is allowed, not dropping a performer. Captured Discogs genre on the existing-tag paths is stronger than a scripted genre guess."},
+    "54e7923a3000": {"manifest": "reviewed-expansion-2-20261108.json", "snapshot": "provider-snapshots/nine-case-discovery-20261108/discogs-d03c24eab5cd6008.json", "titles": ["COPYCAT", "idontwannabeyouanymore", "my boy", "watch", "party favor", "bellyache", "ocean eyes", "hostage", "&burn"], "artists": [["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish"], ["Billie Eilish", "Vince Staples"]], "notes": "Source track 9 has Guest [With] Vince Staples. Selected 37353822 omits that credit; faithful copying is not complete credit recovery. The known omission must remain a failure, not an acceptable variant."},
+    "07e09ba5552a": {"manifest": "reviewed-billie-20261108.json", "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-a727437c25c86a19.json", "titles": ["my future"], "artists": [["Billie Eilish"]], "notes": "Null release-track length does not mean zero. Recording length 210 seconds is independently compatible with local 208.155; maintain distinct recording identity and missing-duration semantics."},
+    "e61daee1518d": {"manifest": "reviewed-billie-20261108.json", "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-bb7f75d4a5d553e6.json", "wrongSnapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-f8a99d8d4a458b57.json", "notes": "Ordinary local bellyache is 179.172 seconds; the reviewed wrong release is Marian Hill remix at 220 seconds. When only that wrong content is available, no write is authorized. This is a controlled provider-visibility negative, not a claim that the ordinary release does not exist."},
+    "0e7c8a578cea": {"manifest": "reviewed-billie-20261108.json", "snapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-f8a99d8d4a458b57.json", "wrongSnapshot": "provider-snapshots/review-expansion-20261108/musicbrainz-bb7f75d4a5d553e6.json", "notes": "Reciprocal negative: local Marian Hill remix is 220.8 seconds and the available ordinary release is 179 seconds. Standalone year parsing is already known defective; this negative alone cannot isolate the version veto from that defect or the duration veto."},
+    "f7756354af37": {"manifest": "reviewed-expansion-2-20261108.json", "snapshot": "provider-snapshots/discovery/details-2026-11-07/discogs-f46bfbbb038a012f.json", "notes": "Content-compatible sixteen-track compilation, but fourteen physical filenames claim Remastered 1997. Captured 636215 has no source-bound remaster support; Mastered By is not remastered. Hold rather than silently remove claims or guess an edition. This is a field-authorization negative, not a reclassification of the existing positive content ledger."}
+  },
+  "jobs": [
+    {"name": "mixed-accepted", "caseId": "60ebec7ffadb", "scenario": "accepted", "genres": {"01. Billie Eilish - TV.flac": "User acoustic"}},
+    {"name": "mixed-rejected", "caseId": "60ebec7ffadb", "scenario": "rejected", "genres": {"01. Billie Eilish - TV.flac": "User acoustic"}},
+    {"name": "mixed-failed", "caseId": "60ebec7ffadb", "scenario": "failed", "genres": {"01. Billie Eilish - TV.flac": "User acoustic"}},
+    {"name": "mixed-disabled", "caseId": "60ebec7ffadb", "scenario": "disabled", "genres": {"01. Billie Eilish - TV.flac": "User acoustic"}},
+    {"name": "mixed-cancelled", "caseId": "60ebec7ffadb", "scenario": "cancelled", "genres": {"01. Billie Eilish - TV.flac": "User acoustic"}, "noWrite": true},
+    {"name": "unequal-user-genres", "caseId": "60ebec7ffadb", "scenario": "accepted", "genres": {"01. Billie Eilish - TV.flac": "User acoustic", "02. Billie Eilish - The 30th.flac": "User folk"}},
+    {"name": "duet-provider-and-user", "caseId": "4060f1de6662", "scenario": "accepted", "genres": {"01. Billie Eilish - Lo Vas A Olvidar.flac": "User Latin"}},
+    {"name": "collaborator-disagreement", "caseId": "54e7923a3000", "scenario": "accepted"},
+    {"name": "incomplete-duration", "caseId": "07e09ba5552a", "scenario": "accepted"},
+    {"name": "wrong-remix-only", "caseId": "e61daee1518d", "scenario": "accepted", "wrongOnly": true, "noWrite": true},
+    {"name": "wrong-studio-only", "caseId": "0e7c8a578cea", "scenario": "accepted", "wrongOnly": true, "noWrite": true},
+    {"name": "unproven-remaster", "caseId": "f7756354af37", "scenario": "accepted", "noWrite": true}
+  ]
+}
