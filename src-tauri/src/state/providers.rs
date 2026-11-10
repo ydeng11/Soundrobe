@@ -24,6 +24,8 @@ const USER_AGENT: &str = concat!(
     " (https://github.com/ydeng11/Soundrobe)"
 );
 const DISCOGS_BASE: &str = "https://api.discogs.com";
+// Bound persistent evidence only; oversized metadata still follows the same parser.
+const DISCOGS_RECEIPT_MAX_BYTES: usize = 2 * 1024 * 1024;
 static OPENCC: OnceLock<OpenCC> = OnceLock::new();
 static DISCOGS_LIMITER: OnceLock<Arc<DiscogsRateLimiter>> = OnceLock::new();
 static MUSICBRAINZ_LAST_REQUEST: OnceLock<tokio::sync::Mutex<Option<Instant>>> = OnceLock::new();
@@ -468,6 +470,22 @@ pub struct DiscogsArtistNameVariant {
     pub credited_name: String,
 }
 
+/// Originating concrete-release response, not a catalog certificate.
+/// The digest covers decoded HTTP entity bytes, not headers or freshness.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscogsReleaseReceipt {
+    pub request_method: String,
+    pub request_path: String,
+    pub request_url: String,
+    pub response_url: String,
+    pub resource_kind: String,
+    pub resource_id: String,
+    pub response_status: u16,
+    pub response_sha256: String,
+    pub response_body: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderAlbum {
@@ -480,6 +498,8 @@ pub struct ProviderAlbum {
     pub artist_id: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub discogs_artist_name_variants: Vec<DiscogsArtistNameVariant>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub discogs_release_receipt: Option<DiscogsReleaseReceipt>,
     pub year: Option<String>,
     pub genre: Option<String>,
     #[serde(default)]
@@ -1903,6 +1923,7 @@ fn parse_musicbrainz_release(
         artists,
         artist_id,
         discogs_artist_name_variants: Vec::new(),
+        discogs_release_receipt: None,
         year: value
             .get("date")
             .and_then(serde_json::Value::as_str)
@@ -2246,6 +2267,7 @@ fn parse_discogs_release(
         artist,
         artists,
         discogs_artist_name_variants,
+        discogs_release_receipt: None,
         artist_id: value
             .get("artists")
             .and_then(serde_json::Value::as_array)
@@ -2652,11 +2674,52 @@ impl DiscogsClient {
     }
 
     pub async fn release_metadata_result(&self, release_id: &str) -> Result<ProviderAlbum, String> {
-        let release: serde_json::Value = self
-            .get_json_result(&format!("releases/{release_id}"))
+        use sha2::{Digest, Sha256};
+        let path = format!("releases/{release_id}");
+        let url = format!("{}/{}", self.base_url, path);
+        let response = self
+            .request_response(|| self.authorized(self.http.get(&url)))
             .await?;
-        parse_discogs_release(&release, release_id, Some("release"))
-            .ok_or_else(|| format!("Discogs release could not be parsed: {release_id}"))
+        let status = response.status().as_u16();
+        // Never persist credentials, query parameters or authentication headers.
+        let endpoint = |mut url: reqwest::Url| {
+            let _ = url.set_username("");
+            let _ = url.set_password(None);
+            url.set_query(None);
+            url.set_fragment(None);
+            url.to_string()
+        };
+        let response_url = endpoint(response.url().clone());
+        let bytes = response
+            .bytes()
+            .await
+            .map_err(|error| format!("Discogs response could not be parsed: {error}"))?;
+        let release: serde_json::Value = serde_json::from_slice(&bytes)
+            .map_err(|error| format!("Discogs response could not be parsed: {error}"))?;
+        let mut album = parse_discogs_release(&release, release_id, Some("release"))
+            .ok_or_else(|| format!("Discogs release could not be parsed: {release_id}"))?;
+        if bytes.len() <= DISCOGS_RECEIPT_MAX_BYTES
+            && positive_integer(release.get("id"))
+                .map(|id| id.to_string())
+                .as_deref()
+                == Some(release_id)
+        {
+            album.discogs_release_receipt = Some(DiscogsReleaseReceipt {
+                request_method: "GET".into(),
+                request_path: format!("/{path}"),
+                request_url: endpoint(
+                    reqwest::Url::parse(&url).map_err(|_| "Invalid Discogs endpoint")?,
+                ),
+                response_url,
+                resource_kind: "release".into(),
+                resource_id: release_id.into(),
+                response_status: status,
+                response_sha256: format!("{:x}", Sha256::digest(&bytes)),
+                response_body: String::from_utf8(bytes.to_vec())
+                    .map_err(|_| "Discogs response is not UTF-8")?,
+            });
+        }
+        Ok(album)
     }
 
     /// Concrete release IDs under a master; master IDs are never tag candidates.
@@ -2791,14 +2854,19 @@ impl DiscogsClient {
             } else {
                 format!("releases/{}", summary.id)
             };
-            let detail = self.get_json_result::<serde_json::Value>(&path).await?;
-            let album = parse_discogs_release(&detail, &summary.id, summary.kind.as_deref())
-                .ok_or_else(|| {
-                    format!(
-                        "Discogs release response could not be parsed: {}",
-                        summary.id
-                    )
-                })?;
+            let album = if summary.kind.as_deref() == Some("release") {
+                self.release_metadata_result(&summary.id).await?
+            } else {
+                let detail = self.get_json_result::<serde_json::Value>(&path).await?;
+                parse_discogs_release(&detail, &summary.id, summary.kind.as_deref()).ok_or_else(
+                    || {
+                        format!(
+                            "Discogs release response could not be parsed: {}",
+                            summary.id
+                        )
+                    },
+                )?
+            };
             albums.push(album);
         }
         if albums.is_empty() {
@@ -2845,6 +2913,13 @@ impl DiscogsClient {
             }
             let release_id = result.get("id").and_then(serde_json::Value::as_u64);
             if let Some(release_id) = release_id {
+                if search_type == "release" {
+                    albums.push(
+                        self.release_metadata_result(&release_id.to_string())
+                            .await?,
+                    );
+                    continue;
+                }
                 let path = format!("{search_type}s/{release_id}");
                 match self.get_json_result::<serde_json::Value>(&path).await {
                     Ok(detail) => {
@@ -2879,6 +2954,7 @@ impl DiscogsClient {
                 artists,
                 artist_id: None,
                 discogs_artist_name_variants: Vec::new(),
+                discogs_release_receipt: None,
                 year: result.get("year").and_then(|year| {
                     year.as_u64()
                         .map(|year| year.to_string())
@@ -3197,6 +3273,17 @@ impl DiscogsClient {
         T: for<'de> Deserialize<'de>,
         F: Fn() -> reqwest::RequestBuilder,
     {
+        self.request_response(build_request)
+            .await?
+            .json()
+            .await
+            .map_err(|error| format!("Discogs response could not be parsed: {error}"))
+    }
+
+    async fn request_response<F>(&self, build_request: F) -> Result<reqwest::Response, String>
+    where
+        F: Fn() -> reqwest::RequestBuilder,
+    {
         let attempts = self
             .retry_context
             .as_ref()
@@ -3271,10 +3358,7 @@ impl DiscogsClient {
             let response = response
                 .error_for_status()
                 .map_err(|error| format!("Discogs request failed: {error}"))?;
-            return response
-                .json()
-                .await
-                .map_err(|error| format!("Discogs response could not be parsed: {error}"));
+            return Ok(response);
         }
         unreachable!("Discogs retry loop always returns")
     }
@@ -5383,6 +5467,119 @@ mod tests {
         );
         assert!(requests.recv().unwrap().contains("/releases/42"));
         assert!(requests.recv().unwrap().contains("/masters/42"));
+    }
+
+    #[tokio::test]
+    async fn discogs_runtime_receipt_limits_retention_not_metadata() {
+        // Synthetic byte-boundary control; whitespace is not catalog evidence.
+        fn route(path: &str, _: &str) -> (&'static str, String, &'static str) {
+            let mut body = include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json").to_string();
+            let size = 2 * 1024 * 1024 + usize::from(path.starts_with("/over/"));
+            body.push_str(&" ".repeat(size - body.len()));
+            ("200 OK", body, "application/json")
+        }
+        let (base, _) = server(2, route);
+        for (prefix, retained) in [("limit", true), ("over", false)] {
+            let client = DiscogsClient::at(
+                ProviderState::new().http(),
+                None,
+                &format!("{base}/{prefix}"),
+            );
+            let album = client.release_metadata_result("37231524").await.unwrap();
+            assert_eq!(album.title, "勵志論");
+            assert_eq!(album.tracks.len(), 11);
+            assert_eq!(album.discogs_artist_name_variants.len(), 1);
+            assert_eq!(
+                album.discogs_release_receipt.is_some(),
+                retained,
+                "large ignored response data must not become unbounded persistent evidence"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn discogs_runtime_receipt_binds_http_snapshot_candidates_and_cache() {
+        use crate::commands::{album_search, auto_tag};
+        use crate::state::sqlite::CacheState;
+        fn route(_: &str, _: &str) -> (&'static str, String, &'static str) {
+            ("200 OK", include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json").into(), "application/json")
+        }
+        let (base, requests) = server(2, route);
+        let client = DiscogsClient::at(
+            ProviderState::new().http(),
+            Some("not-a-real-token".into()),
+            &base,
+        );
+        let album = client.release_metadata_result("37231524").await.unwrap();
+        let value = serde_json::to_value(&album).unwrap();
+        let receipt = &value["discogsReleaseReceipt"];
+        assert!(receipt.is_object(), "originating HTTP snapshot must survive parsing, not be reconstructed from an equal later body");
+        assert_eq!(receipt["requestMethod"], "GET");
+        assert_eq!(receipt["requestPath"], "/releases/37231524");
+        assert_eq!(receipt["resourceKind"], "release");
+        assert_eq!(receipt["resourceId"], "37231524");
+        assert_eq!(receipt["responseStatus"], 200);
+        assert_eq!(
+            receipt["responseSha256"],
+            "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a"
+        );
+        assert_eq!(receipt["responseBody"], route("", "").1);
+        assert!(!receipt.to_string().contains("not-a-real-token"));
+        let automatic = auto_tag::discogs_candidate(album.clone());
+        let manual = album_search::discogs_candidate(album);
+        for candidate in [
+            serde_json::to_value(&automatic).unwrap(),
+            serde_json::to_value(manual).unwrap(),
+        ] {
+            assert_eq!(&candidate["discogsReleaseReceipt"], receipt);
+        }
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-runtime-receipt-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let path = root.join("cache.db");
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(path.to_str().unwrap())));
+        cache
+            .set_release_detail("discogs-v4", "37231524", &value)
+            .unwrap();
+        cache
+            .set_lookup(
+                "receipt",
+                &serde_json::json!({}),
+                &serde_json::to_value(automatic).unwrap(),
+                "discogs",
+            )
+            .unwrap();
+        drop(cache);
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(path.to_str().unwrap())));
+        let restored: ProviderAlbum =
+            serde_json::from_value(cache.release_detail("discogs-v4", "37231524").unwrap())
+                .unwrap();
+        assert_eq!(
+            &serde_json::to_value(restored).unwrap()["discogsReleaseReceipt"],
+            receipt
+        );
+        let candidate: auto_tag::AlbumCandidate =
+            serde_json::from_value(cache.lookup("receipt").unwrap()).unwrap();
+        assert_eq!(
+            &serde_json::to_value(candidate).unwrap()["discogsReleaseReceipt"],
+            receipt
+        );
+        let master = client.master_metadata("37231524").await.unwrap();
+        assert!(serde_json::to_value(master)
+            .unwrap()
+            .get("discogsReleaseReceipt")
+            .is_none());
+        assert!(requests.recv().unwrap().contains("/releases/37231524"));
+        assert!(requests.recv().unwrap().contains("/masters/37231524"));
+        assert!(
+            requests.try_recv().is_err(),
+            "cache reload cannot force another request"
+        );
+        drop(cache);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

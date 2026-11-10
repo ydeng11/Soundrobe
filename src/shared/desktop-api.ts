@@ -330,6 +330,19 @@ export interface DiscogsArtistNameVariant {
   creditedName: string;
 }
 
+/** Originating decoded HTTP snapshot; integrity context, not source truth. */
+export interface DiscogsReleaseReceipt {
+  requestMethod: string;
+  requestPath: string;
+  requestUrl: string;
+  responseUrl: string;
+  resourceKind: string;
+  resourceId: string;
+  responseStatus: number;
+  responseSha256: string;
+  responseBody: string;
+}
+
 export interface ProviderAlbum {
   id: string;
   title: string;
@@ -337,6 +350,7 @@ export interface ProviderAlbum {
   artists: string[];
   artistId?: string;
   discogsArtistNameVariants?: DiscogsArtistNameVariant[];
+  discogsReleaseReceipt?: DiscogsReleaseReceipt;
   year?: string;
   genre?: string;
   tracks: ProviderTrack[];
@@ -349,6 +363,7 @@ export interface AlbumCandidate {
   albumArtist?: string;
   albumArtists: string[];
   discogsArtistNameVariants?: DiscogsArtistNameVariant[];
+  discogsReleaseReceipt?: DiscogsReleaseReceipt;
   year?: string;
   genre?: string;
   musicbrainzAlbumId?: string;

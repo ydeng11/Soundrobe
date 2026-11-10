@@ -402,6 +402,12 @@ pub struct AlbumCandidate {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub discogs_artist_name_variants: Vec<crate::state::providers::DiscogsArtistNameVariant>,
+    #[serde(
+        default,
+        rename = "discogsReleaseReceipt",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub discogs_release_receipt: Option<crate::state::providers::DiscogsReleaseReceipt>,
     pub year: Option<String>,
     pub genre: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1048,6 +1054,7 @@ pub fn merge_candidate_fields(candidates: Vec<AlbumCandidate>) -> Vec<AlbumCandi
         source: preferred.source,
         verification: preferred.verification.clone(),
         discogs_artist_name_variants: preferred.discogs_artist_name_variants.clone(),
+        discogs_release_receipt: preferred.discogs_release_receipt.clone(),
         year: provider_year,
         ..AlbumCandidate::default()
     };
@@ -1627,6 +1634,7 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
         album_artist: artist,
         album_artists: album.artists,
         discogs_artist_name_variants: album.discogs_artist_name_variants,
+        discogs_release_receipt: album.discogs_release_receipt,
         year: album.year,
         genre: album.genre,
         country: album.country,
@@ -2485,6 +2493,7 @@ fn album_content_candidate(
             source: selected.source,
             verification: Some("album_content".into()),
             discogs_artist_name_variants: selected.discogs_artist_name_variants,
+            discogs_release_receipt: selected.discogs_release_receipt,
             musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
             discogs_artist_id: request.discogs_artist_id.clone(),
             ..Default::default()
@@ -11121,6 +11130,19 @@ mod tests {
                 canonical_name: "Crowd Lu".into(),
                 credited_name: "盧廣仲".into(),
             }],
+            // Synthetic distinct origins for ownership at the real content
+            // constructor; not claims of an executed catalog fetch.
+            discogs_release_receipt: Some(crate::state::providers::DiscogsReleaseReceipt {
+                request_method: "GET".into(),
+                request_path: format!("/releases/{id}"),
+                request_url: format!("http://127.0.0.1/releases/{id}"),
+                response_url: format!("http://127.0.0.1/releases/{id}"),
+                resource_kind: "release".into(),
+                resource_id: id.into(),
+                response_status: 200,
+                response_sha256: "synthetic-construction-control-not-a-receipt-hash".into(),
+                response_body: format!("synthetic-{id}"),
+            }),
             tracks: vec![TrackCandidate {
                 length: Some(62.0),
                 musicbrainz_track_id: Some("recording-claim".into()),
@@ -11150,6 +11172,14 @@ mod tests {
                     .discogs_artist_name_variants
             );
             assert_eq!(basic.discogs_artist_name_variants.len(), 1);
+            assert_eq!(
+                basic.discogs_release_receipt,
+                candidates
+                    .iter()
+                    .find(|c| c.discogs_release_id.as_deref() == Some("37230261"))
+                    .unwrap()
+                    .discogs_release_receipt
+            );
             assert!(basic.discogs_release_id.is_none());
             assert!(basic.musicbrainz_album_id.is_none());
             assert!(basic.tracks[0].musicbrainz_track_id.is_none());

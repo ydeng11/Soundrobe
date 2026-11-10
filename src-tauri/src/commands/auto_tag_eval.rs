@@ -3602,6 +3602,8 @@ async fn live_auto_tag_eval() {
             let baseline_tracks = crate::commands::tracks::read_album(&destination)
                 .unwrap()
                 .tracks;
+            let original_primary_fields =
+                trace_donors.then(|| evidence::capture_primary_fields(&baseline_tracks));
             let cache_before = cache_counts(&cache_path);
             let started = Instant::now();
             let cancelled = AtomicBool::new(false);
@@ -3799,6 +3801,7 @@ async fn live_auto_tag_eval() {
                             "auto_tag_evidence.rs":format!("{:x}",Sha256::digest(include_bytes!("auto_tag_evidence.rs")))
                         },
                         "nativeRouteTraces":donor_trace,
+                        "candidateIdentityDiagnostics":evidence::identity_observations(&preflight, &baseline_tracks, original_primary_fields.as_deref().unwrap_or_default(), &donor_trace),
                         "positions":preflight.tracks.iter().map(|track| json!({
                             "tagged":track.tagged_track_number,
                             "filenameDerived":track.filename.as_deref().and_then(filename_track_number),

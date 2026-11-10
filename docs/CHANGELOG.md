@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Concrete Discogs release diagnostics retain bounded originating response snapshots through cache reloads. Offline replay can explain narrowly scoped primary-artist name correspondence, while missing original credits or user decisions remain insufficient. These observations do not change matching, eligibility, or tag writes.
 - Discogs candidate diagnostics retain primary artists' credited-name variants with their source release and artist identifiers. These observations do not change artist matching, donor eligibility, or tag writes.
 - Offline tagging replay can export hash-bound prewrite and provider observations without authorizing tag changes. Catalog support, unresolved versions, incomplete mappings, and performer conflicts remain separate from edition or acoustic identity.
 - The offline tagging evaluation inventory includes CJK artist libraries, difficult Curated Beyoncé albums, partial editions and independent soundtrack/instrumental compilations, with frozen input checks and batch-level development and holdout partitions. Silent dummy tracks can be generated without original audio. Unreviewed inputs remain outside scored accuracy.

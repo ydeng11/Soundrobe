@@ -1864,6 +1864,30 @@ fn read_flac_prefix_comments(prefix: &[u8]) -> Option<lofty::ogg::VorbisComments
         .map(|flac| flac.vorbis_comments().cloned().unwrap_or_default())
 }
 
+/// Offline diagnostic reader only: reuse the bounded layout validator instead
+/// of treating the normal first-value DTO as complete primary-credit evidence.
+#[cfg(test)]
+pub(crate) fn diagnostic_flac_primary_comments(path: &Path) -> Option<Vec<(String, String)>> {
+    let layout = read_flac_prefix_layout(path).ok()??;
+    // This observation enumerates Vorbis fields only, not leading ID3 tags.
+    if layout.requires_full_rewrite || layout.marker_offset != 0 {
+        return None;
+    }
+    let comments = read_flac_prefix_comments(&layout.prefix)?;
+    Some(
+        comments
+            .items()
+            .filter(|(key, _)| {
+                matches!(
+                    key.to_ascii_uppercase().as_str(),
+                    "ALBUMARTIST" | "ALBUM ARTIST" | "ALBUMARTISTS" | "ALBUM ARTISTS"
+                )
+            })
+            .map(|(key, value)| (key.to_string(), value.to_string()))
+            .collect(),
+    )
+}
+
 fn encode_flac_vorbis_comments(comments: &lofty::ogg::VorbisComments) -> Result<Vec<u8>, ApiError> {
     let vendor = comments.vendor().as_bytes();
     let vendor_len = u32::try_from(vendor.len())
