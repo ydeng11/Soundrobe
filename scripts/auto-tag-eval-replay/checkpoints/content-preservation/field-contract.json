@@ -1,0 +1,22 @@
+{
+  "revision": "reviewed-51-provider-first-v1",
+  "authority": "Explicit user requirement: eligible provider genre before AI fallback; existing local decisions and explicit cleanup remain authoritative",
+  "population": {"cases": 51, "uniquePhysicalFiles": 539, "evaluations": 306, "repeatedPhysicalFileEvaluations": 3234},
+  "profiles": ["folder_filename", "assisted_without_ids", "tagged_recovery"],
+  "phases": ["cold", "warm"],
+  "assistance": "disabled explicitly for every process; fallback accuracy and requests are uncovered, zero grounded-assistance accuracy credit",
+  "genre": [
+    "Retain nonblank per-file local genre unless explicit cleanup is requested",
+    "Retain selected eligible provider genre, otherwise use compatible provider donor evidence before optional inference",
+    "Provider disagreement is not absence and does not authorize AI adjudication",
+    "A provider field receipt must match the actual fetched frozen response and readback and survive reopening worker state",
+    "Certify a source independently from reviewed artist and album identity, full one-to-one unchanged reviewed title/version mapping and duration compatibility",
+    "Unknown source eligibility is an audit finding, not permission to weaken the reviewed mapping",
+    "No donor genre does not imply that scripted or live assistance was evaluated"
+  ],
+  "credits": "Preserve unchanged reviewed performer expectations; a compatible fetched donor may supplement selected credits without replacing selected edition identity; non-nested disagreements must hold",
+  "identity": "Preserve explicit selected release identity for resolved output; content-only output cannot acquire release or recording IDs",
+  "review": "Content-only and assisted output retain persisted pending review; acknowledgment does not verify inference or authorize an unsupported write",
+  "integrity": "Every physical file is bound to its input; payload hashes remain identical; held and cancelled files retain full bytes and tags",
+  "limits": "Inspected development cases, silent FLACs and frozen providers. Explicit cleanup and assistance failures/cancellation are covered only by the retained separate safety cycle. No acoustic/mastering, live-agent, transport-recovery, or packaged-UI claim."
+}

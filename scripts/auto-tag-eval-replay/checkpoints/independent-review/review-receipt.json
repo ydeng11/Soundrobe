@@ -1,0 +1,19 @@
+{
+  "reviewers": {
+    "Desperado": "TU-034unEpsmjtVmwxSNBesVX",
+    "Relapse": "TU-034unEpxky1onCbmZwP1LO"
+  },
+  "originalPhysicalOccurrences": 33,
+  "hashVerifiedProviderBodies": 19,
+  "protectedFiles": 3564,
+  "newNativeEvaluations": 0,
+  "newApplicationModelRequests": 0,
+  "groundedAssistanceAccuracyCredit": 0,
+  "oracleOrCertificateChanges": 0,
+  "productionChanges": 0,
+  "priorFieldFindingsRetained": 84,
+  "reportPath": ".planning/research/desperado-relapse-independent-review-20261109.md",
+  "reportSha256": "0a6945d47ee16a9ca4911a2c775c1134699a7683e9359ce49e1888fc6b2075b0",
+  "evidenceReproducesByteForByte": true,
+  "delivery": "local review records only; existing uncommitted work preserved"
+}

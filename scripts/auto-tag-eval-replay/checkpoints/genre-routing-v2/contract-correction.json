@@ -1,0 +1,163 @@
+{
+  "version": 2,
+  "authorization": {
+    "sourceThread": "https://ampcode.com/threads/T-01a1b234-730d-7557-9ba6-fc105c23f683",
+    "continuationThread": "https://ampcode.com/threads/T-01a1be8d-794b-75ce-a0fb-4aca6f65d0db",
+    "request": "Correct the Enya routing test expectation from source evidence, preserve the old results, and rerun the audit."
+  },
+  "originalManifestSha256": "86d69ab72c3c8e62806763f72ddd063d90eb5453bd1e54728e99b2b5334bdfd8",
+  "originalFilesVerified": 5358,
+  "originalFrozenSelectionSha256": "135fea8766e5a01355065b5a0a1d56bff8b8f11098bc33d018ecca2d200d5fc3",
+  "sourceArchiveSha256": "ee38c6c50b9726a2a47e3cc3eaaaf07c1640086c17d2d6de9e77aab0c3ed00a4",
+  "executableSha256": "69452eb3021d8c2f215a8e45e3b416ec0bd47a8d70221d7b95bc033ef5ac6388",
+  "sourceSpans": [
+    {
+      "path": "src-tauri/src/commands/auto_tag_editions.rs",
+      "sourceSha256": "c1b368886b506da2f00698d01b9827d218f27a840a3351a74f82da88eecd7988",
+      "startSelector": "const DETAIL_LIMIT: usize = 40;",
+      "endSelector": "const PAGE_LIMIT: u32 = 5;",
+      "firstLine": 183,
+      "lastLine": 185,
+      "text": "const DETAIL_LIMIT: usize = 40;\nconst MASTER_LIMIT: usize = 2;\nconst PAGE_LIMIT: u32 = 5;",
+      "excerptSha256": "1d776b49186c194a9566c09e48dc27f127f1fe536f1cf112886262abafee60a1"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_editions.rs",
+      "sourceSha256": "c1b368886b506da2f00698d01b9827d218f27a840a3351a74f82da88eecd7988",
+      "startSelector": "    pub async fn detail(",
+      "endSelector": "        self.attempted.insert(id.to_string());",
+      "firstLine": 226,
+      "lastLine": 242,
+      "text": "    pub async fn detail(&mut self, id: &str) -> Result<AlbumCandidate, String> {\n        check_cancelled(self.cancelled).map_err(|error| error.to_string())?;\n        if let Some(candidate) = self.details.get(id) {\n            return Ok(candidate.clone());\n        }\n        if let Some(album) = cached_release_detail(self.cache, \"discogs-v4\", id) {\n            let candidate = discogs_candidate(album);\n            self.remember(&candidate);\n            return Ok(candidate);\n        }\n        if self.attempted.contains(id) {\n            return Err(\"Discogs detail previously failed in this run\".into());\n        }\n        if self.attempted.len() >= DETAIL_LIMIT {\n            return Err(\"Discogs discovery incomplete: release detail limit reached\".into());\n        }\n        self.attempted.insert(id.to_string());",
+      "excerptSha256": "b85cbb0a393bee3561c48059be4eb7de8a2e97596fb63b3bdbaa911cc93c8281"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sourceSha256": "68218c7032ef43ab2d428534a0d585a646f002812f0f8f6abe13be69c7c8f3f9",
+      "startSelector": "fn provider_error_status(",
+      "endSelector": "\nfn provider_diagnostic(",
+      "firstLine": 3378,
+      "lastLine": 3387,
+      "text": "fn provider_error_status(error: &str) -> ProviderAttemptStatus {\n    let error = error.to_ascii_lowercase();\n    if error.contains(\"incomplete\") || error.contains(\"budget\") {\n        ProviderAttemptStatus::Incomplete\n    } else {\n        ProviderAttemptStatus::Unavailable\n    }\n}\n\nfn provider_diagnostic(",
+      "excerptSha256": "d614840a3fd61bb32be19c4f986baf70e3c1beae8ecdecde118de73c380e888d"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sourceSha256": "68218c7032ef43ab2d428534a0d585a646f002812f0f8f6abe13be69c7c8f3f9",
+      "startSelector": "fn provider_authority_decision(",
+      "endSelector": "\nfn normalized_release_identity(",
+      "firstLine": 2503,
+      "lastLine": 2526,
+      "text": "fn provider_authority_decision(\n    request: &LookupRequest,\n    candidates: Vec<AlbumCandidate>,\n    attempts: &[ProviderAttempt],\n) -> ProviderAuthorityDecision {\n    if let Some(candidate) = select_credible_provider_candidate(request, candidates) {\n        return ProviderAuthorityDecision::Selected(Box::new(candidate));\n    }\n    if attempts\n        .iter()\n        .any(|attempt| attempt.status == ProviderAttemptStatus::Incomplete)\n    {\n        ProviderAuthorityDecision::Incomplete\n    } else if attempts\n        .iter()\n        .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)\n    {\n        ProviderAuthorityDecision::Unavailable\n    } else {\n        ProviderAuthorityDecision::Providerless\n    }\n}\n\nfn normalized_release_identity(",
+      "excerptSha256": "18f814e04bdd104b541eca70611e6ff981a1b9b075b7ce46d72a0d1e28cd17b5"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sourceSha256": "68218c7032ef43ab2d428534a0d585a646f002812f0f8f6abe13be69c7c8f3f9",
+      "startSelector": "fn providers_confirmed_no_match(",
+      "endSelector": "\npub struct AutoTagServices",
+      "firstLine": 3630,
+      "lastLine": 3638,
+      "text": "fn providers_confirmed_no_match(\n    provider_decision: &ProviderAuthorityDecision,\n    acoustid_attempt: Option<&ProviderAttempt>,\n) -> bool {\n    matches!(provider_decision, ProviderAuthorityDecision::Providerless)\n        && acoustid_attempt.is_none_or(|attempt| attempt.status == ProviderAttemptStatus::NoMatch)\n}\n\npub struct AutoTagServices",
+      "excerptSha256": "c1d1553501d923214559e4413fe7525c2f0ea53d1a8d30ffee9f2ec5f5baaad8"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sourceSha256": "68218c7032ef43ab2d428534a0d585a646f002812f0f8f6abe13be69c7c8f3f9",
+      "startSelector": "    let providers_confirmed_no_match =",
+      "endSelector": "\n    let Some(mut candidate) = candidate else {",
+      "firstLine": 5362,
+      "lastLine": 5373,
+      "text": "    let providers_confirmed_no_match =\n        providers_confirmed_no_match(&provider_decision, acoustid_attempt.as_ref());\n    let mut ai_failure = None;\n    if candidate.is_none() && providers_confirmed_no_match {\n        match resolve_tags_via_llm(&request, config, cancelled).await {\n            Ok(ai_candidate) => candidate = Some(ai_candidate),\n            Err(error) => ai_failure = Some(error),\n        }\n        check_cancelled(cancelled)?;\n    }\n\n    let Some(mut candidate) = candidate else {",
+      "excerptSha256": "dac85559a1d8a13c6bd957bffcc83d48731931bcd451b41b6629164505061c38"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sourceSha256": "68218c7032ef43ab2d428534a0d585a646f002812f0f8f6abe13be69c7c8f3f9",
+      "startSelector": "            } else if provider_attempts.iter().any(|attempt| {",
+      "endSelector": "            } else if provider_attempts\n",
+      "firstLine": 5382,
+      "lastLine": 5395,
+      "text": "            } else if provider_attempts.iter().any(|attempt| {\n                attempt.diagnostic.as_deref().is_some_and(|reason| {\n                    reason.contains(\"limit reached\") || reason.contains(\"budget\")\n                })\n            }) {\n                (\n                    \"discovery_budget_limited\",\n                    \"provider discovery budget exhausted; additional release evidence is needed\"\n                        .to_string(),\n                    None,\n                    None,\n                )\n            } else if provider_attempts\n",
+      "excerptSha256": "fb53334ac9929e79be3bda8bed33efba1a0bc5da9022ee18f9b63aeecc62af0e"
+    }
+  ],
+  "discoveryEvidence": [
+    {
+      "phase": "cold",
+      "record": ".amp/in/artifacts/genre-ai-gaps-20261110/runs/hold-accepted-folder_filename-f7756354af37/cold.jsonl",
+      "recordSha256": "13bbb4ef0891da048c156dba2fae74e2d087763eb784f58edeebd6b95b6d232b",
+      "baseline": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/folder_filename/f7756354af37/cold.jsonl",
+      "baselineSha256": "07bc4bb5dcd8e784db76ab383dc871d6e201bc30b3df595db0daf6570ee1b050",
+      "attempts": [
+        {
+          "provider": "musicbrainz",
+          "retryable": false,
+          "status": "no_match"
+        },
+        {
+          "diagnostic": "Discogs discovery incomplete: release detail limit reached",
+          "provider": "discogs",
+          "retryable": false,
+          "status": "incomplete"
+        }
+      ],
+      "credibleCounts": {
+        "discogs": 0,
+        "musicbrainz": 0
+      },
+      "detailLimit": 40,
+      "discovery": [
+        {
+          "incomplete": true,
+          "reason": "Discogs discovery incomplete: release detail limit reached",
+          "stage": "discogs_versions"
+        }
+      ]
+    },
+    {
+      "phase": "warm",
+      "record": ".amp/in/artifacts/genre-ai-gaps-20261110/runs/hold-accepted-folder_filename-f7756354af37/warm.jsonl",
+      "recordSha256": "b0937a6f181f8fd3fbdfa26739551d8fe2b4a973cfc8fd80093dfe1ad887a990",
+      "baseline": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/folder_filename/f7756354af37/warm.jsonl",
+      "baselineSha256": "43ca7e92c6a523e8db3cebb4f2a3ca7b7496bf26e9caa230d4acff55c46c728e",
+      "attempts": [
+        {
+          "provider": "musicbrainz",
+          "retryable": false,
+          "status": "no_match"
+        },
+        {
+          "diagnostic": "Discogs discovery incomplete: release detail limit reached",
+          "provider": "discogs",
+          "retryable": false,
+          "status": "incomplete"
+        }
+      ],
+      "credibleCounts": {
+        "discogs": 0,
+        "musicbrainz": 0
+      },
+      "detailLimit": 40,
+      "discovery": [
+        {
+          "incomplete": true,
+          "reason": "Discogs discovery incomplete: release detail limit reached",
+          "stage": "discogs_versions"
+        }
+      ]
+    }
+  ],
+  "changes": [
+    {
+      "selector": "/jobs/215/expectedModelRequests",
+      "job": "hold-accepted-folder_filename-f7756354af37",
+      "old": 2,
+      "new": 0,
+      "unit": "total model requests per cold/warm process; per-phase expectation 1 becomes 0"
+    }
+  ],
+  "derivation": "No credible selected candidate plus an incomplete Discogs attempt yields Incomplete, not Providerless. The no-match gate is false, so metadata fallback is forbidden. Exhausting the detail budget leaves unexamined evidence, not a confirmed no-match. The registered metadata script must remain unused.",
+  "unchanged": "All other jobs, scripts, budgets, profile inputs, outcomes, oracles, captures and authorization remain byte- or value-identical. No native process or network request is executed by this tool.",
+  "correctedFrozenSelectionSha256": "5bdfa3f5af43ed1237bd6ca3a1dc3937072419120c264794f036c165f8256d86"
+}

@@ -10,6 +10,11 @@ It recreates silent media from tracked metadata and preserves the exact driver,
 expanded auditor, and independent title rubric. This model-disabled replay is
 regression evidence, not validation of the complete provider-and-agent workflow.
 
+For the subsequent provider-first assistance cycles, preservation fixes, and
+remaining findings, read the [current tagging feedback record](tagging-feedback-status.md).
+The [checkpoint reproduction notes](../scripts/auto-tag-eval-replay/checkpoints/README.md)
+distinguish portable tests from reanalysis that needs retained local evidence.
+
 Soundrobe has a metadata-only evaluation corpus under `test/fixtures/tauri/auto-tag-eval/`. It freezes source-relative folders, filenames, observed tags, durations, numbering, provider IDs, and source hashes for Ariana Grande, Billie Eilish, Eagles, Doja Cat, Ellie Goulding, Eminem, and Enya. The corpus contains no audio or artwork.
 
 Run the deterministic contracts with:
@@ -47,15 +52,23 @@ Both basic and edition-backed auto-tag output preserve the matched track's
 display credit and ordered artist list, including collaborators. Album Artist
 remains shared; a missing track credit falls back to the album artist. Basic
 output retains a validated Chinese album-artist display name for solo credits.
-Complete album auto-tag writes use sequential local file-order positions within
-the selected folder, after provider alignment. Manual selected-track edits and
-recording-only recovery do not acquire this numbering policy.
+Coherent captured collaborator displays and lists retain their spelling, order,
+and compound entries when the completed performer set is unchanged or a subset.
+Incompatible credits stop before writes or metadata fallback.
+Complete album auto-tag writes retain each physical file's captured track/disc
+positions and totals. Missing positive track positions and totals fall back to
+local file order and file count. Captured tags are observations, not proof of
+an exact edition or a verified user lock. Manual selected-track edits and
+recording-only recovery do not acquire this fallback numbering policy.
 Basic output prefers the folder year and does not assert release or recording
 IDs. Independently resolved album-artist IDs are
-retained for subsequent lookups; they do not identify an edition. Unknown shared
-year/genre values and edition disc totals are cleared rather than retaining
-differing old values.
-Explicit cleanup of year or genre is honored. Cleanup of required basic fields,
+retained for subsequent lookups; they do not identify an edition. The basic
+output's date policy remains unchanged. Captured disc totals and per-file genres
+are retained unless cleanup explicitly removes them. Eligible provider genre
+precedes optional AI inference. Genre disagreement is not absence. An AI fill
+retains provider identity, records field provenance, and requires review. Keeping
+changes acknowledges review without making the genre provider-verified.
+Explicit cleanup of year, genre, or disc total is honored. Cleanup of required basic fields,
 such as title or artist, stops this fallback before any write and requires review.
 Run details report `completionBasis: album_content`, `completeBasicTags: true`,
 and `completeAlbum: false`. This is metadata alignment, not an acoustic proof,
@@ -67,7 +80,7 @@ Native replay exports `readbackTracks` for an independent per-file title audit;
 the write/readback check compares with the accepted candidate, not reviewed
 edition numbering. This applies to both edition-backed and basic-tag writes.
 Exact-edition scoring separately requires the reviewed identity, track mapping,
-and provider-track policy. A local-order output can therefore remain unresolved
+and provider-track policy. Preserved or fallback positions can remain unresolved
 for strict edition-layout scoring even when the release ID is retained and all
 titles and credits are correct. Do not change reviewed provider positions to
 make local output numbering count as provider evidence. Artist-credit recovery

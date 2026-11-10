@@ -1,0 +1,155 @@
+{
+  "purpose": "Byte-identical historical tools and receipts; restore in a fresh evidence view before execution. Raw runtime data are local dependencies, not bundled.",
+  "files": [
+    {
+      "path": "content-preservation/compare-preceding.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/compare-preceding.py",
+      "sha256": "2934fe08ed05bb3594bc52dedd7f13a44aa4ea8c17df3b83c0200abff96052d4"
+    },
+    {
+      "path": "content-preservation/compare-v2.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/compare-v2.py",
+      "sha256": "167b09f3e2ca3d69c9f87cfde6a06dfe47fe3a96369dbf42f22482447072411e"
+    },
+    {
+      "path": "content-preservation/compare-v3.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/compare-v3.py",
+      "sha256": "85224ab05eecb55a505990f23ae6d540f7ddd6aaabe2399d816c561397bf83dc"
+    },
+    {
+      "path": "content-preservation/compare.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/compare.py",
+      "sha256": "31122fedd83ea01b3780890e1066606e9c10da9b90a260d6dadb64dc29f363ff"
+    },
+    {
+      "path": "content-preservation/field-audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/field-audit.py",
+      "sha256": "9027461eae21a625edffd08eea63bfd22c00dc54f1848b52ded84bff5cc28899"
+    },
+    {
+      "path": "content-preservation/field-contract.json",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/field-contract.json",
+      "sha256": "4d498f2160a85d9df65a1d7845836c9758581fceb276d7b58f97b8f97702788a"
+    },
+    {
+      "path": "content-preservation/preservation-audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/preservation-audit.py",
+      "sha256": "fd1bc50d21457bb7392960d94424a35049f86350ccdc749327da9c9c460c0d9e"
+    },
+    {
+      "path": "content-preservation/receipt-audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/receipt-audit.py",
+      "sha256": "51d6e739ff8051efb209209065c75d9ad935b5f4d25562b3b5dba31de6d59fd3"
+    },
+    {
+      "path": "content-preservation/test_comparison.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_comparison.py",
+      "sha256": "b5f6d99976c84e7541bcb94fa0256f796ae2309e60f206293791d370a6f13163"
+    },
+    {
+      "path": "content-preservation/test_comparison_v2.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_comparison_v2.py",
+      "sha256": "969a4d7392a8174db7eb5f14529c106e197b64c813b01d201d8e157b4ab225b8"
+    },
+    {
+      "path": "content-preservation/test_comparison_v3.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_comparison_v3.py",
+      "sha256": "083ffdef280015d3d7eb3d2eec52b4d6a50b560bd1e4d93222cdf71666c95721"
+    },
+    {
+      "path": "content-preservation/test_field_audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_field_audit.py",
+      "sha256": "c9f82ac06a443ea3df2257f921ada8c64c890df534686da023eba847165b83a9"
+    },
+    {
+      "path": "content-preservation/test_preceding_comparison.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_preceding_comparison.py",
+      "sha256": "05061488adbf37248d43e89fa8faf8009330c217c033a930aff4a94724b59f55"
+    },
+    {
+      "path": "content-preservation/test_preservation_audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_preservation_audit.py",
+      "sha256": "95347c491b95672dd3992f308d991eed8ca813dc8e1724b9a68e1c33b4b6b8dd"
+    },
+    {
+      "path": "content-preservation/test_receipt_audit.py",
+      "source": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/test_receipt_audit.py",
+      "sha256": "56c69ae6509ae91ba7d52dd51b4d0bc2a061abc476ead8c5a28ff448eceac49c"
+    },
+    {
+      "path": "export-comparison/compare.py",
+      "source": ".amp/in/artifacts/performer-evidence-export-20261109/compare.py",
+      "sha256": "bb694268237e18cd5a5c87d26e8ba7ac4e23b9791cd02da09a8054d59a31d3a1"
+    },
+    {
+      "path": "genre-gaps/audit.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/audit.py",
+      "sha256": "293d88943d7cacca204050e2c1847956385aaccf0beda7094cef35e7926c9cc4"
+    },
+    {
+      "path": "genre-gaps/construction-diff.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/construction-diff.py",
+      "sha256": "e1f68e630ee2607abfcf9f7f869f9d96adbcea59c28dab632c90a2e40800856c"
+    },
+    {
+      "path": "genre-gaps/exchange-summary.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/exchange-summary.py",
+      "sha256": "36e91cab5f9c19f529e7e07b401f84cb72b401e34bc45b937d462bbfaadad6fa"
+    },
+    {
+      "path": "genre-gaps/freeze.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/freeze.py",
+      "sha256": "0196c91d2f2e56440b28fca1113c82a7716f7b7aca664cd6f5ad849e1cc74a09"
+    },
+    {
+      "path": "genre-gaps/paired-hashes.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/paired-hashes.py",
+      "sha256": "0440ca340b275064e6e0df6196025d97f66ad8db0e2be0cdf9c4c78931012c5b"
+    },
+    {
+      "path": "genre-gaps/run.cjs",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/run.cjs",
+      "sha256": "47f5571355ae9041a19d09a5e6f21682211fdb26d0e0a1724e3d6d9eb34f6127"
+    },
+    {
+      "path": "genre-gaps/supplement.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/supplement.py",
+      "sha256": "6506b57673b6887118596c22c2de47c7c1559433df22d95fbe41e8b76000c270"
+    },
+    {
+      "path": "genre-gaps/test-audit.py",
+      "source": ".amp/in/artifacts/genre-ai-gaps-20261110/test-audit.py",
+      "sha256": "1b1aa0d93c9a7d4244a2ff588a9e6d75cbc5b9e2a8a4daeba90a8912b43c0d33"
+    },
+    {
+      "path": "genre-routing-v2/contract-correction.json",
+      "source": ".amp/in/artifacts/genre-ai-routing-contract-v2-20261110/contract-correction.json",
+      "sha256": "fd1f214245afa9fdb8036347924906f6332f67df8b87b12060e84962f1b74a3a"
+    },
+    {
+      "path": "genre-routing-v2/prepare-correction.py",
+      "source": ".amp/in/artifacts/genre-ai-routing-contract-v2-20261110/prepare-correction.py",
+      "sha256": "dd6338388440b31932e86fd691f81963d78bc19766a19a090b9f77d1fd968f66"
+    },
+    {
+      "path": "genre-routing-v2/test-contract.py",
+      "source": ".amp/in/artifacts/genre-ai-routing-contract-v2-20261110/test-contract.py",
+      "sha256": "b322f36fe828e5d332cb37ec67d6daffbf85d3fe6417f4eeac095aafe629ccb9"
+    },
+    {
+      "path": "independent-review/evidence-locks.json",
+      "source": ".amp/in/artifacts/desperado-relapse-independent-review-20261109/evidence-locks.json",
+      "sha256": "92b4eee868cd891281599bbf4a5da3dc89ce6ebee326e9c78895353301d72575"
+    },
+    {
+      "path": "independent-review/extract-evidence.py",
+      "source": ".amp/in/artifacts/desperado-relapse-independent-review-20261109/extract-evidence.py",
+      "sha256": "5b6840f72d60d5b8a9f5d9d1e5810949265cf1645ee8fac12c45a99918685ca3"
+    },
+    {
+      "path": "independent-review/review-receipt.json",
+      "source": ".amp/in/artifacts/desperado-relapse-independent-review-20261109/review-receipt.json",
+      "sha256": "d4e92139520c0fb5f7f11be092e0957354af48bd3806587c30f22df091b55d77"
+    }
+  ]
+}
