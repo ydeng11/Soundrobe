@@ -1,0 +1,450 @@
+{
+  "schemaVersion": 1,
+  "scope": "Originating runtime receipts and diagnostic-only single-primary correspondence; no authority consumer",
+  "baseCommit": "1c74c6c728f0a8ad87dc0a66de08dfd3fdabf5bd",
+  "implementationCommit": "acc5f675c1f1b792a0fd8e45e615515f8c846fd9",
+  "delivery": "Local commits only; no push",
+  "applicationSources": [
+    {
+      "path": "docs/CHANGELOG.md",
+      "sha256": "cef6c43b5cd9de229966fd00f93cc2f8cb21214f1f3b3ed2fea87ecbc0a1b545",
+      "bytes": 61720
+    },
+    {
+      "path": "src-tauri/src/commands/album_search.rs",
+      "sha256": "28d21abb81fd8d4cfe0eb9c08d5a1e372dc65a349815cf609ae3f5a50adfb91a",
+      "bytes": 74739
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "664ec6fe7e7087feeead79832e25b2f7841a6232b03bae3596706174de28ebb7",
+      "bytes": 456718
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_eval.rs",
+      "sha256": "6c5b2bbab96b13372bdd2c747944721f468761c7eb947295893e547978da9730",
+      "bytes": 162346
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_evidence.rs",
+      "sha256": "74ae2874ecd63306eb2762a9fa88eb18009bd948cafe61f384bd47583a774731",
+      "bytes": 35383
+    },
+    {
+      "path": "src-tauri/src/commands/mutations.rs",
+      "sha256": "f00f90d97d12cbb7b0951dd0938933545b57839ec34496f9555b02de3f791915",
+      "bytes": 293574
+    },
+    {
+      "path": "src-tauri/src/state/providers.rs",
+      "sha256": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4",
+      "bytes": 274825
+    },
+    {
+      "path": "src/shared/desktop-api.ts",
+      "sha256": "7801b76181b7bdf0825b69f2783f5c36328903545876eba9eb0c06119e5e9398",
+      "bytes": 20005
+    }
+  ],
+  "records": [
+    {
+      "path": ".planning/plans/runtime-artist-diagnostic-20261110.md",
+      "sha256": "763ba7f351a942797d26a7ca81d118321956deff86c5d9118306164a262865ab",
+      "bytes": 6343
+    },
+    {
+      "path": ".planning/research/runtime-artist-diagnostic-20261110.md",
+      "sha256": "3ce4b45d65f15299e6514175c954f7c941e7b5db71da5ad7230800666f566aa4",
+      "bytes": 17998
+    },
+    {
+      "path": ".planning/research/runtime-artist-diagnostic-independent-review-20261110.md",
+      "sha256": "28a155313ec9174e1814b75571fa5b99f7fdbf2c084905195dcdf21edc8feae5",
+      "bytes": 5836
+    }
+  ],
+  "tools": [
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/compare.py",
+      "sha256": "fa82243f0856707b269475021852d7b6decd21cf2b5b21400f3374d7c38014a2",
+      "bytes": 10211
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/audit.py",
+      "sha256": "074bbc3bd8cf244bf2bb1127806b08bf8c4056f872e65dae10d4fd1f484944e3",
+      "bytes": 4386
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py",
+      "sha256": "f7c5581c4b268a07fca0a9eebd678f59f25050f807d8761087a2f1ce179a3f95",
+      "bytes": 3698
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/selection.json",
+      "sha256": "52d64d85af711939abfbf83f6a3a8e257849680f0592863820f37b45ac94e852",
+      "bytes": 177
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/source-lock.json",
+      "sha256": "2c3d281fbf25b449ad9f6b37da0ab727db87a4f4b12accc3b68ef8144301fd90",
+      "bytes": 10515
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/guard-review.json",
+      "sha256": "dc817b7ab0636ecbd22c8744d97fd7891afd0f7eb197b6d816338c83ba348ecb",
+      "bytes": 5181
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/README.md",
+      "sha256": "e4e8ff11a1541d8384e4065ca7dad58048ba701a690601b757368081594b2ed5",
+      "bytes": 8817
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/compare.py",
+      "sha256": "037207d1ebaabfbf5dc355635c772ba175328b284a16aa60d9e8684a64e99d69",
+      "bytes": 8152
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/export-evidence.py",
+      "sha256": "91cefad3c1d780d65d3468f359ce2c3cb95d92fd8bf67d6b3301689ee73d04ad",
+      "bytes": 28686
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/field-audit.py",
+      "sha256": "9027461eae21a625edffd08eea63bfd22c00dc54f1848b52ded84bff5cc28899",
+      "bytes": 13209
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-rehearsal.cjs",
+      "sha256": "5fc62392fe2bac4d1f028e5e04b5be0330e56767861ce5d4e20fad169d2a5bdd",
+      "bytes": 5257
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_rehearsal.cjs",
+      "sha256": "2215874e24e02405efe99d4e973c0148846ffbe650535e1865cd4a6a3e1a6e33",
+      "bytes": 1663
+    },
+    {
+      "path": "scripts/mock-provider-service.cjs",
+      "sha256": "a17d209f0e1bed767469458565859dc81442cf721b73b764a4af5c8eaa9c69ff",
+      "bytes": 12990
+    }
+  ],
+  "authenticPositive": {
+    "body": {
+      "path": "test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json",
+      "sha256": "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a",
+      "bytes": 3580
+    },
+    "selector": "/artists/0",
+    "releaseId": "37231524",
+    "artistId": "2461941",
+    "canonicalName": "Crowd Lu",
+    "creditedName": "盧廣仲",
+    "newCaptureDuringDelivery": false
+  },
+  "reusedGate": {
+    "sourceArchiveFilesFreshlyVerified": 95,
+    "sourceArchive": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/final/source-final.tgz",
+      "sha256": "c2a175873c05bca69bc242ff0feea0f72b11e697814856bd69004fed1ab1c69b",
+      "bytes": 867455
+    },
+    "buildProfile": "server lib test; package soundrobe debug=0, incremental=false",
+    "serverLibraryPassed": 738,
+    "serverLibraryIgnored": 17,
+    "rendererPassed": 858,
+    "logs": [
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/server-final-retry.log",
+          "sha256": "132e5822cb4c989d06638465ce23ed54849cbe6eddeda20ea9e69ddf5ecd9cf3",
+          "bytes": 80250
+        },
+        "exitCode": 0
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/renderer-tools-final.log",
+          "sha256": "b3e26e2899a7e602207bdf3aab601f2c58cf1d9137d66aef8fd40c9ff9685fa8",
+          "bytes": 35478
+        },
+        "exitCode": 0
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/runtime-final-green.log",
+          "sha256": "caa236d8eb514bbd499fd04f99b36089bd70a422d1022a8021ab754973402f0e",
+          "bytes": 1351
+        },
+        "exitCode": 0
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/retention-final-green.log",
+          "sha256": "95b853733117bb24a34b2a3d1917329a7f3c8d4caeefc05cd5c03713c93c5285",
+          "bytes": 16468
+        },
+        "exitCode": 0
+      }
+    ],
+    "defaultJustCheckFresh": false,
+    "desktopFresh": false,
+    "packagedBridgeFresh": false
+  },
+  "freshDelivery": {
+    "nativeRuntimePassed": 6,
+    "nativeRetentionPassed": 5,
+    "nativeExecutableRebuilt": false,
+    "nativeExecutable": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/final/native-evaluator",
+      "sha256": "3e73a31fc0d8ab8790c6ba5433d1e216807e17ca16a9f93256ae5376332558a8",
+      "bytes": 105648368
+    },
+    "typecheck": true,
+    "portableControls": {
+      "runtimeComparator": 4,
+      "retentionComparator": 4,
+      "exporter": 18,
+      "fieldAudit": 4,
+      "scheduler": 4
+    },
+    "logs": [
+      {
+        "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/native.log",
+        "sha256": "a5ff40da161aa0d01d98faec23956a4836f1654a947e7a45fa4f7aa142cdbe28",
+        "bytes": 1108
+      },
+      {
+        "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/retention.log",
+        "sha256": "741b8271de8bf230c9323555c062422b8f742b3111329b3a18d522c33b976928",
+        "bytes": 16468
+      },
+      {
+        "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/typecheck.log",
+        "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2",
+        "bytes": 46
+      },
+      {
+        "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/tools.log",
+        "sha256": "9b87fe9ab6fcc8176c96af1d115bc86cf2e7250631ac96bbd4ce06fb3c3f7a3f",
+        "bytes": 833
+      },
+      {
+        "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/packaging-red.log",
+        "sha256": "bde6e69f9aa9e530518c84a2089ddd50cc4066e3c75b2329f67056f375eeb2a0",
+        "bytes": 1018
+      }
+    ],
+    "sourceCheck": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/source-check.json",
+      "sha256": "208225f28287e8dc18f8a2887ff50e5b13bfd7c2eb3680b239411f48556dd863",
+      "bytes": 127
+    },
+    "comparison": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/comparison.json",
+      "sha256": "4e243a498336184121b37920daa59fec7b0aeac374821c74f17c81af5988b868",
+      "bytes": 2649
+    },
+    "audit": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/audit.json",
+      "sha256": "0bfed5d295dfaeff98773eaeee9a3560c21e1184b540189bd81e887d3c1c2708",
+      "bytes": 3529
+    },
+    "completeComparisonEqualsHistorical": true,
+    "completeAuditEqualsHistorical": true,
+    "newTaggingEvaluations": 0,
+    "newProviderModelExchanges": 0,
+    "portableIsolatedToolsLog": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/portable-final.log",
+      "sha256": "dd73a8f7e8a853621d5b0a6ef99a6e6ce9d2ed76bc2b1115aa4df381efbac1bc",
+      "bytes": 944
+    },
+    "portableIsolationFailedAttempts": [
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/portable.log",
+          "sha256": "86aaed3f3da4b299c8f7afc580e9d1d0a4196f55ed0609e940a3e24350e7884b",
+          "bytes": 26252
+        },
+        "reason": "Scratch copy omitted tracked exporter corpus/receipts; eight comparator tests passed, eighteen exporter setup errors"
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-delivery-20261110/portable-green.log",
+          "sha256": "2c2dfc95149f9784bf501b7afd5981c60421e6fb4cc4f01a273a43d133c6158a",
+          "bytes": 2655
+        },
+        "reason": "Thirty Python controls passed; scratch copy omitted tracked mock-provider-service dependency, so Node import failed. Filename does not signify a green run."
+      }
+    ]
+  },
+  "retained": {
+    "manifest": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/evidence-manifest.json",
+      "sha256": "c82019b5594b1c710fa669ad8085273efaa9ed7c63992eaa870f2c5bd96e2733",
+      "bytes": 463774
+    },
+    "manifestBindings": 2003,
+    "finalPlan": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/final/replay/execution-plan.json",
+      "sha256": "65f5c398e5074b04aef2ae49614a903c76b75330d70cabc80dd52b2e8636036e",
+      "bytes": 336345
+    },
+    "historicalComparison": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/final/comparison.json",
+      "sha256": "4e243a498336184121b37920daa59fec7b0aeac374821c74f17c81af5988b868",
+      "bytes": 2649
+    },
+    "historicalAudit": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/final/audit.json",
+      "sha256": "0bfed5d295dfaeff98773eaeee9a3560c21e1184b540189bd81e887d3c1c2708",
+      "bytes": 3529
+    },
+    "failedAttempts": [
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/receipt-red.log",
+          "sha256": "f4510e1e264b34921220b9875ebf3dba540cb3520e0bbeda80fcd4670015e3e0",
+          "bytes": 950
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/diagnostic-red.log",
+          "sha256": "1974f47b465168988cbaac5215e46e4f32ab30430872bd3d351f5e5dafbba1ba",
+          "bytes": 1556
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/diagnostic-red-retry.log",
+          "sha256": "38f377fba2d66c72be6c9142f41d7dca2acb0052b1f56543313176d0429de40d",
+          "bytes": 1123
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/review-findings-red.log",
+          "sha256": "949826b738a1558ae7132ce9ffe6b30661954640b43630dc2a6d1fb24ea31bed",
+          "bytes": 2266
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/repeated-primary-red.log",
+          "sha256": "1761b984d476220920243529b78f6d0d2f19b1c2bfd1150bfe60afe7fdac8824",
+          "bytes": 1881
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/competing-entities-red.log",
+          "sha256": "4e15a700f1760e64006c59b21be7c3c02f6f1ca15dc6202e2e2ffe583eb990e0",
+          "bytes": 1885
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/spaced-primary-red.log",
+          "sha256": "8258dbca2f949bedfd6b53c5e052487e594283b2c16f0261382921bf72cedd3b",
+          "bytes": 1113
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/id3-primary-red.log",
+          "sha256": "59da5e22efb057f6bd265de5b39c85c7a2f94399526caf353e95b73b7680263f",
+          "bytes": 4880
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/id3-primary-red-retry.log",
+          "sha256": "9efeccc3fe273d0ff2889b4c4130dd134d503c4785eedc766af0ff62a50fdbc9",
+          "bytes": 1038
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/id3-primary-red-corrected-construction.log",
+          "sha256": "f22e3ccd714e78ec38231197dc1eba298237643f9cf2d2b6cc00c55c0f5748d0",
+          "bytes": 1093
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/runtime-targeted.log",
+          "sha256": "cba026ef3343cd221557d0e8b6eaddcc76ec9af60c1fe65a8ee231b11227f710",
+          "bytes": 19567
+        },
+        "exitCode": 101
+      },
+      {
+        "log": {
+          "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/server-final.log",
+          "sha256": "0661a47441ea27ab9bf370f533c7a424a71d2ff1ef4500fafb01f781ce9edd7d",
+          "bytes": 97291
+        },
+        "exitCode": 101
+      }
+    ],
+    "failedReplayLog": {
+      "path": ".amp/in/artifacts/runtime-artist-diagnostic-20261110/replay.log",
+      "sha256": "b7580a73d94ddc60f89c2ca9192db98d3e28b0dace12dac439ee43c6a68062ec",
+      "bytes": 744
+    },
+    "failedReplayDriverExit": 1,
+    "failedReplayNote": "Two inventory disk failures and later source-lock mismatch; driver exit alone is not acceptance",
+    "originalHelpers": [
+      {
+        "path": ".planning/plans/runtime-artist-diagnostic-20261110/compare.py",
+        "sha256": "1035e28c4686ff89aeea9f735cc2dc7701327efd7b8af808ef2ad720456801ce",
+        "bytes": 10211
+      },
+      {
+        "path": ".planning/plans/runtime-artist-diagnostic-20261110/test_comparison.py",
+        "sha256": "f7c5581c4b268a07fca0a9eebd678f59f25050f807d8761087a2f1ce179a3f95",
+        "bytes": 3698
+      },
+      {
+        "path": ".planning/plans/runtime-artist-diagnostic-20261110/audit.py",
+        "sha256": "30e5b8f7d77b8cd529b059f1a4531fada0f1b1ae4bf1c923b8699fce54cd7299",
+        "bytes": 4490
+      }
+    ]
+  },
+  "comparison": {
+    "evaluationsPerArm": 6,
+    "uniqueGeneratedInputs": 11,
+    "repeatedTrackObservationsPerArm": 66,
+    "providerExchangesPerArm": 52,
+    "modelExchanges": 0,
+    "misses": 0,
+    "recoveryMissingGenresPerPhase": 11,
+    "sourceFindingsPerArm": 4,
+    "historical84FindingsChanged": false,
+    "overallSafetyClean": false,
+    "groundedAssistanceAccuracyCredit": 0,
+    "aggregate": "insufficient",
+    "writableDelta": [],
+    "acceptedCertificate": false
+  },
+  "limits": [
+    "Exact historical replay requires retained local data, plans, binaries, caches, certificates and generated media; unavailable from fresh clone alone.",
+    "Hashes establish consistency, not freshness, catalog truth, provider-host attestation or protection against coordinated replacement.",
+    "Ordinary bounded FLAC/Vorbis completeness only; not atomic; joint-primary/scoped-ID/user-decision/broader-normalization policies unsupported.",
+    "Homonym checks cover available individually supported trace assertions, not exhaustive or cross-provider identity.",
+    "Missing durations, acoustic/version/title/album/edition and collaborator certification remain unresolved; mocked invoke is not packaged proof."
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "profiles": [
+    "folder_filename",
+    "assisted_without_ids",
+    "tagged_recovery"
+  ],
+  "cases": [
+    {
+      "caseId": "036e0a00e45b",
+      "tracks": 11
+    }
+  ]
+}
