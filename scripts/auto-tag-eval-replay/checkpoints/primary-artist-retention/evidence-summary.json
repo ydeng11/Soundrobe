@@ -1,0 +1,319 @@
+{
+  "scope": "Evidence retention only; no identity diagnostic, accepted alias, eligibility or write authority",
+  "baseCheckpoint": "e9edf1c0086cc60ffffcea6e5970d4b90ae27327",
+  "implementationCommit": "49ab739bf77617d4dc948c397697e6fedd28e98f",
+  "applicationSources": [
+    {
+      "path": "src-tauri/src/state/providers.rs",
+      "sha256": "ff84dee531daab3aaf5b221fc2af761194402638e716970e09f7c8b13cdb02fc",
+      "bytes": 266118
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "fcef549d4036649a24ef2413d13fc39c9fdd0899872b7dcd004058c5d0ee9a38",
+      "bytes": 455214
+    },
+    {
+      "path": "src-tauri/src/commands/album_search.rs",
+      "sha256": "44f6da169b418ae941663378878ad5b9ad9be870ebe476029cbfd3ca6906ab62",
+      "bytes": 74459
+    },
+    {
+      "path": "src/shared/desktop-api.ts",
+      "sha256": "ceff7a62423ae14242aebe0687d2407a6fbb0677fc027f861568fe94e925b25c",
+      "bytes": 19569
+    }
+  ],
+  "sourceObservation": {
+    "body": {
+      "path": "test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json",
+      "sha256": "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a",
+      "bytes": 3580
+    },
+    "selector": "artists[0]",
+    "rawPrimaryCredit": {
+      "id": 2461941,
+      "name": "Crowd Lu",
+      "anv": "盧廣仲"
+    },
+    "newCaptureMade": false
+  },
+  "nativeWire": {
+    "path": "test/fixtures/tauri/discogs-primary-artist-native-wire.json",
+    "sha256": "5134a75273e887fd9dc16e6fa8837d3529766804bf286130b60427a096bd7866",
+    "bytes": 7094
+  },
+  "reusedBroadGate": {
+    "command": "just --no-dotenv check",
+    "exitCode": 0,
+    "log": {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/check.log",
+      "sha256": "bcab5bbc39b81dfa1f103267b4bdae51e604b9596346ab1cb874dd51f8ef67b8",
+      "bytes": 252269
+    },
+    "sameApplicationSource": true,
+    "rendererTestsAtGate": 856,
+    "desktopLibraryPassed": 1269,
+    "serverLibraryPassed": 735,
+    "ignored": {
+      "desktopLibrary": 29,
+      "serverLibrary": 17,
+      "mediaEvidence": 12
+    },
+    "freshFullBroadGateDuringDelivery": false
+  },
+  "freshDeliveryChecks": {
+    "native-green": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/native-green.log",
+        "sha256": "aebce3b1a20b8f5b611646aa7ac01913384776765fedcdb3d364b94531c8a8fe",
+        "bytes": 7912
+      },
+      "exitCode": 0,
+      "testsPassed": 5
+    },
+    "web": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/web.log",
+        "sha256": "0c8a4a73a85116e3491907236e52d17a3ae71960a4ff6d7f4ea741741d6163f3",
+        "bytes": 31384
+      },
+      "exitCode": 0,
+      "testsPassed": 858
+    },
+    "typecheck": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/typecheck.log",
+        "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2",
+        "bytes": 46
+      },
+      "exitCode": 0,
+      "testsPassed": null
+    },
+    "scheduler": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/scheduler.log",
+        "sha256": "243bcc653bb5304d80cecc8aeae8c794b60a5b6d5078833a335cb4287a305e6c",
+        "bytes": 403
+      },
+      "exitCode": 0,
+      "testsPassed": 4
+    },
+    "comparator-tests": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/comparator-tests.log",
+        "sha256": "56e03afda220e7ba78bbcecf9a2e53a0149cfc3e311fa10bbd01b25e8e5ba671",
+        "bytes": 102
+      },
+      "exitCode": 0,
+      "testsPassed": 4
+    },
+    "exporter": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/exporter.log",
+        "sha256": "1cb9d13a6a431e9c6e0d1c16de8001ff41a515f79f2524cd0c5e02b63436da37",
+        "bytes": 117
+      },
+      "exitCode": 0,
+      "testsPassed": 18
+    },
+    "safety": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/safety.log",
+        "sha256": "698d16d7b93c4bd9707d3cfacda6fb1e0fea99ed0cda6e69bedc42772940540a",
+        "bytes": 106
+      },
+      "exitCode": 0,
+      "testsPassed": 8
+    },
+    "field": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/field.log",
+        "sha256": "e6ec182765cd965f2837d8eeaef5a64af48a104f245cd1a0b7281559194c57c1",
+        "bytes": 102
+      },
+      "exitCode": 0,
+      "testsPassed": 4
+    },
+    "preservation": {
+      "log": {
+        "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/preservation.log",
+        "sha256": "888a0c0ed615e57d32cf72be501b0c355f33b8613c81dfdaa99db33d7959487e",
+        "bytes": 103
+      },
+      "exitCode": 0,
+      "testsPassed": 5
+    }
+  },
+  "deliveryAdapterRed": {
+    "log": {
+      "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/adapter-red.log",
+      "sha256": "d381bfaf71e81c6c5848bf11c3cb94c95dfb05397412ce6212143866f69b5bfd",
+      "bytes": 11349
+    },
+    "exitCode": 1,
+    "failed": 2,
+    "passed": 82,
+    "input": {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/red-wire.json",
+      "sha256": "b50d58faf89b1ff5c555929cc1a6ebe68bb8fcc8be17343b12f962202f20a974",
+      "bytes": 7100
+    }
+  },
+  "comparison": {
+    "historicalResult": {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/comparison.json",
+      "sha256": "b37864035f47cd79902d21325e7a6ef89d7af92a8982b7d2235946dc8b987675",
+      "bytes": 5849
+    },
+    "deliveryReanalysis": {
+      "path": ".amp/in/artifacts/primary-artist-retention-delivery-20261110/comparison.json",
+      "sha256": "b37864035f47cd79902d21325e7a6ef89d7af92a8982b7d2235946dc8b987675",
+      "bytes": 5849
+    },
+    "completeResultsEqual": true,
+    "predicateAstUnchangedAfterConstantQualification": true,
+    "evaluationsPerArm": 6,
+    "fileObservationsPerArm": 66,
+    "uniqueGeneratedInputs": 11,
+    "profiles": [
+      {
+        "profile": "folder_filename",
+        "providerRequests": 16,
+        "modelRequests": 0,
+        "fixtureMisses": 0,
+        "writtenPerPhase": [
+          11,
+          11
+        ],
+        "emptyGenresPerPhase": [
+          0,
+          0
+        ]
+      },
+      {
+        "profile": "assisted_without_ids",
+        "providerRequests": 16,
+        "modelRequests": 0,
+        "fixtureMisses": 0,
+        "writtenPerPhase": [
+          11,
+          11
+        ],
+        "emptyGenresPerPhase": [
+          0,
+          0
+        ]
+      },
+      {
+        "profile": "tagged_recovery",
+        "providerRequests": 20,
+        "modelRequests": 0,
+        "fixtureMisses": 0,
+        "writtenPerPhase": [
+          11,
+          11
+        ],
+        "emptyGenresPerPhase": [
+          11,
+          11
+        ]
+      }
+    ],
+    "newMatrixExecutionsDuringDelivery": 0,
+    "overallSafetyClean": false,
+    "sourceFindingsPerArm": 4,
+    "historical84FindingsChanged": false,
+    "export": {
+      "decision": "insufficient",
+      "acceptedCertificate": false,
+      "writableDelta": []
+    }
+  },
+  "executablesSha256": {
+    "preRetention": "69452eb3021d8c2f215a8e45e3b416ec0bd47a8d70221d7b95bc033ef5ac6388",
+    "initialRetention": "add2754fa54176d54b8f857d346f951e700d45ce95ab38cc5bcfdc25a6c61cfb",
+    "correctedRetention": "6fdbf49d0e16c662920581577432db3e6588a201997ddfce28ac374651b60d30"
+  },
+  "sourceArchives": [
+    {
+      "path": ".amp/in/artifacts/reviewed-51-content-preservation-20261110/source.tgz",
+      "sha256": "ee38c6c50b9726a2a47e3cc3eaaaf07c1640086c17d2d6de9e77aab0c3ed00a4",
+      "bytes": 65239747
+    },
+    {
+      "path": ".amp/in/artifacts/primary-artist-variants-20261110/after/source.tgz",
+      "sha256": "2ead101ecf51523afd53625971fa94fb84dc7465484c3db37661a185bf96758a",
+      "bytes": 831714
+    },
+    {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/source-final.tgz",
+      "sha256": "7286aad079dece6ed4237639fca9f99b031df36f1d48f28ce1d27cacfb9a269d",
+      "bytes": 866256
+    }
+  ],
+  "historicalTools": [
+    {
+      "path": ".planning/plans/compare-primary-artist-variants-20261110.py",
+      "sha256": "d7a983cbe050cd3fca24597fbd7a3031aa2a5e390b3f8610bce2ec0426b4f88f",
+      "bytes": 9470
+    },
+    {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/compare.py",
+      "sha256": "3e244d3678614726167f1e817bae346df0bdea2c530abff3fc997e4e8aa9b9cc",
+      "bytes": 7791
+    },
+    {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/test_comparison.py",
+      "sha256": "361a3ee3582963fc1475f9fa62a50427f02777591f16000faa90f3d6b4475081",
+      "bytes": 2612
+    }
+  ],
+  "deliveryTools": [
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/compare.py",
+      "sha256": "037207d1ebaabfbf5dc355635c772ba175328b284a16aa60d9e8684a64e99d69",
+      "bytes": 8152
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/test_comparison.py",
+      "sha256": "35f9045552af3fd58050849e57d2501c4912ecdbd4336462eaaa6f6107622f07",
+      "bytes": 3220
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-rehearsal.cjs",
+      "sha256": "5fc62392fe2bac4d1f028e5e04b5be0330e56767861ce5d4e20fad169d2a5bdd",
+      "bytes": 5257
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_rehearsal.cjs",
+      "sha256": "2215874e24e02405efe99d4e973c0148846ffbe650535e1865cd4a6a3e1a6e33",
+      "bytes": 1663
+    }
+  ],
+  "retainedManifests": [
+    {
+      "path": ".amp/in/artifacts/primary-artist-variants-20261110/evidence-manifest.json",
+      "sha256": "972bb2f8854c5704622b9897851feacb6b9c0fb7b3ca3dcdd9034346294765b4",
+      "bytes": 486009
+    },
+    {
+      "path": ".amp/in/artifacts/primary-artist-retention-corrections-20261110/evidence-manifest.json",
+      "sha256": "31b28e83a4e1dffbc7c16cce130315fab20f6d0b8a9b12b77bb9ff639ed4761e",
+      "bytes": 439568
+    }
+  ],
+  "independentReview": {
+    "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/independent-spec-review.md",
+    "sha256": "397b749c204134e6c4e7deedc09e4344b8feaef9b11614dfa044c6b22ef73055",
+    "bytes": 2769
+  },
+  "reproductionLimits": [
+    "Portable tests need tracked fixtures and normal repository dependencies, not ignored helpers.",
+    "Exact paired reanalysis requires retained local raw inputs, plans, binaries, caches, certificates, receipts and generated-media bindings.",
+    "No fresh-clone exact historical replay or public raw-evidence download is provided.",
+    "Ordinary runtime/cache association with originating HTTP receipts remains unresolved.",
+    "Master-route and one-track construction controls are synthetic; mocked invoke is not packaged bridge proof.",
+    "Missing duration, acoustic qualifier, title/album/credit and edition certification remain findings."
+  ]
+}

@@ -179,3 +179,8 @@ UI Keep interaction uses a component stub, not packaged acknowledgment.
 
 The [current feedback record](../../../docs/tagging-feedback-status.md) links
 the detailed reports, original failures, independent review, and proposal.
+
+The [primary-artist retention checkpoint](primary-artist-retention/README.md)
+adds evidence-only provider/candidate/wire regressions and a bounded replay
+comparison. It does not change identity or donor authority. Its receipt separates
+portable contract checks from exact reanalysis requiring retained local evidence.
