@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import nativeCandidateWire from "../fixtures/tauri/discogs-primary-artist-native-wire.json";
 
 // Mock the Tauri runtime surface so the adapter is exercised without a real
 // webview. The captured `invoke`/`listen` calls are the contract under test.
@@ -142,6 +143,23 @@ describe("tauri-adapter channel parity", () => {
             ? undefined
             : args;
       expect(payload).toEqual(expected);
+    },
+  );
+
+  it.each(["manual", "automatic"] as const)(
+    "retains %s native primary-credit observations across the bridge contract",
+    async (kind) => {
+      // Actual Rust candidate JSON, not a hand-written camel-case response.
+      // Invoke is mocked here; this is not a packaged webview round-trip.
+      const expected = [{ releaseId: "37231524", artistIndex: 0, artistId: "2461941",
+        canonicalName: "Crowd Lu", creditedName: "盧廣仲" }];
+      invokeMock.mockResolvedValueOnce(nativeCandidateWire[kind]);
+      const candidate = await api.resolveRelease("discogs", "37231524");
+      expect(candidate?.discogsArtistNameVariants).toEqual(expected);
+      if (!candidate) throw new Error("Native candidate missing");
+      await api.searchApplyCandidate("/synthetic-contract-only", candidate, [0]);
+      expect(invokeMock.mock.calls.at(-1)?.[1].request.candidate.discogsArtistNameVariants)
+        .toEqual(expected);
     },
   );
 

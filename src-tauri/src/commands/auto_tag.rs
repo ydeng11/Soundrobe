@@ -395,6 +395,13 @@ pub struct AlbumCandidate {
     pub album_artist: Option<String>,
     #[serde(default)]
     pub album_artists: Vec<String>,
+    #[serde(
+        default,
+        rename = "discogsArtistNameVariants",
+        alias = "discogs_artist_name_variants",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub discogs_artist_name_variants: Vec<crate::state::providers::DiscogsArtistNameVariant>,
     pub year: Option<String>,
     pub genre: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1040,6 +1047,7 @@ pub fn merge_candidate_fields(candidates: Vec<AlbumCandidate>) -> Vec<AlbumCandi
     let mut merged = AlbumCandidate {
         source: preferred.source,
         verification: preferred.verification.clone(),
+        discogs_artist_name_variants: preferred.discogs_artist_name_variants.clone(),
         year: provider_year,
         ..AlbumCandidate::default()
     };
@@ -1618,6 +1626,7 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
         album: Some(album.title),
         album_artist: artist,
         album_artists: album.artists,
+        discogs_artist_name_variants: album.discogs_artist_name_variants,
         year: album.year,
         genre: album.genre,
         country: album.country,
@@ -2475,6 +2484,7 @@ fn album_content_candidate(
             tracks,
             source: selected.source,
             verification: Some("album_content".into()),
+            discogs_artist_name_variants: selected.discogs_artist_name_variants,
             musicbrainz_artist_id: request.musicbrainz_artist_id.clone(),
             discogs_artist_id: request.discogs_artist_id.clone(),
             ..Default::default()
@@ -11082,6 +11092,70 @@ mod tests {
             Some("e01b7fc8-7ead-3ee0-afbf-daabef5f0d04")
         );
         assert_eq!(selected.discogs_release_id.as_deref(), Some("1521689"));
+    }
+
+    #[test]
+    fn album_content_retains_only_representative_primary_variants() {
+        // Synthetic one-track candidates exercise content construction, not
+        // complete-content certification of either real release.
+        let request = LookupRequest {
+            artist_hint: Some("盧廣仲".into()),
+            artist_aliases: vec!["Crowd Lu".into()],
+            album_hint: Some("勵志論".into()),
+            discogs_release_id: Some("local-edition-claim".into()),
+            tracks: vec![TrackCandidate {
+                length: Some(62.0),
+                ..track("Intro", "盧廣仲")
+            }],
+            ..Default::default()
+        };
+        let candidates = ["37231524", "37230261"].map(|id| AlbumCandidate {
+            artist: Some("Crowd Lu".into()),
+            album: Some("勵志論".into()),
+            source: LookupSource::Discogs,
+            discogs_release_id: Some(id.into()),
+            discogs_artist_name_variants: vec![crate::state::providers::DiscogsArtistNameVariant {
+                release_id: id.into(),
+                artist_index: 0,
+                artist_id: "2461941".into(),
+                canonical_name: "Crowd Lu".into(),
+                credited_name: "盧廣仲".into(),
+            }],
+            tracks: vec![TrackCandidate {
+                length: Some(62.0),
+                musicbrainz_track_id: Some("recording-claim".into()),
+                ..track("Intro", "Crowd Lu")
+            }],
+            ..Default::default()
+        });
+        let attempts = [ProviderAttempt {
+            provider: "discogs",
+            status: ProviderAttemptStatus::Matched,
+            diagnostic: None,
+            retry_count: 0,
+            retry_after_seconds: None,
+            retryable: false,
+        }];
+        for candidates in [candidates.to_vec(), candidates.into_iter().rev().collect()] {
+            let (basic, diagnostic) = album_content_candidate(&request, &candidates, &attempts)
+                .unwrap()
+                .expect("compatible content representative");
+            assert_eq!(diagnostic["representativeReleaseId"], "37230261");
+            assert_eq!(
+                basic.discogs_artist_name_variants,
+                candidates
+                    .iter()
+                    .find(|c| c.discogs_release_id.as_deref() == Some("37230261"))
+                    .unwrap()
+                    .discogs_artist_name_variants
+            );
+            assert_eq!(basic.discogs_artist_name_variants.len(), 1);
+            assert!(basic.discogs_release_id.is_none());
+            assert!(basic.musicbrainz_album_id.is_none());
+            assert!(basic.tracks[0].musicbrainz_track_id.is_none());
+            assert_eq!(basic.verification.as_deref(), Some("album_content"));
+            assert_eq!(basic.album_artist.as_deref(), Some("盧廣仲"));
+        }
     }
 
     #[test]

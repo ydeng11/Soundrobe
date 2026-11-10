@@ -321,12 +321,22 @@ export interface ProviderTrack {
   length?: number;
 }
 
+/** Raw primary-credit observation, not an accepted artist alias or certificate. */
+export interface DiscogsArtistNameVariant {
+  releaseId: string;
+  artistIndex: number;
+  artistId: string;
+  canonicalName: string;
+  creditedName: string;
+}
+
 export interface ProviderAlbum {
   id: string;
   title: string;
   artist?: string;
   artists: string[];
   artistId?: string;
+  discogsArtistNameVariants?: DiscogsArtistNameVariant[];
   year?: string;
   genre?: string;
   tracks: ProviderTrack[];
@@ -338,6 +348,7 @@ export interface AlbumCandidate {
   album?: string;
   albumArtist?: string;
   albumArtists: string[];
+  discogsArtistNameVariants?: DiscogsArtistNameVariant[];
   year?: string;
   genre?: string;
   musicbrainzAlbumId?: string;

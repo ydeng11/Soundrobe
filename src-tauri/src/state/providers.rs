@@ -456,6 +456,18 @@ pub struct ProviderTrack {
     pub length: Option<f64>,
 }
 
+/// Raw Discogs release `artists[artist_index]` observation, not an accepted alias.
+/// Release/artist IDs bind the pair; capture provenance remains on the HTTP receipt.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiscogsArtistNameVariant {
+    pub release_id: String,
+    pub artist_index: usize,
+    pub artist_id: String,
+    pub canonical_name: String,
+    pub credited_name: String,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderAlbum {
@@ -466,6 +478,8 @@ pub struct ProviderAlbum {
     pub artist: Option<String>,
     pub artists: Vec<String>,
     pub artist_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub discogs_artist_name_variants: Vec<DiscogsArtistNameVariant>,
     pub year: Option<String>,
     pub genre: Option<String>,
     #[serde(default)]
@@ -1888,6 +1902,7 @@ fn parse_musicbrainz_release(
         artist,
         artists,
         artist_id,
+        discogs_artist_name_variants: Vec::new(),
         year: value
             .get("date")
             .and_then(serde_json::Value::as_str)
@@ -2094,10 +2109,41 @@ fn discogs_track_count(value: &serde_json::Value) -> Option<u32> {
     (count > 0).then_some(count)
 }
 
-fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option<ProviderAlbum> {
+fn parse_discogs_release(
+    value: &serde_json::Value,
+    fallback_id: &str,
+    resource_kind: Option<&str>,
+) -> Option<ProviderAlbum> {
     let title = value.get("title")?.as_str()?.to_string();
     let artists = discogs_artists(value.get("artists"), None);
     let artist = artist_display_name(&artists, None);
+    let discogs_artist_name_variants = positive_integer(value.get("id"))
+        .map(|id| id.to_string())
+        .filter(|id| resource_kind == Some("release") && id == fallback_id)
+        .into_iter()
+        .flat_map(|release_id| {
+            value
+                .get("artists")
+                .and_then(serde_json::Value::as_array)
+                .into_iter()
+                .flatten()
+                .enumerate()
+                .filter_map(move |(artist_index, credit)| {
+                    let canonical_name = credit.get("name")?.as_str()?;
+                    let credited_name = credit.get("anv")?.as_str()?;
+                    if canonical_name.trim().is_empty() || credited_name.trim().is_empty() {
+                        return None;
+                    }
+                    Some(DiscogsArtistNameVariant {
+                        release_id: release_id.clone(),
+                        artist_index,
+                        artist_id: positive_integer(credit.get("id"))?.to_string(),
+                        canonical_name: canonical_name.into(),
+                        credited_name: credited_name.into(),
+                    })
+                })
+        })
+        .collect();
     let raw_tracks = value
         .get("tracklist")
         .and_then(serde_json::Value::as_array)
@@ -2199,6 +2245,7 @@ fn parse_discogs_release(value: &serde_json::Value, fallback_id: &str) -> Option
         disambiguation: None,
         artist,
         artists,
+        discogs_artist_name_variants,
         artist_id: value
             .get("artists")
             .and_then(serde_json::Value::as_array)
@@ -2608,7 +2655,7 @@ impl DiscogsClient {
         let release: serde_json::Value = self
             .get_json_result(&format!("releases/{release_id}"))
             .await?;
-        parse_discogs_release(&release, release_id)
+        parse_discogs_release(&release, release_id, Some("release"))
             .ok_or_else(|| format!("Discogs release could not be parsed: {release_id}"))
     }
 
@@ -2670,7 +2717,7 @@ impl DiscogsClient {
     /// structure as a release for our purposes (title, artists, tracklist).
     pub async fn master_metadata(&self, master_id: &str) -> Option<ProviderAlbum> {
         let master: serde_json::Value = self.get_json(&format!("masters/{master_id}")).await?;
-        parse_discogs_release(&master, master_id)
+        parse_discogs_release(&master, master_id, Some("master"))
     }
 
     pub async fn search_album(
@@ -2745,12 +2792,13 @@ impl DiscogsClient {
                 format!("releases/{}", summary.id)
             };
             let detail = self.get_json_result::<serde_json::Value>(&path).await?;
-            let album = parse_discogs_release(&detail, &summary.id).ok_or_else(|| {
-                format!(
-                    "Discogs release response could not be parsed: {}",
-                    summary.id
-                )
-            })?;
+            let album = parse_discogs_release(&detail, &summary.id, summary.kind.as_deref())
+                .ok_or_else(|| {
+                    format!(
+                        "Discogs release response could not be parsed: {}",
+                        summary.id
+                    )
+                })?;
             albums.push(album);
         }
         if albums.is_empty() {
@@ -2807,9 +2855,11 @@ impl DiscogsClient {
                             albums.push(self.release_metadata_result(&main_id.to_string()).await?);
                             continue;
                         }
-                        if let Some(detail) =
-                            parse_discogs_release(&detail, &release_id.to_string())
-                        {
+                        if let Some(detail) = parse_discogs_release(
+                            &detail,
+                            &release_id.to_string(),
+                            Some(search_type),
+                        ) {
                             albums.push(detail);
                             continue;
                         }
@@ -2828,6 +2878,7 @@ impl DiscogsClient {
                 artist: artist_display_name(&artists, Some(result_artist)),
                 artists,
                 artist_id: None,
+                discogs_artist_name_variants: Vec::new(),
                 year: result.get("year").and_then(|year| {
                     year.as_u64()
                         .map(|year| year.to_string())
@@ -5301,7 +5352,7 @@ mod tests {
         ]});
         assert_eq!(discogs_track_count(&discogs), Some(2));
         assert_eq!(
-            parse_discogs_release(&discogs, "fallback")
+            parse_discogs_release(&discogs, "fallback", Some("release"))
                 .unwrap()
                 .tracks
                 .len(),
@@ -5332,6 +5383,277 @@ mod tests {
         );
         assert!(requests.recv().unwrap().contains("/releases/42"));
         assert!(requests.recv().unwrap().contains("/masters/42"));
+    }
+
+    #[tokio::test]
+    async fn discogs_primary_variants_require_concrete_release_route() {
+        // Synthetic resource-kind control using the authentic release body.
+        // The master route is real; this body is not a captured master assertion.
+        fn route(_: &str, _: &str) -> (&'static str, String, &'static str) {
+            ("200 OK", include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json").into(), "application/json")
+        }
+        let (base, requests) = server(2, route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        let master = client.master_metadata("37231524").await.unwrap();
+        let release = client.release_metadata_result("37231524").await.unwrap();
+        assert!(requests.recv().unwrap().contains("/masters/37231524"));
+        assert!(requests.recv().unwrap().contains("/releases/37231524"));
+        assert_eq!(master.title, release.title);
+        assert_eq!(master.tracks, release.tracks);
+        assert!(
+            master.discogs_artist_name_variants.is_empty(),
+            "equal numeric IDs in different resource namespaces cannot bind a concrete release"
+        );
+        assert_eq!(release.discogs_artist_name_variants.len(), 1);
+        let raw = serde_json::from_str(&route("", "").1).unwrap();
+        for kind in [None, Some("search"), Some("unknown")] {
+            assert!(parse_discogs_release(&raw, "37231524", kind)
+                .unwrap()
+                .discogs_artist_name_variants
+                .is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn discogs_primary_variants_survive_candidates_and_cache_without_alias_authority() {
+        use crate::commands::{album_search, auto_tag};
+        use crate::state::sqlite::CacheState;
+        use serde_json::json;
+        use sha2::Digest;
+
+        fn route(_: &str, _: &str) -> (&'static str, String, &'static str) {
+            ("200 OK", include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json").into(), "application/json")
+        }
+        let raw = route("", "").1;
+        assert_eq!(
+            format!("{:x}", sha2::Sha256::digest(raw.as_bytes())),
+            "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a"
+        );
+        let (base, _) = server(1, route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        let album = client.release_metadata_result("37231524").await.unwrap();
+        let expected = json!([{"releaseId":"37231524", "artistIndex":0,
+            "artistId":"2461941", "canonicalName":"Crowd Lu", "creditedName":"盧廣仲"}]);
+        let observed = serde_json::to_value(&album).unwrap();
+        assert_eq!(
+            observed["discogsArtistNameVariants"], expected,
+            "the fetched primary credit must remain paired, not become an accepted alias"
+        );
+        assert_eq!(album.artist.as_deref(), Some("Crowd Lu"));
+        let automatic = auto_tag::discogs_candidate(album.clone());
+        let manual = album_search::discogs_candidate(album.clone());
+        println!(
+            "VARIANT_WIRE:{}",
+            json!({"automatic":automatic, "manual":manual})
+        );
+        assert_eq!(
+            serde_json::to_value(&automatic).unwrap()["discogsArtistNameVariants"],
+            expected
+        );
+        assert_eq!(
+            serde_json::to_value(&manual).unwrap()["discogsArtistNameVariants"],
+            expected
+        );
+        let converted = auto_tag::convert_candidate_chinese(&automatic, Some("simplified"));
+        assert_eq!(
+            serde_json::to_value(converted).unwrap()["discogsArtistNameVariants"],
+            expected,
+            "raw observations must not be converted as display text"
+        );
+        let preferred = auto_tag::musicbrainz_candidate(ProviderAlbum {
+            id: "independent-mb-release".into(),
+            artist: Some("盧廣仲".into()),
+            ..ProviderAlbum::default()
+        });
+        let merged = auto_tag::merge_candidate_fields(vec![preferred, automatic.clone()]);
+        assert!(
+            serde_json::to_value(&merged[0])
+                .unwrap()
+                .get("discogsArtistNameVariants")
+                .is_none(),
+            "a preferred MusicBrainz candidate must not inherit another candidate's observations"
+        );
+        assert_eq!(
+            serde_json::to_value(&merged[1]).unwrap()["discogsArtistNameVariants"],
+            expected
+        );
+
+        let root =
+            std::env::temp_dir().join(format!("soundrobe-variant-cache-{}", uuid::Uuid::new_v4()));
+        let path = root.join("cache.db");
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(path.to_str().unwrap())));
+        cache
+            .set_release_detail("discogs-v4", "37231524", &observed)
+            .unwrap();
+        cache
+            .set_lookup(
+                "variant",
+                &json!({}),
+                &serde_json::to_value(&automatic).unwrap(),
+                "discogs",
+            )
+            .unwrap();
+        for (key, candidate) in [
+            ("old-auto", serde_json::to_value(&automatic).unwrap()),
+            ("old-manual", serde_json::to_value(&manual).unwrap()),
+        ] {
+            let mut legacy = candidate;
+            let pair = legacy
+                .as_object_mut()
+                .unwrap()
+                .remove("discogsArtistNameVariants")
+                .unwrap();
+            legacy["discogs_artist_name_variants"] = pair;
+            cache
+                .set_lookup(key, &json!({}), &legacy, "discogs")
+                .unwrap();
+            legacy
+                .as_object_mut()
+                .unwrap()
+                .remove("discogs_artist_name_variants");
+            cache
+                .set_lookup(&format!("{key}-empty"), &json!({}), &legacy, "discogs")
+                .unwrap();
+        }
+        drop(cache);
+        let cache = CacheState::new(root.clone());
+        assert!(cache.initialize(Some(path.to_str().unwrap())));
+        let restored: ProviderAlbum =
+            serde_json::from_value(cache.release_detail("discogs-v4", "37231524").unwrap())
+                .unwrap();
+        assert_eq!(
+            serde_json::to_value(restored).unwrap()["discogsArtistNameVariants"],
+            expected
+        );
+        let restored: auto_tag::AlbumCandidate =
+            serde_json::from_value(cache.lookup("variant").unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_value(restored).unwrap()["discogsArtistNameVariants"],
+            expected
+        );
+        for (key, populated) in [
+            ("old-auto", true),
+            ("old-manual", true),
+            ("old-auto-empty", false),
+            ("old-manual-empty", false),
+        ] {
+            let value = cache.lookup(key).unwrap();
+            let automatic: auto_tag::AlbumCandidate =
+                serde_json::from_value(value.clone()).unwrap();
+            let manual: album_search::AlbumCandidate = serde_json::from_value(value).unwrap();
+            for value in [
+                serde_json::to_value(automatic).unwrap(),
+                serde_json::to_value(manual).unwrap(),
+            ] {
+                assert_eq!(
+                    value.get("discogsArtistNameVariants"),
+                    populated.then_some(&expected)
+                );
+                assert!(value.get("discogs_artist_name_variants").is_none());
+                assert_eq!(value["discogs_release_id"], "37231524");
+                assert!(
+                    value.get("discogsReleaseId").is_none(),
+                    "unrelated wire fields must not change"
+                );
+            }
+        }
+        let mut legacy = observed;
+        legacy
+            .as_object_mut()
+            .unwrap()
+            .remove("discogsArtistNameVariants");
+        let legacy: ProviderAlbum = serde_json::from_value(legacy).unwrap();
+        assert!(serde_json::to_value(legacy)
+            .unwrap()
+            .get("discogsArtistNameVariants")
+            .is_none());
+        drop(cache);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn discogs_primary_variants_keep_entity_and_release_scope_across_requests() {
+        use serde_json::json;
+        // Deliberate negative controls derived from the genuine captured release.
+        // These mutated bodies are not catalog claims or native replay fixtures.
+        fn route(path: &str, _: &str) -> (&'static str, String, &'static str) {
+            let mut raw: serde_json::Value = serde_json::from_str(include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json")).unwrap();
+            let id: u64 = path.trim_start_matches("/releases/").parse().unwrap();
+            raw["id"] = json!(id);
+            match id {
+                1 => {
+                    raw["artists"][0].as_object_mut().unwrap().remove("anv");
+                }
+                2 => raw["artists"][0]["anv"] = json!("  "),
+                3 => raw["artists"][0]["id"] = json!(null),
+                4 => raw["id"] = json!(37231524), // Body belongs to a different release.
+                5 => {
+                    raw["artists"] = json!([{"name":"Other primary", "id":88}]);
+                    raw["extraartists"] = json!([{"name":"Crowd Lu", "anv":"盧廣仲", "id":2461941, "role":"Featuring"}]);
+                    raw["tracklist"][0]["artists"] = raw["extraartists"].clone();
+                }
+                6 => raw["artists"][0]["name"] = json!(" "),
+                7 => raw["artists"]
+                    .as_array_mut()
+                    .unwrap()
+                    .push(json!({"name":"Other primary", "anv":"另一位", "id":88})),
+                8 => raw["artists"] = json!([{"name":"Other primary", "anv":"另一位", "id":88}]),
+                _ => unreachable!(),
+            }
+            ("200 OK", raw.to_string(), "application/json")
+        }
+        let (base, _) = server(8, route);
+        let client = DiscogsClient::at(ProviderState::new().http(), None, &base);
+        for id in 1..=8 {
+            let album = client
+                .release_metadata_result(&id.to_string())
+                .await
+                .unwrap();
+            let observed = serde_json::to_value(album).unwrap();
+            let expected = match id {
+                7 => json!([
+                    {"releaseId":"7", "artistIndex":0,"artistId":"2461941", "canonicalName":"Crowd Lu", "creditedName":"盧廣仲"},
+                    {"releaseId":"7", "artistIndex":1,"artistId":"88", "canonicalName":"Other primary", "creditedName":"另一位"}]),
+                8 => {
+                    json!([{"releaseId":"8", "artistIndex":0,"artistId":"88", "canonicalName":"Other primary", "creditedName":"另一位"}])
+                }
+                _ => json!(null),
+            };
+            assert_eq!(
+                observed["discogsArtistNameVariants"], expected,
+                "release {id}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn discogs_primary_variants_do_not_turn_homonym_search_hits_into_identity() {
+        fn route(path: &str, _: &str) -> (&'static str, String, &'static str) {
+            let raw = if path.starts_with("/releases/") {
+                include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json")
+            } else if path.contains("artist=") {
+                include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/nine-case-discovery-20261108/discogs-065cd169fc7f73df.json")
+            } else {
+                include_str!("../../../test/fixtures/tauri/auto-tag-eval/provider-snapshots/nine-case-discovery-20261108/discogs-09538f0cbd8736fc.json")
+            };
+            ("200 OK", raw.into(), "application/json")
+        }
+        let (base, _) = server(3, route);
+        let state = ProviderState::at(ProviderState::new().http(), &format!("{base}/mb"), &base);
+        let client = DiscogsClient::at(state.http(), None, &base);
+        let album = client.release_metadata_result("37231524").await.unwrap();
+        assert_eq!(album.artist_id.as_deref(), Some("2461941"));
+        let identity = state
+            .resolve_artist_identity_result("盧廣仲", None, false, true)
+            .await
+            .identity;
+        assert!(identity.aliases.is_empty());
+        assert!(identity.musicbrainz_artist_id.is_none());
+        assert!(
+            identity.discogs_artist_id.is_none(),
+            "a fetched ANV must not promote a plausible search result to artist equivalence"
+        );
     }
 
     #[tokio::test]
@@ -5369,7 +5691,8 @@ mod tests {
             "../../../test/fixtures/tauri/enya-discogs/release-2029801.json"
         ))
         .expect("Enya deluxe fixture");
-        let album = parse_discogs_release(&value, "2029801").expect("release fixture");
+        let album =
+            parse_discogs_release(&value, "2029801", Some("release")).expect("release fixture");
 
         let cds = album
             .tracks
@@ -5425,7 +5748,7 @@ mod tests {
             ]
         });
 
-        let album = parse_discogs_release(&value, "44").unwrap();
+        let album = parse_discogs_release(&value, "44", Some("release")).unwrap();
 
         assert_eq!(album.tracks.len(), 3);
         assert_eq!(album.tracks[0].track_total, Some(3));
@@ -5438,7 +5761,7 @@ mod tests {
             "../../../test/fixtures/tauri/discogs-editions/release-16211782.json"
         ))
         .unwrap();
-        let album = parse_discogs_release(&value, "16211782").unwrap();
+        let album = parse_discogs_release(&value, "16211782", Some("release")).unwrap();
         assert!(album.tracks[1].artists.contains(&"Iggy Azalea".to_string()));
         assert!(album.tracks[17]
             .artists

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Discogs candidate diagnostics retain primary artists' credited-name variants with their source release and artist identifiers. These observations do not change artist matching, donor eligibility, or tag writes.
 - Offline tagging replay can export hash-bound prewrite and provider observations without authorizing tag changes. Catalog support, unresolved versions, incomplete mappings, and performer conflicts remain separate from edition or acoustic identity.
 - The offline tagging evaluation inventory includes CJK artist libraries, difficult Curated Beyoncé albums, partial editions and independent soundtrack/instrumental compilations, with frozen input checks and batch-level development and holdout partitions. Silent dummy tracks can be generated without original audio. Unreviewed inputs remain outside scored accuracy.
 - Provider-backed evaluation answers now cover 51 positive cases and 539 tracks, including CJK artist aliases and Billie Eilish holdout cases. Ordinary and remixed versions remain separate, and the soundtrack without enough version and duration evidence stays unscored.

@@ -79,6 +79,13 @@ pub struct AlbumCandidate {
     pub album_artist: Option<String>,
     #[serde(default)]
     pub album_artists: Vec<String>,
+    #[serde(
+        default,
+        rename = "discogsArtistNameVariants",
+        alias = "discogs_artist_name_variants",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub discogs_artist_name_variants: Vec<crate::state::providers::DiscogsArtistNameVariant>,
     pub year: Option<String>,
     pub genre: Option<String>,
     #[serde(rename = "musicbrainz_albumid")]
@@ -244,6 +251,7 @@ pub fn discogs_candidate(album: ProviderAlbum) -> AlbumCandidate {
         album: Some(album.title),
         album_artist: artist,
         album_artists: album.artists,
+        discogs_artist_name_variants: album.discogs_artist_name_variants,
         year: album.year,
         genre: album.genre,
         discogs_artist_id: album.artist_id,
