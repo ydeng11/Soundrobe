@@ -1,0 +1,11 @@
+# Offline user-acceptance integration
+
+Goal: consume the unchanged `crowd-lu-user-acceptance-v1` sidecar through the maintained native-export projection and mock driver, with exact user-acceptance metrics and zero grounded/acoustic credit.
+
+Use the current checkout and branch. No live transport, eligibility changes, original-library access, original-media writes, commits, pushes, or new evaluator. The existing five-job mock selection stays unchanged. Historical packets/seals and user annotations are immutable.
+
+1. Extend `test_observation_scoring.py` first with native projection tests for the sidecar, exact alternatives, source/file/sample mismatch rejection, preservation, unavailable observations and service failure. Observe failures for missing integration.
+2. Extend `score-observations.py` with an optional, hash/seal-checked user-acceptance boundary and a distinct label basis on genre slots only. Validate the entire sidecar against its frozen sample and original inventory before projection. Historical tool-source bindings remain provenance, not assertions that the modified scorer equals its predecessor; current spec/manifest separately bind current tools. Keep all historical data bindings intact.
+3. Add optional sidecar admission to `run-bounded.cjs`, before preparation, source locks and requested denominators. The sidecar may inform scoring only, never model requests, scripted responses, safety input, eligibility or transport. Preserve disabled/default behavior and strict loopback-only native admission.
+4. Verify the maintained path with offline unit/mutation controls and a fresh mock-only native-export run on generated disposable media. Inspect actual serialized model requests against the independently source-derived body, not just source text. Retain unavailable/failure denominators and verify title/credit/version/payload preservation. Scripted outputs receive no grounded credit.
+5. Update the operator docs/changelog and existing review artifact with exact outcomes, source drift of historical replay checkers, immutable seal checks, and remaining limits. Keep evidence under a fresh `.amp/in/artifacts/` directory. No historical result is overwritten or retrospectively relabelled.

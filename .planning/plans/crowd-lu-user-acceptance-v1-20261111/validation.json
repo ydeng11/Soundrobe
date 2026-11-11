@@ -1,0 +1,104 @@
+{
+  "version": "crowd-lu-user-acceptance-v1",
+  "python": "3.14.6",
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "executionAuthorized": false,
+  "checks": [
+    {
+      "argv": [
+        "python3",
+        "-B",
+        ".planning/plans/crowd-lu-user-acceptance-v1-20261111/freeze.py"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-1.log",
+      "logSha256": "4614209c973d0cd0705036ee3bf41c10cf288025fa3bf2420f133e020e515653"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        ".planning/plans/crowd-lu-user-acceptance-v1-20261111/test_freeze.py"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-2.log",
+      "logSha256": "3d06fcee0354b416c024ee911d536621a72ea3f4b3fd7f7bf139b069b687218b"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        ".planning/plans/scorable-assistance-contract-20261111/packet.py"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-3.log",
+      "logSha256": "5d4a7f79c6b2c21b7b58e5025ae95518912d3cbe92aaa329421e0dec8521be84"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        ".planning/plans/scorable-assistance-contract-20261111/test_packet.py"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-4.log",
+      "logSha256": "4b973c09a94ca86ac2d6cf64db2e3c793a507679a4ff363258c3b598c2dcb3ed"
+    },
+    {
+      "argv": [
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-5.log",
+      "logSha256": "874d30089cf09fc6146acea9717a3b35ee200ef160abf207ffdbec52db5c3846"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--exit-code"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-6.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--cached",
+        "--exit-code"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/crowd-lu-user-acceptance-v1-20261111/check-7.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "byteIdenticalRederivation": true,
+  "packetTests": {
+    "run": 5,
+    "ignored": 0,
+    "skipped": 0
+  },
+  "historicalPacketTests": {
+    "run": 8,
+    "ignored": 0,
+    "skipped": 0
+  },
+  "syntheticValueProbes": {
+    "acceptedStrings": 3,
+    "nonacceptedValues": 16,
+    "occurrences": 11,
+    "comparisons": 209,
+    "applicationObservations": 0
+  },
+  "mutationRejectionCases": 10,
+  "sourcePromptCheck": "source-only; future serialized payload and live enforcement remain unverified",
+  "scope": "offline label/source/scorer probes only; no app/model/provider/tagging/media execution",
+  "redBaseline": "Before checker implementation, four tests errored with missing freeze.py; not an application defect reproduction."
+}

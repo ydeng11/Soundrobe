@@ -73,6 +73,20 @@ The native `requestJson` is the portable lookup request, not the final model HTT
 
 Every export remains insufficient, with `writableDelta: []`, `acceptedCertificate: false`, and zero grounded-assistance accuracy credit. Catalog-value agreement does not prove eligibility, user permission, safe writes, or causal model usefulness. Historical 84 certification findings and legacy disagreements remain unresolved.
 
+### Optional frozen user-acceptance labels
+
+`run-bounded.cjs NEW_OUTPUT TEST_EXECUTABLE FROZEN_USER_LABEL_DIRECTORY` adds scoring-only genre labels to the same five mock diagnostics. Omitting the directory retains the unlabelled genre behavior above. The directory must contain the exact reviewed `crowd-lu-user-acceptance-v1` packet and its original `SHA256SUMS`. Both digests are pinned by the maintained scorer. A different packet, a missing seal, altered content, or an incomplete source binding rejects before native preparation.
+
+The retained packet is `.planning/plans/crowd-lu-user-acceptance-v1-20261111/`. It accepts exactly `Pop` OR `Mandopop` OR the single string `Pop, Mandopop` for all eleven bound Crowd Lu files and their common album answer. Matching adds no trimming, case folding, delimiter splitting, reordering, or synonyms. These are exposed user-acceptance labels, not acoustic truth, new holdouts, or listening evidence. The optional integration checks require the locally retained packet and bound metadata; those ignored planning records are not a fresh-clone fixture.
+
+The importer checks all seven sealed content files and the packet's immutable data bindings. Historical scorer and coordinator hashes remain provenance in the untouched packet. They are not requirements that today's tools equal their predecessors: current native specs and mock manifests separately bind current tools. The old `freeze.py` rederivation check therefore reports scorer drift after this integration. Do not reseal history to make that check pass.
+
+Only matching Crowd Lu `tagged_recovery` jobs receive `userAcceptance` and `userAcceptanceSeal` bindings. Every physical row must bind its original filename, captured hash claim, inventory occurrence, folder, case, and profile. Genre slots carry `labelBasis: "user_acceptance"` and the frozen version. Title and ordered-artist catalog labels remain independent. The sidecar does not supply prompts, scripted responses, safety input, eligibility, or transport authority.
+
+Each score reports `userAcceptanceAgreement` separately from `catalogValueAgreement`, which is null for user-acceptance genre slots. Outcomes distinguish `accepted_user_fill`, `accepted_user_change`, and `nonaccepted_user_change`. Empty values remain `missing`; unchanged values remain `unchanged_unknown`; unavailable readbacks remain `observation_unknown`. User-acceptance totals retain requested, observed, agreeing, and service-failure slots. Agreement can coexist with service failure and is not a success or accuracy certificate.
+
+With the optional packet, the unchanged selection still requests ten evaluations, 124 repeated file observations, and 372 field slots. Eleven unique user-acceptance labels add 66 repeated genre slots across the three Crowd diagnostics and their two phases. Combined labelable coverage is 82 slots and fifteen unique occurrence-field labels. Repetition creates no additional independent labels. Missing exports, failures, and cancellations keep these denominators. Scripted output earns zero grounded-assistance accuracy credit, even if a scripted string happens to match the user's choices. No per-track model role, real model, media-write permission, or live capability is added.
+
 ## Retained execution evidence
 
 The first complete mock integration is retained under `.amp/in/artifacts/bounded-entrypoint-attempt-5-20261111/`. It exercised all five roles through the maintained native entrypoints, coordinator, model transport, WriteQueue, readback, frozen projector and scorer. Attempt 6 repeated the integration before the final publication-order and final-source-membership corrections. Neither earlier run is final-source proof.

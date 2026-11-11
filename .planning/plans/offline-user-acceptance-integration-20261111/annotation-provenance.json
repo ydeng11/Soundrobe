@@ -1,0 +1,8 @@
+{
+  "artifact": "https://ampcode.com/artifacts/crowd-lu-genre-annotations-8054842d-554b-48e3-94e1-766e1a36dbe2",
+  "revision": 63,
+  "lines": 60,
+  "method": "Main-thread authenticated artifact.read; full returned Markdown transcribed into equality check, plus documented terminal newline. Not an authenticated export/signature. Independent reviewer could not access private artifact.",
+  "snapshotSha256": "1ec0e0df6b7f45f8dce8f96c558e12f4b0f5f6a9127cdd07cae42eb19a175340",
+  "byteComparisonPassed": true
+}

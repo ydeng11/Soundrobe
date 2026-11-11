@@ -1,0 +1,22 @@
+{
+  "head": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "reviewedDiffSha256": "f88b8cc807b7c0b50f19abbcad5c671d038a4e29ee5100832538e498b3b1f850",
+  "reviewedFilesUnchanged": 24,
+  "gitStatusUnchanged": true,
+  "reviewers": {
+    "spec": "TU-034vt8gW0MSIgemnr0Canl",
+    "standardsAndOrchestration": "TU-034vt8gYLQ475FlKW2i1mM"
+  },
+  "reportedBlockingFindings": 0,
+  "reportedStandardsViolations": 0,
+  "limits": [
+    "Four redacted Cookie Jar postwrite hash comparisons remain unavailable, not independently verified",
+    "Offline user acceptance only, no acoustic truth, holdout accuracy or causal AI improvement",
+    "No fresh native execution or native executable provenance attestation in this review",
+    "Whole parsed HTTP JSON equality is not raw HTTP byte identity or universal contamination prevention"
+  ],
+  "implementationOrMediaWrites": false,
+  "liveCalls": false,
+  "commitsOrPushes": false
+}

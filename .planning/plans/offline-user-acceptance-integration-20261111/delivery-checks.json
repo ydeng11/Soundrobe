@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "checkedAt": "2026-11-11T19:27:52.768014+00:00",
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "reviewedDiffSha256": "f88b8cc807b7c0b50f19abbcad5c671d038a4e29ee5100832538e498b3b1f850",
+  "freshChecks": [
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/test_observation_scoring.py",
+        "ObservationScoring",
+        "NativeProjection",
+        "FrozenUserProjection"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/01.log",
+      "logSha256": "8be6a2de58cc4ee2768cee12481f89ab8e16640887cb7185f35cd3b1949d4f7b"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/02.log",
+      "logSha256": "637ad693971420b70a01476cd5d51065ecc3c7af270c41cfe91899ec8c2db4bd"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/validate-native-projection.py",
+        ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/03.log",
+      "logSha256": "d72f66df6dd93fad885179dd3edc8c051ee7486b7a68e9ca8bb350567d660967"
+    },
+    {
+      "argv": [
+        "python3",
+        "-B",
+        ".planning/plans/offline-user-acceptance-integration-20261111/verify.py",
+        ".amp/in/artifacts/user-acceptance-native-optimized-control-20261111",
+        ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/04.log",
+      "logSha256": "5343f3a9d9e236759f25dccd2c10f27d90a1eaa341ab8ad09117160c480f0042"
+    },
+    {
+      "argv": [
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/05.log",
+      "logSha256": "c8b0fd733ca24b188137643553ca9b82c326ebb4f3d0ceec073d9520f5d990e3"
+    },
+    {
+      "argv": [
+        "shasum",
+        "-a",
+        "256",
+        "-c",
+        ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/06.log",
+      "logSha256": "874d30089cf09fc6146acea9717a3b35ee200ef160abf207ffdbec52db5c3846"
+    },
+    {
+      "argv": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/run-bounded.cjs"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/07.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0,
+      "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/08.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "reusedEvidence": "Native/mock executions, 16 native units, 11 mock-service tests, and independent review probes are historical; no new native evaluator or HTTP execution for delivery.",
+  "limits": [
+    "Offline user acceptance only, exposed labels and no holdouts; zero grounded AI credit",
+    "Full native export audits require retained ignored inputs, not fresh-clone reproduction",
+    "Four Cookie Jar postwrite hash comparisons remain unavailable",
+    "Historical scorer hash differs; historical packet and seal unchanged"
+  ],
+  "liveCalls": false,
+  "mediaWrites": false,
+  "originalLibraryAccess": false,
+  "pushOrFetch": false,
+  "preservedReviewedFileBindings": 24,
+  "historicalRederivation": {
+    "argv": [
+      "python3",
+      "-B",
+      ".planning/plans/crowd-lu-user-acceptance-v1-20261111/freeze.py"
+    ],
+    "expectedExitCode": 1,
+    "actualExitCode": 1,
+    "onlyBindingDrift": {
+      "scripts/auto-tag-eval-replay/score-observations.py": {
+        "historical": "1222426479f9180b0184f5a27e42b6441c7736ae0d0c131d136a75e08b994afe",
+        "current": "276b624c7785deb434f34d4dc55264f3d580b594398c5523ed567701dd85e5a8"
+      }
+    },
+    "nonbindingPacketContentsIdentical": true,
+    "log": ".amp/in/artifacts/offline-user-acceptance-delivery-20261111/09-historical-drift.log",
+    "logSha256": "9bcf15b1cbf7942199650222ba4ac9bf6e5a92e74a5ea09adae13e421f0243f1"
+  },
+  "annotationSnapshotSha256": "1ec0e0df6b7f45f8dce8f96c558e12f4b0f5f6a9127cdd07cae42eb19a175340"
+}

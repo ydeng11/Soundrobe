@@ -1,0 +1,36 @@
+{
+  "head": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "gitStatus": " M docs/CHANGELOG.md\n M docs/bounded-assistance-evaluation.md\n M scripts/auto-tag-eval-replay/run-bounded.cjs\n M scripts/auto-tag-eval-replay/score-observations.py\n M scripts/auto-tag-eval-replay/test_observation_scoring.py\n?? ios-native-probe-0d104d95-source.tgz\n?? scripts/__pycache__/\n",
+  "reviewedDiffSha256": "f88b8cc807b7c0b50f19abbcad5c671d038a4e29ee5100832538e498b3b1f850",
+  "artifactAtStart": {
+    "id": "623cef5e-4985-4829-84d3-6e24e912971c",
+    "revision": 3
+  },
+  "files": {
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/README.md": "ac66f38f39a68d586d57a48aae07aad0584bf5b63b3132ab095cfa8a886562d6",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS": "a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/annotations-rev63.md": "1ec0e0df6b7f45f8dce8f96c558e12f4b0f5f6a9127cdd07cae42eb19a175340",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/freeze.py": "6dee6b7541422c7f60bce2b81341e292632b45599a9f10908931fda509985bfb",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/review.md": "a6e0b79d6ac92d77d1dd1e5f1042bc8172cf52b061f04ef6e64e7f9c8dc3d412",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/test_freeze.py": "29d6e5b97c7b90b17dd5a4a1f9eb373cef3b8c49ca497e88731dbc0410669e73",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/validation.json": "ab0f769b79bbe2c81cf28f77dc18b737a0d199f67d2f776b5561912e1325bbc1",
+    ".planning/plans/offline-user-acceptance-integration-20261111/validation.json": "55bd30d4192bb93c328aa57de32954a90f2d4942805a2c0f47f8fa294c5d7b17",
+    ".planning/plans/offline-user-acceptance-integration-20261111/verify.py": "7289a6d3c20834bf7663e597b03b36f936d2a6c7b5b453a381c52ce4ecce6187",
+    ".planning/plans/scorable-assistance-contract-20261111/README.md": "0002156cbd3a811891d35f3fd3f65a8a6863b2d3fc459fa6a079d951193a73a5",
+    ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS": "8e722117cafdc6c1896d3df9effe9c6bf296800c0fb3427c45aab027fffd0340",
+    ".planning/plans/scorable-assistance-contract-20261111/contract.json": "6d6e748aeb3c591c0239a1c17f18bbb14c0735e02dc91519629f2da73b18876c",
+    ".planning/plans/scorable-assistance-contract-20261111/packet.py": "c69f6491ead0d6bd95f0ae8753e672f839f273c6109e2afa6a71ab839a651f42",
+    ".planning/plans/scorable-assistance-contract-20261111/public-documentation.json": "62aaa1e0af770509779f64ec84055ae9f0dbeec4206f5ef0a39b8f4f045f13e7",
+    ".planning/plans/scorable-assistance-contract-20261111/reviews.md": "7087235012bc0fa5ecaec6122f623563ba372116914835b56a1f2ab4ca2a9cca",
+    ".planning/plans/scorable-assistance-contract-20261111/sample.json": "5549f2ae2f4d1d12faf229957589c25ee1dd0ede1b076b1301334ccd192e017d",
+    ".planning/plans/scorable-assistance-contract-20261111/test_packet.py": "7d56d622304ece995c1dd00b74b0ab7a7449833bf124a0d5b1b766c90596220c",
+    ".planning/plans/scorable-assistance-contract-20261111/validation.json": "948db72048ec0d4c5c05a837e75ca96bcd0ca5cc21311fd79561bbfd30cf6546",
+    "docs/CHANGELOG.md": "ae236f2c506cec213a428b9dbd5bf801ade5b4e247a0a31571ebebe9993577d0",
+    "docs/bounded-assistance-evaluation.md": "58c674bb9831dab66053b54bb529c2f2ec81fb326898249788c87dec81bd1e04",
+    "scripts/auto-tag-eval-replay/run-bounded.cjs": "85e0b3b6d126bf03a3b1deaa4664df6217f693c1c8540ad747f7a59d7ec273a6",
+    "scripts/auto-tag-eval-replay/score-observations.py": "276b624c7785deb434f34d4dc55264f3d580b594398c5523ed567701dd85e5a8",
+    "scripts/auto-tag-eval-replay/test_observation_scoring.py": "8cff577ea6b3c5aeb580860d110d9d3348c11794d7fadd6a8eed8b1c0bdeec1c"
+  }
+}

@@ -1,5 +1,5 @@
 // Mock-only integration of the maintained native evaluator and frozen scorer.
-// Usage: node scripts/auto-tag-eval-replay/run-bounded.cjs NEW_OUTPUT TEST_EXECUTABLE
+// Usage: node scripts/auto-tag-eval-replay/run-bounded.cjs NEW_OUTPUT TEST_EXECUTABLE [FROZEN_USER_LABEL_DIRECTORY]
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
@@ -25,7 +25,7 @@ async function inventoryAt(base) {
   return JSON.parse(Buffer.concat(chunks).toString());
 }
 
-async function main(output, executable) {
+async function main(output, executable, userLabelDirectory) {
   output = path.resolve(output);
   if (!output.startsWith(path.join(root, '.amp/in/artifacts') + path.sep)) throw Error('Use a new local evidence directory');
   const evidenceRoot = fs.realpathSync(path.join(root, '.amp/in/artifacts'));
@@ -44,7 +44,18 @@ async function main(output, executable) {
     { name: 'cancel', caseId: '036e0a00e45b', profile: 'tagged_recovery', population: 'artist-batch-extension', role: 'GenreFillResponse', review: 'reviewed-cjk-artist-2-20261108.json', cancelAfterGenre: true },
     { name: 'hold', caseId: 'f7756354af37', profile: 'folder_filename', population: 'original', role: null, review: 'reviewed-expansion-2-20261108.json' },
   ];
+  const userBindings = userLabelDirectory ? {
+    userAcceptance: binding(path.resolve(userLabelDirectory, 'labels.json')),
+    userAcceptanceSeal: binding(path.resolve(userLabelDirectory, 'SHA256SUMS')),
+  } : {};
+  // Scoring-only admission happens before any native invocation. The inspector
+  // returns membership/locks, never answer strings for request construction.
+  const userLabels = userLabelDirectory ? JSON.parse(execFileSync('python3', ['-B', scorer, 'inspect-user-acceptance',
+    userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
+    userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
+  const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
   const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs',
+    ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
     'scripts/review_auto_tag_subset.py', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
     '.planning/research/bounded-assistance-machine-labels-20261111.json',
     '.planning/research/bounded-assistance-label-review-20261111.json',
@@ -63,7 +74,7 @@ async function main(output, executable) {
   };
   save(path.join(output, 'selection.json'), { version: 1, jobs, phases: ['cold', 'warm'], fields: ['title', 'artists', 'genre'],
     model: 'scripted/genre-v1', purpose: 'scripted mock wiring, zero grounded accuracy',
-    realProviderCalls: 0, realModelCalls: 0, originalMediaOperations: 0, orchestration });
+    realProviderCalls: 0, realModelCalls: 0, originalMediaOperations: 0, orchestration, userBindings });
   const independentLabels = read(path.join(root, '.planning/research/bounded-assistance-machine-labels-20261111.json'));
   const evaluations = jobs.flatMap(job => {
     const corpus = read(path.join(root, '.amp/in/eval-dummies', job.population, 'corpus.json'));
@@ -71,14 +82,16 @@ async function main(output, executable) {
     if (selected.length !== 1) throw Error('Ambiguous requested physical case');
     return ['cold', 'warm'].map(phase => ({ name: job.name, caseId: job.caseId, profile: job.profile, phase,
       physicalPaths: selected[0].tracks.map(t => t.relativePath), fields: ['title', 'artists', 'genre'],
+      userLabelSelectors: matchesUserLabels(job) ? userLabels.labelSelectors : [],
       labelSelectors: independentLabels.occurrences.filter(l => l.caseId === job.caseId)
         .flatMap(l => ['title', 'artists'].map(field => `${l.caseId}/${l.inventorySource}/${l.inventoryOccurrence}/${field}`)) }));
   });
   save(path.join(output, 'requested-membership.json'), { evaluations,
     requestedPhysicalOccurrences: evaluations.reduce((n, e) => n + e.physicalPaths.length, 0),
     requestedFieldSlots: evaluations.reduce((n, e) => n + e.physicalPaths.length * e.fields.length, 0),
-    predeclaredLabelableSlots: evaluations.reduce((n, e) => n + e.labelSelectors.length, 0),
-    uniqueSelectedOccurrenceFieldLabels: new Set(evaluations.flatMap(e => e.labelSelectors)).size });
+    predeclaredLabelableSlots: evaluations.reduce((n, e) => n + e.labelSelectors.length + e.userLabelSelectors.length, 0),
+    uniqueUserAcceptanceLabels: new Set(evaluations.flatMap(e => e.userLabelSelectors)).size,
+    uniqueSelectedOccurrenceFieldLabels: new Set(evaluations.flatMap(e => [...e.labelSelectors, ...e.userLabelSelectors])).size });
   const providers = path.join(output, 'providers.json');
   importPools(path.join(fixtures, 'candidate-pools.json'), providers);
   const pool = read(providers);
@@ -124,7 +137,7 @@ async function main(output, executable) {
     const expectations = path.join(review, 'expectations.json');
     const serviceManifest = path.join(directory, 'service.json');
     // A genuine, independently captured catalog source supplies the prompt INPUT,
-    // never a model answer key. Genre remains deliberately unscorable.
+    // never a model answer key. The scripted response is not an accepted genre.
     const source = job.role ? read(path.join(fixtures, 'provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json')) : null;
     const payload = source ? { artist: '盧廣仲', album: source.title, tracks: source.media.flatMap(m => m.tracks.map(t => t.title)) } : null;
     save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: 2, payload,
@@ -190,6 +203,7 @@ async function main(output, executable) {
       env.SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL = base;
       save(inventoryFile, { records: (await inventoryAt(base)).records });
       const bindings = { corpus: binding(corpus), input: binding(corpus), expectations: binding(expectations),
+        ...(matchesUserLabels(job) ? userBindings : {}),
         labels: binding(path.join(root, '.planning/research/bounded-assistance-machine-labels-20261111.json')),
         packet: binding(path.join(root, '.planning/research/bounded-assistance-label-review-20261111.json')),
         source: binding(path.join(root, 'src-tauri/src/commands/auto_tag.rs')), executable: binding(binary),
@@ -270,6 +284,9 @@ async function main(output, executable) {
   save(path.join(output, 'results.json'), { mode: 'mock_only', executions,
     selectionStatusFile: path.relative(root, path.join(output, 'selection-status.json')),
     uniqueSelectedOccurrenceFieldLabels: requested.uniqueSelectedOccurrenceFieldLabels,
+    uniqueUserAcceptanceLabels: requested.uniqueUserAcceptanceLabels,
+    userAcceptance: Object.fromEntries(['requestedFieldSlots', 'observedFieldSlots', 'agreeingFieldSlots', 'serviceFailureSlots']
+      .map(key => [key, executions.reduce((n, j) => n + j.score.userAcceptance[key], 0)])),
     requestedPhysicalOccurrences: executions.reduce((n, j) => n + j.requestedPhysicalOccurrences, 0),
     requestedFieldSlots: executions.reduce((n, j) => n + j.score.requestedFieldSlots, 0),
     predeclaredLabelableSlots: executions.reduce((n, j) => n + j.score.predeclaredLabelableSlots, 0),

@@ -72,6 +72,31 @@ class ObservationScoring(unittest.TestCase):
         self.assertEqual(field['valueTransition'], 'unchanged')
         self.assertEqual(field['decisionVisibility'], 'unavailable')
 
+    def test_user_acceptance_is_exact_and_never_catalog_or_grounded_truth(self):
+        self.contract['slots'][2].update(labelBasis='user_acceptance',
+            acceptedValues=['Pop', 'Mandopop', 'Pop, Mandopop'])
+        for value in ['Pop', 'Mandopop', 'Pop, Mandopop', 'pop', 'Pop ', 'Pop,Mandopop',
+                      'Mandopop, Pop', ['Pop', 'Mandopop'], 'Rock', None]:
+            self.rows[2]['readback'] = value
+            result = scorer.score(self.contract, self.rows)
+            genre = result['fields'][2]
+            accepted = value in ['Pop', 'Mandopop', 'Pop, Mandopop']
+            with self.subTest(value=value):
+                self.assertIsNone(genre['catalogValueAgreement'])
+                self.assertEqual(genre['userAcceptanceAgreement'], accepted)
+                self.assertEqual(result['userAcceptance']['requestedFieldSlots'], 1)
+                self.assertEqual(result['userAcceptance']['agreeingFieldSlots'], int(accepted))
+                self.assertEqual(genre['outcome'], 'accepted_user_fill' if accepted else
+                                 'missing' if value is None else 'nonaccepted_user_change')
+                self.assertEqual(result['groundedAssistanceAccuracyCredit'], 0)
+                self.assertFalse(result['acceptedCertificate'])
+        self.rows[2].update(readback='Pop', serviceFailure=True)
+        result = scorer.score(self.contract, self.rows)
+        self.assertEqual(result['userAcceptance'], {'requestedFieldSlots': 1, 'observedFieldSlots': 1,
+            'agreeingFieldSlots': 1, 'serviceFailureSlots': 1})
+        self.contract['slots'][2]['original'] = 'Pop'
+        self.assertEqual(scorer.score(self.contract, self.rows)['fields'][2]['outcome'], 'unchanged_unknown')
+
 
 class NativeProjection(unittest.TestCase):
     def setUp(self):
@@ -254,6 +279,115 @@ class NativeProjection(unittest.TestCase):
         rows[0]['fieldObservations']['tracks'][0].update(codec='unknown', title='02.flac', artists=[])
         with self.assertRaises(ValueError):
             scorer.project_native(self.root, contract, rows)
+
+
+class FrozenUserProjection(unittest.TestCase):
+    """Metadata-only integration; requires the locally retained frozen packet, not audio."""
+    def setUp(self):
+        self.root = pathlib.Path(__file__).resolve().parents[2]
+        self.directory = '.planning/plans/crowd-lu-user-acceptance-v1-20261111'
+        def bind(path):
+            return {'path': path, 'sha256': hashlib.sha256((self.root / path).read_bytes()).hexdigest()}
+        self.bind = bind
+        inventory = 'test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json'
+        self.case = json.loads((self.root / inventory).read_text())['cases'][0]
+        self.temp = tempfile.TemporaryDirectory(dir=self.root / '.amp/in')
+        self.addCleanup(self.temp.cleanup)
+        corpus_path = pathlib.Path(self.temp.name) / 'generated-corpus.json'
+        corpus = {'cases': [dict(self.case, tracks=[dict(t, originalRelativePath=t['relativePath'],
+            originalSourceSha256=t['sourceSha256'], sourceSha256='b' * 64) for t in self.case['tracks']])]}
+        corpus_path.write_text(json.dumps(corpus))
+        self.spec = {'version': 1, 'bindings': {
+            'corpus': bind(str(corpus_path.relative_to(self.root))),
+            'labels': bind('.planning/research/bounded-assistance-machine-labels-20261111.json'),
+            'packet': bind('.planning/research/bounded-assistance-label-review-20261111.json'),
+            'expectations': bind('test/fixtures/tauri/auto-tag-eval/reviewed-cjk-artist-2-20261108.json'),
+            'userAcceptance': bind(self.directory + '/labels.json'),
+            'userAcceptanceSeal': bind(self.directory + '/SHA256SUMS')},
+            'fields': ['title', 'artists', 'genre'], 'sourceRoot': 'dummy/media',
+            'caseIds': [self.case['caseId']], 'profile': 'tagged_recovery', 'phases': ['cold', 'warm']}
+        before = [{'path': t['relativePath'], 'title': t['title'], 'artists': [t['artist']], 'genre': None}
+                  for t in self.case['tracks']]
+        raw = json.dumps({'tracks': before, 'hashes': {t['path']: {'fullSha256': 'c' * 64,
+            'payloadSha256': 'd' * 64, 'bytes': 12} for t in before}})
+        self.rows = [{'caseId': self.case['caseId'], 'profile': 'tagged_recovery', 'phase': phase,
+            'sourceRelativeFolder': self.case['sourceRelativeFolder'], 'providerMode': 'offline_fixtures',
+            'outcome': 'applied', 'serviceFailureObserved': False, 'cancellationRequested': False,
+            'fieldObservations': {'inputJson': raw, 'inputSha256': hashlib.sha256(raw.encode()).hexdigest(),
+                'requestJson': '{}', 'sourceRoot': 'dummy/media', 'readbackAvailable': True,
+                'readbackError': None, 'tracks': copy.deepcopy(before)}} for phase in ['cold', 'warm']]
+
+    def test_all_eleven_exact_alternatives_with_title_credit_and_version_controls(self):
+        contract = scorer.freeze_native_contract(self.root, self.spec, self.rows)
+        self.assertEqual(contract['labelCoverage']['uniqueUserAcceptanceLabels'], 11)
+        for value in ['Pop', 'Mandopop', 'Pop, Mandopop', 'Mandopop, Pop', 'Pop,Mandopop', 'Rock']:
+            rows = copy.deepcopy(self.rows)
+            for row in rows:
+                for track in row['fieldObservations']['tracks']:
+                    track['genre'] = value
+            result = scorer.project_native(self.root, contract, rows)
+            expected = 22 if value in ['Pop', 'Mandopop', 'Pop, Mandopop'] else 0
+            self.assertEqual(result['userAcceptance']['agreeingFieldSlots'], expected)
+            self.assertEqual(result['requestedFieldSlots'], 66)
+            self.assertEqual(result['userAcceptance']['requestedFieldSlots'], 22)
+            self.assertEqual(result['groundedAssistanceAccuracyCredit'], 0)
+            # Catalog qualifiers and ordered performer lists still have independent controls.
+            rows[0]['fieldObservations']['tracks'][-1].update(title='英雄', artists=['Unsupported performer'])
+            changed = scorer.project_native(self.root, contract, rows)
+            self.assertEqual(changed['outcomes']['wrong_catalog_change'], 2)
+
+    def test_user_labels_do_not_drop_unavailable_or_failed_observations(self):
+        contract = scorer.freeze_native_contract(self.root, self.spec, self.rows)
+        self.rows[0].update(outcome='admission_denied', serviceFailureObserved=True)
+        self.rows[0]['fieldObservations'].update(readbackAvailable=False, readbackError='unavailable', tracks=None)
+        result = scorer.project_native(self.root, contract, self.rows)
+        self.assertEqual(result['requestedFieldSlots'], 66)
+        self.assertEqual(result['userAcceptance'], {'requestedFieldSlots': 22, 'observedFieldSlots': 11,
+            'agreeingFieldSlots': 0, 'serviceFailureSlots': 11})
+        self.assertEqual(result['outcomes']['observation_unknown'], 33)
+
+    def test_wrong_scope_missing_seal_and_rebound_label_bytes_reject(self):
+        variants = []
+        for key, value in [('profile', 'folder_filename'), ('caseIds', ['other'])]:
+            spec = copy.deepcopy(self.spec)
+            spec[key] = value
+            variants.append(spec)
+        spec = copy.deepcopy(self.spec)
+        del spec['bindings']['userAcceptanceSeal']
+        variants.append(spec)
+        original = json.loads((self.root / self.directory / 'labels.json').read_text())
+        mutations = [('occurrences', original['occurrences'][:-1]), ('labelBasis', 'acoustic_truth'),
+                     ('albumLevel', {'userAnswer': 'yes', 'acceptedGenreValues': ['Rock']})]
+        for key, value in [('relativePath', 'wrong.flac'), ('capturedMediaSha256Claim', '0' * 64),
+                           ('inventorySelector', '/cases/0/tracks/1'), ('acceptedGenreValues', ['Pop', 'Rock'])]:
+            occurrences = copy.deepcopy(original['occurrences'])
+            occurrences[0][key] = value
+            mutations.append(('occurrences', occurrences))
+        mutations.append(('occurrences', original['occurrences'] + [original['occurrences'][0]]))
+        for index, (key, value) in enumerate(mutations):
+            changed = dict(original, **{key: value})
+            path = pathlib.Path(self.temp.name) / f'{index}.json'
+            path.write_text(json.dumps(changed))
+            spec = copy.deepcopy(self.spec)
+            spec['bindings']['userAcceptance'] = self.bind(str(path.relative_to(self.root)))
+            variants.append(spec)
+        # Missing keys/types also reject through the public native projector.
+        contract = scorer.freeze_native_contract(self.root, self.spec, self.rows)
+        for bad in [None, {}, {'path': 'missing', 'sha256': 'wrong'},
+                    {'path': '../outside', 'sha256': 'wrong'}, ['not a binding']]:
+            changed = copy.deepcopy(contract)
+            changed['spec']['bindings']['userAcceptance'] = bad
+            with self.subTest(binding=bad), self.assertRaises((ValueError, OSError)):
+                scorer.project_native(self.root, changed, self.rows)
+        for spec in variants:
+            with self.subTest(spec=spec), self.assertRaises(ValueError):
+                scorer.freeze_native_contract(self.root, spec, self.rows)
+
+
+def load_tests(loader, tests, pattern):
+    # Portable controls stay runnable without ignored local planning records.
+    return unittest.TestSuite(loader.loadTestsFromTestCase(case)
+                              for case in [ObservationScoring, NativeProjection])
 
 
 if __name__ == '__main__':

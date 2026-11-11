@@ -1,0 +1,2226 @@
+{
+  "version": 1,
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "executionAuthorized": false,
+  "activationAvailable": false,
+  "decision": "insufficient",
+  "acceptedCertificate": false,
+  "writableDelta": [],
+  "exposure": "All cases exposed development diagnostics, zero untouched holdouts",
+  "inputScope": "Metadata-only selection and historical dummy prewrite receipts; not future input admission or original-media missingness",
+  "arms": [
+    "disabled",
+    "assistance"
+  ],
+  "phases": [
+    "cold",
+    "warm"
+  ],
+  "fields": [
+    "title",
+    "artists",
+    "genre"
+  ],
+  "jobs": [
+    {
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "folder": "卢广仲/勵志論",
+      "inventory": "test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json",
+      "inventorySelector": "/cases/0",
+      "historicalPrewrite": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/genre/preparation-disabled/records.json",
+      "allowedAssistanceRoleConditional": "GenreFillResponse",
+      "files": [
+        {
+          "path": "01 Intro.flac",
+          "inventorySelector": "/cases/0/tracks/0",
+          "capturedMediaSha256Claim": "1987a22e249e9dc1a3d5394e12dfe4735ca959bfcafac871d4504e47b202909d",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 6000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 62.17,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "7263b79c-6b9a-4f52-857e-4648426e7d0b",
+            "sampleRate": 44100,
+            "sizeBytes": 48960,
+            "title": "Intro",
+            "trackNumber": 1,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 48960,
+              "fullSha256": "4fb183bb0ebdfa724f18c747f046ef6326490256b8d3e5524bd0be985cf759d3",
+              "payloadSha256": "d23ba1cc2487344978cc8149e649d3ef5d5bc5205836369d15ced0dfa602e198"
+            },
+            "warm": {
+              "bytes": 48960,
+              "fullSha256": "4fb183bb0ebdfa724f18c747f046ef6326490256b8d3e5524bd0be985cf759d3",
+              "payloadSha256": "d23ba1cc2487344978cc8149e649d3ef5d5bc5205836369d15ced0dfa602e198"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "02 勵志論.flac",
+          "inventorySelector": "/cases/0/tracks/1",
+          "capturedMediaSha256Claim": "d20c40b5c9fc8dcc2b9be6680e9b0a317333b92ddc014e40383e6a5ec4f083c4",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 180.192,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "12a12dad-ebc3-4667-ad1d-a1c0c12b3be5",
+            "sampleRate": 44100,
+            "sizeBytes": 130288,
+            "title": "勵志論",
+            "trackNumber": 2,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 130288,
+              "fullSha256": "38f5a10c16a21e28c8714668cf7749de1fce9095bdc4e4a6c045d44d4c52646b",
+              "payloadSha256": "955dea5803f3f41957e252d78c99ddde9f6e6edbb7ab3cbc2494ec2304c1f35c"
+            },
+            "warm": {
+              "bytes": 130288,
+              "fullSha256": "38f5a10c16a21e28c8714668cf7749de1fce9095bdc4e4a6c045d44d4c52646b",
+              "payloadSha256": "955dea5803f3f41957e252d78c99ddde9f6e6edbb7ab3cbc2494ec2304c1f35c"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "03 自我的介紹.flac",
+          "inventorySelector": "/cases/0/tracks/2",
+          "capturedMediaSha256Claim": "23a3b7b0bf8cc258ae2c7bc8ddd9959829c7a1a28bda3393fcf7f2537828fa3b",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 242.388,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "18fff0d1-5be7-4616-8c90-d2aa6b006136",
+            "sampleRate": 44100,
+            "sizeBytes": 173136,
+            "title": "自我的介紹",
+            "trackNumber": 3,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 173136,
+              "fullSha256": "5b1ccba300807c4a1c3bd5958da26a17c032676c515e38df3507039858c495df",
+              "payloadSha256": "cc6e388a3c2f123399e7fcd5a0970cbd96b9d147fa7ea0c9b8ea68d94aa34eb5"
+            },
+            "warm": {
+              "bytes": 173136,
+              "fullSha256": "5b1ccba300807c4a1c3bd5958da26a17c032676c515e38df3507039858c495df",
+              "payloadSha256": "cc6e388a3c2f123399e7fcd5a0970cbd96b9d147fa7ea0c9b8ea68d94aa34eb5"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "04 雨時多雲偶陣晴.flac",
+          "inventorySelector": "/cases/0/tracks/3",
+          "capturedMediaSha256Claim": "a7a1633ec7736ea1834f31f8de1bc1afb9da92e0059d73e0bc34aaa18d2c3298",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 214.78,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "2e0ce8cd-6e07-4b54-b79f-24f49869db46",
+            "sampleRate": 44100,
+            "sizeBytes": 154112,
+            "title": "雨時多雲偶陣晴",
+            "trackNumber": 4,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 154112,
+              "fullSha256": "764d13013ef7c1d8938ec8f20460895eb5fb07f2233d42b7998555d873b709a7",
+              "payloadSha256": "883bb9d5d74d2c16ecae511bedf826378243e3bba69df9f6686502e8595cb588"
+            },
+            "warm": {
+              "bytes": 154112,
+              "fullSha256": "764d13013ef7c1d8938ec8f20460895eb5fb07f2233d42b7998555d873b709a7",
+              "payloadSha256": "883bb9d5d74d2c16ecae511bedf826378243e3bba69df9f6686502e8595cb588"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "05 狂迪.flac",
+          "inventorySelector": "/cases/0/tracks/4",
+          "capturedMediaSha256Claim": "0eb7e92f1431a470d5f6ad667f10873da07cf4202a2573efd3b6dc40e85a8529",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 219.292,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "f3c64a0d-3424-4b49-9a33-9b64b8bf5598",
+            "sampleRate": 44100,
+            "sizeBytes": 157231,
+            "title": "狂迪",
+            "trackNumber": 5,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 157231,
+              "fullSha256": "c760a5854d57cf133674640951806484cb117be8b6647fa0fbd83b33363e6058",
+              "payloadSha256": "281b29558e708549b13eacd448397377e60c44aeb8aa074aa8ab7363528d30a0"
+            },
+            "warm": {
+              "bytes": 157231,
+              "fullSha256": "c760a5854d57cf133674640951806484cb117be8b6647fa0fbd83b33363e6058",
+              "payloadSha256": "281b29558e708549b13eacd448397377e60c44aeb8aa074aa8ab7363528d30a0"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "06 像你.flac",
+          "inventorySelector": "/cases/0/tracks/5",
+          "capturedMediaSha256Claim": "ebb890f11361a0e58c7a1b50130a3a879f217c203d0fbda46cf1a0bd9e1a8d15",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 229.238,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "e32bde3e-3ef8-458a-8bc2-c7654028bc78",
+            "sampleRate": 44100,
+            "sizeBytes": 164080,
+            "title": "像你",
+            "trackNumber": 6,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 164080,
+              "fullSha256": "02e474f842c1374ddfc21dace73e353ddf908a196865a61e5e1e296742aa9abf",
+              "payloadSha256": "84d11c120e0f482262b8f9a0dce90b87fd98e3d028ebb9ea1e4befeafce98bc9"
+            },
+            "warm": {
+              "bytes": 164080,
+              "fullSha256": "02e474f842c1374ddfc21dace73e353ddf908a196865a61e5e1e296742aa9abf",
+              "payloadSha256": "84d11c120e0f482262b8f9a0dce90b87fd98e3d028ebb9ea1e4befeafce98bc9"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "07 肌肉的記憶.flac",
+          "inventorySelector": "/cases/0/tracks/6",
+          "capturedMediaSha256Claim": "9cf5f77722537a213d4b1e0ab16ac9906c061bcb899c086f77740e8bbab87ed0",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 191.18,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "024923b0-2c68-48ef-8a4a-1b8c7bbdec88",
+            "sampleRate": 44100,
+            "sizeBytes": 137856,
+            "title": "肌肉的記憶",
+            "trackNumber": 7,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 137856,
+              "fullSha256": "bfab6d4a52ccb67dac23621d4055738dd4d96eaf25340194c07b8249b9bbc932",
+              "payloadSha256": "65e82c5b041d530b5809ddaf8b9919a7a5279722ece0bbd1a792221a2daf4e74"
+            },
+            "warm": {
+              "bytes": 137856,
+              "fullSha256": "bfab6d4a52ccb67dac23621d4055738dd4d96eaf25340194c07b8249b9bbc932",
+              "payloadSha256": "65e82c5b041d530b5809ddaf8b9919a7a5279722ece0bbd1a792221a2daf4e74"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "08 輕輕.flac",
+          "inventorySelector": "/cases/0/tracks/7",
+          "capturedMediaSha256Claim": "13c28c106c81a79c7c309725e5cef6ce6d41cad13506da2bc449834abcc4f5c3",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 220.848,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "a7b7b5e1-681c-435d-9634-c0913277ccd7",
+            "sampleRate": 44100,
+            "sizeBytes": 158303,
+            "title": "輕輕",
+            "trackNumber": 8,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 158303,
+              "fullSha256": "cee1c77f5c3119408bdfea4f7f2b1afb8cafcb113707d06940411b2742021b76",
+              "payloadSha256": "1a9f93f8b6739d5d189d11115f42010b937b9209c9a937e24964caf4def70b1b"
+            },
+            "warm": {
+              "bytes": 158303,
+              "fullSha256": "cee1c77f5c3119408bdfea4f7f2b1afb8cafcb113707d06940411b2742021b76",
+              "payloadSha256": "1a9f93f8b6739d5d189d11115f42010b937b9209c9a937e24964caf4def70b1b"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "09 冒煙的燈泡.flac",
+          "inventorySelector": "/cases/0/tracks/8",
+          "capturedMediaSha256Claim": "2fd515c18cf4aa7d1e9564d62bea227aa7a66a430840652361963fbe192a99a6",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 237.176,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "b7d3081c-2b18-4576-a4c2-3dff20d9eae1",
+            "sampleRate": 44100,
+            "sizeBytes": 169552,
+            "title": "冒煙的燈泡",
+            "trackNumber": 9,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 169552,
+              "fullSha256": "d3601c8b77d7ff45a3041caaa6f3816eb796ef6437bafa571b1ccc2ec885372d",
+              "payloadSha256": "6df9619e360ab2d9bcf139571a22136faf19bdb7856d2cb95575d13241c3bdf8"
+            },
+            "warm": {
+              "bytes": 169552,
+              "fullSha256": "d3601c8b77d7ff45a3041caaa6f3816eb796ef6437bafa571b1ccc2ec885372d",
+              "payloadSha256": "6df9619e360ab2d9bcf139571a22136faf19bdb7856d2cb95575d13241c3bdf8"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "10 明年.flac",
+          "inventorySelector": "/cases/0/tracks/9",
+          "capturedMediaSha256Claim": "e8223b780a75ded0f29e319848a5f98d153cb923462a866607338944113b48fd",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 257.002,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "f26f2c73-00fa-4afb-961a-879b15c180e5",
+            "sampleRate": 44100,
+            "sizeBytes": 183215,
+            "title": "明年",
+            "trackNumber": 10,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 183215,
+              "fullSha256": "77435976600b2620cebc018ad1ed7df90efd12db086b7868ff6cf642c789c1f6",
+              "payloadSha256": "5342dabe5083f49cc955fb9c3a815e537bccd440147ac1bafb871d928a68160f"
+            },
+            "warm": {
+              "bytes": 183215,
+              "fullSha256": "77435976600b2620cebc018ad1ed7df90efd12db086b7868ff6cf642c789c1f6",
+              "payloadSha256": "5342dabe5083f49cc955fb9c3a815e537bccd440147ac1bafb871d928a68160f"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac",
+          "inventorySelector": "/cases/0/tracks/10",
+          "capturedMediaSha256Claim": "33f2e8e904f89508e3fffb7da7f681e0fbb9f900d61942d8246b9ad5e08ee7a3",
+          "profileVisible": {
+            "album": "勵志論",
+            "albumArtist": "盧廣仲",
+            "albumArtists": [
+              "盧廣仲"
+            ],
+            "artist": "盧廣仲",
+            "artists": [
+              "盧廣仲"
+            ],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 192.2,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": "7935e252-463d-4207-bce9-594d0a84e63a",
+            "musicbrainzArtistId": "2ccc975f-ea40-4f0e-b861-8d80f967fe81",
+            "musicbrainzTrackId": "d27927c0-4294-45b2-bd7b-bacab5e99b9a",
+            "sampleRate": 44100,
+            "sizeBytes": 138560,
+            "title": "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]",
+            "trackNumber": 11,
+            "trackTotal": null,
+            "year": "2021"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 138560,
+              "fullSha256": "e9ff0c9b0c7acd9c7d594ebc3f5b5aed12598b28672e8eb50860b1d516a2f971",
+              "payloadSha256": "033b85186e766d9580001499149e1216b65e2aafc622ee86bd0ea630367c918c"
+            },
+            "warm": {
+              "bytes": 138560,
+              "fullSha256": "e9ff0c9b0c7acd9c7d594ebc3f5b5aed12598b28672e8eb50860b1d516a2f971",
+              "payloadSha256": "033b85186e766d9580001499149e1216b65e2aafc622ee86bd0ea630367c918c"
+            }
+          },
+          "acceptedValues": {
+            "title": [
+              "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]"
+            ],
+            "artists": [
+              [
+                "盧廣仲"
+              ],
+              [
+                "Crowd Lu"
+              ]
+            ],
+            "genre": null
+          },
+          "labelOccurrence": {
+            "caseId": "036e0a00e45b",
+            "inventorySource": "C",
+            "inventoryOccurrence": "/cases/0/tracks/10",
+            "acceptedArtistLists": [
+              [
+                "盧廣仲"
+              ],
+              [
+                "Crowd Lu"
+              ]
+            ],
+            "acceptedCreditDisplayValues": [
+              "盧廣仲",
+              "Crowd Lu"
+            ],
+            "acceptedTitleValues": [
+              "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]"
+            ],
+            "sourceFields": [
+              "B /media/0/tracks/10/artist-credit",
+              "B /media/0/tracks/10/title",
+              "D /artists/0 canonical-name/ANV only"
+            ],
+            "notEquivalentTitle": "英雄 Heroes"
+          },
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        }
+      ]
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "folder": "Billie Eilish/Billie Eilish - dont smile at me",
+      "inventory": "test/fixtures/tauri/auto-tag-eval/corpus.json",
+      "inventorySelector": "/cases/98",
+      "historicalPrewrite": ".amp/in/artifacts/five-album-offline-rehearsal-20261110-v2/runs/tagged_recovery-54e7923a3000/results.json",
+      "allowedAssistanceRoleConditional": null,
+      "files": [
+        {
+          "path": "01. Billie Eilish - COPYCAT.flac",
+          "inventorySelector": "/cases/98/tracks/0",
+          "capturedMediaSha256Claim": "e8a6eb39d081e99c2221704663a3afa364b0a5bd5bfe6811ba94aa01596ff7b1",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 193.357,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "ed3a357a-cd5c-4489-aeb3-25cc87bac005",
+            "sampleRate": 44100,
+            "sizeBytes": 139359,
+            "title": "Copycat",
+            "trackNumber": 1,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 139359,
+              "fullSha256": "dd11c9dcbc1f769d19d0df665589e2943698ec4b16821f28700599e32df96dd3",
+              "payloadSha256": "2f320dae10debe825cdf0cd22aa20947cb4f2d91f3279c7d55baaf8932cd48a3"
+            },
+            "warm": {
+              "bytes": 139359,
+              "fullSha256": "dd11c9dcbc1f769d19d0df665589e2943698ec4b16821f28700599e32df96dd3",
+              "payloadSha256": "2f320dae10debe825cdf0cd22aa20947cb4f2d91f3279c7d55baaf8932cd48a3"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "02. Billie Eilish - idontwannabeyouanymore.flac",
+          "inventorySelector": "/cases/98/tracks/1",
+          "capturedMediaSha256Claim": "33c583d9c4d1b949e35d04c2c7b52dbb90f1a6d81a09dd76bac7c65eaf57eeef",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 204.469,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "acffab4b-194a-43b5-8370-5f64e33dc483",
+            "sampleRate": 44100,
+            "sizeBytes": 147008,
+            "title": "Idontwannabeyouanymore",
+            "trackNumber": 2,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 147008,
+              "fullSha256": "035a8b125c8773b91dab9da43b789b44dfff5061bbbac8ea3ee337144f9eafd7",
+              "payloadSha256": "6ec485f5e6b337b2c9d5b18143a17aa2d2120d23d2edb5680837e4d7f47d6693"
+            },
+            "warm": {
+              "bytes": 147008,
+              "fullSha256": "035a8b125c8773b91dab9da43b789b44dfff5061bbbac8ea3ee337144f9eafd7",
+              "payloadSha256": "6ec485f5e6b337b2c9d5b18143a17aa2d2120d23d2edb5680837e4d7f47d6693"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "03. Billie Eilish - my boy.flac",
+          "inventorySelector": "/cases/98/tracks/2",
+          "capturedMediaSha256Claim": "1320d6ac969219074d3ae7024ac724ef0732d6f241d8faf10fb093c81d58af90",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 172.047,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "44060550-81f5-4a7d-af2f-716bb980ba67",
+            "sampleRate": 44100,
+            "sizeBytes": 124672,
+            "title": "My Boy",
+            "trackNumber": 3,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 124672,
+              "fullSha256": "833a74f1099a58096120da2a71bf469e7b9e0e8bef3f6b9e5a9051fc23aaa732",
+              "payloadSha256": "15060ee04b296f92f55985596eec1c2d2010169d22f7e7297983f222c5dfbbec"
+            },
+            "warm": {
+              "bytes": 124672,
+              "fullSha256": "833a74f1099a58096120da2a71bf469e7b9e0e8bef3f6b9e5a9051fc23aaa732",
+              "payloadSha256": "15060ee04b296f92f55985596eec1c2d2010169d22f7e7297983f222c5dfbbec"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "04. Billie Eilish - watch.flac",
+          "inventorySelector": "/cases/98/tracks/3",
+          "capturedMediaSha256Claim": "96e55329e3d815cf9821524751154cd7d90aa305559eb8ea533732a27d9fcfe3",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 178.97,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "2e33d52a-b8ba-4b9d-99d2-1df3d126db6f",
+            "sampleRate": 44100,
+            "sizeBytes": 129440,
+            "title": "Watch",
+            "trackNumber": 4,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 129440,
+              "fullSha256": "e271e7cd54166de9827267a713ac2801216cf8d72e29f1d13dd48caa7896fc2b",
+              "payloadSha256": "6f93b2d28b32963602f5d3f9c77de0469c04a63857f9e2316ba0c6b8129e979b"
+            },
+            "warm": {
+              "bytes": 129440,
+              "fullSha256": "e271e7cd54166de9827267a713ac2801216cf8d72e29f1d13dd48caa7896fc2b",
+              "payloadSha256": "6f93b2d28b32963602f5d3f9c77de0469c04a63857f9e2316ba0c6b8129e979b"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "05. Billie Eilish - party favor.flac",
+          "inventorySelector": "/cases/98/tracks/4",
+          "capturedMediaSha256Claim": "acae0423034f07c08dd3e83cac4023d3e01beeaa23edaf111c940df2ffdf2e40",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 206.08,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "0df33b22-38e2-47fe-a86b-9fb3387f1ce1",
+            "sampleRate": 44100,
+            "sizeBytes": 148127,
+            "title": "Party Favor",
+            "trackNumber": 5,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 148127,
+              "fullSha256": "47d953a8b56cfaec475003f51725f49782ddec39f041627b5592f916589da81d",
+              "payloadSha256": "b2679437bbc1584ce7ea54fd8b408eeaa264a815c06a94dec7b8d9d89d2e6cc4"
+            },
+            "warm": {
+              "bytes": 148127,
+              "fullSha256": "47d953a8b56cfaec475003f51725f49782ddec39f041627b5592f916589da81d",
+              "payloadSha256": "b2679437bbc1584ce7ea54fd8b408eeaa264a815c06a94dec7b8d9d89d2e6cc4"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "06. Billie Eilish - bellyache.flac",
+          "inventorySelector": "/cases/98/tracks/5",
+          "capturedMediaSha256Claim": "1b0e063cfa6e6059ebd51a721131bf014b93cc3f2ba777cd9f1a4f2bc047dde3",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 181.33,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "5f943be1-99d2-401f-8814-bebe048d1e3c",
+            "sampleRate": 44100,
+            "sizeBytes": 131071,
+            "title": "Bellyache",
+            "trackNumber": 6,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 131071,
+              "fullSha256": "fe9895f19d39122bc1f9715291f47af76d3e6da6bd046f9086dbacfc67130e9f",
+              "payloadSha256": "e6181f7cc560c718bb1f08c02f8b273d53c589a5be9ccf8f846ac121ec59bd5b"
+            },
+            "warm": {
+              "bytes": 131071,
+              "fullSha256": "fe9895f19d39122bc1f9715291f47af76d3e6da6bd046f9086dbacfc67130e9f",
+              "payloadSha256": "e6181f7cc560c718bb1f08c02f8b273d53c589a5be9ccf8f846ac121ec59bd5b"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "07. Billie Eilish - ocean eyes.flac",
+          "inventorySelector": "/cases/98/tracks/6",
+          "capturedMediaSha256Claim": "1288658f2e93c23acf57ee2aa7d5ab32a7187804b79eb7e66ede7a0793da910d",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 199.545,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "5cbc1f32-3bfd-48e9-953c-5ec847f86370",
+            "sampleRate": 44100,
+            "sizeBytes": 143616,
+            "title": "Ocean Eyes",
+            "trackNumber": 7,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 143616,
+              "fullSha256": "de192407bc2130f68f69a5731a6fb8bab49e2a1037e9cb4de030a2a64794f171",
+              "payloadSha256": "a07851a290d09bd84305d858516c6db00ef8d48a0c89cf13d45a3431264176cc"
+            },
+            "warm": {
+              "bytes": 143616,
+              "fullSha256": "de192407bc2130f68f69a5731a6fb8bab49e2a1037e9cb4de030a2a64794f171",
+              "payloadSha256": "a07851a290d09bd84305d858516c6db00ef8d48a0c89cf13d45a3431264176cc"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "08. Billie Eilish - hostage.flac",
+          "inventorySelector": "/cases/98/tracks/7",
+          "capturedMediaSha256Claim": "41363950ccf19e9db1802e41ad0525be6791dac86ecef76b7cb7888568e7fcbb",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 229.426,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "5388ce74-a4b1-4d19-b6cc-75b1c706748b",
+            "sampleRate": 44100,
+            "sizeBytes": 164208,
+            "title": "Hostage",
+            "trackNumber": 8,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 164208,
+              "fullSha256": "ea4c12eb02e0ddb0df92784f029920f820b4b246f2576b3f63407c2ee07a0aae",
+              "payloadSha256": "5712b9f25357eb460ef85b94b078e061c7b58377685a80259fc02fe0dd1e98ba"
+            },
+            "warm": {
+              "bytes": 164208,
+              "fullSha256": "ea4c12eb02e0ddb0df92784f029920f820b4b246f2576b3f63407c2ee07a0aae",
+              "payloadSha256": "5712b9f25357eb460ef85b94b078e061c7b58377685a80259fc02fe0dd1e98ba"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "09. Billie Eilish - &burn.flac",
+          "inventorySelector": "/cases/98/tracks/8",
+          "capturedMediaSha256Claim": "a7610985172cc339d1b62c002ff78380db81e5ebdccf7dd5d0cc2cf58739829c",
+          "profileVisible": {
+            "album": "Don't Smile At Me",
+            "albumArtist": "Billie Eilish",
+            "albumArtists": [
+              "Billie Eilish"
+            ],
+            "artist": "Billie Eilish",
+            "artists": [
+              "Billie Eilish"
+            ],
+            "bitrate": 5000.0,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": 1,
+            "discTotal": null,
+            "discogsArtistId": "5590213",
+            "discogsReleaseId": "37353822",
+            "duration": 179.016,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": "4148a1fc-aaa3-4414-abf0-7c882933dc10",
+            "sampleRate": 44100,
+            "sizeBytes": 129472,
+            "title": "&burn",
+            "trackNumber": 9,
+            "trackTotal": null,
+            "year": "2019"
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 129472,
+              "fullSha256": "d9132004acb9ea7a939ce3781f6cb2286a8e3588f9a665892623be8c027b1292",
+              "payloadSha256": "01faf51d0b07964109d9744256fa0dbe40be6085639eac279ea956383691039e"
+            },
+            "warm": {
+              "bytes": 129472,
+              "fullSha256": "d9132004acb9ea7a939ce3781f6cb2286a8e3588f9a665892623be8c027b1292",
+              "payloadSha256": "01faf51d0b07964109d9744256fa0dbe40be6085639eac279ea956383691039e"
+            }
+          },
+          "acceptedValues": {
+            "title": [
+              "&burn"
+            ],
+            "artists": [
+              [
+                "Billie Eilish",
+                "Vince Staples"
+              ]
+            ],
+            "genre": null
+          },
+          "labelOccurrence": {
+            "caseId": "54e7923a3000",
+            "inventorySource": "I",
+            "inventoryOccurrence": "/cases/98/tracks/8",
+            "acceptedArtistLists": [
+              [
+                "Billie Eilish",
+                "Vince Staples"
+              ]
+            ],
+            "acceptedCreditDisplayValues": [
+              "Billie Eilish with Vince Staples",
+              "Billie Eilish & Vince Staples",
+              "Billie Eilish feat. Vince Staples"
+            ],
+            "acceptedTitleValues": [
+              "&burn"
+            ],
+            "sourceFields": [
+              "E /media/0/tracks/8/artist-credit",
+              "E /media/0/tracks/8/title",
+              "F /tracklist/8/extraartists/0"
+            ]
+          },
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        }
+      ]
+    },
+    {
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "folder": "Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)",
+      "inventory": "test/fixtures/tauri/auto-tag-eval/corpus.json",
+      "inventorySelector": "/cases/313",
+      "historicalPrewrite": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/preparation-disabled/records.json",
+      "allowedAssistanceRoleConditional": null,
+      "files": [
+        {
+          "path": "01. Enya - Orinoco Flow (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/0",
+          "capturedMediaSha256Claim": "c73b812dde3422745174bbc88f2435f18feb7e3564787f6f3a11e688010b947f",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 266.931,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 190048,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 190048,
+              "fullSha256": "0b3aef1b398957e939b44b0de111c7d05d517b52c047e1efc460d0e7f069356e",
+              "payloadSha256": "cc040678fce53936e0d379e6da8ae02f061f7bb8bdc58cad1aee8b93c575ea75"
+            },
+            "warm": {
+              "bytes": 190048,
+              "fullSha256": "0b3aef1b398957e939b44b0de111c7d05d517b52c047e1efc460d0e7f069356e",
+              "payloadSha256": "cc040678fce53936e0d379e6da8ae02f061f7bb8bdc58cad1aee8b93c575ea75"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "02. Enya - Caribbean Blue (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/1",
+          "capturedMediaSha256Claim": "ec190864012c5a52f3b020c57ecf15d98d1cb705fdf29c0c8bc30edbb51e9ce0",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 238.96,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 170783,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 170783,
+              "fullSha256": "1520c052a9a70c66e529aa023315371cc54202f0dacce1a9ce0153f4fb64d1b3",
+              "payloadSha256": "a6950a3f3b4999d0781f37c5d79459719f87cf274117bdaf1d6f934457b892b2"
+            },
+            "warm": {
+              "bytes": 170783,
+              "fullSha256": "1520c052a9a70c66e529aa023315371cc54202f0dacce1a9ce0153f4fb64d1b3",
+              "payloadSha256": "a6950a3f3b4999d0781f37c5d79459719f87cf274117bdaf1d6f934457b892b2"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "03. Enya - Book Of Days (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/2",
+          "capturedMediaSha256Claim": "a0052f93bd7a0db6a67d95ad79ea8ca2425f9670cb4eccf0f5207ef39137cc41",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 176.2,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 127536,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 127536,
+              "fullSha256": "69d47208a1a3e8d705d867ab86ea6db7b076c35b44debcd29d081e13cc7f4dac",
+              "payloadSha256": "c205a80b8c3a7894008b10470d1ed229aa87610e3f019184e6ab67849b9a6c6e"
+            },
+            "warm": {
+              "bytes": 127536,
+              "fullSha256": "69d47208a1a3e8d705d867ab86ea6db7b076c35b44debcd29d081e13cc7f4dac",
+              "payloadSha256": "c205a80b8c3a7894008b10470d1ed229aa87610e3f019184e6ab67849b9a6c6e"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "04. Enya - Anywhere Is (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/3",
+          "capturedMediaSha256Claim": "eaa11646f90fb7167854d64223e39095feb9e4abcd2ffce38b38d621f1bca0a6",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 226.907,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 162479,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 162479,
+              "fullSha256": "4da4fe7e3c7fce41a79a7562f041cc1a62e866d47d2bc3d269d668a6802cabc2",
+              "payloadSha256": "25cb6a0ed147bcc92995bc63229cedd140e284fb4fca03d251cf03e1fdefe048"
+            },
+            "warm": {
+              "bytes": 162479,
+              "fullSha256": "4da4fe7e3c7fce41a79a7562f041cc1a62e866d47d2bc3d269d668a6802cabc2",
+              "payloadSha256": "25cb6a0ed147bcc92995bc63229cedd140e284fb4fca03d251cf03e1fdefe048"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "05. Enya - Only If....flac",
+          "inventorySelector": "/cases/313/tracks/4",
+          "capturedMediaSha256Claim": "7e7f1288757908a8176e5702e79f6e175a9f8c68a5c887e5ddf1bbb65464a431",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 199.731,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 143744,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 143744,
+              "fullSha256": "0165bfbc10fed6138f49d4377e9d8792b33d8f86eb9d7e80448ea0cb4b18899d",
+              "payloadSha256": "2fd6218c5e5118410e0ac4053092b27e0c778c570bac4880f9fda4b6ebbe0ba0"
+            },
+            "warm": {
+              "bytes": 143744,
+              "fullSha256": "0165bfbc10fed6138f49d4377e9d8792b33d8f86eb9d7e80448ea0cb4b18899d",
+              "payloadSha256": "2fd6218c5e5118410e0ac4053092b27e0c778c570bac4880f9fda4b6ebbe0ba0"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "06. Enya - The Celts (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/5",
+          "capturedMediaSha256Claim": "85f1d1ed7a7e3e10cb77e50b7d6a5c358822dc574996f285d0fd062f8d9eeb11",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 177.76,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 128608,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 128608,
+              "fullSha256": "cc1f02c49b8f04fb9a62eebecf88b0c8cec8085a4e4abc4b5bfff0c3a59ead0a",
+              "payloadSha256": "c7ae801b22bc242afec4e6cc075812297a5de6ae6e1f30b4fdaafbde03654148"
+            },
+            "warm": {
+              "bytes": 128608,
+              "fullSha256": "cc1f02c49b8f04fb9a62eebecf88b0c8cec8085a4e4abc4b5bfff0c3a59ead0a",
+              "payloadSha256": "c7ae801b22bc242afec4e6cc075812297a5de6ae6e1f30b4fdaafbde03654148"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "07. Enya - China Roses (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/6",
+          "capturedMediaSha256Claim": "ff880758b2848316d1bc1c21a432ab572808bb7a06c0f392f43dc8a9fc5c333e",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 280,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 199056,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 199056,
+              "fullSha256": "01a28bba20c46a1817f56f66cca4e95c3c1025070c5cd2623c8828692a36be22",
+              "payloadSha256": "6ad4b2858acea1e71d2f4179f1812007c6e7a7caf67a1de0950dab1b56ef445f"
+            },
+            "warm": {
+              "bytes": 199056,
+              "fullSha256": "01a28bba20c46a1817f56f66cca4e95c3c1025070c5cd2623c8828692a36be22",
+              "payloadSha256": "6ad4b2858acea1e71d2f4179f1812007c6e7a7caf67a1de0950dab1b56ef445f"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "08. Enya - Shepherd Moons (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/7",
+          "capturedMediaSha256Claim": "4813902fb92dd16590909bb6ffb3167e2b42f4df6a4b8251bbd5e0a7dee03a72",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 220.371,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 157968,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 157968,
+              "fullSha256": "73e955b1816b11f63993a925711c45517fca114d196f2a7efb2461f6e478ff11",
+              "payloadSha256": "863df8a532e4c44d1c096cd424a3d376d42b85525448cc268551f21c4e6b23ec"
+            },
+            "warm": {
+              "bytes": 157968,
+              "fullSha256": "73e955b1816b11f63993a925711c45517fca114d196f2a7efb2461f6e478ff11",
+              "payloadSha256": "863df8a532e4c44d1c096cd424a3d376d42b85525448cc268551f21c4e6b23ec"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "09. Enya - Ebudae (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/8",
+          "capturedMediaSha256Claim": "12e82b4df3eb5aa1b429f7556ce970e479099ab8f8bf25010cdc9dcc48753f2f",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 112.96,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 83952,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 83952,
+              "fullSha256": "3be5e6b1609d395dd3991fb39392819b2b957703b7d16131212e7ddf33423136",
+              "payloadSha256": "8e84034a347ba1baa4e25ff4749e7b11e78df31d3dd052f69194c179b7a204cf"
+            },
+            "warm": {
+              "bytes": 83952,
+              "fullSha256": "3be5e6b1609d395dd3991fb39392819b2b957703b7d16131212e7ddf33423136",
+              "payloadSha256": "8e84034a347ba1baa4e25ff4749e7b11e78df31d3dd052f69194c179b7a204cf"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "10. Enya - Storms In Africa (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/9",
+          "capturedMediaSha256Claim": "d042f5eeb927e9df740cc553772a1e6c759c4bd4d0a5f567310da4abd4a87925",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 251.731,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 179583,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 179583,
+              "fullSha256": "59af310278109de5fe4b3155e1e5bcafe03823de092e87b8b42d809137a16a98",
+              "payloadSha256": "5109a16e63c8576c88eeb4f582836c475cd0eda64ffa8bdb991a88e36a1edea8"
+            },
+            "warm": {
+              "bytes": 179583,
+              "fullSha256": "59af310278109de5fe4b3155e1e5bcafe03823de092e87b8b42d809137a16a98",
+              "payloadSha256": "5109a16e63c8576c88eeb4f582836c475cd0eda64ffa8bdb991a88e36a1edea8"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "11. Enya - Watermark (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/10",
+          "capturedMediaSha256Claim": "bdc4f443f1c73aae6104eb85901d5e3755389343d156d5ba072c7346196dd5fc",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 146.64,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 107168,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 107168,
+              "fullSha256": "cd32e4edc32404756720e406acb08f9abad5cba63bbc420a6bd989f8813ed4b9",
+              "payloadSha256": "bcf545f3e689d9ab96c5b8da6b745bd306e70a31efad10286ff8c87d382accae"
+            },
+            "warm": {
+              "bytes": 107168,
+              "fullSha256": "cd32e4edc32404756720e406acb08f9abad5cba63bbc420a6bd989f8813ed4b9",
+              "payloadSha256": "bcf545f3e689d9ab96c5b8da6b745bd306e70a31efad10286ff8c87d382accae"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "12. Enya - Paint The Sky With Stars.flac",
+          "inventorySelector": "/cases/313/tracks/11",
+          "capturedMediaSha256Claim": "2cf7bc3bde9aec610e661312e34437bb3204f4734b4574490839a8930849efae",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 255.731,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 182336,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 182336,
+              "fullSha256": "8d5eeae5aafc65c7f457516ae9c2d219e8a368f3b2c974a39196aa976439a2a0",
+              "payloadSha256": "b068cd0b2da97fc719d60aff48f5f6b850386f5b19017b05027176d871ef126a"
+            },
+            "warm": {
+              "bytes": 182336,
+              "fullSha256": "8d5eeae5aafc65c7f457516ae9c2d219e8a368f3b2c974a39196aa976439a2a0",
+              "payloadSha256": "b068cd0b2da97fc719d60aff48f5f6b850386f5b19017b05027176d871ef126a"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "13. Enya - Marble Halls (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/12",
+          "capturedMediaSha256Claim": "374d690ea28a8f3f81cb7eebc8cf709c1c9bbfe6afe4892195a003d9fc0163f1",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 235.131,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 168144,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 168144,
+              "fullSha256": "c5285e3da0f6843e44bd833dceb3fca38c7418907a2c1978b3f64261f18e5b76",
+              "payloadSha256": "42b6fb032475c744ace5dd269adcc90accb9b810ef805528ee9ababf07bd030e"
+            },
+            "warm": {
+              "bytes": 168144,
+              "fullSha256": "c5285e3da0f6843e44bd833dceb3fca38c7418907a2c1978b3f64261f18e5b76",
+              "payloadSha256": "42b6fb032475c744ace5dd269adcc90accb9b810ef805528ee9ababf07bd030e"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "14. Enya - On My Way Home (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/13",
+          "capturedMediaSha256Claim": "9df883b15522899f1391c920ff0b17f129b87d789a1939356bf5722b2daf4047",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 218.891,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 156944,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 156944,
+              "fullSha256": "1d0de39df4caece61c3a445218f59c773865c9dfb07f95e60981c389b678c4db",
+              "payloadSha256": "e72df504d5515c8b2342e6c4bdc7d1af0ea0b2e219662ed03d9d848acc7b4049"
+            },
+            "warm": {
+              "bytes": 156944,
+              "fullSha256": "1d0de39df4caece61c3a445218f59c773865c9dfb07f95e60981c389b678c4db",
+              "payloadSha256": "e72df504d5515c8b2342e6c4bdc7d1af0ea0b2e219662ed03d9d848acc7b4049"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/14",
+          "capturedMediaSha256Claim": "fddc3b82cdaf5055321d9a57ddbd4d8206f3e6d4a2e6922c20d5c80e4b8c7ed3",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 259.907,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 185216,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 185216,
+              "fullSha256": "c0c254eb63ee531d2cef1a9bdc0ec1210c5a8e5280bc390c12b9c98bec9fbb38",
+              "payloadSha256": "04707095c6d3caca7bbf82657a79e311bb12cd37ab7e071af8f6c56124fe1828"
+            },
+            "warm": {
+              "bytes": 185216,
+              "fullSha256": "c0c254eb63ee531d2cef1a9bdc0ec1210c5a8e5280bc390c12b9c98bec9fbb38",
+              "payloadSha256": "04707095c6d3caca7bbf82657a79e311bb12cd37ab7e071af8f6c56124fe1828"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        },
+        {
+          "path": "16. Enya - Boadicea (Remastered 1997).flac",
+          "inventorySelector": "/cases/313/tracks/15",
+          "capturedMediaSha256Claim": "9babf4310c6f1ab7707f4f1d85fb8b8c7603fd2c2423dbba7352342f5a3229db",
+          "profileVisible": {
+            "album": null,
+            "albumArtist": null,
+            "albumArtists": [],
+            "artist": null,
+            "artists": [],
+            "bitrate": 5000,
+            "codec": "FLAC",
+            "comment": null,
+            "compilation": null,
+            "composer": null,
+            "description": null,
+            "discNumber": null,
+            "discTotal": null,
+            "discogsArtistId": null,
+            "discogsReleaseId": null,
+            "duration": 208.867,
+            "genre": null,
+            "hasCover": false,
+            "lyrics": null,
+            "musicbrainzAlbumId": null,
+            "musicbrainzArtistId": null,
+            "musicbrainzTrackId": null,
+            "sampleRate": 44100,
+            "sizeBytes": 150047,
+            "title": null,
+            "trackNumber": null,
+            "trackTotal": null,
+            "year": null
+          },
+          "historicalGeneratedBaseline": {
+            "cold": {
+              "bytes": 150047,
+              "fullSha256": "25a0f11428edc22692a638d06d6ff8f23d1ee2c56be34684d0347f943d4d368d",
+              "payloadSha256": "62181f4e9a3084ea38dc29f82da3e27589985a7290c9fcd54e90622badb823e9"
+            },
+            "warm": {
+              "bytes": 150047,
+              "fullSha256": "25a0f11428edc22692a638d06d6ff8f23d1ee2c56be34684d0347f943d4d368d",
+              "payloadSha256": "62181f4e9a3084ea38dc29f82da3e27589985a7290c9fcd54e90622badb823e9"
+            }
+          },
+          "acceptedValues": {
+            "title": null,
+            "artists": null,
+            "genre": null
+          },
+          "labelOccurrence": null,
+          "genreTruth": "unscorable; qualified occurrence/version annotations absent",
+          "genreCapture": "unrepresented in inventory; observed null in historical dummy prewrite only"
+        }
+      ]
+    }
+  ],
+  "denominators": {
+    "uniquePhysicalPaths": 36,
+    "evaluations": 12,
+    "repeatedPhysicalObservations": 144,
+    "fieldSlots": 432,
+    "uniqueCatalogLabels": 4,
+    "replicatedCatalogLabelSlots": 16,
+    "genreTruthLabels": 0,
+    "genreMissingOpportunityUnique": 11,
+    "currentlyUnscorableSlots": 416
+  },
+  "bindings": {
+    ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/genre/preparation-disabled/records.json": "b57fcf3bd3e36a8e35d846245e5f6f1e647c362facd2a6b765539c0f130122c3",
+    ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/preparation-disabled/records.json": "973b6837077fa9988d0cc661af71d368e950611f6bf0a41a290c903c229765df",
+    ".amp/in/artifacts/five-album-offline-rehearsal-20261110-v2/runs/tagged_recovery-54e7923a3000/results.json": "4720f355ed4573fafe27ddaf887ece0e31d20d93eeeff12ce2e959d99d5978bd",
+    ".planning/research/bounded-assistance-label-review-20261111.json": "6147a03ba85fb7697f81c0341b411cdbdc38822ceead404141370caa71e3fb42",
+    ".planning/research/bounded-assistance-machine-labels-20261111.json": "34144c437e4aaf664151052ad1b208ab7467aae9df131b8bb6bc707abe1e02a7",
+    "scripts/auto-tag-eval-replay/run-bounded.cjs": "c9af73faeb4e65f6c586c5c61e79d1c727bc8a4fa5d61019b91fa4e85d8b55e3",
+    "scripts/auto-tag-eval-replay/score-observations.py": "1222426479f9180b0184f5a27e42b6441c7736ae0d0c131d136a75e08b994afe",
+    "src-tauri/Cargo.lock": "2b6ef00068aec1df52450ad05d819595ad834ff0f040081f44102b3793544810",
+    "src-tauri/Cargo.toml": "c35df558aa629e3193f27286f312060bd641034ca711c6f96c02c41bd932ddc2",
+    "src-tauri/src/commands/auto_tag.rs": "5f2e49fe5d380027ccd83a2c1f08e56fb656c0e9bd9ab4209899c07ef89dac59",
+    "src-tauri/src/commands/auto_tag_acoustid.rs": "4f891165ef3c71de0f5d068e2ab1328f790c4ac7c43aba43b662c10012995bf8",
+    "src-tauri/src/commands/auto_tag_eval.rs": "70d912c850eec805a2304ce2fb56397f586d41809982133ce25c3b23f498c41c",
+    "src-tauri/src/commands/auto_tag_review.rs": "9c6bf630c98c9b00d5234b32b8ca118ebd4e3d8fba04b1dd6100583bc02f6a6d",
+    "src-tauri/src/commands/mutations.rs": "7e97f8893fcb57cf0b95b1518dc013e0490d0483a47d47b43b2a38ae019c0f48",
+    "src-tauri/src/commands/track_matcher.rs": "8939eb51ecc1fe7fa21191c0a9f4c313be955f4d2f27a072d32b5944426e199d",
+    "src-tauri/src/infra/bounded_eval.rs": "250052de2dd4cceca71451d99e1a2eaa8b46eacefb28f74ffb199a324c069c7e",
+    "src-tauri/src/infra/openrouter.rs": "8d5d80a16acf1bd6e49f162f683354f7f8766b244214aaf504c1053d882ae99e",
+    "src-tauri/src/state/providers.rs": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4",
+    "src-tauri/src/state/write_queue.rs": "c7dd27035febe2094c772c8f421b598b0093a8e31e920f054cfb182e000b6b46",
+    "test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json": "d22fa2996dc9d419c047b9e66a21f399ef63d763d947750af395722f4fa5b7e5",
+    "test/fixtures/tauri/auto-tag-eval/corpus.json": "bc081d05a3d661eb7ac99a41c605a9562a0f4714c604a8a08aabf05d7fd8db18",
+    "test/fixtures/tauri/auto-tag-eval/curated-hard-cases/corpus.json": "7199fae9eb3d50745fe4314f85db54195e868c260a817e97546f6a46103020a2",
+    "test/fixtures/tauri/auto-tag-eval/library-sample/corpus.json": "cf9bf37f0ad999358bd261b3599f8b2ad48dd277d276a931c3aa2c6a82458bd2",
+    "test/fixtures/tauri/auto-tag-eval/provider-discovery.json": "99415eb7d3505f56cbcd7c4461814abc3220f8b82cbb43a64d2ae8ee4ba46219",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/discovery/details-2026-11-07/musicbrainz-ad6d0d2fac466bbc.json": "e6488205b3306920c39a79db249ccaeef45526c14f4e012f15d5f53ee4b1bb4e",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/nine-case-discovery-20261108/discogs-831b7a505ee49608.json": "123f3e1273232339ce426c5f2d69a6397e5a9e5ac7eaaee637585cf9b7a4917f",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json": "7593097ea5f4e5fd98aded79818d61b3c825f93756cd7c2b14145534617620cc",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json": "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/discogs-c7758322f5bfad50.json": "da0697025847bf46d377f36ff2de7bdf4e4569536adddbb5168a0b6139a5104f",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/reviewed-22-completion-20261108/musicbrainz-60358d77da081c4e.json": "d02496332ab0c00399248d3d7281acac7207613aaa73dcc338b96e0127c0dcf6"
+  }
+}

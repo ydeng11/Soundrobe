@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "upstreamTrackingCountsUnfetched": "0\t10",
+  "python": "3.14.6",
+  "pythonExecutableSha256": "4f00ea2ad53d62437a6a3946b73c73614a97e8accdc5b96dc095ea1a0d9c6a56",
+  "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+  "commands": [
+    {
+      "command": "python3 -B .planning/plans/scorable-assistance-contract-20261111/packet.py",
+      "exitCode": 0
+    },
+    {
+      "command": "python3 -B .planning/plans/scorable-assistance-contract-20261111/test_packet.py",
+      "exitCode": 0,
+      "testsPassed": 8,
+      "testsIgnored": 0,
+      "testsSkipped": 0
+    }
+  ],
+  "logs": {
+    ".amp/in/artifacts/scorable-assistance-contract-20261111/checker-green-final.log": "89318c0debf844af2c629b12d7c32a8ea837fb94b7524b3d55f0e82ad44d450e",
+    ".amp/in/artifacts/scorable-assistance-contract-20261111/checker-green.log": "3cb35f6495eacd1ac40676f7abe15522685ee0f4605877f698fcb6fa438597c4",
+    ".amp/in/artifacts/scorable-assistance-contract-20261111/checker-red.log": "6aae705fb99fb9d6cbcbac2e8ba8812ede02bd4d9bc7518bc58e9a9d7b26bd27",
+    ".amp/in/artifacts/scorable-assistance-contract-20261111/packet-final.log": "5d4a7f79c6b2c21b7b58e5025ae95518912d3cbe92aaa329421e0dec8521be84"
+  },
+  "denominators": {
+    "uniquePhysicalPaths": 36,
+    "evaluations": 12,
+    "repeatedPhysicalObservations": 144,
+    "fieldSlots": 432,
+    "uniqueCatalogLabels": 4,
+    "replicatedCatalogLabelSlots": 16,
+    "genreTruthLabels": 0,
+    "genreMissingOpportunityUnique": 11,
+    "currentlyUnscorableSlots": 416
+  },
+  "sourceInputLabelBindings": 30,
+  "consistencyOnly": true,
+  "nativeSuitesRun": false,
+  "historicalAttempt7ReusedNotRerun": true,
+  "newTaggingProviderRequests": 0,
+  "newTaggingRuns": 0,
+  "newModelRequests": 0,
+  "originalMediaOperations": 0,
+  "networkScope": "public documentation via web tools only; no authenticated endpoints or inference",
+  "trackedWorktreeChanges": false,
+  "indexEmpty": true,
+  "delivery": "new ignored preparation files only, uncommitted; no push",
+  "activationAvailable": false,
+  "acceptedCertificate": false,
+  "writableDelta": []
+}

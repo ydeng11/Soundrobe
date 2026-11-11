@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "scope": "offline scoring integration only; no live authority, musical-truth labels or grounded AI credit",
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "branch": "artist-library-inventory",
+  "labelVersion": "crowd-lu-user-acceptance-v1",
+  "checks": {
+    "pythonPortablePlusFrozen": 18,
+    "comparisonTests": 8,
+    "mockServiceTests": 11,
+    "nativeBoundedUnitTests": 16,
+    "realNativeProjectionControls": 40,
+    "pairedAuditGroups": 17,
+    "exit42Envelope": "372 requested/82 labelable slots retained, zero projection",
+    "historicalSeals": "7 label-packet and 8 original-contract entries unchanged",
+    "historicalReproduction": "expected failure: only the maintained scorer binding differs; original packet not resealed"
+  },
+  "commands": [
+    "python3 -B scripts/auto-tag-eval-replay/test_observation_scoring.py ObservationScoring NativeProjection FrozenUserProjection",
+    "python3 -B scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py",
+    "npm run test:mock-provider",
+    "cargo test --manifest-path src-tauri/Cargo.toml --offline --locked --config profile.test.package.soundrobe.debug=0 --config profile.test.package.soundrobe.incremental=false --config profile.test.package.sha2.opt-level=3 --config profile.test.package.regex.opt-level=3 --config profile.test.package.regex-syntax.opt-level=3 --config profile.test.package.regex-automata.opt-level=3 --no-default-features --features server --lib infra::bounded_eval -- --test-threads=1",
+    "python3 -B scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/validate-native-projection.py .amp/in/artifacts/user-acceptance-native-optimized-labels-20261111",
+    "python3 -B .planning/plans/offline-user-acceptance-integration-20261111/verify.py .amp/in/artifacts/user-acceptance-native-optimized-control-20261111 .amp/in/artifacts/user-acceptance-native-optimized-labels-20261111",
+    "node --check scripts/auto-tag-eval-replay/run-bounded.cjs",
+    "git diff --check"
+  ],
+  "userAcceptance": {
+    "requestedFieldSlots": 66,
+    "observedFieldSlots": 66,
+    "agreeingFieldSlots": 0,
+    "serviceFailureSlots": 44
+  },
+  "redactedPostwriteObservations": [
+    {
+      "run": "user-acceptance-native-optimized-control-20261111",
+      "job": "provider",
+      "phase": "cold",
+      "path": "02. Cookie Jar.flac",
+      "independentPostwriteHashCheck": "unavailable"
+    },
+    {
+      "run": "user-acceptance-native-optimized-control-20261111",
+      "job": "provider",
+      "phase": "warm",
+      "path": "02. Cookie Jar.flac",
+      "independentPostwriteHashCheck": "unavailable"
+    },
+    {
+      "run": "user-acceptance-native-optimized-labels-20261111",
+      "job": "provider",
+      "phase": "cold",
+      "path": "02. Cookie Jar.flac",
+      "independentPostwriteHashCheck": "unavailable"
+    },
+    {
+      "run": "user-acceptance-native-optimized-labels-20261111",
+      "job": "provider",
+      "phase": "warm",
+      "path": "02. Cookie Jar.flac",
+      "independentPostwriteHashCheck": "unavailable"
+    }
+  ],
+  "nativeRuns": [
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-control-20261111",
+      "resultsSha256": "8ad8220f2e9e325bf42f236c9b9a5ab8cd0548190d658c7d835905cfc69ab25f"
+    },
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111",
+      "resultsSha256": "7229fcf52e75d826d2e59712f8fad18406679faffb60b158b9e906ab0cbff058"
+    }
+  ],
+  "limitations": [
+    "user acceptance only, exposed development data, no musical/acoustic truth, no semantic AI improvement",
+    "exact frozen packet requires locally retained ignored metadata; not fresh-clone reproduction",
+    "Cookie Jar postwrite hashes redacted; independent comparison unavailable for four repeated observations across paired runs; native payload guard remains an observation, not independent proof",
+    "initial unoptimized run retained with scope-expiry failures: 11 nonaccepted genre changes and 55 missing fields, not an alternate clean result",
+    "scripted loopback fixture calls only; 16 locally denied CONNECTs per optimized selection, no upstream forwarding",
+    "native eligibility, write authority, model request construction and Rust source unchanged",
+    "no original-library access, original-media writes, commits, pushes or new threads/worktrees"
+  ],
+  "bindings": {
+    "scripts/auto-tag-eval-replay/run-bounded.cjs": "85e0b3b6d126bf03a3b1deaa4664df6217f693c1c8540ad747f7a59d7ec273a6",
+    "scripts/auto-tag-eval-replay/score-observations.py": "276b624c7785deb434f34d4dc55264f3d580b594398c5523ed567701dd85e5a8",
+    "scripts/auto-tag-eval-replay/test_observation_scoring.py": "8cff577ea6b3c5aeb580860d110d9d3348c11794d7fadd6a8eed8b1c0bdeec1c",
+    "docs/bounded-assistance-evaluation.md": "58c674bb9831dab66053b54bb529c2f2ec81fb326898249788c87dec81bd1e04",
+    "docs/CHANGELOG.md": "ae236f2c506cec213a428b9dbd5bf801ade5b4e247a0a31571ebebe9993577d0",
+    ".planning/plans/offline-user-acceptance-integration-20261111/verify.py": "7289a6d3c20834bf7663e597b03b36f936d2a6c7b5b453a381c52ce4ecce6187",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS": "a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4"
+  },
+  "evidence": {
+    ".amp/in/artifacts/user-acceptance-integration-green-final.log": "b74aaafd453cccf550ccd17f52307544f5c9c25a31ff81f49bdb3cbd3e7af789",
+    ".amp/in/artifacts/user-acceptance-comparison-tests.log": "637ad693971420b70a01476cd5d51065ecc3c7af270c41cfe91899ec8c2db4bd",
+    ".amp/in/artifacts/user-acceptance-mock-provider-tests.log": "85e417b8527ae10130e4fde57a8eb7287e36e8a7132bb50f6129bd435f4ef24d",
+    ".amp/in/artifacts/user-acceptance-bounded-native-unit.log": "f8c5c2908e70ab73c478117d898e8dabb154f6c7c4b19b39bbbfa31a1aef170e",
+    ".amp/in/artifacts/user-acceptance-native-build-optimized.jsonl": "a609f81f7ef5dc3d4e83c834a7fbbb2c3794c2413bb935c95456bde274a7d1c7",
+    ".amp/in/artifacts/user-acceptance-native-build-optimized.log": "b3d92c1ef37b1596baa5ee576fc55d9fb97811e3f5831ca0d0a52bed656843b7",
+    ".amp/in/artifacts/user-acceptance-projection-controls-completed.json": "d72f66df6dd93fad885179dd3edc8c051ee7486b7a68e9ca8bb350567d660967",
+    ".amp/in/artifacts/user-acceptance-integration-verification-final.json": "5343f3a9d9e236759f25dccd2c10f27d90a1eaa341ab8ad09117160c480f0042",
+    ".amp/in/artifacts/user-acceptance-historical-rederive-drift.log": "9bcf15b1cbf7942199650222ba4ac9bf6e5a92e74a5ea09adae13e421f0243f1",
+    ".amp/in/artifacts/user-acceptance-exit42-envelope-20261111/failure-envelope.json": "c2a4871e5cd438b915039c40d569fc6efcb15db744334000cd35f99144dda3c2"
+  }
+}

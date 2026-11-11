@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Offline tagging evaluation can score frozen user-accepted genre alternatives separately from catalog agreement and acoustic accuracy, while retaining failed and unavailable observations. Live models remain disabled.
 - A separate mock-only assistance evaluator can check frozen request approvals, shared attempt limits, and source bindings without enabling live models. Catalog-value scoring keeps unavailable decisions and unscorable musical genre separate from successful fills.
 - Concrete Discogs release diagnostics retain bounded originating response snapshots through cache reloads. Offline replay can explain narrowly scoped primary-artist name correspondence, while missing original credits or user decisions remain insufficient. These observations do not change matching, eligibility, or tag writes.
 - Discogs candidate diagnostics retain primary artists' credited-name variants with their source release and artist identifiers. These observations do not change artist matching, donor eligibility, or tag writes.

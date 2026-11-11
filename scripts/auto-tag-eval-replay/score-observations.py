@@ -23,6 +23,30 @@ def checked_json(root, binding):
     return json.loads(checked_bytes(root, binding))
 
 
+def checked_user_acceptance(root, bindings):
+    """Admit the reviewed v1 bytes only; a caller digest cannot expand accepted answers."""
+    label = bindings.get('userAcceptance')
+    seal = bindings.get('userAcceptanceSeal')
+    if label is None and seal is None:
+        return None
+    if not label or not seal or label['sha256'] != 'ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2' or seal['sha256'] != 'a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4':
+        raise ValueError('unsupported or incomplete frozen user-acceptance packet')
+    packet = checked_json(root, label)
+    entries = [line.split('  ', 1) for line in checked_bytes(root, seal).decode().splitlines()]
+    if len(entries) != 7 or [label['sha256'], label['path']] not in entries:
+        raise ValueError('user-acceptance seal membership differs')
+    for digest, path in entries:
+        checked_bytes(root, {'path': path, 'sha256': digest})
+    # Historical tool hashes are provenance, not current-tool requirements.
+    # The new native spec/manifest independently binds the executing tools.
+    historical_tools = {'scripts/auto-tag-eval-replay/score-observations.py',
+                        'src-tauri/src/commands/auto_tag.rs'}
+    for path, digest in packet['bindings'].items():
+        if path not in historical_tools:
+            checked_bytes(root, {'path': path, 'sha256': digest})
+    return packet
+
+
 def pointer(value, selector):
     for key in selector.strip('/').split('/'):
         value = value[int(key)] if isinstance(value, list) else value[key.replace('~1', '/').replace('~0', '~')]
@@ -60,6 +84,9 @@ def freeze_native_contract(root, spec, records):
     bindings = spec['bindings']
     for binding in bindings.values():
         checked_bytes(root, binding)
+    user_labels = checked_user_acceptance(root, bindings)
+    if user_labels and (spec['caseIds'] != [user_labels['caseId']] or spec['profile'] != user_labels['profile']):
+        raise ValueError('user-acceptance case/profile differs')
     corpus = checked_json(root, bindings['corpus'])
     labels = checked_json(root, bindings['labels'])
     packet = checked_json(root, bindings['packet'])
@@ -105,12 +132,20 @@ def freeze_native_contract(root, spec, records):
         mapped = [t['originalRelativePath'] for t in case['tracks']]
         if len(originals) != len(inventories[0]['tracks']) or len(set(mapped)) != len(mapped) or set(mapped) != set(originals):
             raise ValueError('generated-to-original mapping must be complete and one-to-one')
+        user_occurrences = {t['relativePath']: t for t in user_labels['occurrences']} if user_labels else {}
+        if user_labels and (user_labels['sourceRelativeFolder'] != case['sourceRelativeFolder']
+                            or set(user_occurrences) != set(originals)):
+            raise ValueError('user-acceptance physical scope differs')
         for captured in case['tracks']:
             original = captured['originalRelativePath']
             if str(pathlib.PurePosixPath(original)) != original or pathlib.PurePosixPath(original).is_absolute() or '..' in pathlib.PurePosixPath(original).parts:
                 raise ValueError('invalid original occurrence path')
             if originals[original]['sourceSha256'] != captured['originalSourceSha256']:
                 raise ValueError('generated media does not bind captured identity')
+            if user_labels and (user_occurrences[original]['capturedMediaSha256Claim'] != captured['originalSourceSha256']
+                                or pointer(inventories[0], '/tracks/' + user_occurrences[original][
+                                    'inventorySelector'].split('/tracks/', 1)[1]) != originals[original]):
+                raise ValueError('user-acceptance source occurrence differs')
         tracks = indexed_tracks(before['tracks'], paths)
         frozen_jobs.append({'id': job_id, 'inputSha256': obs['inputSha256'],
                             'requestSha256': hashlib.sha256(obs['requestJson'].encode()).hexdigest()})
@@ -147,11 +182,16 @@ def freeze_native_contract(root, spec, records):
                               'generatedSourceSha256': captured['sourceSha256'],
                               'capturedMediaSha256Claim': captured['originalSourceSha256'],
                               'labelOccurrence': label['inventoryOccurrence'] if label else None})
+                if user_labels and field == 'genre':
+                    occurrence = user_occurrences[captured['originalRelativePath']]
+                    slots[-1].update(labelBasis='user_acceptance', labelVersion=user_labels['version'],
+                        acceptedValues=occurrence['acceptedGenreValues'], labelOccurrence=occurrence['inventorySelector'])
     # Own the snapshot; subsequent caller mutation must not update frozen authority.
     return json.loads(json.dumps({'version': 1, 'spec': spec, 'jobs': frozen_jobs, 'slots': slots,
         'labelCoverage': {'uniqueOccurrenceFieldLabels': len({(s['labelOccurrence'], s['field'], s['job'].split('/')[0])
                             for s in slots if s['acceptedValues'] is not None}),
-                          'replicatedLabelableSlots': sum(s['acceptedValues'] is not None for s in slots)}}))
+                          'replicatedLabelableSlots': sum(s['acceptedValues'] is not None for s in slots),
+                          'uniqueUserAcceptanceLabels': len(user_labels['occurrences']) if user_labels else 0}}))
 
 
 def project_native(root, contract, records, manifest=None):
@@ -235,6 +275,7 @@ def score(contract, observations):
             raise ValueError('incomplete accepted-value label')
         value = row.get('readback')
         before = slot['original']
+        user_acceptance = slot.get('labelBasis') == 'user_acceptance'
         agreement = value in alternatives if available and alternatives is not None else None
         if not available:
             outcome = 'observation_unknown'
@@ -245,24 +286,42 @@ def score(contract, observations):
         elif value == before:
             outcome = 'unchanged_unknown'
         elif not agreement:
-            outcome = 'wrong_catalog_change'
+            outcome = 'nonaccepted_user_change' if user_acceptance else 'wrong_catalog_change'
         elif before in (None, '', []):
-            outcome = 'correct_catalog_fill'
+            outcome = 'accepted_user_fill' if user_acceptance else 'correct_catalog_fill'
         else:
-            outcome = 'correct_catalog_change'
-        fields.append({'id': slot['id'], 'outcome': outcome, 'catalogValueAgreement': agreement,
+            outcome = 'accepted_user_change' if user_acceptance else 'correct_catalog_change'
+        fields.append({'id': slot['id'], 'outcome': outcome,
+                       'catalogValueAgreement': None if user_acceptance else agreement,
+                       'userAcceptanceAgreement': agreement if user_acceptance else None,
                        'valueTransition': ('unchanged' if value == before else 'changed') if available else 'unknown',
                        'decisionVisibility': 'unavailable', 'serviceFailure': row['serviceFailure']})
+    user_slots = [s for s in slots if s.get('labelBasis') == 'user_acceptance']
+    user_ids = {s['id'] for s in user_slots}
     return {'requestedFieldSlots': len(slots),
             'predeclaredLabelableSlots': sum(s['acceptedValues'] is not None for s in slots),
             'observedFieldSlots': sum(r['readbackAvailable'] for r in observations),
             'serviceFailureSlots': sum(r['serviceFailure'] for r in observations),
             'outcomes': dict(collections.Counter(f['outcome'] for f in fields)), 'fields': fields,
+            'userAcceptance': {'requestedFieldSlots': len(user_slots),
+                'observedFieldSlots': sum(by_id[s['id']]['readbackAvailable'] for s in user_slots),
+                'agreeingFieldSlots': sum(f['userAcceptanceAgreement'] is True for f in fields),
+                'serviceFailureSlots': sum(f['serviceFailure'] for f in fields if f['id'] in user_ids)},
             'explicitDecisionSlots': 0, 'groundedAssistanceAccuracyCredit': 0,
             'outcome': 'insufficient', 'writableDelta': [], 'acceptedCertificate': False}
 
 
 if __name__ == '__main__':
+    if sys.argv[1] == 'inspect-user-acceptance':
+        label_path, label_digest, seal_path, seal_digest = sys.argv[2:]
+        packet = checked_user_acceptance(pathlib.Path.cwd(), {
+            'userAcceptance': {'path': label_path, 'sha256': label_digest},
+            'userAcceptanceSeal': {'path': seal_path, 'sha256': seal_digest}})
+        print(json.dumps({'version': packet['version'], 'caseId': packet['caseId'], 'profile': packet['profile'],
+            'labelSelectors': [f'{packet["caseId"]}/user_acceptance/{r["inventorySelector"]}/genre' for r in packet['occurrences']],
+            'lockedPaths': list(packet['bindings']) + [path for _, path in
+                [line.split('  ', 1) for line in pathlib.Path(seal_path).read_text().splitlines()]]}))
+        sys.exit(0)
     if sys.argv[1] in ['freeze-native', 'project-native']:
         mode, source_path, *args = sys.argv[1:]
         root = pathlib.Path.cwd()

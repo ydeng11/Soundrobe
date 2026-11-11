@@ -1,0 +1,299 @@
+{
+  "version": "crowd-lu-user-acceptance-v1",
+  "labelBasis": "user_acceptance",
+  "sourceArtifact": {
+    "url": "https://ampcode.com/artifacts/crowd-lu-genre-annotations-8054842d-554b-48e3-94e1-766e1a36dbe2",
+    "revision": 63,
+    "snapshot": "annotations-rev63.md",
+    "representation": "artifact read Markdown plus final newline"
+  },
+  "sourceHead": "6cb93861c12628aff6d87332f1721e81ba761080",
+  "caseId": "036e0a00e45b",
+  "profile": "tagged_recovery",
+  "sourceRelativeFolder": "卢广仲/勵志論",
+  "field": "genre",
+  "matching": "exact decoded string; no trimming, case folding, comma splitting, synonym or ordering normalization",
+  "occurrences": [
+    {
+      "row": 1,
+      "inventorySelector": "/cases/0/tracks/0",
+      "sampleSelector": "/jobs/0/files/0",
+      "providerSelector": "/media/0/tracks/0",
+      "relativePath": "01 Intro.flac",
+      "title": "Intro",
+      "capturedDurationSeconds": 62.17,
+      "providerLengthMilliseconds": 62000,
+      "capturedMediaSha256Claim": "1987a22e249e9dc1a3d5394e12dfe4735ca959bfcafac871d4504e47b202909d",
+      "recordingMbidClaim": "7263b79c-6b9a-4f52-857e-4648426e7d0b",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "It can fallback to the common genre of the album."
+      }
+    },
+    {
+      "row": 2,
+      "inventorySelector": "/cases/0/tracks/1",
+      "sampleSelector": "/jobs/0/files/1",
+      "providerSelector": "/media/0/tracks/1",
+      "relativePath": "02 勵志論.flac",
+      "title": "勵志論",
+      "capturedDurationSeconds": 180.194,
+      "providerLengthMilliseconds": 180000,
+      "capturedMediaSha256Claim": "d20c40b5c9fc8dcc2b9be6680e9b0a317333b92ddc014e40383e6a5ec4f083c4",
+      "recordingMbidClaim": "12a12dad-ebc3-4667-ad1d-a1c0c12b3be5",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 3,
+      "inventorySelector": "/cases/0/tracks/2",
+      "sampleSelector": "/jobs/0/files/2",
+      "providerSelector": "/media/0/tracks/2",
+      "relativePath": "03 自我的介紹.flac",
+      "title": "自我的介紹",
+      "capturedDurationSeconds": 242.388,
+      "providerLengthMilliseconds": 242000,
+      "capturedMediaSha256Claim": "23a3b7b0bf8cc258ae2c7bc8ddd9959829c7a1a28bda3393fcf7f2537828fa3b",
+      "recordingMbidClaim": "18fff0d1-5be7-4616-8c90-d2aa6b006136",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 4,
+      "inventorySelector": "/cases/0/tracks/3",
+      "sampleSelector": "/jobs/0/files/3",
+      "providerSelector": "/media/0/tracks/3",
+      "relativePath": "04 雨時多雲偶陣晴.flac",
+      "title": "雨時多雲偶陣晴",
+      "capturedDurationSeconds": 214.78,
+      "providerLengthMilliseconds": 214000,
+      "capturedMediaSha256Claim": "a7a1633ec7736ea1834f31f8de1bc1afb9da92e0059d73e0bc34aaa18d2c3298",
+      "recordingMbidClaim": "2e0ce8cd-6e07-4b54-b79f-24f49869db46",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 5,
+      "inventorySelector": "/cases/0/tracks/4",
+      "sampleSelector": "/jobs/0/files/4",
+      "providerSelector": "/media/0/tracks/4",
+      "relativePath": "05 狂迪.flac",
+      "title": "狂迪",
+      "capturedDurationSeconds": 219.294,
+      "providerLengthMilliseconds": 219000,
+      "capturedMediaSha256Claim": "0eb7e92f1431a470d5f6ad667f10873da07cf4202a2573efd3b6dc40e85a8529",
+      "recordingMbidClaim": "f3c64a0d-3424-4b49-9a33-9b64b8bf5598",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 6,
+      "inventorySelector": "/cases/0/tracks/5",
+      "sampleSelector": "/jobs/0/files/5",
+      "providerSelector": "/media/0/tracks/5",
+      "relativePath": "06 像你.flac",
+      "title": "像你",
+      "capturedDurationSeconds": 229.238,
+      "providerLengthMilliseconds": 229000,
+      "capturedMediaSha256Claim": "ebb890f11361a0e58c7a1b50130a3a879f217c203d0fbda46cf1a0bd9e1a8d15",
+      "recordingMbidClaim": "e32bde3e-3ef8-458a-8bc2-c7654028bc78",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 7,
+      "inventorySelector": "/cases/0/tracks/6",
+      "sampleSelector": "/jobs/0/files/6",
+      "providerSelector": "/media/0/tracks/6",
+      "relativePath": "07 肌肉的記憶.flac",
+      "title": "肌肉的記憶",
+      "capturedDurationSeconds": 191.181,
+      "providerLengthMilliseconds": 191000,
+      "capturedMediaSha256Claim": "9cf5f77722537a213d4b1e0ab16ac9906c061bcb899c086f77740e8bbab87ed0",
+      "recordingMbidClaim": "024923b0-2c68-48ef-8a4a-1b8c7bbdec88",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 8,
+      "inventorySelector": "/cases/0/tracks/7",
+      "sampleSelector": "/jobs/0/files/7",
+      "providerSelector": "/media/0/tracks/7",
+      "relativePath": "08 輕輕.flac",
+      "title": "輕輕",
+      "capturedDurationSeconds": 220.848,
+      "providerLengthMilliseconds": 220000,
+      "capturedMediaSha256Claim": "13c28c106c81a79c7c309725e5cef6ce6d41cad13506da2bc449834abcc4f5c3",
+      "recordingMbidClaim": "a7b7b5e1-681c-435d-9634-c0913277ccd7",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 9,
+      "inventorySelector": "/cases/0/tracks/8",
+      "sampleSelector": "/jobs/0/files/8",
+      "providerSelector": "/media/0/tracks/8",
+      "relativePath": "09 冒煙的燈泡.flac",
+      "title": "冒煙的燈泡",
+      "capturedDurationSeconds": 237.176,
+      "providerLengthMilliseconds": 237000,
+      "capturedMediaSha256Claim": "2fd515c18cf4aa7d1e9564d62bea227aa7a66a430840652361963fbe192a99a6",
+      "recordingMbidClaim": "b7d3081c-2b18-4576-a4c2-3dff20d9eae1",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 10,
+      "inventorySelector": "/cases/0/tracks/9",
+      "sampleSelector": "/jobs/0/files/9",
+      "providerSelector": "/media/0/tracks/9",
+      "relativePath": "10 明年.flac",
+      "title": "明年",
+      "capturedDurationSeconds": 257.004,
+      "providerLengthMilliseconds": 257000,
+      "capturedMediaSha256Claim": "e8223b780a75ded0f29e319848a5f98d153cb923462a866607338944113b48fd",
+      "recordingMbidClaim": "f26f2c73-00fa-4afb-961a-879b15c180e5",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    },
+    {
+      "row": 11,
+      "inventorySelector": "/cases/0/tracks/10",
+      "sampleSelector": "/jobs/0/files/10",
+      "providerSelector": "/media/0/tracks/10",
+      "relativePath": "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac",
+      "title": "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]",
+      "capturedDurationSeconds": 192.2,
+      "providerLengthMilliseconds": 192000,
+      "capturedMediaSha256Claim": "33f2e8e904f89508e3fffb7da7f681e0fbb9f900d61942d8246b9ad5e08ee7a3",
+      "recordingMbidClaim": "d27927c0-4294-45b2-bd7b-bacab5e99b9a",
+      "acceptedGenreValues": [
+        "Pop",
+        "Mandopop",
+        "Pop, Mandopop"
+      ],
+      "originalAnnotation": {
+        "answer": "Pop or Mandopop",
+        "statedBasis": "both",
+        "notes": "This is likly a pop song as the singer is a pop singer. More specifically, his majority artwork is mandopop."
+      }
+    }
+  ],
+  "albumLevel": {
+    "userAnswer": "yes",
+    "acceptedGenreValues": [
+      "Pop",
+      "Mandopop",
+      "Pop, Mandopop"
+    ],
+    "scope": "all eleven occurrences, including Intro and full Acoustic Ver. title"
+  },
+  "exposure": "exposed development sample; zero untouched holdouts; not acoustic truth",
+  "reviewerDatePlaceholder": "preserved unfilled; not inferred",
+  "vocabularyPlaceholder": "preserved unfilled; explicit confirmation alone supplies these three alternatives",
+  "executionAuthorized": false,
+  "activationAvailable": false,
+  "writableDelta": [],
+  "promptSeparation": {
+    "purpose": "scoring-only sidecar; never model input or expected-answer examples",
+    "currentGenrePayloadSource": "src-tauri/src/commands/auto_tag.rs::fill_genre_if_missing",
+    "currentPayloadKeys": [
+      "artist",
+      "album",
+      "tracks"
+    ],
+    "evidence": "source inspected and hashed; no runtime inputs changed, request constructed or dispatched",
+    "futureRequirement": "independently audit exact serialized request/build/inputs; no sheet, notes, labels, taxonomy hints or scoring references may flow into model inputs",
+    "enforcementClaim": "none added; future request admission and live boundary remain blocked"
+  },
+  "bindings": {
+    ".planning/plans/crowd-lu-annotation-sheet-20261111/row-bindings.json": "ef3432fe1ef4ae69d6a0cb4d26626b832935619b3fe23e1075e180407b4dce5c",
+    ".planning/plans/crowd-lu-annotation-sheet-20261111/sheet.md": "2c42921877bf27648a04298860aedb4924951d18269987530059386e72ca16d1",
+    ".planning/plans/crowd-lu-user-acceptance-v1-20261111/annotations-rev63.md": "1ec0e0df6b7f45f8dce8f96c558e12f4b0f5f6a9127cdd07cae42eb19a175340",
+    ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS": "8e722117cafdc6c1896d3df9effe9c6bf296800c0fb3427c45aab027fffd0340",
+    ".planning/plans/scorable-assistance-contract-20261111/sample.json": "5549f2ae2f4d1d12faf229957589c25ee1dd0ede1b076b1301334ccd192e017d",
+    ".planning/research/bounded-assistance-label-review-20261111.json": "6147a03ba85fb7697f81c0341b411cdbdc38822ceead404141370caa71e3fb42",
+    "scripts/auto-tag-eval-replay/score-observations.py": "1222426479f9180b0184f5a27e42b6441c7736ae0d0c131d136a75e08b994afe",
+    "src-tauri/src/commands/auto_tag.rs": "5f2e49fe5d380027ccd83a2c1f08e56fb656c0e9bd9ab4209899c07ef89dac59",
+    "test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json": "d22fa2996dc9d419c047b9e66a21f399ef63d763d947750af395722f4fa5b7e5",
+    "test/fixtures/tauri/auto-tag-eval/provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json": "7593097ea5f4e5fd98aded79818d61b3c825f93756cd7c2b14145534617620cc"
+  }
+}

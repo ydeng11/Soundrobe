@@ -1,0 +1,29 @@
+{
+  "observedDate": "2026-11-11",
+  "method": "read_web_page forceRefetch, public documentation only; no authenticated API, tagging or inference requests",
+  "rawResponseReceipt": null,
+  "limits": "These are selected documentation observations, not a complete raw HTTP receipt, pricing contract, model-weight attestation, account-state verification or tested service enforcement.",
+  "sources": [
+    {
+      "url": "https://openrouter.ai/deepseek/deepseek-v4-flash-0731/llms.txt",
+      "observation": "Exact candidate identifier documented. Multiple serving providers/prices and additional price components. Advertises response_format, temperature, max_tokens and reasoning. Does not independently establish immutable weights or hard billing/token semantics.",
+      "illustrativePublishedRatesUsdPerMillion": {"WaferInput": 0.0434, "WaferOutput": 0.30, "DeepInfraInput": 0.06, "DeepInfraOutput": 0.18},
+      "rateLimit": "Document says plus one more component for these entries. Do not use partial rate excerpts as a complete cost contract or provider selection."
+    },
+    {
+      "url": "https://openrouter.ai/docs/api_reference/limits",
+      "observation": "Documents per-key credit caps, guardrails and budget checks. Charges when request finishes. In-flight estimate covers token prices, not all fees, and applies only to a subset of accounts. No overshoot-free end-to-end spending claim derived."
+    },
+    {
+      "url": "https://openrouter.ai/docs/guides/routing/provider-selection",
+      "observation": "Documents only/order, allow_fallbacks false, require_parameters, max_price, data_collection deny and zdr. ZDR can include Safety Retention unless excluded by privacy policy. Exact slug/policy compatibility unverified; current mock rejects external endpoints/routing metadata."
+    },
+    {
+      "url": "https://openrouter.ai/docs/guides/privacy/data-collection",
+      "observation": "Search excerpt describes account metadata retention, opt-in logging, provider touchpoints and legal/Safety Retention exceptions. Full account/provider terms not audited."
+    }
+  ],
+  "noActivation": true,
+  "noCredentialsAccessed": true,
+  "noApprovedModel": true
+}
