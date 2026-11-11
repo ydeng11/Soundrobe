@@ -1119,7 +1119,7 @@ async fn grouped_album_apply_revalidates_siblings_before_first_queued_write() {
 }
 
 #[cfg(unix)]
-struct ReviewFixtureStop(std::sync::Arc<AtomicBool>);
+pub(super) struct ReviewFixtureStop(std::sync::Arc<AtomicBool>);
 
 #[cfg(unix)]
 impl std::ops::Deref for ReviewFixtureStop {
@@ -1138,7 +1138,7 @@ impl Drop for ReviewFixtureStop {
 }
 
 #[cfg(unix)]
-fn review_fixture_server(
+pub(super) fn review_fixture_server(
     mut respond: impl FnMut(&str) -> (String, String) + Send + 'static,
 ) -> (
     String,

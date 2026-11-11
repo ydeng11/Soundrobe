@@ -7238,9 +7238,11 @@ mod tests {
         );
     }
 
-    fn acoustid_release_server() -> (String, thread::JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let base = format!("http://{}", listener.local_addr().unwrap());
+    fn acoustid_release_server() -> (
+        String,
+        super::collection_tests::ReviewFixtureStop,
+        thread::JoinHandle<Vec<String>>,
+    ) {
         let release_id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
         let first_recording = "11111111-1111-4111-8111-111111111111";
         let second_recording = "22222222-2222-4222-8222-222222222222";
@@ -7265,43 +7267,80 @@ mod tests {
             }]
         })
         .to_string();
-        let task = thread::spawn(move || {
-            for lookup_index in 0..2 {
-                let (mut stream, _) = listener.accept().unwrap();
-                let request = read_http_request(&mut stream);
-                let recording_id = if lookup_index == 0 {
-                    second_recording
-                } else {
-                    first_recording
-                };
-                let body = serde_json::json!({
+        let mut step = 0;
+        super::collection_tests::review_fixture_server(move |request| {
+            assert!(step < 5, "unexpected extra fixture request");
+            let recording_id = if step < 2 {
+                second_recording
+            } else {
+                first_recording
+            };
+            let body = if step == 4 {
+                assert!(request.starts_with("GET /mb/release/"));
+                release.clone()
+            } else if step % 2 == 0 {
+                assert!(request.starts_with("POST /lookup "));
+                serde_json::json!({
                     "status": "ok",
                     "results": [{"score": 0.98, "recordings": [{
                         "id": recording_id,
                         "releases": [{"id": release_id}]
                     }]}]
                 })
-                .to_string();
-                assert!(request.starts_with("POST /lookup "));
-                write_http_response(&mut stream, "200 OK", &body);
-                let (mut detail_stream, _) = listener.accept().unwrap();
-                assert!(read_http_request(&mut detail_stream).starts_with("GET /mb/recording/"));
+                .to_string()
+            } else {
+                assert!(request.starts_with("GET /mb/recording/"));
                 let detail: serde_json::Value = serde_json::from_str(&release).unwrap();
-                let recording = detail["media"][0]["tracks"]
+                detail["media"][0]["tracks"]
                     .as_array()
                     .unwrap()
                     .iter()
                     .find(|track| track["recording"]["id"] == recording_id)
                     .unwrap()["recording"]
-                    .to_string();
-                write_http_response(&mut detail_stream, "200 OK", &recording);
+                    .to_string()
+            };
+            step += 1;
+            ("200 OK".into(), body)
+        })
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn acoustid_fixture_stops_after_an_incomplete_lookup_sequence() {
+        let (base, stop, server) = acoustid_release_server();
+        let send = |route: &str| {
+            let mut stream =
+                std::net::TcpStream::connect(base.trim_start_matches("http://")).unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            write!(stream, "{route} HTTP/1.1\r\nContent-Length: 0\r\n\r\n").unwrap();
+            read_http_request(&mut stream)
+        };
+        assert!(send("POST /lookup").contains("22222222-2222-4222-8222-222222222222"));
+        drop(stop);
+        let (sent, received) = std::sync::mpsc::channel();
+        let waiter = thread::spawn(move || sent.send(server.join().is_ok()).unwrap());
+        let stopped = received
+            .recv_timeout(Duration::from_secs(1))
+            .unwrap_or(false);
+        if !stopped {
+            // Release the old fixed-count server so a failing regression cannot
+            // strand its joiner or the test runner in accept().
+            for route in [
+                "GET /mb/recording/second",
+                "POST /lookup",
+                "GET /mb/recording/first",
+                "GET /mb/release/album",
+            ] {
+                send(route);
             }
-            let (mut stream, _) = listener.accept().unwrap();
-            let request = read_http_request(&mut stream);
-            assert!(request.starts_with("GET /mb/release/"));
-            write_http_response(&mut stream, "200 OK", &release);
-        });
-        (base, task)
+        }
+        waiter.join().unwrap();
+        assert!(
+            stopped,
+            "fixture waited for requests the resolver never sent"
+        );
     }
 
     #[cfg(unix)]
@@ -7579,7 +7618,7 @@ mod tests {
 
         let fpcalc = root.join("fpcalc");
         fake_fpcalc(&fpcalc);
-        let (base, server) = acoustid_release_server();
+        let (base, stop, server) = acoustid_release_server();
         let providers = ProviderState::at(
             ProviderState::new().http(),
             &format!("{base}/mb"),
@@ -7619,7 +7658,8 @@ mod tests {
         )
         .await
         .unwrap();
-        server.join().unwrap();
+        drop(stop);
+        assert_eq!(server.join().unwrap().len(), 5, "complete lookup sequence");
 
         assert_eq!(result.outcome, AutoTagOutcome::Applied);
         assert_eq!(result.authority, Some(LookupSource::Musicbrainz));
