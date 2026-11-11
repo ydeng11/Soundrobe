@@ -1,0 +1,182 @@
+[
+  {
+    "test": "commands::auto_tag::collection_tests::coverage_v3::coverage_v3_tied_possible_id_audio_conflicts_block_both_sides_only",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "commands::auto_tag::collection_tests::verified_acoustic_identity_survives_a_conflicting_provider_recording_map",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "commands::auto_tag::collection_tests::verified_collection_core_finishes_without_changing_edition_fields",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "commands::auto_tag::collection_tests::exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_review",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_24_bit_requires_checksum_count_and_byte_cap",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_bounds_both_tool_errors_and_fingerprint_output",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_cancellation_and_timeout_reap_both_children_and_release_the_permit",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_execution_budget_starts_after_waiting_for_other_jobs",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_only_runs_after_an_actual_failed_raw_exit",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_preserves_native_24_bit_mono_and_stereo_precision",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::flac_tests::verified_pcm_recovers_complete_audio_without_accepting_failed_direct_frames",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::acoustid::tests::raw_fingerprinting_requests_the_full_span_and_rejects_non_frame_output",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_ignore_metadata_not_audio_and_bind_all_sources",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_never_expand_nominations_or_merge_transformed_audio",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_preserve_native_precision_channels_and_full_frame_count",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::bounded_eval::tests::bounded_byte_token_retry_and_deadline_boundaries_are_hard",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_reject_corruption_silence_other_codecs_and_stale_hashes",
+    "original": "failed",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Original failing-case cause unresolved; no failure detail or frozen executing inode survives in the historical record.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "No speculative change; original cause not established"
+  },
+  {
+    "test": "commands::auto_tag::tests::acoustid_resolver_writes_complete_musicbrainz_mapping_through_write_queue",
+    "original": "unfinished fixture join blocked on accept",
+    "initialFreshDefault": "ok",
+    "initialReusedFourThreads": "ok",
+    "causalStatus": "Unbounded fixed-count accept/join independently reproduced with a missing-request sequence; why the historical resolver omitted a request remains unknown.",
+    "finalFreshServer": "ok",
+    "finalFreshDesktop": "not run: offline dependency resolution failed before compilation",
+    "fix": "Stopped fixture uses existing ReviewFixtureStop and retains five-request success assertion"
+  }
+]

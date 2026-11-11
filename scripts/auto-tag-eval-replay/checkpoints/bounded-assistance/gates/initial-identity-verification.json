@@ -1,0 +1,45 @@
+{
+  "capturedUtc": "2026-11-11T10:16:22.344966+00:00",
+  "sourceChanges": [],
+  "toolBinaries": [
+    {
+      "name": "rustc",
+      "path": "$HOME/.cargo/bin/rustc",
+      "resolved": "$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/rustc",
+      "sha256": "210df6794001b73ec3d453878707fa1e0bdcb63c427024a6e6574bbe5615a4da"
+    },
+    {
+      "name": "cargo",
+      "path": "$HOME/.cargo/bin/cargo",
+      "resolved": "$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin/cargo",
+      "sha256": "7672ead309d505577c018fff2cafb3433601f073e38cbe87359ac1f7b944bbf5"
+    },
+    {
+      "name": "ffmpeg",
+      "path": "/opt/homebrew/bin/ffmpeg",
+      "resolved": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffmpeg",
+      "sha256": "768609fb3f463ff9272bebac61478515f19e43c5343b0c60dde2e6230c40013e"
+    },
+    {
+      "name": "ffprobe",
+      "path": "/opt/homebrew/bin/ffprobe",
+      "resolved": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffprobe",
+      "sha256": "b8d6a076993f4269f71ed090af524093d38a810d4481b38bc9bc1853d91b4612"
+    },
+    {
+      "name": "fpcalc",
+      "path": "/opt/homebrew/bin/fpcalc",
+      "resolved": "/opt/homebrew/Cellar/chromaprint/1.6.2/bin/fpcalc",
+      "sha256": "ce8863705fe11279d5ee91f7c1ac28eff585c3a7a66f13f912c58ff5819d8d9e"
+    }
+  ],
+  "note": "Tool file identities only, not complete shared-library/compiler-dependency attestation",
+  "fourThreadCommand": "env -i PATH=<runtime.json PATH> HOME=<runtime.json HOME> TMPDIR=<runtime.json TMPDIR> server-initial-native-evaluator --nocapture --test-threads=4",
+  "fourThreadShellHandle": 11799,
+  "fourThreadNativePid": 11800,
+  "initialGate": {
+    "exit": 0,
+    "log": "server-initial-broad.log",
+    "summary": "ok. 757 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 571.88s"
+  }
+}

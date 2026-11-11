@@ -84,10 +84,16 @@ function createService(manifestPath) {
   }
   const requests = [];
   const modelRequests = [];
+  const wireArrivals = [];
   const misses = new Map();
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
+    const wire = { method: request.method, route: url.pathname, status: null, state: 'receiving' };
+    wireArrivals.push(wire);
+    request.on('aborted', () => { wire.state = 'aborted'; });
     const send = (status, body, headers = {}) => {
+      wire.status = status;
+      wire.state = 'responded';
       const bytes = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body));
       response.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': bytes.length, ...headers });
       response.end(bytes);
@@ -96,7 +102,7 @@ function createService(manifestPath) {
       let bytes = '';
       request.on('data', chunk => {
         bytes += chunk;
-        if (bytes.length > 65536) request.destroy();
+        if (Buffer.byteLength(bytes) > 65536) { wire.state = 'oversized'; request.destroy(); }
       });
       request.on('end', () => {
         let body;
@@ -118,6 +124,7 @@ function createService(manifestPath) {
         const status = allowed ? (scripted.status ?? 200) : 501;
         const result = status === 200 ? {
           model: 'scripted/genre-v1', choices: [{ message: { content: JSON.stringify(scripted.response) } }],
+          ...(scripted.usage === undefined ? {} : { usage: scripted.usage }),
         } : { error: allowed ? 'scripted_service_failure' : 'offline_model_fixture_missing' };
         // Only the body is retained, never authentication or other headers.
         modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)) });
@@ -128,9 +135,11 @@ function createService(manifestPath) {
     }
     if (request.method !== 'GET') return send(405, { error: 'read_only_fixture_service' });
     if (url.pathname === '/__fixtures') {
+      wire.status = 200;
+      wire.state = 'responded';
       return send(200, { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
         records: records.map(({ bytes, ...record }) => ({ ...record, body: JSON.parse(bytes.toString()) })),
-        requests, modelRequests, misses: [...misses.values()] });
+        requests, modelRequests, wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] });
     }
     const provider = Object.keys(prefixes).find((key) => url.pathname.startsWith(`${prefixes[key]}/`));
     const fixturePath = provider ? url.pathname.slice(prefixes[provider].length) : url.pathname;
@@ -144,6 +153,11 @@ function createService(manifestPath) {
       return send(501, { error: 'offline_fixture_missing', request: entry });
     }
     send(record.status, record.bytes, record.headers);
+  });
+  server.on('connect', (request, socket) => {
+    wireArrivals.push({ method: 'CONNECT', route: /^[a-z0-9.-]+:\d+$/i.test(request.url)
+      ? request.url : '[invalid authority]', status: 403, state: 'denied_tunnel' });
+    socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
   });
   return server;
 }

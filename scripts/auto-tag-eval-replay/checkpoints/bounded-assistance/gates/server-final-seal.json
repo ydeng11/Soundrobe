@@ -1,0 +1,42 @@
+{
+  "buildCommand": "cargo test --manifest-path src-tauri/Cargo.toml --offline --locked --config 'profile.test.package.soundrobe.debug=0' --config 'profile.test.package.soundrobe.incremental=false' --no-default-features --features server --no-run --message-format=json",
+  "sourceLocks": "final-source-locks.json",
+  "environment": "runtime.json:testEnvironment",
+  "artifacts": [
+    {
+      "target": "soundrobe_lib",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe_lib",
+      "sha256": "e9ff32c828a1124006d1300714a5157804adf4f0e00fae16c1656f0972ca2ba8",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe_lib-membership.txt",
+      "listingSummary": "776 tests, 0 benchmarks"
+    },
+    {
+      "target": "inventory_recovery_cli",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_recovery_cli",
+      "sha256": "9b52044070f24ec7bc57794ce0512bc8854c1e4d07c77ad5c2c7a149da3ae9d4",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_recovery_cli-membership.txt",
+      "listingSummary": "5 tests, 0 benchmarks"
+    },
+    {
+      "target": "soundrobe-server",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-server",
+      "sha256": "382b879c4499d682971bbc8326954f15cce477970bcfa90c364e695d439f7961",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-server-membership.txt",
+      "listingSummary": "0 tests, 0 benchmarks"
+    },
+    {
+      "target": "soundrobe-inventory",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-inventory",
+      "sha256": "f7d68f044d844dcf9699764708f742c86c09685cf8ab4c19b3cf5b492b39a51e",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-inventory-membership.txt",
+      "listingSummary": "0 tests, 0 benchmarks"
+    },
+    {
+      "target": "inventory_audio",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_audio",
+      "sha256": "af8a1e7ba4fefbfcc26a8dfe43e08dcdf432d1cc407c51998994fbb7de298ee3",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_audio-membership.txt",
+      "listingSummary": "26 tests, 0 benchmarks"
+    }
+  ]
+}

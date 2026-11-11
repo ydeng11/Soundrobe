@@ -1,0 +1,57 @@
+{
+  "buildCommand": "cargo test --manifest-path src-tauri/Cargo.toml --offline --locked --config 'profile.test.package.soundrobe.debug=0' --config 'profile.test.package.soundrobe.incremental=false' --no-run --message-format=json",
+  "sourceLocks": "final-source-locks.json",
+  "environment": "runtime.json:testEnvironment",
+  "sandboxProfile": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-loopback-only.sb",
+  "sandboxProfileSha256": "cf35cca89f2e1b677995e788c0fe365bf627c641f260a3e4ea80cbde31a0c60e",
+  "sandboxExecutable": "/usr/bin/sandbox-exec",
+  "sandboxExecutableSha256": "8857d087219f0f39d3e3c163e5d0a0aed690cc22f34b50c7eee3d74f93e69688",
+  "features": "default desktop; server disabled; no feature overrides",
+  "concurrency": "libtest default; no thread override",
+  "artifacts": [
+    {
+      "target": "soundrobe_lib",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-soundrobe_lib",
+      "sha256": "bc45c42a538cfba82d5e833ee65d281f81db20327642c87127e2d97e345315b2",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-soundrobe_lib-membership.txt",
+      "summary": "1322 tests, 0 benchmarks",
+      "features": [
+        "default",
+        "desktop"
+      ]
+    },
+    {
+      "target": "inventory_audio",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-inventory_audio",
+      "sha256": "cd6850520c177ad43858aadf656a06517310d3a6de4e294a9f887a4ffc1e53a7",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-inventory_audio-membership.txt",
+      "summary": "0 tests, 0 benchmarks",
+      "features": [
+        "default",
+        "desktop"
+      ]
+    },
+    {
+      "target": "inventory_recovery_cli",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-inventory_recovery_cli",
+      "sha256": "018d183c18c877801928793c3e553991f2080fc337090091febd284a5ca23bb3",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-inventory_recovery_cli-membership.txt",
+      "summary": "0 tests, 0 benchmarks",
+      "features": [
+        "default",
+        "desktop"
+      ]
+    },
+    {
+      "target": "soundrobe",
+      "binary": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-soundrobe",
+      "sha256": "d5db7607f15476296836281c1f549837851fd8db52fc0aafc88d127b874efc4f",
+      "membership": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-soundrobe-membership.txt",
+      "summary": "0 tests, 0 benchmarks",
+      "features": [
+        "default",
+        "desktop"
+      ]
+    }
+  ]
+}

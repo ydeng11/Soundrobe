@@ -1,0 +1,77 @@
+[
+  {
+    "target": "soundrobe_lib",
+    "binarySha256": "e9ff32c828a1124006d1300714a5157804adf4f0e00fae16c1656f0972ca2ba8",
+    "command": [
+      ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe_lib",
+      "--nocapture"
+    ],
+    "environment": "runtime.json:testEnvironment",
+    "concurrency": "libtest default (8 logical CPUs), no override",
+    "startedUtc": "2026-11-11T10:27:55.744221+00:00",
+    "endedUtc": "2026-11-11T10:37:30.585318+00:00",
+    "exit": 0,
+    "disposition": "exited",
+    "log": "server-final-soundrobe_lib.log"
+  },
+  {
+    "target": "inventory_recovery_cli",
+    "binarySha256": "9b52044070f24ec7bc57794ce0512bc8854c1e4d07c77ad5c2c7a149da3ae9d4",
+    "command": [
+      ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_recovery_cli",
+      "--nocapture"
+    ],
+    "environment": "runtime.json:testEnvironment",
+    "concurrency": "libtest default (8 logical CPUs), no override",
+    "startedUtc": "2026-11-11T10:37:30.586415+00:00",
+    "endedUtc": "2026-11-11T10:37:31.515561+00:00",
+    "exit": 0,
+    "disposition": "exited",
+    "log": "server-final-inventory_recovery_cli.log"
+  },
+  {
+    "target": "soundrobe-server",
+    "binarySha256": "382b879c4499d682971bbc8326954f15cce477970bcfa90c364e695d439f7961",
+    "command": [
+      ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-server",
+      "--nocapture"
+    ],
+    "environment": "runtime.json:testEnvironment",
+    "concurrency": "libtest default (8 logical CPUs), no override",
+    "startedUtc": "2026-11-11T10:37:31.516331+00:00",
+    "endedUtc": "2026-11-11T10:37:31.532263+00:00",
+    "exit": 0,
+    "disposition": "exited",
+    "log": "server-final-soundrobe-server.log"
+  },
+  {
+    "target": "soundrobe-inventory",
+    "binarySha256": "f7d68f044d844dcf9699764708f742c86c09685cf8ab4c19b3cf5b492b39a51e",
+    "command": [
+      ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-soundrobe-inventory",
+      "--nocapture"
+    ],
+    "environment": "runtime.json:testEnvironment",
+    "concurrency": "libtest default (8 logical CPUs), no override",
+    "startedUtc": "2026-11-11T10:37:31.532733+00:00",
+    "endedUtc": "2026-11-11T10:37:31.548771+00:00",
+    "exit": 0,
+    "disposition": "exited",
+    "log": "server-final-soundrobe-inventory.log"
+  },
+  {
+    "target": "inventory_audio",
+    "binarySha256": "af8a1e7ba4fefbfcc26a8dfe43e08dcdf432d1cc407c51998994fbb7de298ee3",
+    "command": [
+      ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-inventory_audio",
+      "--nocapture"
+    ],
+    "environment": "runtime.json:testEnvironment",
+    "concurrency": "libtest default (8 logical CPUs), no override",
+    "startedUtc": "2026-11-11T10:37:31.549097+00:00",
+    "endedUtc": "2026-11-11T10:37:34.773655+00:00",
+    "exit": 0,
+    "disposition": "exited",
+    "log": "server-final-inventory_audio.log"
+  }
+]

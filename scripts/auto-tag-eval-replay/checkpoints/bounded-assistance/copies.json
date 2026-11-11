@@ -1,0 +1,267 @@
+{
+  "version": 1,
+  "scope": "Compact delivery copies; original local seals remain immutable. No native/model run performed during packaging.",
+  "normalization": "Only literal checkout and home prefixes are normalized in metadata. Original SHA256 identifies retained exact bytes. No original record is changed.",
+  "files": [
+    {
+      "path": "attempt7/selection.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/selection.json",
+      "sourceSha256": "668bb7b94ba72806b5b8426113af825a22f3f2ed56d6e3db72de1aeb11e8436e",
+      "sha256": "668bb7b94ba72806b5b8426113af825a22f3f2ed56d6e3db72de1aeb11e8436e",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/requested-membership.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/requested-membership.json",
+      "sourceSha256": "bf23ac8f8edf0f1fbb48a11d82af33b1a2d37ece8b40dce3f7e7f8169de59c59",
+      "sha256": "bf23ac8f8edf0f1fbb48a11d82af33b1a2d37ece8b40dce3f7e7f8169de59c59",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/verification.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/verification.json",
+      "sourceSha256": "6e04f4926baa9e006b1a069e908f94b91aa0629124559f4f657c4544fb7a431f",
+      "sha256": "6e04f4926baa9e006b1a069e908f94b91aa0629124559f4f657c4544fb7a431f",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/projection-controls.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/projection-controls.json",
+      "sourceSha256": "d72f66df6dd93fad885179dd3edc8c051ee7486b7a68e9ca8bb350567d660967",
+      "sha256": "d72f66df6dd93fad885179dd3edc8c051ee7486b7a68e9ca8bb350567d660967",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/source-and-tool-locks.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/source-and-tool-locks.json",
+      "sourceSha256": "09ab95d6b9b428dce73e574eca06e764ad6b2a5460ac8036d05ba6243d4f5abc",
+      "sha256": "09ab95d6b9b428dce73e574eca06e764ad6b2a5460ac8036d05ba6243d4f5abc",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/selection-status.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/selection-status.json",
+      "sourceSha256": "1cb76c3bf015671078acc78e46f1fd7ce43a243dcf762aa3160eded78c5bd8a8",
+      "sha256": "1cb76c3bf015671078acc78e46f1fd7ce43a243dcf762aa3160eded78c5bd8a8",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/provider-manifest.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/provider/bounded-manifest.json",
+      "sourceSha256": "7c48bf48904145a19c445933c06142ca54d029798fae4b8d5a391cccaed657db",
+      "sha256": "7c48bf48904145a19c445933c06142ca54d029798fae4b8d5a391cccaed657db",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/genre-manifest.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/genre/bounded-manifest.json",
+      "sourceSha256": "a10370299c50d430efebfd2c17e0617f978390e91fd56b681da8154ced58df48",
+      "sha256": "a10370299c50d430efebfd2c17e0617f978390e91fd56b681da8154ced58df48",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/unknown-usage-manifest.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/unknown-usage/bounded-manifest.json",
+      "sourceSha256": "21d4993e6c2ab478ac621781c2c56c9638da86233b8f099c013894d65698110f",
+      "sha256": "21d4993e6c2ab478ac621781c2c56c9638da86233b8f099c013894d65698110f",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/cancel-manifest.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/cancel/bounded-manifest.json",
+      "sourceSha256": "1c661889518cb6aa2cda29c07997f6db1ef4d808c934764399e940dbce4c1fe6",
+      "sha256": "1c661889518cb6aa2cda29c07997f6db1ef4d808c934764399e940dbce4c1fe6",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "attempt7/hold-manifest.json",
+      "source": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/bounded-manifest.json",
+      "sourceSha256": "77f57b57e623b660ec12e3fabae14b933f3c8fd94bf0d7b632bda20030b21be3",
+      "sha256": "77f57b57e623b660ec12e3fabae14b933f3c8fd94bf0d7b632bda20030b21be3",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/final-source-locks.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/final-source-locks.json",
+      "sourceSha256": "669df3c5a264995c9a865b881ba1d31b0b07a3cf6ec88171f51ade73686fd9f6",
+      "sha256": "669df3c5a264995c9a865b881ba1d31b0b07a3cf6ec88171f51ade73686fd9f6",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/blast-radius.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/blast-radius.json",
+      "sourceSha256": "55e1676a3afbb4757e2914e841c9d5e3adcf6d247f8ebd6c1f993241616510c6",
+      "sha256": "55e1676a3afbb4757e2914e841c9d5e3adcf6d247f8ebd6c1f993241616510c6",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/verification.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/verification.json",
+      "sourceSha256": "1eb4b935d24ab097e60aef2c71ff4d2e09ecf32e9c7e7543a0be769769e94abc",
+      "sha256": "1eb4b935d24ab097e60aef2c71ff4d2e09ecf32e9c7e7543a0be769769e94abc",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-verification.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-verification.json",
+      "sourceSha256": "7a2df11c7ef4ffb559d1cd495822f2badfd1f7448dacc745ed2a66eabe6aa3c5",
+      "sha256": "d9e483bf739837dc56a327d6c706e56796096c508f17b95363de3b651d1b5b2e",
+      "derivation": "HOME/CHECKOUT absolute-prefix normalization; descriptive metadata, not executable frozen environment"
+    },
+    {
+      "path": "gates/server-final-seal.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-seal.json",
+      "sourceSha256": "f94481cdcb5b7793194cd25731aa8312c3df5cf919a876b1588438c133919bc5",
+      "sha256": "f94481cdcb5b7793194cd25731aa8312c3df5cf919a876b1588438c133919bc5",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/server-final-results.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/server-final-results.json",
+      "sourceSha256": "b4569800f80de4f446905549d1dde06ebc9eb0258666823f918bb2407a578b44",
+      "sha256": "b4569800f80de4f446905549d1dde06ebc9eb0258666823f918bb2407a578b44",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-final-seal.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-seal.json",
+      "sourceSha256": "b2ff98ddcd0cf44df90563f086a82429aabb79318e65e371b33a7e6699927f67",
+      "sha256": "b2ff98ddcd0cf44df90563f086a82429aabb79318e65e371b33a7e6699927f67",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-final-results.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-results.json",
+      "sourceSha256": "78d3f1fe8624fd2986d6548f914706a722fd53d833e5dd2c9a17da9ea91fc9ee",
+      "sha256": "78d3f1fe8624fd2986d6548f914706a722fd53d833e5dd2c9a17da9ea91fc9ee",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-final-doctest-result.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-final-doctest-result.json",
+      "sourceSha256": "2a6ecad97638fdc6dadb401115d947ef176ed59ce43eb0fe873c2c1515b8fe9d",
+      "sha256": "a3b36272ebceb409bd56018b6cb5dbd9069fd683f2fe5d64cab3ae26e992bed6",
+      "derivation": "HOME/CHECKOUT absolute-prefix normalization; descriptive metadata, not executable frozen environment"
+    },
+    {
+      "path": "gates/runtime.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/runtime.json",
+      "sourceSha256": "7db376ab7ae9ba75e1b2cd7ea99291723b80b082ee67a4faa9302346eb2ff9ed",
+      "sha256": "d4259400aeec1d562ddd44362e30f1d42ff563309f101f9ab0c56d90358ed436",
+      "derivation": "HOME/CHECKOUT absolute-prefix normalization; descriptive metadata, not executable frozen environment"
+    },
+    {
+      "path": "gates/initial-identity-verification.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/initial-identity-verification.json",
+      "sourceSha256": "efeffb4e71e61934b5e24ff554c969f2611f4551710126d9a63487d9df480764",
+      "sha256": "ded055e2d8738eec7c06ff1319d5bd4a6fba8efc3b5d7b4f9b57b69dd773e7aa",
+      "derivation": "HOME/CHECKOUT absolute-prefix normalization; descriptive metadata, not executable frozen environment"
+    },
+    {
+      "path": "gates/ignored-tests.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/ignored-tests.json",
+      "sourceSha256": "d53b7459e5d90ccff311f52b46c8e80af17df1a5ba8e47c47339945fc67d9220",
+      "sha256": "d53b7459e5d90ccff311f52b46c8e80af17df1a5ba8e47c47339945fc67d9220",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-ignored-tests.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-ignored-tests.json",
+      "sourceSha256": "ff2689d74357c09c7356965acf5e2a8912b6120239893cf59a5c1eac6be339ed",
+      "sha256": "ff2689d74357c09c7356965acf5e2a8912b6120239893cf59a5c1eac6be339ed",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/original-discrepancy-matrix.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/original-discrepancy-matrix.json",
+      "sourceSha256": "02a70f6ff654b24ac3b3a3ebfdeff386bb387e552b1df2c80760c854f4f22f36",
+      "sha256": "02a70f6ff654b24ac3b3a3ebfdeff386bb387e552b1df2c80760c854f4f22f36",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/original-discrepancy-matrix-desktop-completed.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/original-discrepancy-matrix-desktop-completed.json",
+      "sourceSha256": "c54d2bb2616a2fe8e7cdaddf1878be5b8371361cd7d32d68f4d7c54e765ebd0b",
+      "sha256": "c54d2bb2616a2fe8e7cdaddf1878be5b8371361cd7d32d68f4d7c54e765ebd0b",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/fixture-red-seal.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-red-seal.json",
+      "sourceSha256": "45d11524a24709d1d637fe84cd533313b53ea98fa97bb0e786261ee4e6bd79d1",
+      "sha256": "45d11524a24709d1d637fe84cd533313b53ea98fa97bb0e786261ee4e6bd79d1",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/fixture-red.patch.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-red.patch",
+      "sourceSha256": "40b88811c2ae535ecf5828bee9dce277db1301ef6b0102123c0c28477c05d230",
+      "sha256": "c517756f84b97e63b7bc03b74f71f4c04469510f1f9cdeff5581e36ee8d7b545",
+      "derivation": "Lossless JSON encoding of unified diff, including blank context markers; original SHA256 unchanged"
+    },
+    {
+      "path": "gates/fixture-green.patch.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-green.patch",
+      "sourceSha256": "055f6c18d19be693d9f3f8d9732429fb304283db83d2063fe9071efe0eff8704",
+      "sha256": "7b79fe5e8325f868770cb9a8920bfcbbf4beaef6087055292951fa8934695bea",
+      "derivation": "Lossless JSON encoding of unified diff, including blank context markers; original SHA256 unchanged"
+    },
+    {
+      "path": "gates/desktop-restoration-before.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-restoration-before.json",
+      "sourceSha256": "21ab568d445d7a60d5cdd7360a74a957b432130e5344e959e056902cd1a9aaab",
+      "sha256": "21ab568d445d7a60d5cdd7360a74a957b432130e5344e959e056902cd1a9aaab",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-restoration-verification.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-restoration-verification.json",
+      "sourceSha256": "317320a0e73ea7c8b6a836ef4b89050257cedcfa178df01a163f46354757a1cb",
+      "sha256": "34cf7a4fc51366992e8a08f98f045cfc8dd22e4fb7c591214ea58f46183e24e0",
+      "derivation": "HOME/CHECKOUT absolute-prefix normalization; descriptive metadata, not executable frozen environment"
+    },
+    {
+      "path": "gates/desktop-configuration-locks.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-configuration-locks.json",
+      "sourceSha256": "215f29dbf1c9e3dc605b054ccd7132241f898cee5f8e45ff6196d01032c8b29d",
+      "sha256": "215f29dbf1c9e3dc605b054ccd7132241f898cee5f8e45ff6196d01032c8b29d",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-loopback-only.sb",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-loopback-only.sb",
+      "sourceSha256": "cf35cca89f2e1b677995e788c0fe365bf627c641f260a3e4ea80cbde31a0c60e",
+      "sha256": "cf35cca89f2e1b677995e788c0fe365bf627c641f260a3e4ea80cbde31a0c60e",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "gates/desktop-network-preflight.json",
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-network-preflight.log",
+      "sourceSha256": "068e06acb98ee92096fa0a547362c1bd485bbd1a0cd4f0c4961ef1708e0f1d2a",
+      "sha256": "068e06acb98ee92096fa0a547362c1bd485bbd1a0cd4f0c4961ef1708e0f1d2a",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "audit-complete-mock-run.py",
+      "source": ".amp/in/artifacts/bounded-assistance-preparation-20261111/audit-complete-mock-run.py",
+      "sourceSha256": "e532044d05740f754238212d03d8662bc0be239a253b3280b6f1c44c06fdce46",
+      "sha256": "e532044d05740f754238212d03d8662bc0be239a253b3280b6f1c44c06fdce46",
+      "derivation": "byte-identical"
+    },
+    {
+      "path": "validate-native-projection.py",
+      "source": ".amp/in/artifacts/bounded-assistance-preparation-20261111/validate-native-projection.py",
+      "sourceSha256": "c45ce4f78de7242c19b4ba222265fffee8a5edbedab1d65c0f0393581ce32bd3",
+      "sha256": "c45ce4f78de7242c19b4ba222265fffee8a5edbedab1d65c0f0393581ce32bd3",
+      "derivation": "byte-identical"
+    }
+  ],
+  "localOnlyFiles": [
+    {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/fixture-source-locks.json",
+      "sha256": "1b1b2198449f04371e948941c3bd777af65eb8d2b532766d9f5c179412cb1996",
+      "bytes": 338758,
+      "reason": "Full imported fixture-body lock register remains local with its bodies, snapshots and route pools."
+    }
+  ]
+}

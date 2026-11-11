@@ -1,0 +1,27 @@
+{
+  "kind": "Extracted summaries and original full-log digests; not a new run",
+  "controls": [
+    {
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-green.log",
+      "sha256": "c1c1fdb417915d8265a4d5938c8ca8e96f3cfb843b2617bb7f96573696fe2165",
+      "summaries": [
+        "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 771 filtered out; finished in 4.51s"
+      ],
+      "regressionFailureObserved": false
+    },
+    {
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-red-build.log",
+      "sha256": "29505108927a9b303870ece0a26681bca76507f71c4e5c3fafab00210bd405d2",
+      "summaries": [],
+      "regressionFailureObserved": false
+    },
+    {
+      "source": ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-red.log",
+      "sha256": "14d8337c5ed733268f13e1e1d48557b7865b00ea942616e6bd64a9d32aade330",
+      "summaries": [
+        "test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 775 filtered out; finished in 1.02s"
+      ],
+      "regressionFailureObserved": true
+    }
+  ]
+}

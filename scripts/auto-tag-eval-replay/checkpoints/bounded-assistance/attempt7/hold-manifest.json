@@ -1,0 +1,518 @@
+{
+  "version": 1,
+  "mode": "mock",
+  "runId": "6d995194-0dcd-44c8-b027-64791b8c10ec",
+  "expiresUnixMs": 1794376117210,
+  "provider": "openai",
+  "model": "scripted/genre-v1",
+  "endpoint": "http://127.0.0.1:52054/model",
+  "limits": {
+    "attempts": 2,
+    "retries": 0,
+    "repairs": 0,
+    "reservedOutputTokens": 2048,
+    "requestBytes": 65536,
+    "responseBytes": 33554432,
+    "elapsedMs": 240000
+  },
+  "hardCostMicrounits": null,
+  "hardTotalBilledTokens": null,
+  "jobs": [
+    {
+      "id": "f7756354af37/folder_filename/cold",
+      "inputSha256": "78b7490f11889ce1fbecffd60836372c6758df7866ef7599e98f1eb0a40fe45a",
+      "requests": []
+    },
+    {
+      "id": "f7756354af37/folder_filename/warm",
+      "inputSha256": "78b7490f11889ce1fbecffd60836372c6758df7866ef7599e98f1eb0a40fe45a",
+      "requests": []
+    }
+  ],
+  "bindings": {
+    "corpus": {
+      "path": ".amp/in/eval-dummies/original/corpus.json",
+      "sha256": "865873a108f0992da7b9b67f4bfe64da075c0de7b89b65245560891cefd12112"
+    },
+    "input": {
+      "path": ".amp/in/eval-dummies/original/corpus.json",
+      "sha256": "865873a108f0992da7b9b67f4bfe64da075c0de7b89b65245560891cefd12112"
+    },
+    "expectations": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/review/expectations.json",
+      "sha256": "a5c88d25a47f13c3f7ec7c7fa2b0608bbb877e07a619b6f25cfa72d55564fa8d"
+    },
+    "labels": {
+      "path": ".planning/research/bounded-assistance-machine-labels-20261111.json",
+      "sha256": "34144c437e4aaf664151052ad1b208ab7467aae9df131b8bb6bc707abe1e02a7"
+    },
+    "packet": {
+      "path": ".planning/research/bounded-assistance-label-review-20261111.json",
+      "sha256": "6147a03ba85fb7697f81c0341b411cdbdc38822ceead404141370caa71e3fb42"
+    },
+    "source": {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "664ec6fe7e7087feeead79832e25b2f7841a6232b03bae3596706174de28ebb7"
+    },
+    "executable": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/native-evaluator",
+      "sha256": "f68d7b0f967ab6149312fd80d4fae22d1d5d7d2d2c0b0996ed915103486bd333"
+    },
+    "fixtures": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/approved-fixtures.json",
+      "sha256": "f9e157930ea60155c625afcbfa4bb0e250c0afa391b095a42092b27368e84dd1"
+    },
+    "scorer": {
+      "path": "scripts/auto-tag-eval-replay/score-observations.py",
+      "sha256": "1222426479f9180b0184f5a27e42b6441c7736ae0d0c131d136a75e08b994afe"
+    },
+    "driver": {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "c9af73faeb4e65f6c586c5c61e79d1c727bc8a4fa5d61019b91fa4e85d8b55e3"
+    },
+    "mockService": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/final-service.json",
+      "sha256": "3a83ac666637b38c6dc9acaa340a006a94bd7efc0cab3ce3bc1073d719e5a55c"
+    },
+    "safetyInput": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/safety-input.json",
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    "source:src-tauri/src/commands/auto_tag_benchmark.rs": {
+      "path": "src-tauri/src/commands/auto_tag_benchmark.rs",
+      "sha256": "1ce45de563e4fbd52144bdb4029bc4f27f452f3b47516e75bad9c25bfa6de070"
+    },
+    "source:src-tauri/src/commands/auto_tag_track_core_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_track_core_tests.rs",
+      "sha256": "7316b615b34eb34256a1a7c54c0238b86b5d00885ee34252b7145c3d72bfb80c"
+    },
+    "source:src-tauri/src/commands/track_matcher_groups_tests.rs": {
+      "path": "src-tauri/src/commands/track_matcher_groups_tests.rs",
+      "sha256": "4227f9ee74f4bd66f44340f675d6b5a5ebb9e7729171604c6b2f2e9ed05366dd"
+    },
+    "source:src-tauri/src/commands/dataset.rs": {
+      "path": "src-tauri/src/commands/dataset.rs",
+      "sha256": "7697f996891e5e010602e1e7640fc7ae24123927dd4124e0df05e1d38b628ae4"
+    },
+    "source:src-tauri/src/commands/assistant_metadata_tools.rs": {
+      "path": "src-tauri/src/commands/assistant_metadata_tools.rs",
+      "sha256": "af5d57f1f9fc0e838fca5bfb66cce56409610b2a6c2c79fab9866e164d2a5396"
+    },
+    "source:src-tauri/src/commands/artist_inventory.rs": {
+      "path": "src-tauri/src/commands/artist_inventory.rs",
+      "sha256": "aced4da072b4b87c2f793658238f92230184adc52f4280baf9f379a27aa77d85"
+    },
+    "source:src-tauri/src/commands/auto_tag_collections_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_collections_tests.rs",
+      "sha256": "2cdf036ded8029bf93a08ac17d3deb393034cc3c7802ca2ee8e87686437a4c3a"
+    },
+    "source:src-tauri/src/commands/debug.rs": {
+      "path": "src-tauri/src/commands/debug.rs",
+      "sha256": "172601d55c3b355f26e646411b36cb3b3c4ec1efd34f66f98453a085cc373620"
+    },
+    "source:src-tauri/src/commands/artist_inventory/recovery_preview.rs": {
+      "path": "src-tauri/src/commands/artist_inventory/recovery_preview.rs",
+      "sha256": "e81b196b51eec3fcb611cb18891174ac95992ccc246bbfeb746070f87948e129"
+    },
+    "source:src-tauri/src/commands/artist_inventory/recovery_preview_tests.rs": {
+      "path": "src-tauri/src/commands/artist_inventory/recovery_preview_tests.rs",
+      "sha256": "5c1a0551c0ed2a382d72a21c89248677356fc06691e96cce9a70018645108400"
+    },
+    "source:src-tauri/src/commands/auto_tag_editions_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_editions_tests.rs",
+      "sha256": "9719bfecd2f8693e98e80675237a7770862b838acced908eb6f8f88a9e3d923d"
+    },
+    "source:src-tauri/src/commands/assistant_tools.rs": {
+      "path": "src-tauri/src/commands/assistant_tools.rs",
+      "sha256": "3397e54bc8ffee2be500ad1d7a5f10e39dbb591f470631b2077c80c127d97909"
+    },
+    "source:src-tauri/src/commands/organizer.rs": {
+      "path": "src-tauri/src/commands/organizer.rs",
+      "sha256": "43e6ee7f5539b73ac41456c6b917d3eb603ba5cf3c4959171034917e868ac19b"
+    },
+    "source:src-tauri/src/commands/track_matcher_guarded_tests.rs": {
+      "path": "src-tauri/src/commands/track_matcher_guarded_tests.rs",
+      "sha256": "6c623d334a510c0fbf6ad6b2ff2d32f60484f0ece1a8bf53dd82bbcf30dc8a59"
+    },
+    "source:src-tauri/src/commands/meta.rs": {
+      "path": "src-tauri/src/commands/meta.rs",
+      "sha256": "9a68a876602aa4ef3edbfad0e786636f445668c4ec326a5f6a4d7ab11d62215f"
+    },
+    "source:src-tauri/src/commands/mod.rs": {
+      "path": "src-tauri/src/commands/mod.rs",
+      "sha256": "36255308f1e22630734cf571f659d60bf14ba3c0d5e0f4bc38f5d38cbe701de5"
+    },
+    "source:src-tauri/src/commands/auto_tag_eval.rs": {
+      "path": "src-tauri/src/commands/auto_tag_eval.rs",
+      "sha256": "70d912c850eec805a2304ce2fb56397f586d41809982133ce25c3b23f498c41c"
+    },
+    "source:src-tauri/src/commands/covers.rs": {
+      "path": "src-tauri/src/commands/covers.rs",
+      "sha256": "13ed3ced9ec2fee3b95d19e0bd7e22c6b2263f6a508cff972c003261b67ec16b"
+    },
+    "source:src-tauri/src/commands/auto_tag_acoustid.rs": {
+      "path": "src-tauri/src/commands/auto_tag_acoustid.rs",
+      "sha256": "4f891165ef3c71de0f5d068e2ab1328f790c4ac7c43aba43b662c10012995bf8"
+    },
+    "source:src-tauri/src/commands/assistant_intent.rs": {
+      "path": "src-tauri/src/commands/assistant_intent.rs",
+      "sha256": "1391c42cf3cf5ec7dbe736234e43732710129f29cd059c451afd645a9554a4c8"
+    },
+    "source:src-tauri/src/commands/auto_tag_duplicates_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_duplicates_tests.rs",
+      "sha256": "cab12347ca0f1395ed4099869ba9ca24c0758b71957253041c97ff9cbf1dde0f"
+    },
+    "source:src-tauri/src/commands/recording_discovery.rs": {
+      "path": "src-tauri/src/commands/recording_discovery.rs",
+      "sha256": "8de70dd9774acc9cd9e80f49cad9f3d6eb7e7f0c25b87f5efcc3e7a74f26bc67"
+    },
+    "source:src-tauri/src/commands/auto_tag_review.rs": {
+      "path": "src-tauri/src/commands/auto_tag_review.rs",
+      "sha256": "9c6bf630c98c9b00d5234b32b8ca118ebd4e3d8fba04b1dd6100583bc02f6a6d"
+    },
+    "source:src-tauri/src/commands/auto_tag_coverage_v3_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_coverage_v3_tests.rs",
+      "sha256": "e524561089d07f49884898fa60ac6251fd8776ae4313e1ef1efbd94add34e20d"
+    },
+    "source:src-tauri/src/commands/auto_tag_relapse_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_relapse_tests.rs",
+      "sha256": "ca038838905531f046c3e9ac0be8c3547ad9ae5615eeaab9d1a88d4c428a5049"
+    },
+    "source:src-tauri/src/commands/configuration.rs": {
+      "path": "src-tauri/src/commands/configuration.rs",
+      "sha256": "33de7184de13ef0519639cfd52be87814386d5a2e97a986c4bba12cc86f9cfb5"
+    },
+    "source:src-tauri/src/commands/tracks.rs": {
+      "path": "src-tauri/src/commands/tracks.rs",
+      "sha256": "cdbc3db5a5de2ae1796419e410c86ec904ab6c753b3651358e19539934e6797e"
+    },
+    "source:src-tauri/src/commands/auto_tag_enya_smoke_tests.rs": {
+      "path": "src-tauri/src/commands/auto_tag_enya_smoke_tests.rs",
+      "sha256": "dba4213198c737417f2856b0baad04d5bbdda5d0cad2eebc3c1d99ac22393000"
+    },
+    "source:src-tauri/src/commands/album_search.rs": {
+      "path": "src-tauri/src/commands/album_search.rs",
+      "sha256": "28d21abb81fd8d4cfe0eb9c08d5a1e372dc65a349815cf609ae3f5a50adfb91a"
+    },
+    "source:src-tauri/src/commands/auto_tag_editions.rs": {
+      "path": "src-tauri/src/commands/auto_tag_editions.rs",
+      "sha256": "c1b368886b506da2f00698d01b9827d218f27a840a3351a74f82da88eecd7988"
+    },
+    "source:src-tauri/src/commands/tasks.rs": {
+      "path": "src-tauri/src/commands/tasks.rs",
+      "sha256": "929c34b2d3c3f490f452c01405e1bdebd198c421a5360ceba9a4ec5258794015"
+    },
+    "source:src-tauri/src/commands/library.rs": {
+      "path": "src-tauri/src/commands/library.rs",
+      "sha256": "fc8d844d38589124fdb6d9b917e8f75911a5f5f780bc0fc3b850683e94131300"
+    },
+    "source:src-tauri/src/commands/audit.rs": {
+      "path": "src-tauri/src/commands/audit.rs",
+      "sha256": "66bb916bebd439b4bdbf3667efcb29642d454ce6491b70c261424854317ff260"
+    },
+    "source:src-tauri/src/commands/assistant.rs": {
+      "path": "src-tauri/src/commands/assistant.rs",
+      "sha256": "cb0313d57108ffd35e3c22ad94996702a596c70afb4b1db1522529f4104b43a3"
+    },
+    "source:src-tauri/src/commands/shell.rs": {
+      "path": "src-tauri/src/commands/shell.rs",
+      "sha256": "5c5960e8cda3b74713d895a999c374ef605545501d97019919d8ae3665cc8e6f"
+    },
+    "source:src-tauri/src/commands/track_matcher.rs": {
+      "path": "src-tauri/src/commands/track_matcher.rs",
+      "sha256": "8939eb51ecc1fe7fa21191c0a9f4c313be955f4d2f27a072d32b5944426e199d"
+    },
+    "source:src-tauri/src/commands/directories.rs": {
+      "path": "src-tauri/src/commands/directories.rs",
+      "sha256": "d2e6b0b20fc54a066a91227ddd9c79907bcac90d24f64d4ca32855b28a7f90e4"
+    },
+    "source:src-tauri/src/commands/conversation.rs": {
+      "path": "src-tauri/src/commands/conversation.rs",
+      "sha256": "46e508cbd85d3752842778356cfc4c815da69b8ce02829647081291c79b8da73"
+    },
+    "source:src-tauri/src/commands/mutations.rs": {
+      "path": "src-tauri/src/commands/mutations.rs",
+      "sha256": "7e97f8893fcb57cf0b95b1518dc013e0490d0483a47d47b43b2a38ae019c0f48"
+    },
+    "source:src-tauri/src/commands/auto_tag.rs": {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "664ec6fe7e7087feeead79832e25b2f7841a6232b03bae3596706174de28ebb7"
+    },
+    "source:src-tauri/src/commands/updater.rs": {
+      "path": "src-tauri/src/commands/updater.rs",
+      "sha256": "914c9a21bd107aa47a4370bc0555f4ebc157366279c989d447058431b6487506"
+    },
+    "source:src-tauri/src/commands/lyrics.rs": {
+      "path": "src-tauri/src/commands/lyrics.rs",
+      "sha256": "243b508a64c8338fe1b6c500bb8f4de90f50fd32047cef55da08fda91e520b36"
+    },
+    "source:src-tauri/src/commands/auto_tag_evidence.rs": {
+      "path": "src-tauri/src/commands/auto_tag_evidence.rs",
+      "sha256": "74ae2874ecd63306eb2762a9fa88eb18009bd948cafe61f384bd47583a774731"
+    },
+    "source:src-tauri/src/main.rs": {
+      "path": "src-tauri/src/main.rs",
+      "sha256": "7da23807d4ecec452cdac356d137e046a96b3ae482d213718459d080488cf5f3"
+    },
+    "source:src-tauri/src/desktop.rs": {
+      "path": "src-tauri/src/desktop.rs",
+      "sha256": "038b532810a172f7c649081d836d9406ba2b0e510ff24cf443fc762ecfc6018c"
+    },
+    "source:src-tauri/src/state/album.rs": {
+      "path": "src-tauri/src/state/album.rs",
+      "sha256": "f6b2b2e3a970a67934080f62f3a5a1042f85f1e7b830bc64516523b87972c5a4"
+    },
+    "source:src-tauri/src/state/tag_source.rs": {
+      "path": "src-tauri/src/state/tag_source.rs",
+      "sha256": "5919c43c6be64175610018cd66b74e165c166ee6b9d091992693b72efde57738"
+    },
+    "source:src-tauri/src/state/providers.rs": {
+      "path": "src-tauri/src/state/providers.rs",
+      "sha256": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4"
+    },
+    "source:src-tauri/src/state/write_queue.rs": {
+      "path": "src-tauri/src/state/write_queue.rs",
+      "sha256": "c7dd27035febe2094c772c8f421b598b0093a8e31e920f054cfb182e000b6b46"
+    },
+    "source:src-tauri/src/state/window_state.rs": {
+      "path": "src-tauri/src/state/window_state.rs",
+      "sha256": "2eeb4f790663c882f649f5b1f3025db52f652271c277063f11975b053debf13f"
+    },
+    "source:src-tauri/src/state/mod.rs": {
+      "path": "src-tauri/src/state/mod.rs",
+      "sha256": "37d6399c61714e003cce220dda0ac02ba80084cf9908e2a0da0b3100dd8a3c37"
+    },
+    "source:src-tauri/src/state/provider_title_aliases.rs": {
+      "path": "src-tauri/src/state/provider_title_aliases.rs",
+      "sha256": "0f57501172d02efcc1e7303fc7d583d5cdb72e4dce8793c2cf87af4f93eee1c5"
+    },
+    "source:src-tauri/src/state/worker.rs": {
+      "path": "src-tauri/src/state/worker.rs",
+      "sha256": "12c16690086de10e54da9c226deb5a6d17c7948d6fc2e06e71a2f4bcbd7b115b"
+    },
+    "source:src-tauri/src/state/paths.rs": {
+      "path": "src-tauri/src/state/paths.rs",
+      "sha256": "943734b031729a4c06bdca2e6e42546fbbfa48664f8d3079a477fe5342b36826"
+    },
+    "source:src-tauri/src/state/tasks.rs": {
+      "path": "src-tauri/src/state/tasks.rs",
+      "sha256": "a046d3b3c0da4aa816220fc1dc69b6db1110d61b10700ee200d293f3b499921e"
+    },
+    "source:src-tauri/src/state/config.rs": {
+      "path": "src-tauri/src/state/config.rs",
+      "sha256": "d28c86fcdf0658257b14ff36308e1da9c6203fd624d011d5941bf922ab305b7a"
+    },
+    "source:src-tauri/src/state/library.rs": {
+      "path": "src-tauri/src/state/library.rs",
+      "sha256": "554d44f5938d3b7f7ee7001b679a4b65a171cce510aacbe57dc1bce61ce27918"
+    },
+    "source:src-tauri/src/state/audit.rs": {
+      "path": "src-tauri/src/state/audit.rs",
+      "sha256": "34725a43782772f2ccdb652a05d2c9c40bac3b10b4aaa764ac52e1290f5e8158"
+    },
+    "source:src-tauri/src/state/assistant.rs": {
+      "path": "src-tauri/src/state/assistant.rs",
+      "sha256": "32e3d98266e8d93aa8cb35911a8b1e72b44467a0ccc3932cb69cae455f50c2cc"
+    },
+    "source:src-tauri/src/state/assistant_task.rs": {
+      "path": "src-tauri/src/state/assistant_task.rs",
+      "sha256": "e3446a5287d5b7138bd1bc5707e560329967613572cecbe4c5f2a4234d484187"
+    },
+    "source:src-tauri/src/state/conversation.rs": {
+      "path": "src-tauri/src/state/conversation.rs",
+      "sha256": "a832ea29e7a2e8242e3bc6b4521c7c5a6c4254a476e769a968af5fc56c48768a"
+    },
+    "source:src-tauri/src/state/events.rs": {
+      "path": "src-tauri/src/state/events.rs",
+      "sha256": "9bcd2c41b9e42012d643200c1c10e55f0a25d090d01ef4a460d00e1709cf4db5"
+    },
+    "source:src-tauri/src/state/cron.rs": {
+      "path": "src-tauri/src/state/cron.rs",
+      "sha256": "7db159eed7bc1e29fc0e763ab205c560b7460cbf3480241e2b7fc523e3200036"
+    },
+    "source:src-tauri/src/state/operation.rs": {
+      "path": "src-tauri/src/state/operation.rs",
+      "sha256": "4d55b276c7b77122b3452c7a8e5bdde70b2db12057cc9fec56927d727eee8297"
+    },
+    "source:src-tauri/src/state/sqlite.rs": {
+      "path": "src-tauri/src/state/sqlite.rs",
+      "sha256": "7fc075ae3bb5517272811bf9ee7d19772c3252c6b93fece0da65d00f988e1492"
+    },
+    "source:src-tauri/src/state/updater.rs": {
+      "path": "src-tauri/src/state/updater.rs",
+      "sha256": "bbcf6802368f087c442462518ef9cb841f54e660ca16d71111eed0848b40a9cd"
+    },
+    "source:src-tauri/src/state/background.rs": {
+      "path": "src-tauri/src/state/background.rs",
+      "sha256": "1666e21f85e602bbeac25f437006dc350547c544d67f80ae59b0c94b60d300d2"
+    },
+    "source:src-tauri/src/state/quit_guard.rs": {
+      "path": "src-tauri/src/state/quit_guard.rs",
+      "sha256": "f95ad9a9f2ab0a6b7abd64d92b7a76f30443e741b131199d47762fd24fa9cce0"
+    },
+    "source:src-tauri/src/server.rs": {
+      "path": "src-tauri/src/server.rs",
+      "sha256": "5ae8e595ab58d594e4a5593057bd5f50e8b51c1765cbfd4b949b83e7f1e46e85"
+    },
+    "source:src-tauri/src/lib.rs": {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "7640167e485732c4636f670012aedadcf9d29a114dcca4a2178d8e8ed97d4768"
+    },
+    "source:src-tauri/src/error.rs": {
+      "path": "src-tauri/src/error.rs",
+      "sha256": "18a310c5395b1de37c966b942d38012421cbbc1d076490ff83004c1576d324ce"
+    },
+    "source:src-tauri/src/bin/soundrobe-inventory.rs": {
+      "path": "src-tauri/src/bin/soundrobe-inventory.rs",
+      "sha256": "e58557dbf7687c2fc5699be98fdf0bc93826724ca6997398a69262ae5b949378"
+    },
+    "source:src-tauri/src/bin/soundrobe-server.rs": {
+      "path": "src-tauri/src/bin/soundrobe-server.rs",
+      "sha256": "5d04e000ad3245bee456cb5e6b2b5d124b1ef142502b9a5af7aeedb3ea4718b1"
+    },
+    "source:src-tauri/src/infra/acoustid.rs": {
+      "path": "src-tauri/src/infra/acoustid.rs",
+      "sha256": "42c4b4247e9b332174a12347498cbeb6c7cc2c92f43fe37e4c3fc3300d46593d"
+    },
+    "source:src-tauri/src/infra/aliases.rs": {
+      "path": "src-tauri/src/infra/aliases.rs",
+      "sha256": "ca2038d1f9970bfbac6c4d9ac4a22417a23b37a7a8daa9976250f5717bdd48a0"
+    },
+    "source:src-tauri/src/infra/tag_io.rs": {
+      "path": "src-tauri/src/infra/tag_io.rs",
+      "sha256": "57d3948f333042839814f0ada4922e0997475dd3ddcc582becf4b10fc7c25b03"
+    },
+    "source:src-tauri/src/infra/audio_evidence_groups_tests.rs": {
+      "path": "src-tauri/src/infra/audio_evidence_groups_tests.rs",
+      "sha256": "4239a0d145ca641108b73fee5c417f603ecfe2ab0994e1f87a8b9d6ef4f954f8"
+    },
+    "source:src-tauri/src/infra/fs.rs": {
+      "path": "src-tauri/src/infra/fs.rs",
+      "sha256": "3dae5963ece48e6339fd3bac7ee8a6489cb5f3e509b5a899c9360e71b797c40f"
+    },
+    "source:src-tauri/src/infra/http.rs": {
+      "path": "src-tauri/src/infra/http.rs",
+      "sha256": "3d8bcb4eabb27812f26031fc88fcefce5e96fccbced187630578123b215e7b70"
+    },
+    "source:src-tauri/src/infra/text.rs": {
+      "path": "src-tauri/src/infra/text.rs",
+      "sha256": "45801439bb0201c44b4c1f52b28ee868e5ef4124affd578148cd2bf36fb07dca"
+    },
+    "source:src-tauri/src/infra/acoustid_flac_tests.rs": {
+      "path": "src-tauri/src/infra/acoustid_flac_tests.rs",
+      "sha256": "842e99925449cf6a9b84a8ffa999f186aff5cd7918d75de5671c566051d65537"
+    },
+    "source:src-tauri/src/infra/bounded_eval.rs": {
+      "path": "src-tauri/src/infra/bounded_eval.rs",
+      "sha256": "250052de2dd4cceca71451d99e1a2eaa8b46eacefb28f74ffb199a324c069c7e"
+    },
+    "source:src-tauri/src/infra/acoustid_flac.rs": {
+      "path": "src-tauri/src/infra/acoustid_flac.rs",
+      "sha256": "05451ad729304d4b9f8b791ef87fd4b44c2873b437721491077970e905670959"
+    },
+    "source:src-tauri/src/infra/mod.rs": {
+      "path": "src-tauri/src/infra/mod.rs",
+      "sha256": "83879e78ee7ce19a70038db75c4cd13d7ca30f6406b47807d1384ad79cecd1c8"
+    },
+    "source:src-tauri/src/infra/artwork.rs": {
+      "path": "src-tauri/src/infra/artwork.rs",
+      "sha256": "23062aa3e1f8d44d6595d6c659cfbd6329f13733d4cc55d0038590fdfa5111f5"
+    },
+    "source:src-tauri/src/infra/audio_evidence.rs": {
+      "path": "src-tauri/src/infra/audio_evidence.rs",
+      "sha256": "763ac5fdadfd9e0bed556e9057decffb9b1fe2eee0b05da61109ca9e4b0252dc"
+    },
+    "source:src-tauri/src/infra/logging.rs": {
+      "path": "src-tauri/src/infra/logging.rs",
+      "sha256": "a53d5f2c2448ba287322f463aaab848cc8d9b61165d5c91d62cde7fe37f5f72b"
+    },
+    "source:src-tauri/src/infra/encoding.rs": {
+      "path": "src-tauri/src/infra/encoding.rs",
+      "sha256": "705a8abb9317ac7f3c510e24d77754a02c30fe837a335ee07e12d0495892447f"
+    },
+    "source:src-tauri/src/infra/agent_completion.rs": {
+      "path": "src-tauri/src/infra/agent_completion.rs",
+      "sha256": "af4517006d9f9d0c86eb41107eddf7575ed1406215eac46563d13d539ec4cdde"
+    },
+    "source:src-tauri/src/infra/openrouter.rs": {
+      "path": "src-tauri/src/infra/openrouter.rs",
+      "sha256": "8d5d80a16acf1bd6e49f162f683354f7f8766b244214aaf504c1053d882ae99e"
+    },
+    "source:src-tauri/src/infra/tag_catalog.rs": {
+      "path": "src-tauri/src/infra/tag_catalog.rs",
+      "sha256": "bfaeee199aa6e5752c0232ce2830adf577240a298274c7810cbbdb7639f0f06e"
+    },
+    "source:src-tauri/src/infra/sqlite.rs": {
+      "path": "src-tauri/src/infra/sqlite.rs",
+      "sha256": "965c3da8c6b883e446bd610db3ba6deedccb7946d7dbc6742802846518139cc5"
+    },
+    "media:01. Enya - Orinoco Flow (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/01. Enya - Orinoco Flow (Remastered 1997).flac",
+      "sha256": "87f968fb812216805818e9d9e0859f9b9d91df1f3a1d22787d7f4f3d8d989f26"
+    },
+    "media:02. Enya - Caribbean Blue (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/02. Enya - Caribbean Blue (Remastered 1997).flac",
+      "sha256": "8d9a24d0d8a5fb897615f2e27df68812e11184bbcfc90315fbca258d49b12e43"
+    },
+    "media:03. Enya - Book Of Days (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/03. Enya - Book Of Days (Remastered 1997).flac",
+      "sha256": "c1aa4c00290e1e9d9e036361f10cfe8f4ece5dde5f4499eeb64ff9e5bb28e71f"
+    },
+    "media:04. Enya - Anywhere Is (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/04. Enya - Anywhere Is (Remastered 1997).flac",
+      "sha256": "aa624b8ba6d5dbf0bf3b7359e830dc4e157df270646911e7de485c02940f28d0"
+    },
+    "media:05. Enya - Only If....flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/05. Enya - Only If....flac",
+      "sha256": "823802ae5827bc3d0aca31eb532b875470973a28a38a580128f453b999683efc"
+    },
+    "media:06. Enya - The Celts (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/06. Enya - The Celts (Remastered 1997).flac",
+      "sha256": "fdec2c67266757abe323473588649e8d70af21b635e82e34a78bd966315a665e"
+    },
+    "media:07. Enya - China Roses (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/07. Enya - China Roses (Remastered 1997).flac",
+      "sha256": "6655afdacf3adfde09ac359d7805b56c9a57cce46d6cdd7a165d84397a7fa691"
+    },
+    "media:08. Enya - Shepherd Moons (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/08. Enya - Shepherd Moons (Remastered 1997).flac",
+      "sha256": "fe8fd5cabba9ebc086abdceb0238ef15bd397cddd5d8fc24575de119a5b92b7f"
+    },
+    "media:09. Enya - Ebudae (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/09. Enya - Ebudae (Remastered 1997).flac",
+      "sha256": "a807b561ad443da8a9925e603ab1fa646800734b2d4879d87f6497325eebd410"
+    },
+    "media:10. Enya - Storms In Africa (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/10. Enya - Storms In Africa (Remastered 1997).flac",
+      "sha256": "5ab7af486aca454f43438506a63563152945e8be366b8466a12aaba90a46e7d4"
+    },
+    "media:11. Enya - Watermark (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/11. Enya - Watermark (Remastered 1997).flac",
+      "sha256": "96c7a2c4661d19076d316952f062cee37f11d03c98d7c156037a7da62af79f93"
+    },
+    "media:12. Enya - Paint The Sky With Stars.flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/12. Enya - Paint The Sky With Stars.flac",
+      "sha256": "aecc8d565f56b428f69feef90c0e7454d5af9e824ea9920cd7467ca75e66829c"
+    },
+    "media:13. Enya - Marble Halls (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/13. Enya - Marble Halls (Remastered 1997).flac",
+      "sha256": "df2b05328b71b4043355480feac2ccfcd8898b676503bee6ba086676a5f29298"
+    },
+    "media:14. Enya - On My Way Home (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/14. Enya - On My Way Home (Remastered 1997).flac",
+      "sha256": "182d46962d2d4f739e2a64d7fdea3615166d30cd60eb1c46f1b40a15525c9eb8"
+    },
+    "media:15. Enya - The Memory Of Trees (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/15. Enya - The Memory Of Trees (Remastered 1997).flac",
+      "sha256": "fed5cc3691b5f973f8fbf54eb6ed6bcc93c7d9c15691bec80bdbbf25446b9425"
+    },
+    "media:16. Enya - Boadicea (Remastered 1997).flac": {
+      "path": ".amp/in/eval-dummies/original/media/Enya/1997 - Paint The Sky With Stars - The Best Of Enya (EU, WEA - 3984 20895 2)/16. Enya - Boadicea (Remastered 1997).flac",
+      "sha256": "bd79757195a4ccf736fbe7b87529f1a5924ab2b2d7bcb621650888f14659a4db"
+    },
+    "scoringContract": {
+      "path": ".amp/in/artifacts/bounded-entrypoint-attempt-7-20261111/hold/scoring-contract.json",
+      "sha256": "d5609906daadde3d8b5a7a2f225b1c66c41b387cbd8929c9845ad50454b981c3"
+    }
+  }
+}

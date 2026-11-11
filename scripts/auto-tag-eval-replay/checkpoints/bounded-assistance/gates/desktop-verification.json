@@ -1,0 +1,78 @@
+{
+  "capturedUtc": "2026-11-11T11:18:10.796028+00:00",
+  "desktopArtifactChecks": [
+    {
+      "target": "soundrobe_lib",
+      "binarySha256": "bc45c42a538cfba82d5e833ee65d281f81db20327642c87127e2d97e345315b2",
+      "passed": 1292,
+      "failed": 0,
+      "ignored": 30,
+      "filteredOut": 0,
+      "seconds": 674.32,
+      "completeExactMembership": true,
+      "interleavedTerminalRecords": [
+        {
+          "test": "commands::auto_tag::eval_tests::evaluation_sanitization_redacts_nested_credentials_and_queries",
+          "status": "ok",
+          "startLine": 510
+        }
+      ]
+    },
+    {
+      "target": "inventory_audio",
+      "binarySha256": "cd6850520c177ad43858aadf656a06517310d3a6de4e294a9f887a4ffc1e53a7",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filteredOut": 0,
+      "seconds": 0.0,
+      "completeExactMembership": true,
+      "interleavedTerminalRecords": []
+    },
+    {
+      "target": "inventory_recovery_cli",
+      "binarySha256": "018d183c18c877801928793c3e553991f2080fc337090091febd284a5ca23bb3",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filteredOut": 0,
+      "seconds": 0.0,
+      "completeExactMembership": true,
+      "interleavedTerminalRecords": []
+    },
+    {
+      "target": "soundrobe",
+      "binarySha256": "d5db7607f15476296836281c1f549837851fd8db52fc0aafc88d127b874efc4f",
+      "passed": 0,
+      "failed": 0,
+      "ignored": 0,
+      "filteredOut": 0,
+      "seconds": 0.0,
+      "completeExactMembership": true,
+      "interleavedTerminalRecords": []
+    }
+  ],
+  "desktopDoctests": "0 passed; 0 failed; 0 ignored; 0 filtered out",
+  "restoredArchiveChecks": 184,
+  "lockedArchivesMatchCargoLock": true,
+  "sourceLocksAndToolsUnchanged": true,
+  "configurationAndManifestsUnchanged": true,
+  "absentCargoConfigurations": [
+    "/.cargo/config",
+    "/.cargo/config.toml",
+    "/Users/.cargo/config",
+    "/Users/.cargo/config.toml",
+    "$HOME/.cargo/config",
+    "$HOME/.cargo/config.toml",
+    "$HOME/code/.cargo/config",
+    "$HOME/code/.cargo/config.toml",
+    "$CHECKOUT/.cargo/config",
+    "$CHECKOUT/.cargo/config.toml",
+    "$CHECKOUT/src-tauri/.cargo/config",
+    "$CHECKOUT/src-tauri/.cargo/config.toml"
+  ],
+  "originalMatrixRows": 18,
+  "originalHistoricalCauses": "Unassigned; passing current gates does not attribute historical failures",
+  "attempt7": "Reused sealed execution evidence only, not rerun after the test-only fixture correction",
+  "delivery": "Local and uncommitted; no push"
+}

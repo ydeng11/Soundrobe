@@ -384,6 +384,10 @@ fn overlay_reviewed_expectations(corpus: &mut EvalCorpus, path: &Path) {
         .unwrap_or_else(|error| {
             panic!("parse evaluation expectations {}: {error}", path.display())
         });
+    apply_reviewed_expectations(corpus, file);
+}
+
+fn apply_reviewed_expectations(corpus: &mut EvalCorpus, file: ExpectationsFile) {
     assert_eq!(file.schema_version, corpus.schema_version);
     assert_eq!(file.corpus_version, corpus.corpus_version);
     let reviewed = file
@@ -1461,7 +1465,7 @@ async fn apply_profile(album: &Path, profile: &str, queue: &WriteQueue) -> Resul
 }
 
 fn source_path(root: &Path, relative: &str) -> PathBuf {
-    let path = root.join(relative);
+    let path = root.join(safe_relative_folder(relative));
     let canonical_root = fs::canonicalize(root).expect("canonical evaluation source root");
     let canonical = fs::canonicalize(&path)
         .unwrap_or_else(|error| panic!("evaluation source path {}: {error}", path.display()));
@@ -1472,7 +1476,40 @@ fn source_path(root: &Path, relative: &str) -> PathBuf {
     canonical
 }
 
+fn verify_source_membership(case: &EvalCase, source: &Path) {
+    let expected = case
+        .tracks
+        .iter()
+        .map(|track| {
+            let relative = track["relativePath"]
+                .as_str()
+                .expect("physical path required");
+            safe_relative_folder(relative);
+            relative.to_string()
+        })
+        .collect::<BTreeSet<_>>();
+    let actual = collect_audio_files(source)
+        .iter()
+        .map(|path| relative_audio_key(source, Path::new(path)))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        expected.len(),
+        case.tracks.len(),
+        "duplicate physical source path"
+    );
+    assert_eq!(
+        actual, expected,
+        "source directory differs from frozen audio membership"
+    );
+}
+
+fn frozen_source_hash_map(case: &EvalCase, source: &Path) -> BTreeMap<String, Value> {
+    verify_source_membership(case, source);
+    full_hash_map(source)
+}
+
 fn verify_frozen_case(case: &EvalCase, source: &Path, hashes: &BTreeMap<String, Value>) {
+    verify_source_membership(case, source);
     for track in &case.tracks {
         let relative = track
             .get("relativePath")
@@ -1538,6 +1575,55 @@ fn sanitise(value: Value) -> Value {
         }
         other => other,
     }
+}
+
+fn portable_reader_tracks(root: &Path, mut tracks: Value) -> Result<Value, String> {
+    for track in tracks.as_array_mut().ok_or("reader tracks unavailable")? {
+        if track["codec"] == "unknown" {
+            return Err("reader returned an unreadable-track fallback".into());
+        }
+        let path = Path::new(track["path"].as_str().ok_or("reader path unavailable")?);
+        let relative = path
+            .strip_prefix(root)
+            .map_err(|_| "reader escaped media root")?;
+        if relative
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            return Err("reader escaped media root".into());
+        }
+        track["path"] = json!(relative.to_str().ok_or("invalid reader path")?);
+    }
+    Ok(tracks)
+}
+
+fn field_readback(root: &Path, result: Result<Value, String>) -> Value {
+    match result.and_then(|tracks| portable_reader_tracks(root, tracks)) {
+        Ok(tracks) => json!({"readbackAvailable":true,"readbackError":null,"tracks":tracks}),
+        Err(error) => json!({"readbackAvailable":false,"readbackError":error,"tracks":null}),
+    }
+}
+
+#[test]
+fn field_export_keeps_relative_identity_and_unavailable_readback_explicit() {
+    let root = Path::new("/private/tmp/disposable/album");
+    let tracks = json!([{"path":"/private/tmp/disposable/album/disc/02.flac","title":"Song"}]);
+    let portable = portable_reader_tracks(root, tracks).unwrap();
+    assert_eq!(portable[0]["path"], "disc/02.flac");
+    assert_eq!(portable[0]["title"], "Song");
+    assert!(portable_reader_tracks(root, json!([{"path":"/private/tmp/other/02.flac"}])).is_err());
+    let fallback = field_readback(
+        root,
+        Ok(json!([{
+            "path":"/private/tmp/disposable/album/disc/02.flac", "codec":"unknown",
+            "title":"02.flac", "artists":[], "genre":null
+        }])),
+    );
+    assert_eq!(fallback["readbackAvailable"], false);
+    let unavailable = field_readback(root, Err("reader failed".into()));
+    assert_eq!(unavailable["readbackAvailable"], false);
+    assert_eq!(unavailable["tracks"], Value::Null);
+    assert_eq!(unavailable["readbackError"], "reader failed");
 }
 
 fn record_classification(record: Option<&Value>) -> Option<&str> {
@@ -2674,6 +2760,53 @@ fn readback_rejects_a_candidate_with_a_different_track_count() {
     assert!(candidate_track_count_matches(&candidate, 1));
 }
 
+#[test]
+fn frozen_source_rejects_undeclared_audio_membership() {
+    let root = super::tests::temp_root();
+    fs::copy(super::tests::corpus_wav(), root.join("01.wav")).unwrap();
+    let mut case = load_corpus().cases.remove(0);
+    case.tracks =
+        vec![json!({"relativePath":"01.wav", "sourceSha256":hash_file(&root.join("01.wav"))})];
+    verify_frozen_case(&case, &root, &full_hash_map(&root));
+    fs::write(root.join("undeclared.flac"), b"must not be consumed").unwrap();
+    let rejected =
+        std::panic::catch_unwind(|| verify_frozen_case(&case, &root, &full_hash_map(&root)))
+            .is_err();
+    let hashing_rejected =
+        std::panic::catch_unwind(|| frozen_source_hash_map(&case, &root)).is_err();
+    fs::remove_dir_all(root).unwrap();
+    assert!(
+        rejected,
+        "frozen corpus membership cannot be only a subset of consumed files"
+    );
+    assert!(
+        hashing_rejected,
+        "every source hash pass must check membership before reading bytes"
+    );
+}
+
+#[test]
+fn source_path_rejects_nonrelative_and_traversing_folders() {
+    let root = super::tests::temp_root();
+    fs::create_dir(root.join("Album")).unwrap();
+    fs::create_dir(root.join("other")).unwrap();
+    assert_eq!(
+        source_path(&root, "Album"),
+        fs::canonicalize(root.join("Album")).unwrap()
+    );
+    let rejected = [
+        root.join("Album").to_string_lossy().to_string(),
+        "other/../Album".to_string(),
+    ]
+    .iter()
+    .all(|relative| std::panic::catch_unwind(|| source_path(&root, relative)).is_err());
+    fs::remove_dir_all(root).unwrap();
+    assert!(
+        rejected,
+        "malformed source folder must reject before any read"
+    );
+}
+
 #[tokio::test]
 async fn basic_tag_readback_is_independent_of_reviewed_edition_identity() {
     let root = super::tests::temp_root();
@@ -3390,6 +3523,45 @@ async fn native_synthetic_flac_lookup_equivalence_uses_production_reader() {
 #[tokio::test]
 #[ignore = "requires explicit corpus source, credentials, and live providers"]
 async fn live_auto_tag_eval() {
+    Box::pin(run_auto_tag_eval(None)).await;
+}
+
+/// Separate opt-in preparation path. It cannot activate external models/providers.
+#[tokio::test]
+#[ignore = "requires a frozen mock manifest and separate one-shot mock approval"]
+async fn bounded_mock_auto_tag_eval() {
+    let base = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").expect("mock endpoint required");
+    offline_eval_providers(&base).expect("bounded preparation requires loopback providers");
+    assert_eq!(
+        std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE").as_deref(),
+        Ok("scripted")
+    );
+    let path = std::env::var("SOUNDROBE_BOUNDED_EVAL_MANIFEST").expect("manifest required");
+    let approval = std::env::var("SOUNDROBE_BOUNDED_EVAL_APPROVED_SHA256")
+        .expect("separate mock approval required");
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+    let claims = root.join(".amp/in/bounded-eval-mock-claims");
+    fs::create_dir_all(&claims).expect("create retained mock claims");
+    let sampled_at = Instant::now();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis() as u64;
+    let budget = crate::infra::bounded_eval::Budget::prepare(
+        &fs::read(path).expect("read frozen mock manifest"),
+        &approval,
+        root,
+        &claims,
+        (now, sampled_at.into()),
+    )
+    .expect("bounded mock admission denied");
+    budget
+        .verify_provider_base(&base)
+        .expect("provider origin not approved");
+    Box::pin(run_auto_tag_eval(Some(budget))).await;
+}
+
+async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
     let corpus_path = PathBuf::from(
         std::env::var("SOUNDROBE_AUTO_TAG_EVAL_CORPUS")
             .expect("SOUNDROBE_AUTO_TAG_EVAL_CORPUS required"),
@@ -3401,15 +3573,54 @@ async fn live_auto_tag_eval() {
     let run_id = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_RUN_ID")
         .unwrap_or_else(|_| format!("native-{}", uuid::Uuid::new_v4()));
     fs::create_dir_all(&artifact_dir).expect("create evaluation artifact directory");
-    let mut corpus: EvalCorpus =
-        serde_json::from_str(&fs::read_to_string(&corpus_path).expect("read evaluation corpus"))
-            .expect("parse evaluation corpus");
     let expectations_path = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS")
         .map(PathBuf::from)
         .unwrap_or_else(|_| fixture_path(EXPECTATIONS_RELATIVE));
-    overlay_reviewed_expectations(&mut corpus, &expectations_path);
+    if let Some(budget) = &budget {
+        for (key, path) in [
+            ("input", corpus_path.clone()),
+            ("expectations", expectations_path.clone()),
+            (
+                "source",
+                Path::new(env!("CARGO_MANIFEST_DIR")).join("src/commands/auto_tag.rs"),
+            ),
+            (
+                "executable",
+                std::env::current_exe().expect("native executable"),
+            ),
+        ] {
+            budget
+                .verify_consumed(key, &path)
+                .expect("consumed input not approved");
+        }
+    }
+    let corpus_bytes = if let Some(budget) = &budget {
+        budget
+            .read_consumed("input", &corpus_path)
+            .expect("approved corpus bytes")
+    } else {
+        fs::read(&corpus_path).expect("read evaluation corpus")
+    };
+    let mut corpus: EvalCorpus =
+        serde_json::from_slice(&corpus_bytes).expect("parse evaluation corpus");
+    if let Some(budget) = &budget {
+        let bytes = budget
+            .read_consumed("expectations", &expectations_path)
+            .expect("approved expectations bytes");
+        apply_reviewed_expectations(
+            &mut corpus,
+            serde_json::from_slice(&bytes).expect("parse approved expectations"),
+        );
+    } else {
+        overlay_reviewed_expectations(&mut corpus, &expectations_path);
+    }
     let source_root = fs::canonicalize(evaluation_source_root(&corpus.source_root))
         .expect("evaluation source root exists");
+    if let Some(budget) = &budget {
+        budget
+            .verify_source_root(&source_root)
+            .expect("source media root not approved");
+    }
     let artist_filter = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ARTISTS")
         .ok()
         .filter(|value| !value.trim().is_empty())
@@ -3456,14 +3667,31 @@ async fn live_auto_tag_eval() {
         })
         .collect::<Vec<_>>();
     assert!(!selected.is_empty(), "filters selected no evaluation cases");
+    if let Some(budget) = &budget {
+        let mut jobs = Vec::new();
+        for phase in ["cold", "warm"] {
+            for case in &selected {
+                jobs.push(format!("{}/{profile}/{phase}", case.case_id));
+            }
+        }
+        budget
+            .verify_jobs(&jobs)
+            .expect("selected jobs not approved");
+    }
     let mock_url = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").ok();
     let safety_input = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SAFETY_INPUT")
         .ok()
         .map(|path| {
             assert_eq!(selected.len(), 1, "safety inputs require one physical case");
+            let bytes = if let Some(budget) = &budget {
+                budget
+                    .read_consumed("safetyInput", Path::new(&path))
+                    .expect("approved safety input")
+            } else {
+                fs::read(path).expect("read safety input")
+            };
             let input: EvalSafetyInput =
-                serde_json::from_str(&fs::read_to_string(path).expect("read safety input"))
-                    .expect("parse safety input");
+                serde_json::from_slice(&bytes).expect("parse safety input");
             input
                 .validate_endpoint(mock_url.as_deref())
                 .expect("invalid safety endpoint");
@@ -3516,6 +3744,15 @@ async fn live_auto_tag_eval() {
     } else {
         ProviderState::new()
     };
+    if let Some(budget) = &budget {
+        let inventory = budget
+            .read_inventory()
+            .await
+            .expect("read bounded provider inventory");
+        budget
+            .verify_fixture_records(&inventory)
+            .expect("provider inventory not approved");
+    }
     let queue = WriteQueue::default();
     let alias_file = temp_root.join("aliases.json");
     let worker_root = temp_root.join("worker");
@@ -3525,10 +3762,8 @@ async fn live_auto_tag_eval() {
     let source_hashes_before = selected
         .iter()
         .map(|case| {
-            (
-                case.case_id.clone(),
-                full_hash_map(&source_path(&source_root, &case.source_relative_folder)),
-            )
+            let source = source_path(&source_root, &case.source_relative_folder);
+            (case.case_id.clone(), frozen_source_hash_map(case, &source))
         })
         .collect::<BTreeMap<_, _>>();
     fs::write(
@@ -3602,6 +3837,17 @@ async fn live_auto_tag_eval() {
             let baseline_tracks = crate::commands::tracks::read_album(&destination)
                 .unwrap()
                 .tracks;
+            // Freeze a portable projection of actual profile-visible prewrite data.
+            // Only the disposable root is omitted; filenames and all tag values remain.
+            let profile_input_json = serde_json::to_string(&json!({
+                "hashes": baseline,
+                "tracks": portable_reader_tracks(&destination, serde_json::to_value(&baseline_tracks).unwrap()).unwrap()
+            })).unwrap();
+            let profile_input_hash = format!("{:x}", Sha256::digest(profile_input_json.as_bytes()));
+            let budget_job = format!("{}/{profile}/{phase}", case.case_id);
+            let admission_error = budget
+                .as_ref()
+                .and_then(|budget| budget.validate_job(&budget_job, &profile_input_hash).err());
             let original_primary_fields =
                 trace_donors.then(|| evidence::capture_primary_fields(&baseline_tracks));
             let cache_before = cache_counts(&cache_path);
@@ -3614,7 +3860,7 @@ async fn live_auto_tag_eval() {
                 .enqueue(std::slice::from_ref(&destination), "manual")
                 .unwrap();
             worker.mark_running(&destination, &attempt_id).unwrap();
-            let result = tokio::time::timeout(
+            let result = Box::pin(tokio::time::timeout(
                 PER_FOLDER_TIMEOUT,
                 resolve_and_apply_album_with_review_intent(
                     &destination,
@@ -3628,6 +3874,7 @@ async fn live_auto_tag_eval() {
                     &cancelled,
                     None,
                     |_| {
+                        crate::infra::bounded_eval::health().map_err(ApiError::Message)?;
                         worker
                             .record_review_flag(&destination, "tagging_review", &attempt_id)
                             .map_err(ApiError::Message)
@@ -3648,16 +3895,35 @@ async fn live_auto_tag_eval() {
                             .push(json!({"kind": kind, "message": message, "data": data}));
                     },
                 ),
-            );
-            let (result, donor_trace) = if trace_donors {
-                DONOR_TRACE
-                    .scope(RefCell::new(Vec::new()), async {
-                        let result = result.await;
-                        (result, DONOR_TRACE.with(|rows| rows.take()))
-                    })
+            ));
+            let execution = async {
+                if trace_donors {
+                    DONOR_TRACE
+                        .scope(RefCell::new(Vec::new()), async {
+                            let result = result.await;
+                            if result.is_err() || cancelled.load(Ordering::Acquire) {
+                                crate::infra::bounded_eval::deny("resolver cancelled or timed out");
+                            }
+                            (result, DONOR_TRACE.with(|rows| rows.take()))
+                        })
+                        .await
+                } else {
+                    let result = result.await;
+                    if result.is_err() || cancelled.load(Ordering::Acquire) {
+                        crate::infra::bounded_eval::deny("resolver cancelled or timed out");
+                    }
+                    (result, Vec::new())
+                }
+            };
+            let (result, donor_trace) = if let Some(error) = &admission_error {
+                drop(execution);
+                (Ok(Err(ApiError::Message(error.clone()))), Vec::new())
+            } else if let Some(budget) = &budget {
+                budget
+                    .run(&budget_job, &profile_input_hash, execution)
                     .await
             } else {
-                (result.await, Vec::new())
+                execution.await
             };
             let elapsed_ms = started.elapsed().as_millis();
             let (outcome, error, native, resolver_error, timed_out) = match result {
@@ -3672,7 +3938,17 @@ async fn live_auto_tag_eval() {
                     false,
                     false,
                 ),
-                Ok(Err(error)) => ("resolver_error", Some(error.to_string()), None, true, false),
+                Ok(Err(error)) => (
+                    if admission_error.is_some() {
+                        "admission_denied"
+                    } else {
+                        "resolver_error"
+                    },
+                    Some(error.to_string()),
+                    None,
+                    true,
+                    false,
+                ),
                 Err(_) => (
                     "timeout",
                     Some("per-folder timeout".into()),
@@ -3752,14 +4028,45 @@ async fn live_auto_tag_eval() {
             record["reviewPendingAfterRestart"] = json!(review_pending);
             record["actionableReviewAfterRestart"] = json!(actionable_review);
             record["assistanceMode"] = json!(assistance.as_deref().unwrap_or("disabled"));
-            record["readbackTracks"] = sanitise(
-                serde_json::to_value(
-                    crate::commands::tracks::read_album(&destination)
-                        .unwrap()
-                        .tracks,
-                )
-                .unwrap(),
+            record["serviceFailureObserved"] = json!(
+                resolver_error
+                    || timed_out
+                    || cancelled.load(Ordering::Acquire)
+                    || native.as_ref().is_some_and(|result| result
+                        .provider_attempts
+                        .iter()
+                        .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
+                        || result
+                            .diagnostics
+                            .iter()
+                            .any(|d| d["stage"] == "genre" && d["reason"].is_string()))
+                    || budget
+                        .as_ref()
+                        .is_some_and(|budget| budget.observations()["stopReason"].is_string())
             );
+            if let Some(budget) = &budget {
+                record["boundedAssistance"] = budget.observations();
+                record["profileInputSha256"] = json!(profile_input_hash);
+            }
+            let observed = crate::commands::tracks::read_album(&destination)
+                .map(|album| serde_json::to_value(album.tracks).unwrap())
+                .map_err(|error| error.to_string());
+            record["readbackTracks"] =
+                sanitise(observed.as_ref().ok().cloned().unwrap_or(Value::Null));
+            let mut field_observations = field_readback(&destination, observed);
+            field_observations["inputJson"] = json!(profile_input_json);
+            field_observations["inputSha256"] = json!(profile_input_hash);
+            let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+            field_observations["sourceRoot"] = json!(source_root
+                .strip_prefix(checkout)
+                .unwrap_or(&source_root)
+                .to_str()
+                .unwrap());
+            let mut portable_request = serde_json::to_value(&preflight).unwrap();
+            portable_request["path"] = json!(".");
+            field_observations["requestJson"] =
+                json!(serde_json::to_string(&portable_request).unwrap());
+            record["fieldObservations"] = field_observations;
             record["cancellationRequested"] = json!(cancelled.load(Ordering::Acquire));
             record["providerMode"] = json!(if mock_url.is_some() {
                 "offline_fixtures"
@@ -3891,7 +4198,10 @@ async fn live_auto_tag_eval() {
         .map(|case| {
             (
                 case.case_id.clone(),
-                full_hash_map(&source_path(&source_root, &case.source_relative_folder)),
+                frozen_source_hash_map(
+                    case,
+                    &source_path(&source_root, &case.source_relative_folder),
+                ),
             )
         })
         .collect::<BTreeMap<_, _>>();

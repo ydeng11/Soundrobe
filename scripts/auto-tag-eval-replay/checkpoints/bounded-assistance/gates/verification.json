@@ -1,0 +1,71 @@
+{
+  "capturedUtc": "2026-11-11T10:46:29.145275+00:00",
+  "serverArtifactChecks": [
+    {
+      "target": "soundrobe_lib",
+      "counts": {
+        "ok": 758,
+        "FAILED": 0,
+        "ignored": 18
+      },
+      "completeExactMembership": true,
+      "summary": "ok. 758 passed; 0 failed; 18 ignored; 0 measured; 0 filtered out; finished in 574.74s",
+      "binarySha256": "e9ff32c828a1124006d1300714a5157804adf4f0e00fae16c1656f0972ca2ba8"
+    },
+    {
+      "target": "inventory_recovery_cli",
+      "counts": {
+        "ok": 5,
+        "FAILED": 0,
+        "ignored": 0
+      },
+      "completeExactMembership": true,
+      "summary": "ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s",
+      "binarySha256": "9b52044070f24ec7bc57794ce0512bc8854c1e4d07c77ad5c2c7a149da3ae9d4"
+    },
+    {
+      "target": "soundrobe-server",
+      "counts": {
+        "ok": 0,
+        "FAILED": 0,
+        "ignored": 0
+      },
+      "completeExactMembership": true,
+      "summary": "ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "binarySha256": "382b879c4499d682971bbc8326954f15cce477970bcfa90c364e695d439f7961"
+    },
+    {
+      "target": "soundrobe-inventory",
+      "counts": {
+        "ok": 0,
+        "FAILED": 0,
+        "ignored": 0
+      },
+      "completeExactMembership": true,
+      "summary": "ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+      "binarySha256": "f7d68f044d844dcf9699764708f742c86c09685cf8ab4c19b3cf5b492b39a51e"
+    },
+    {
+      "target": "inventory_audio",
+      "counts": {
+        "ok": 14,
+        "FAILED": 0,
+        "ignored": 12
+      },
+      "completeExactMembership": true,
+      "summary": "ok. 14 passed; 0 failed; 12 ignored; 0 measured; 0 filtered out; finished in 3.17s",
+      "binarySha256": "af8a1e7ba4fefbfcc26a8dfe43e08dcdf432d1cc407c51998994fbb7de298ee3"
+    }
+  ],
+  "sourceLocksUnchanged": true,
+  "originalMatrixRows": 18,
+  "desktopGate": "blocked before compile; missing cached locked alloc-no-stdlib 2.0.4 archive; no registry access attempted",
+  "serverDocTests": "ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+  "backgroundSmoke": "ok. 1 passed; 0 failed; 0 ignored; 0 measured; 775 filtered out; finished in 14.09s",
+  "rendererTests": 858,
+  "scorerTests": 14,
+  "strictComparatorTests": 8,
+  "mockServiceTests": 11,
+  "reviewToolTests": 10,
+  "noCommit": true
+}

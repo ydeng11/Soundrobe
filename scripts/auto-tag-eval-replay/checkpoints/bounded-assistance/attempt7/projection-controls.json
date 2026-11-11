@@ -1,0 +1,206 @@
+{
+  "controls": [
+    {
+      "role": "provider",
+      "control": "real-export",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "omitted-job",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "duplicate-job",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "corrupted-input",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "changed-request",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "wrong-physical-path",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "changed-label-binding",
+      "passed": true
+    },
+    {
+      "role": "provider",
+      "control": "unavailable-keeps-denominators",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "real-export",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "omitted-job",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "duplicate-job",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "corrupted-input",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "changed-request",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "wrong-physical-path",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "changed-label-binding",
+      "passed": true
+    },
+    {
+      "role": "genre",
+      "control": "unavailable-keeps-denominators",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "real-export",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "omitted-job",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "duplicate-job",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "corrupted-input",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "changed-request",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "wrong-physical-path",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "changed-label-binding",
+      "passed": true
+    },
+    {
+      "role": "unknown-usage",
+      "control": "unavailable-keeps-denominators",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "real-export",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "omitted-job",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "duplicate-job",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "corrupted-input",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "changed-request",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "wrong-physical-path",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "changed-label-binding",
+      "passed": true
+    },
+    {
+      "role": "cancel",
+      "control": "unavailable-keeps-denominators",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "real-export",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "omitted-job",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "duplicate-job",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "corrupted-input",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "changed-request",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "wrong-physical-path",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "changed-label-binding",
+      "passed": true
+    },
+    {
+      "role": "hold",
+      "control": "unavailable-keeps-denominators",
+      "passed": true
+    }
+  ],
+  "passed": 40,
+  "modifiedSourcesOrMedia": false
+}

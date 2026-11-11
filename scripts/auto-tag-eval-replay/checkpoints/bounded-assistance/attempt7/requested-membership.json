@@ -1,0 +1,296 @@
+{
+  "evaluations": [
+    {
+      "name": "provider",
+      "caseId": "0c9e8b505ea7",
+      "profile": "assisted_without_ids",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Go To Town.flac",
+        "02. Cookie Jar.flac",
+        "03. Roll With Us.flac",
+        "04. Wine Pon You feat Konshens.flac",
+        "05. Fancy.flac",
+        "06. Wild Beach.flac",
+        "07. Morning Light.flac",
+        "08. Candy.flac",
+        "09. Game.flac",
+        "10. Casual.flac",
+        "11. Down Low.flac",
+        "12. Body Language.flac",
+        "13. All Nighter.flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "0c9e8b505ea7/I//cases/17/tracks/3/title",
+        "0c9e8b505ea7/I//cases/17/tracks/3/artists"
+      ]
+    },
+    {
+      "name": "provider",
+      "caseId": "0c9e8b505ea7",
+      "profile": "assisted_without_ids",
+      "phase": "warm",
+      "physicalPaths": [
+        "01. Go To Town.flac",
+        "02. Cookie Jar.flac",
+        "03. Roll With Us.flac",
+        "04. Wine Pon You feat Konshens.flac",
+        "05. Fancy.flac",
+        "06. Wild Beach.flac",
+        "07. Morning Light.flac",
+        "08. Candy.flac",
+        "09. Game.flac",
+        "10. Casual.flac",
+        "11. Down Low.flac",
+        "12. Body Language.flac",
+        "13. All Nighter.flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "0c9e8b505ea7/I//cases/17/tracks/3/title",
+        "0c9e8b505ea7/I//cases/17/tracks/3/artists"
+      ]
+    },
+    {
+      "name": "genre",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "genre",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "warm",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "unknown-usage",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "unknown-usage",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "warm",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "cancel",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "cancel",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "warm",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "hold",
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Enya - Orinoco Flow (Remastered 1997).flac",
+        "02. Enya - Caribbean Blue (Remastered 1997).flac",
+        "03. Enya - Book Of Days (Remastered 1997).flac",
+        "04. Enya - Anywhere Is (Remastered 1997).flac",
+        "05. Enya - Only If....flac",
+        "06. Enya - The Celts (Remastered 1997).flac",
+        "07. Enya - China Roses (Remastered 1997).flac",
+        "08. Enya - Shepherd Moons (Remastered 1997).flac",
+        "09. Enya - Ebudae (Remastered 1997).flac",
+        "10. Enya - Storms In Africa (Remastered 1997).flac",
+        "11. Enya - Watermark (Remastered 1997).flac",
+        "12. Enya - Paint The Sky With Stars.flac",
+        "13. Enya - Marble Halls (Remastered 1997).flac",
+        "14. Enya - On My Way Home (Remastered 1997).flac",
+        "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+        "16. Enya - Boadicea (Remastered 1997).flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": []
+    },
+    {
+      "name": "hold",
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "phase": "warm",
+      "physicalPaths": [
+        "01. Enya - Orinoco Flow (Remastered 1997).flac",
+        "02. Enya - Caribbean Blue (Remastered 1997).flac",
+        "03. Enya - Book Of Days (Remastered 1997).flac",
+        "04. Enya - Anywhere Is (Remastered 1997).flac",
+        "05. Enya - Only If....flac",
+        "06. Enya - The Celts (Remastered 1997).flac",
+        "07. Enya - China Roses (Remastered 1997).flac",
+        "08. Enya - Shepherd Moons (Remastered 1997).flac",
+        "09. Enya - Ebudae (Remastered 1997).flac",
+        "10. Enya - Storms In Africa (Remastered 1997).flac",
+        "11. Enya - Watermark (Remastered 1997).flac",
+        "12. Enya - Paint The Sky With Stars.flac",
+        "13. Enya - Marble Halls (Remastered 1997).flac",
+        "14. Enya - On My Way Home (Remastered 1997).flac",
+        "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+        "16. Enya - Boadicea (Remastered 1997).flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "labelSelectors": []
+    }
+  ],
+  "requestedPhysicalOccurrences": 124,
+  "requestedFieldSlots": 372,
+  "predeclaredLabelableSlots": 16,
+  "uniqueSelectedOccurrenceFieldLabels": 4
+}

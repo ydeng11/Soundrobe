@@ -1,0 +1,111 @@
+{
+  "executionStatus": "complete",
+  "scoringStatus": "insufficient",
+  "requestedPhysicalOccurrences": 124,
+  "requestedFieldSlots": 372,
+  "observedFieldSlots": 372,
+  "replicatedLabelableSlots": 16,
+  "uniqueSelectedLabels": 4,
+  "outcomes": {
+    "unscorable": 356,
+    "unchanged_unknown": 16
+  },
+  "providerFixtureRequests": 209,
+  "scriptedModelRequests": 4,
+  "deniedTunnels": 16,
+  "parsedArrivalsIncludingInventory": 249,
+  "groundedAccuracyCredit": 0,
+  "rows": [
+    {
+      "role": "provider",
+      "phase": "cold",
+      "outcome": "applied",
+      "files": 13,
+      "payloadUnchanged": true,
+      "reviewPending": true,
+      "actionableReview": true
+    },
+    {
+      "role": "provider",
+      "phase": "warm",
+      "outcome": "applied",
+      "files": 13,
+      "payloadUnchanged": true,
+      "reviewPending": true,
+      "actionableReview": true
+    },
+    {
+      "role": "genre",
+      "phase": "cold",
+      "outcome": "needs_review",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": true,
+      "actionableReview": true
+    },
+    {
+      "role": "genre",
+      "phase": "warm",
+      "outcome": "needs_review",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": true,
+      "actionableReview": true
+    },
+    {
+      "role": "unknown-usage",
+      "phase": "cold",
+      "outcome": "resolver_error",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": false
+    },
+    {
+      "role": "unknown-usage",
+      "phase": "warm",
+      "outcome": "admission_denied",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": false
+    },
+    {
+      "role": "cancel",
+      "phase": "cold",
+      "outcome": "resolver_error",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": false
+    },
+    {
+      "role": "cancel",
+      "phase": "warm",
+      "outcome": "admission_denied",
+      "files": 11,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": false
+    },
+    {
+      "role": "hold",
+      "phase": "cold",
+      "outcome": "needs_review",
+      "files": 16,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": true
+    },
+    {
+      "role": "hold",
+      "phase": "warm",
+      "outcome": "needs_review",
+      "files": 16,
+      "payloadUnchanged": true,
+      "reviewPending": false,
+      "actionableReview": true
+    }
+  ],
+  "sourceAndToolLocksVerified": true
+}

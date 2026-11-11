@@ -22,6 +22,8 @@ pub mod agent_completion;
 pub mod aliases;
 pub mod artwork;
 pub mod audio_evidence;
+#[cfg(test)]
+pub(crate) mod bounded_eval;
 pub mod encoding;
 pub mod fs;
 pub mod http;

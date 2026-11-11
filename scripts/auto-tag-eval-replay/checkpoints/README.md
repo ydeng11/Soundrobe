@@ -184,3 +184,8 @@ The [primary-artist retention checkpoint](primary-artist-retention/README.md)
 adds evidence-only provider/candidate/wire regressions and a bounded replay
 comparison. It does not change identity or donor authority. Its receipt separates
 portable contract checks from exact reanalysis requiring retained local evidence.
+
+The [bounded assistance checkpoint](bounded-assistance/README.md) retains the
+mock-only evaluator's labels, manifests, portable scoring tools, gate bindings,
+fixture red/green and known limits. Sealed mock integration and fresh final-source
+feature gates remain separate. Exact replay still requires local raw evidence.

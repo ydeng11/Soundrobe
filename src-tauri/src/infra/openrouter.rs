@@ -450,6 +450,15 @@ impl OpenRouterClient {
         let mut result = self
             .complete_json_inner(messages, schema_name, schema, cancelled, diagnostics)
             .await;
+        #[cfg(test)]
+        if crate::infra::bounded_eval::active()
+            && matches!(
+                result,
+                Err(OpenRouterError::Cancelled | OpenRouterError::Timeout(_))
+            )
+        {
+            crate::infra::bounded_eval::deny("bounded completion cancelled or timed out");
+        }
         diagnostics.total_elapsed_ms = started.elapsed().as_millis();
         tracing::debug!(requested_model = ?diagnostic_label(Some(&self.model)), schema = schema_name,
             total_elapsed_ms = diagnostics.total_elapsed_ms, http_attempts = diagnostics.attempts.len(),
@@ -670,13 +679,23 @@ impl OpenRouterClient {
         deadline: Instant,
         diagnostics: &mut CompletionDiagnostics,
     ) -> Result<Value, OpenRouterError> {
+        #[cfg(test)]
+        let deadline = crate::infra::bounded_eval::deadline(deadline);
+        #[cfg(test)]
+        if crate::infra::bounded_eval::active()
+            && (request.schema_repair != 0 || self.provider != ProviderKind::OpenAi)
+        {
+            return Err(OpenRouterError::Network(crate::infra::bounded_eval::deny(
+                "bounded scope does not authorize repairs or alternate API formats",
+            )));
+        }
         let started = Instant::now();
         let mut attempt = AttemptDiagnostics {
             schema_repair: request.schema_repair,
             max_tokens: request.max_tokens,
             ..Default::default()
         };
-        let result = async {
+        let operation = async {
             let response = tokio::time::timeout(
                 deadline.saturating_duration_since(Instant::now()),
                 self.post(
@@ -711,6 +730,13 @@ impl OpenRouterClient {
             attempt.body_read_ms = Some(body_started.elapsed().as_millis());
             let body = body?;
             let parsed = serde_json::from_str::<Value>(&body);
+            #[cfg(test)]
+            crate::infra::bounded_eval::finish(
+                status.as_u16(),
+                body.as_bytes(),
+                parsed.as_ref().ok(),
+            )
+            .map_err(OpenRouterError::Network)?;
             if let Ok(payload) = &parsed {
                 attempt.capture(payload);
             }
@@ -721,8 +747,11 @@ impl OpenRouterClient {
                 });
             }
             parsed.map_err(|error| OpenRouterError::Network(error.to_string()))
-        }
-        .await;
+        };
+        #[cfg(test)]
+        let result = crate::infra::bounded_eval::attempt_scope(operation).await;
+        #[cfg(not(test))]
+        let result = operation.await;
         attempt.total_elapsed_ms = started.elapsed().as_millis();
         tracing::debug!(http_attempt = diagnostics.attempts.len() + 1,
             outcome = result.as_ref().err().map_or("success", OpenRouterError::diagnostic_code),
@@ -791,8 +820,24 @@ impl OpenRouterClient {
         if policy.performance_routing {
             body["provider"] = json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true});
         }
-        let mut request = self
-            .http
+        #[cfg(test)]
+        crate::infra::bounded_eval::authorize(&self.base_url, &body, policy.router_metadata)
+            .map_err(OpenRouterError::Network)?;
+        #[cfg(test)]
+        let scoped_http = if crate::infra::bounded_eval::active() {
+            Client::builder()
+                .no_proxy()
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .map_err(|_| OpenRouterError::Network("bounded client unavailable".into()))?
+        } else {
+            self.http.clone()
+        };
+        #[cfg(test)]
+        let http = &scoped_http;
+        #[cfg(not(test))]
+        let http = &self.http;
+        let mut request = http
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
             .json(&body);
@@ -880,6 +925,32 @@ async fn read_response_text(
     deadline: Instant,
     timeout_millis: u128,
 ) -> Result<String, OpenRouterError> {
+    #[cfg(test)]
+    if let Some(limit) = crate::infra::bounded_eval::response_limit() {
+        let mut response = response;
+        let mut bytes = Vec::new();
+        loop {
+            if cancelled.load(Ordering::Acquire) {
+                return Err(OpenRouterError::Cancelled);
+            }
+            if Instant::now() >= deadline {
+                return Err(OpenRouterError::Timeout(timeout_millis));
+            }
+            tokio::select! {
+                chunk = response.chunk() => {
+                    let chunk = chunk.map_err(|_| OpenRouterError::Network("bounded response read failed".into()))?;
+                    let Some(chunk) = chunk else { break; };
+                    if chunk.len() > limit.saturating_sub(bytes.len()) {
+                        return Err(OpenRouterError::Network("bounded response byte ceiling".into()));
+                    }
+                    bytes.extend_from_slice(&chunk);
+                }
+                () = tokio::time::sleep(Duration::from_millis(10)) => {}
+            }
+        }
+        return String::from_utf8(bytes)
+            .map_err(|_| OpenRouterError::Network("bounded response encoding".into()));
+    }
     let body = response.text();
     tokio::pin!(body);
     loop {

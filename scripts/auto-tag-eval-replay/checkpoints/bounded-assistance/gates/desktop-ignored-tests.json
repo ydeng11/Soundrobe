@@ -1,0 +1,152 @@
+[
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::judge_verifies_semantic_equivalence",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, LLM_JUDGE_MODEL, and active LLM access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_context_answered_question_no_tool",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_greeting_returns_message_only",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_group_by_base_title_reaches_schema_valid_mutation",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_missing_genre_value_reaches_conditional_patch_after_inspection",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_navidrome_artists_intent_preserves_display_credit_and_collaborators",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_remove_titles_clarifies",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_romanized_strip_full_scenario",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_transformation_calls_metadata_transform",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_unsupported_task_explains_limitation",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::live_vague_then_clarify_then_tool",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::mutating_request_always_has_action_batch_or_tool_call",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::assistant::assistant_ai_tests::same_intent_read_only_produces_safe_outcome",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and active OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::collection_tests::copied_66_folder_recording_patch_preserves_audio_unresolved_fields_and_idempotence",
+    "reason": "requires independent copies of all 66 folders in SOUNDROBE_COPIED_FIXTURE_ROOT; ffmpeg; no provider calls"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::collection_tests::track_core::native_core_receipt_preserves_complete_pcm_and_is_idempotent",
+    "reason": "requires native ffmpeg; optional SOUNDROBE_PROOF_MEDIA is copied before mutation"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::edition_tests::live_discogs_edition_smoke",
+    "reason": "requires the original 18-track album and live providers"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::enya_smoke_tests::live_enya_review_smoke",
+    "reason": "requires 34 Enya review folders, live providers, and local config"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::bounded_mock_auto_tag_eval",
+    "reason": "requires a frozen mock manifest and separate one-shot mock approval"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::frozen_dummy_corpus_preserves_conflicting_rows_and_profiles",
+    "reason": "requires ffmpeg; materializes frozen metadata without original audio"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::live_auto_tag_eval",
+    "reason": "requires explicit corpus source, credentials, and live providers"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::materialize_auto_tag_eval_dummies",
+    "reason": "explicit offline fixture creation; requires corpus JSON, new output directory and ffmpeg"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::native_synthetic_flac_duration_and_write_contract",
+    "reason": "requires ffmpeg; generates disposable silent FLAC tracks"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::eval_tests::native_synthetic_flac_lookup_equivalence_uses_production_reader",
+    "reason": "requires the curated source and ffmpeg; compares disposable synthetic FLAC inputs"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::latency_benchmark::live_auto_tag_deepseek_latency",
+    "reason": "requires explicit real-album path, credentials, and six live OpenRouter requests"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::relapse_tests::live_relapse_deluxe_smoke",
+    "reason": "requires the original 22-track Relapse album and live providers"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "commands::auto_tag::tests::live_ai_credit_entities_preserve_bands_and_billing_order",
+    "reason": "requires explicitly configured live LLM credentials; performs three metadata-only calls"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "infra::acoustid::flac_tests::verified_pcm_copied_real_flac_contract",
+    "reason": "requires an explicit copied damaged FLAC and independent PCM fingerprint reference"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "infra::openrouter::tests::live_openrouter_returns_schema_constrained_json",
+    "reason": "requires LLM_API_KEY, LLM_MODEL, and live OpenRouter access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "state::providers::tests::live_discogs_provider_returns_structured_album",
+    "reason": "requires SOUNDROBE_LIVE_DISCOGS_TOKEN and live Discogs access"
+  },
+  {
+    "target": "soundrobe_lib",
+    "test": "state::providers::tests::live_musicbrainz_provider_returns_structured_album",
+    "reason": "requires live MusicBrainz access"
+  }
+]

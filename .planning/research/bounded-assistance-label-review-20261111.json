@@ -1,0 +1,66 @@
+{
+  "revision": "bounded-assistance-label-review-v1",
+  "status": "frozen before new native or model outputs; preparation only",
+  "reviewer": "TU-034vWDCMTeopJZL6pPRqzS",
+  "reviewKind": "Independent read-only agent source review, not human musical or acoustic ground truth",
+  "sourceRoot": "test/fixtures/tauri/auto-tag-eval",
+  "originalMediaRead": false,
+  "newProviderRequests": 0,
+  "newModelRequests": 0,
+  "untouchedHoldouts": 0,
+  "sourceRegister": {
+    "I": {"path": "corpus.json", "sha256": "bc081d05a3d661eb7ac99a41c605a9562a0f4714c604a8a08aabf05d7fd8db18"},
+    "C": {"path": "artist-batch-extension/corpus.json", "sha256": "d22fa2996dc9d419c047b9e66a21f399ef63d763d947750af395722f4fa5b7e5"},
+    "P": {"path": "curated-hard-cases/corpus.json", "sha256": "7199fae9eb3d50745fe4314f85db54195e868c260a817e97546f6a46103020a2"},
+    "Q": {"path": "library-sample/corpus.json", "sha256": "cf9bf37f0ad999358bd261b3599f8b2ad48dd277d276a931c3aa2c6a82458bd2"},
+    "R": {"path": "provider-discovery.json", "sha256": "99415eb7d3505f56cbcd7c4461814abc3220f8b82cbb43a64d2ae8ee4ba46219"},
+    "A": {"path": "provider-snapshots/discovery/details-2026-11-07/musicbrainz-ad6d0d2fac466bbc.json", "sha256": "e6488205b3306920c39a79db249ccaeef45526c14f4e012f15d5f53ee4b1bb4e", "receipt": "/records/384", "occurrence": "/media/0/tracks/3"},
+    "B": {"path": "provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json", "sha256": "7593097ea5f4e5fd98aded79818d61b3c825f93756cd7c2b14145534617620cc", "receipt": "/records/943", "occurrence": "/media/0/tracks/10"},
+    "D": {"path": "provider-snapshots/reviewed-22-completion-20261108/discogs-036e0c8fc2fc0165.json", "sha256": "1798a65076cb0ab25f376751bf30fbc42677702ec54b5ffe29f4139f0c939b1a", "receipt": "/records/1033", "occurrence": "/tracklist/10"},
+    "E": {"path": "provider-snapshots/reviewed-22-completion-20261108/musicbrainz-60358d77da081c4e.json", "sha256": "d02496332ab0c00399248d3d7281acac7207613aaa73dcc338b96e0127c0dcf6", "receipt": "/records/975", "occurrence": "/media/0/tracks/8"},
+    "F": {"path": "provider-snapshots/reviewed-22-completion-20261108/discogs-c7758322f5bfad50.json", "sha256": "da0697025847bf46d377f36ff2de7bdf4e4569536adddbb5168a0b6139a5104f", "receipt": "/records/1108", "occurrence": "/tracklist/8"},
+    "G": {"path": "provider-snapshots/nine-case-discovery-20261108/discogs-831b7a505ee49608.json", "sha256": "123f3e1273232339ce426c5f2d69a6397e5a9e5ac7eaaee637585cf9b7a4917f", "receipt": "/records/857", "occurrence": "/tracklist/8"}
+  },
+  "catalogLabels": [
+    {
+      "caseId": "0c9e8b505ea7", "inventorySource": "I", "inventoryOccurrence": "/cases/17/tracks/3",
+      "physicalRelativePath": "04. Wine Pon You feat Konshens.flac",
+      "capturedMediaSha256Claim": "a6940da0f3a0b625b92dbc3853c58a9cc4dde0fec57a9d55f72a7304c0d95fa2",
+      "source": "A", "title": "Wine Pon You", "requiredBilledArtists": ["Doja Cat", "Konshens"],
+      "creditAlternatives": ["Doja Cat feat. Konshens", "Doja Cat featuring Konshens", "structured ordered credit retaining both performers"],
+      "catalogPosition": 4, "catalogMediumPosition": 1,
+      "limits": "Catalog occurrence only. The explicit recording disambiguation does not authenticate local clean/explicit audio or pressing. Catalog positions do not override captured local numbering.",
+      "exposure": "Previously source-reviewed and repeatedly replayed; development diagnostic, not holdout"
+    },
+    {
+      "caseId": "036e0a00e45b", "inventorySource": "C", "inventoryOccurrence": "/cases/0/tracks/10",
+      "physicalRelativePath": "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac",
+      "capturedMediaSha256Claim": "33f2e8e904f89508e3fffb7da7f681e0fbb9f900d61942d8246b9ad5e08ee7a3",
+      "source": "B", "title": "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]", "requiredBilledArtists": ["盧廣仲"],
+      "creditAlternatives": ["盧廣仲", "Crowd Lu (bound canonical/ANV assertion in D /artists/0)"],
+      "catalogPosition": 11, "catalogMediumPosition": 1,
+      "limits": "B supports the version-specific catalog title, not acoustic authentication. D has bare 英雄 Heroes without duration or acoustic support and is not a version-equivalent title alternative. Original disc zero is missing scope, not verified disc identity. No eligibility or alias authority follows.",
+      "exposure": "Previously reviewed/replayed and specifically inspected for alias/donor differences and scripted genre behavior; not holdout"
+    },
+    {
+      "caseId": "54e7923a3000", "inventorySource": "I", "inventoryOccurrence": "/cases/98/tracks/8",
+      "physicalRelativePath": "09. Billie Eilish - &burn.flac",
+      "capturedMediaSha256Claim": "a7610985172cc339d1b62c002ff78380db81e5ebdccf7dd5d0cc2cf58739829c",
+      "source": "E", "corroboratingSource": "F", "omittingSelectedSource": "G",
+      "title": "&burn", "requiredBilledArtists": ["Billie Eilish", "Vince Staples"],
+      "creditAlternatives": ["Billie Eilish with Vince Staples", "Billie Eilish & Vince Staples", "Billie Eilish feat. Vince Staples", "structured ordered credit retaining both performers"],
+      "catalogPosition": 9, "catalogMediumPosition": 1,
+      "limits": "G omits Vince; omission is not affirmative solo-recording evidence. Credit completion does not replace selected edition identity. Eight-track releases do not substantiate this ninth occurrence.",
+      "exposure": "Explicit collaborator tuning and repeated safety/replay control; calibration only"
+    }
+  ],
+  "inventoryOnlyDiagnostics": [
+    {"caseId": "c861a1270d91", "source": "P", "occurrence": "/cases/8/tracks/0", "capturedTitle": "Perfect Duet", "capturedArtists": ["Ed Sheeran", "Beyoncé"], "capturedMediaSha256Claim": "97fd6848f47987a06f61878b0384d3651ce6a070431a071f527804c36f8fe763", "scope": "Preserve captured joint credit; not externally corroborated semantic truth", "exposure": "Previously inventoried, not proven untouched; newly reviewed here"},
+    {"caseId": "0416f32f22e9", "source": "Q", "occurrence": "/cases/0/tracks/3", "capturedTitle": "Under Pressure - Remastered 2011", "capturedArtist": "Queen, David Bowie", "capturedTrackNumber": 11, "capturedMediaSha256Claim": "d1fd3ed30cc382e181f58f6d3bc5ad713f3ac79531a665b161c341c819a8e3f7", "scope": "Four-file partial folder; album Queen Best Of conflicts with Hot Space folder. Preserve meaningful claims without authenticating remaster or either album. Do not renumber to inventory ordinal four.", "exposure": "Previously inventoried, not proven untouched; newly reviewed here"}
+  ],
+  "unscorable": ["true musical genre", "local acoustic identity", "local mastering/remaster identity", "clean/explicit local recording", "exact pressing", "unsettled original-versus-edition year"],
+  "genreLabelRequirement": "No meaningful true-genre accuracy sample. Need a frozen taxonomy, granularity, multilabel/alternative rules, independently qualified human or scoped authoritative occurrence-bound annotations, adjudication of conflicting provider tags and recording/version authentication. Album catalog tags alone are not per-track musical truth.",
+  "reviewExposure": "No native/model outputs, scripted answers, planning evidence.json or expectations.json were used as labels. A broad inventory print incidentally exposed unverified expectation blocks and fixture README historical summaries; reviewer disclosed this and grounded labels in the raw selectors above.",
+  "receiptLimits": "Hashes establish checked-in consistency and captured acquisition provenance, not freshness, provider truth, host attestation or resistance to coordinated replacement. Inventory media hashes were not revalidated against original audio.",
+  "historicalFindings": "Historical 84 certification findings, legacy disagreements and non-clean safety remain unchanged. No label grants source applicability, eligibility or certificate authority."
+}

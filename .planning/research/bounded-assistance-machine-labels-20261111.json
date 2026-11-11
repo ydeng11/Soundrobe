@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "parentPacket": ".planning/research/bounded-assistance-label-review-20261111.json",
+  "parentPacketSha256": "6147a03ba85fb7697f81c0341b411cdbdc38822ceead404141370caa71e3fb42",
+  "reviewer": "TU-034vWDCMTeopJZL6pPRqzS",
+  "scope": "Independent agent catalog-source review, not human musical truth or source eligibility",
+  "comparison": "Exact ordered list and exact title equality; no subset, duplicate, alias expansion, splitting or qualifier removal",
+  "occurrences": [
+    {
+      "caseId": "0c9e8b505ea7",
+      "inventorySource": "I",
+      "inventoryOccurrence": "/cases/17/tracks/3",
+      "acceptedArtistLists": [["Doja Cat", "Konshens"]],
+      "acceptedCreditDisplayValues": ["Doja Cat feat. Konshens", "Doja Cat featuring Konshens"],
+      "acceptedTitleValues": ["Wine Pon You"],
+      "sourceFields": ["A /media/0/tracks/3/artist-credit", "A /media/0/tracks/3/title"]
+    },
+    {
+      "caseId": "036e0a00e45b",
+      "inventorySource": "C",
+      "inventoryOccurrence": "/cases/0/tracks/10",
+      "acceptedArtistLists": [["盧廣仲"], ["Crowd Lu"]],
+      "acceptedCreditDisplayValues": ["盧廣仲", "Crowd Lu"],
+      "acceptedTitleValues": ["英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]"],
+      "sourceFields": ["B /media/0/tracks/10/artist-credit", "B /media/0/tracks/10/title", "D /artists/0 canonical-name/ANV only"],
+      "notEquivalentTitle": "英雄 Heroes"
+    },
+    {
+      "caseId": "54e7923a3000",
+      "inventorySource": "I",
+      "inventoryOccurrence": "/cases/98/tracks/8",
+      "acceptedArtistLists": [["Billie Eilish", "Vince Staples"]],
+      "acceptedCreditDisplayValues": ["Billie Eilish with Vince Staples", "Billie Eilish & Vince Staples", "Billie Eilish feat. Vince Staples"],
+      "acceptedTitleValues": ["&burn"],
+      "sourceFields": ["E /media/0/tracks/8/artist-credit", "E /media/0/tracks/8/title", "F /tracklist/8/extraartists/0"]
+    }
+  ],
+  "labelableOccurrenceFieldPairs": 6,
+  "genreAccuracyLabels": 0,
+  "untouchedHoldouts": 0,
+  "allKnownExposureAndLimits": "Inherited unchanged from parent packet; catalog positions are context, not numbering rewrite labels",
+  "nativeDecisionVisibility": "unavailable",
+  "scriptedGroundedAccuracyCredit": 0,
+  "acceptedCertificate": false,
+  "writableDelta": []
+}

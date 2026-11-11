@@ -799,6 +799,8 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     observe: impl FnOnce(&Path, TrackWriteOutcome, G) -> Result<T, ApiError> + Send + 'static,
 ) -> Result<T, ApiError> {
     validated_track_extension(&path)?;
+    #[cfg(test)]
+    let bounded_guard = crate::infra::bounded_eval::write_guard();
     let display_path = path.to_string_lossy().to_string();
     // A queued write made while an album review is active must be journaled.
     // Without this the review reports itself as non-revertible while holding
@@ -811,6 +813,8 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
 
     let operation = async move {
         tokio::task::spawn_blocking(move || {
+            #[cfg(test)]
+            bounded_guard().map_err(ApiError::Message)?;
             let write_start = std::time::Instant::now();
             let write = || {
                 // Bind the dispatcher's consumed bytes to the lookup source,
@@ -826,6 +830,8 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
                         path.as_path()
                     };
                     let guarded = guard(input)?;
+                    #[cfg(test)]
+                    bounded_guard().map_err(ApiError::Message)?;
                     let outcome = write_track_dispatch(input, &patch)?;
                     if let Some(expected) = &expected_source {
                         if super::auto_tag::RecordingSource::capture(&path)? != *expected {
@@ -834,6 +840,8 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
                             ));
                         }
                         if outcome == TrackWriteOutcome::Replaced {
+                            #[cfg(test)]
+                            bounded_guard().map_err(ApiError::Message)?;
                             replace_file_atomic(input, &path)?;
                         }
                     }

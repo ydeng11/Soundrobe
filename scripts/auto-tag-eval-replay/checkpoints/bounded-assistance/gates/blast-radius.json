@@ -1,0 +1,11 @@
+{
+  "changedNativePaths": [
+    "src-tauri/src/commands/auto_tag_collections_tests.rs",
+    "src-tauri/src/commands/auto_tag.rs"
+  ],
+  "autoTagBeforeTestModuleUnchanged": true,
+  "allOtherNativeSourcesAndBuildConfigsUnchanged": true,
+  "runtimeBoundaryChange": false,
+  "mockReexecutionRequired": false,
+  "note": "Changes are confined to the cfg(test) fixture module and its cfg(test) sibling helper visibility. Attempt 7 remains retained execution evidence, not a fresh execution of this test-only source revision."
+}

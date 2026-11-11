@@ -1,0 +1,23 @@
+{
+  "files": [
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "4379ba89924184a9a57d189938af36565f876df56bc4edcca39fc5a2bd282e8a",
+      "matchesUnchangedHead": true,
+      "modifiedUtc": "2026-10-29T08:50:58.792661+00:00"
+    },
+    {
+      "path": "src-tauri/tauri.conf.json",
+      "sha256": "4180742f5a0b12694c4b7981fae5ed8ac9be906272416ddd24a94e53ff6c84e3",
+      "matchesUnchangedHead": true,
+      "modifiedUtc": "2026-10-27T23:17:45.089725+00:00"
+    },
+    {
+      "path": "src-tauri/capabilities/default.json",
+      "sha256": "2cc130c46795eaca1ff7d8c25bd28443dbb116393d9bf61c0a86cce98d3f23e2",
+      "matchesUnchangedHead": true,
+      "modifiedUtc": "2026-08-12T13:16:54.205951+00:00"
+    }
+  ],
+  "note": "Desktop configuration/build inputs are unchanged from HEAD and were unmodified in the recorded pre-restoration worktree status. Native source/manifest/config locks remain separately bound."
+}

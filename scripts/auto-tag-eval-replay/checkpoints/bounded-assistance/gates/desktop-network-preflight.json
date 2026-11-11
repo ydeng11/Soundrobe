@@ -1,0 +1,16 @@
+[
+  {
+    "host": "127.0.0.1",
+    "localFixture": "passed"
+  },
+  {
+    "host": "::1",
+    "localFixture": "passed"
+  },
+  {
+    "host": "198.51.100.1",
+    "documentationAddressOnly": true,
+    "connectErrno": 1,
+    "deniedBeforeConnection": true
+  }
+]

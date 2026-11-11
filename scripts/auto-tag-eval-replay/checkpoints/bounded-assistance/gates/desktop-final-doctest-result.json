@@ -1,0 +1,26 @@
+{
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    ".amp/in/artifacts/native-gate-discrepancies-20261111/desktop-loopback-only.sb",
+    "$HOME/.cargo/bin/cargo",
+    "test",
+    "--manifest-path",
+    "src-tauri/Cargo.toml",
+    "--offline",
+    "--locked",
+    "--config",
+    "profile.test.package.soundrobe.debug=0",
+    "--config",
+    "profile.test.package.soundrobe.incremental=false",
+    "--doc",
+    "--",
+    "--nocapture"
+  ],
+  "environment": "runtime.json:testEnvironment",
+  "startedUtc": "2026-11-11T11:16:08.460135+00:00",
+  "endedUtc": "2026-11-11T11:16:30.183774+00:00",
+  "pid": 25174,
+  "exit": 0,
+  "disposition": "exited"
+}

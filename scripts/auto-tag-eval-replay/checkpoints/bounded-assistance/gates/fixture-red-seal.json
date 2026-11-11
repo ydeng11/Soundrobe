@@ -1,0 +1,13 @@
+{
+  "binarySha256": "0d08d88601dac411accbd1eea888078a9d5b3387e3d06181746db750f919f1b4",
+  "command": [
+    ".amp/in/artifacts/native-gate-discrepancies-20261111/fixture-red-native-evaluator",
+    "--exact",
+    "commands::auto_tag::tests::acoustid_fixture_stops_after_an_incomplete_lookup_sequence",
+    "--nocapture"
+  ],
+  "environment": "runtime.json:testEnvironment",
+  "exit": 101,
+  "sourcePatch": "fixture-red.patch",
+  "note": "Test-only stop-token seam leaves original fixed-count accept loop unchanged; missing-request sequence must expose its unbounded join."
+}

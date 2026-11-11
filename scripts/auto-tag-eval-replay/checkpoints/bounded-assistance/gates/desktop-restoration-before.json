@@ -1,0 +1,18 @@
+{
+  "utc": "2026-11-11T10:56:02.848893+00:00",
+  "files": [
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "c35df558aa629e3193f27286f312060bd641034ca711c6f96c02c41bd932ddc2"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "2b6ef00068aec1df52450ad05d819595ad834ff0f040081f44102b3793544810"
+    }
+  ],
+  "cargoEnvironmentVariableNames": [],
+  "head": "4ad86da4647e11aaddb89c3a0c77cd13822ede9f",
+  "branch": "artist-library-inventory",
+  "registry": "project configured public crates.io only",
+  "restorationCommand": "cargo fetch --manifest-path src-tauri/Cargo.toml --locked --target aarch64-apple-darwin"
+}

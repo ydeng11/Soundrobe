@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "jobs": [
+    {
+      "name": "provider",
+      "caseId": "0c9e8b505ea7",
+      "profile": "assisted_without_ids",
+      "population": "original",
+      "role": null,
+      "review": "reviewed-subset.json"
+    },
+    {
+      "name": "genre",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "population": "artist-batch-extension",
+      "role": "GenreFillResponse",
+      "review": "reviewed-cjk-artist-2-20261108.json"
+    },
+    {
+      "name": "unknown-usage",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "population": "artist-batch-extension",
+      "role": "GenreFillResponse",
+      "review": "reviewed-cjk-artist-2-20261108.json",
+      "unknownUsage": true
+    },
+    {
+      "name": "cancel",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "population": "artist-batch-extension",
+      "role": "GenreFillResponse",
+      "review": "reviewed-cjk-artist-2-20261108.json",
+      "cancelAfterGenre": true
+    },
+    {
+      "name": "hold",
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "population": "original",
+      "role": null,
+      "review": "reviewed-expansion-2-20261108.json"
+    }
+  ],
+  "phases": [
+    "cold",
+    "warm"
+  ],
+  "fields": [
+    "title",
+    "artists",
+    "genre"
+  ],
+  "model": "scripted/genre-v1",
+  "purpose": "scripted mock wiring, zero grounded accuracy",
+  "realProviderCalls": 0,
+  "realModelCalls": 0,
+  "originalMediaOperations": 0,
+  "orchestration": {
+    "childTimeoutMs": 600000,
+    "pythonTimeoutMs": 60000,
+    "inventoryTimeoutMs": 15000,
+    "inventoryBytes": 134217728
+  }
+}

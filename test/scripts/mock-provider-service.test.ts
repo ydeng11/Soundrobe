@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import http from "node:http";
 import { afterEach, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -51,7 +52,26 @@ it("preserves recorded errors and publishes sanitized misses for extending the d
   expect(stats.groundTruth).toBe("unreviewed_provider_evidence");
 });
 
-it("denies model calls by default and bounds explicitly scripted genre exchanges", async () => {
+it("accounts for denied methods and CONNECT arrivals without forwarding or retaining credentials", async () => {
+  const { base } = await start([]);
+  expect((await fetch(`${base}/model/chat/completions`, { method: "POST", body: "{}" })).status).toBe(405);
+  const tunnelStatus = await new Promise<number>((resolve) => {
+    const request = http.request(base, { method: "CONNECT", path: "never-forward.invalid:443",
+      headers: { Authorization: "Bearer private" } });
+    request.on("connect", (response, socket) => { socket.destroy(); resolve(response.statusCode ?? 0); });
+    request.on("error", () => resolve(0));
+    request.end();
+  });
+  expect(tunnelStatus).toBe(403);
+  const stats = await (await fetch(`${base}/__fixtures`)).json();
+  expect(stats.wireArrivals.map((row: { method: string }) => row.method)).toEqual(["POST", "CONNECT", "GET"]);
+  expect(stats.wireArrivals.map((row: { status: number }) => row.status)).toEqual([405, 403, 200]);
+  expect(stats.upstreamForwardingAvailable).toBe(false);
+  expect(JSON.stringify(stats)).not.toContain("private");
+});
+
+it.each([undefined, { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }])(
+  "denies model calls by default and preserves explicitly scripted usage %j", async (usage) => {
   const { base } = await start([]);
   expect((await fetch(`${base}/model/chat/completions`, { method: "POST", body: "{}" })).status).toBe(405);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-model-mock-"));
@@ -59,7 +79,7 @@ it("denies model calls by default and bounds explicitly scripted genre exchanges
   const manifest = path.join(root, "manifest.json");
   const payload = { artist: "Billie Eilish", album: "Ocean Eyes", tracks: ["ocean eyes"] };
   fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [], scriptedModel: {
-    maxRequests: 1, payload, response: { genre: "Pop", confidence: 0.8 },
+    maxRequests: 1, payload, response: { genre: "Pop", confidence: 0.8 }, usage,
   } }));
   const server = createService(manifest);
   servers.push(server);
@@ -76,6 +96,7 @@ it("denies model calls by default and bounds explicitly scripted genre exchanges
   expect(stats.modelRequests).toHaveLength(2);
   expect(stats.modelRequests[0].body).toEqual(request);
   expect(stats.modelRequests[0].response.choices[0].message.content).toBe(JSON.stringify({ genre: "Pop", confidence: 0.8 }));
+  expect(stats.modelRequests[0].response.usage).toEqual(usage);
   expect(stats.misses).toHaveLength(1);
   expect(JSON.stringify(stats)).not.toContain("private");
 });

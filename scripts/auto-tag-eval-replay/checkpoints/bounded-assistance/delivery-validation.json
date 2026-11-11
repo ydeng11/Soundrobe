@@ -1,0 +1,87 @@
+{
+  "kind": "Fresh delivery-time portable/packaging checks; no new native suite or model/provider run",
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/test_observation_scoring.py"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:47.594148+00:00",
+      "endedUtc": "2026-11-11T11:38:47.702512+00:00",
+      "logSha256": "5588b256ee4b948aa406c335ef3d6d9593702e739835e5d99e2b8255b3339813"
+    },
+    {
+      "command": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:47.702602+00:00",
+      "endedUtc": "2026-11-11T11:38:47.766619+00:00",
+      "logSha256": "637ad693971420b70a01476cd5d51065ecc3c7af270c41cfe91899ec8c2db4bd"
+    },
+    {
+      "command": [
+        "./node_modules/.bin/vitest",
+        "run",
+        "test/scripts/mock-provider-service.test.ts"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:47.766683+00:00",
+      "endedUtc": "2026-11-11T11:38:53.096715+00:00",
+      "logSha256": "36bb460664e954305e9bb326be7ff4e59ce2972c9e107a7608c1986c5a24fb43"
+    },
+    {
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:53.096807+00:00",
+      "endedUtc": "2026-11-11T11:38:55.194658+00:00",
+      "logSha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "command": [
+        "cargo",
+        "fmt",
+        "--manifest-path",
+        "src-tauri/Cargo.toml",
+        "--",
+        "--check"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:55.194752+00:00",
+      "endedUtc": "2026-11-11T11:38:56.274772+00:00",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/run-bounded.cjs"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:56.274845+00:00",
+      "endedUtc": "2026-11-11T11:38:56.332922+00:00",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "node",
+        "--check",
+        "scripts/mock-provider-service.cjs"
+      ],
+      "exit": 0,
+      "startedUtc": "2026-11-11T11:38:56.332996+00:00",
+      "endedUtc": "2026-11-11T11:38:56.385186+00:00",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "environment": "Same clean PATH/HOME/TMPDIR as retained runtime.json; no dotenv/credential overrides",
+  "historicalNativeGates": "Reused final-source receipts, not rerun during delivery; native source hashes checked separately"
+}
