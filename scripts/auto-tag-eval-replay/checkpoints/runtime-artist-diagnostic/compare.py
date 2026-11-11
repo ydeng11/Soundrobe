@@ -46,26 +46,45 @@ def without_receipts(value, sources, receipts, path=''):
 
 
 def check_diagnostics(snapshot, profile):
-    diagnostics = snapshot.pop('candidateIdentityDiagnostics')
+    diagnostics = snapshot['candidateIdentityDiagnostics']
     assert diagnostics
+    expected_rows = [(ti, ci) for ti, trace in enumerate(snapshot['nativeRouteTraces'])
+                     for ci, source in enumerate(trace['candidates']) if source['candidate']['source'] == 'discogs']
+    assert all(type(row[key]) is int for row in diagnostics for key in ['traceIndex', 'candidateIndex'])
+    assert [(row['traceIndex'], row['candidateIndex']) for row in diagnostics] == expected_rows
+    claims = [dict(physicalPath=t['path'], albumArtist=t['albumArtist'], albumArtists=t['albumArtists'],
+                   unscopedDiscogsArtistId=t['discogsArtistId'], separateMusicbrainzArtistId=t['musicbrainzArtistId'])
+              for t in snapshot['baselineTracks']]
     supported = []
     for row in diagnostics:
-        source = snapshot['nativeRouteTraces'][row['traceIndex']]['candidates'][row['candidateIndex']]
+        trace = snapshot['nativeRouteTraces'][row['traceIndex']]
+        source = trace['candidates'][row['candidateIndex']]
         identity = row['identity']
+        assert row['field'] == trace['field']
+        assert row['scope'] == 'reported native route only; artist rejection does not execute or pass later predicates; no identity bypass'
+        assert identity['scope'] == 'candidate_single_primary_name_only_not_field_eligibility'
         assert identity['outcome'] == 'insufficient'
         assert identity['explicitDecisionVisibility'] == 'unavailable'
         assert row['nativeStrictError'] == source['strictError']
         assert row['nativeMappedVersions'] == source['versions']
+        assert identity['originalPrimaryClaims'] == claims
+        assert len(identity['originalPrimaryFields']) == len(claims) == 11
+        for fields, track in zip(identity['originalPrimaryFields'], snapshot['baselineTracks']):
+            assert fields['path'] == track['path']
+            assert fields['sha256'] == snapshot['baselineHashes'][Path(track['path']).name]['fullSha256']
         if identity['correspondence'] == 'supported':
             assert profile != 'folder_filename'
             assert identity['reason'] == 'explicit_decisions_unavailable'
-            assert len(identity['originalPrimaryClaims']) == len(identity['originalPrimaryFields']) == 11
-            assert all(v['albumArtist'] == '盧廣仲' for v in identity['originalPrimaryClaims'])
-            assert [v['physicalPath'] for v in identity['originalPrimaryClaims']] == [v['path'] for v in snapshot['baselineTracks']]
-            for fields, track in zip(identity['originalPrimaryFields'], snapshot['baselineTracks']):
-                assert fields['path'] == track['path'] and fields['fields']
-                assert fields['sha256'] == snapshot['baselineHashes'][Path(track['path']).name]['fullSha256']
-                assert all(key in ['ALBUMARTIST', 'ALBUMARTISTS'] and value == '盧廣仲' for key, value in fields['fields'])
+            assert all(v['albumArtist'] == '盧廣仲' and len(v['albumArtists']) <= 1
+                       and all(name == v['albumArtist'] for name in v['albumArtists'])
+                       and not (v['unscopedDiscogsArtistId'] or '').strip() for v in claims)
+            for fields in identity['originalPrimaryFields']:
+                assert fields['fields']
+                keys = [key.upper() for key, _ in fields['fields']]
+                assert all(key in ['ALBUMARTIST', 'ALBUM ARTIST', 'ALBUMARTISTS', 'ALBUM ARTISTS'] for key in keys)
+                assert sum(key in ['ALBUMARTIST', 'ALBUM ARTIST'] for key in keys) == 1
+                assert sum(key in ['ALBUMARTISTS', 'ALBUM ARTISTS'] for key in keys) <= 1
+                assert all(value == '盧廣仲' for _, value in fields['fields'])
             receipt = source['candidate']['discogsReleaseReceipt']
             assert identity['origin'] == dict(requestPath=receipt['requestPath'], resourceId=receipt['resourceId'],
                                               responseSha256=receipt['responseSha256'], selector='/artists/0')
@@ -74,6 +93,7 @@ def check_diagnostics(snapshot, profile):
         assert not supported
     else:
         assert {'37231524', '37230261'} <= set(supported)
+    snapshot.pop('candidateIdentityDiagnostics')
     return dict(rows=len(diagnostics), supportedCorrespondenceReleases=sorted(set(supported)),
                 aggregate='insufficient', decisions='unavailable')
 

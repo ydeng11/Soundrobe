@@ -149,6 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Offline runtime-diagnostic comparison rejects altered original primary claims, duplicate primary comments, and missing, duplicated or misattributed diagnostic rows before excluding observations. Matching, eligibility and tag writes are unchanged.
 - Album-content tagging retains a preserved collaborator display and artist list even when multiple performers share one list entry, rather than replacing them with the album-artist presentation.
 - Automatic tagging preserves captured per-file track/disc numbering and totals instead of replacing them with file order or file count. Missing track positions still use file-order numbering. Coherent existing collaborator displays and lists retain their spelling, order, and relationships when performer identities are unchanged.
 - AI metadata fallback rejects titles that erase conflicting local live, remix, or remaster evidence, rather than treating high model confidence as permission to write them.

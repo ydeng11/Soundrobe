@@ -33,8 +33,21 @@ node --test scripts/auto-tag-eval-replay/test_rehearsal.cjs
 
 `compare.py` imports only the tracked retention comparator and exporter.
 `audit.py` additionally imports the tracked content-preservation field auditor.
-Neither imports ignored planning helpers. The copied comparator changes only
-repository-root discovery. The copied audit also fixes its baseline to
+Neither imports ignored planning helpers. The delivered comparator initially
+changed only repository-root discovery. The 11 November follow-up validates
+diagnostic row attribution and exact Discogs-candidate coverage, complete
+baseline primary claims (including both providers' separate ID observations),
+and singleton raw primary fields before excluding diagnostics. Multiple primary
+claims, duplicate singular/plural comments, and altered diagnostic scopes fail
+closed. Rejected observations are not removed from the input snapshot.
+These checks are scoped to this frozen eleven-file checkpoint, not a new
+eligibility or identity policy. Eight portable controls include synthetic
+counterexamples; they do not establish musical ground truth.
+
+The original source locks, delivery receipts and historical comparator bytes
+remain unchanged. The corrected checker reproduces the retained six-evaluation
+comparison byte-for-byte; that reanalysis is not a new native or model run.
+The copied audit fixes its baseline to
 `1c74c6c728f0a8ad87dc0a66de08dfd3fdabf5bd`, requires that ancestor, and no longer
 requires an empty index or that HEAD still equal the pre-delivery commit.
 It compares source and incoming-file hashes, not staging state. Old helpers and
