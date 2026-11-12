@@ -1,0 +1,14 @@
+{
+  "controlsPassed": 8,
+  "controls": [
+    "terminal-receipt",
+    "checkpoint-mismatch",
+    "unattached-execution",
+    "wrong-observation-digest",
+    "wrong-executable",
+    "unsettled-operation",
+    "reset-model-counter",
+    "duplicate-actual-wire"
+  ],
+  "scope": "altered metadata copies; no native workflow, HTTP or media mutation"
+}

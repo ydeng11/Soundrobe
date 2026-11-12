@@ -859,6 +859,10 @@ impl OpenRouterClient {
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
             .json(&body);
+        #[cfg(test)]
+        if let Some(client) = crate::infra::mock_run_authority::Client::current() {
+            request = request.header("x-soundrobe-mock-session", &client.handle);
+        }
         if policy.router_metadata {
             request = request.header("X-OpenRouter-Metadata", "enabled");
         }

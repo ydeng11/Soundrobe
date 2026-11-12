@@ -32,6 +32,8 @@ pub mod http;
 /// log in Monitoring.
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod logging;
+#[cfg(test)]
+pub(crate) mod mock_run_authority;
 pub mod openrouter;
 pub mod sqlite;
 pub mod tag_catalog;

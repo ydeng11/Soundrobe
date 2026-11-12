@@ -1,0 +1,3325 @@
+{
+  "scope": "retained raw logs, selected metadata/registries, source archive and frozen binaries; generated media remain local but are not read by this manifest",
+  "files": [
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/broker-green-01.log",
+      "bytes": 1572,
+      "sha256": "ebbba09639f0cc61ad18a82c012c56c7cd48b43b4915a344aa1112ff2750b2f2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/broker-green-02.log",
+      "bytes": 1051,
+      "sha256": "53752964ca9611e802ee2fd98deb26d29f13d5911f46de48645bde98b29b3147"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/broker-red-01.log",
+      "bytes": 1392,
+      "sha256": "80a082cb4f781f44a770f6890a38df5618a2bf2864601742932fcb15d37a5764"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/broker-red-02.log",
+      "bytes": 1006,
+      "sha256": "60ca2e5efcce9a00f134490821c76ffab0a654f838c85ab06b2941b98985355d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/combined-check.log",
+      "bytes": 262446,
+      "sha256": "39c0f0a530f448a7e40d79a154aea41278b1d14e80e1e0f9c1a6597f611915e6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-02.log",
+      "bytes": 3413,
+      "sha256": "9ebf0b31204034708417234f151429aae99b65fb11acf040b165f6e711929457"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-03.log",
+      "bytes": 4326,
+      "sha256": "7a972dc4ba6a95f61d6ef12761e085ed34b34a5a62ad12d0d394c3633759be3b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/authority/bootstrap.json",
+      "bytes": 18442,
+      "sha256": "7b23ef7dcf74492c2b4468ee9bfb176d47f89c840eaf1a77514edba046312e75"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/authority/ready.json",
+      "bytes": 184,
+      "sha256": "a4c47af2db58ed00f6bdc419b53071ed1274b992533cf16cf161a689673da513"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "56cd3ef474baf36ae85853f06345ce60f89cff7e371b8c0c0c9eb88b59aef063"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/recovered-read-only.json",
+      "bytes": 25190,
+      "sha256": "95ff95fdcfbb64a269873657f81f789f6489b19cb9d551cc7b9e0f5684f9edcd"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/restart-denied.log",
+      "bytes": 550,
+      "sha256": "051d2f91c3f1aef9f54bd5223dadb6eed5c88c60a8f2dfa05586617cf8cb40a7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_dispatch_admission/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/authority/bootstrap.json",
+      "bytes": 18442,
+      "sha256": "7c74a3a443e86556f3779b90dd092f5a31a3109d1c03ea5d16020f3cea986134"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/authority/ready.json",
+      "bytes": 184,
+      "sha256": "5d7b9ff6b6e84636845a22e53ca4f94b203cc2e4deebd235578b26cc0c5988f3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "d3cb1c7d1684580e14c31770df11b5813f9af1572d0ade5e1ea4e66bb7dc8789"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/recovered-read-only.json",
+      "bytes": 25191,
+      "sha256": "ec32378bccfba8ecb4fcfbc669f599f126ed8fa795e08ec1c2d10980f287ae02"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/restart-denied.log",
+      "bytes": 550,
+      "sha256": "1497fc4a40ab2ab7717694e04003c5640d9698e825f8594f229059db6427657b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/after_reservation_commit/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/authority/bootstrap.json",
+      "bytes": 18443,
+      "sha256": "ad8aa597566961ea5ce78f4a402c895be839fdd5f776c68e0d3deb02448002fd"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/authority/ready.json",
+      "bytes": 184,
+      "sha256": "33fb09574e654aa7286fdc0f1b02595ff2aaa0a66d2f8850cef89bb526515200"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "2b14da1841a63805f52a2335bd99d64defa9839ebb34b85db18f8ef8346d3dc3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/recovered-read-only.json",
+      "bytes": 24881,
+      "sha256": "14af7fceb89f3f4d02ddcfc865fd27f317566ea93769b24226447d6803d52b65"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/restart-denied.log",
+      "bytes": 550,
+      "sha256": "9894a5301554b8926b78eb135a4a84100a42b709c37f0ea0865145c9b525796d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/before_reservation_commit/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/authority/final.json",
+      "bytes": 29647,
+      "sha256": "0c03d9dc0da150a28b95b202eefb330a1a9079c5a610e6f185965dc6a9388f98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/authority/process.log",
+      "bytes": 184,
+      "sha256": "bf4632b0e3e1d93e727a14ee4c66b8e15aaab9969d351db8b808ca18f8a81837"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/authority/ready.json",
+      "bytes": 184,
+      "sha256": "ac907f963da3ddaecddbd2f97dc24842cb7f8ccd865b3ab7d666b58a1b07190e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/authority/registry.sqlite",
+      "bytes": 49152,
+      "sha256": "dd00da6ea9fb26d4529d8f8165361ba7f379b141f814d45c0a7f11a2d8ea10fa"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-0-result.json",
+      "bytes": 54,
+      "sha256": "246dae6ceaa2d25cbe1119083ff32f6e67bdf1eea42518854d524378daeddad9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-0.json",
+      "bytes": 283,
+      "sha256": "1196924daf3ea7d94eef63faa9b95bf7faa575bd76a62b1fb79bb32336589e5d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-1-result.json",
+      "bytes": 54,
+      "sha256": "1a893d409b6addf3f6e6c9dad6115f78cb8e6dafb8dff8b3c2325c3db33ea4fc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-1.json",
+      "bytes": 283,
+      "sha256": "d35a8874e3a52b627a8deaae35cc42d710fb7603608dbde06a59e31efaac50cb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/child-1.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/recovered-read-only.json",
+      "bytes": 29523,
+      "sha256": "17c4cd83f42e7e767b4f34bc13eaeb6e1a9e12a24ddf55171066def6d4c4b082"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/restart-denied.log",
+      "bytes": 550,
+      "sha256": "78efa2fffb12e2e062335b72005fe3ca4c598e09a8fc4ad621607a968b7f8672"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/competing-model-children/wire-arrivals.json",
+      "bytes": 215,
+      "sha256": "b7109396e44279bad75e4c6ba4e577809466b4eb0b274a1e7e07d1f2afb835b2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/authority/final.json",
+      "bytes": 25006,
+      "sha256": "0b1cca882c722b11e12640f0a7f07999924c01a838ad44f5d992f905539fcf7b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/authority/ready.json",
+      "bytes": 184,
+      "sha256": "966fd1fea8d292c3251bc14a145cca4f3bbabecef952c36201ca91f11ff9a43c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "9b00a44c3e28c38448bf76a6d1e5ed771a6b2c9510feed048196fa97e62f7023"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/disabled-crowd-preparation-service.json",
+      "bytes": 42,
+      "sha256": "cbd65b60bbea3094e0cedf1a2a21040f9c1343972922d36348b2481bc6f9da98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/recovered-read-only.json",
+      "bytes": 24882,
+      "sha256": "e2757c940a389ebc2d48d92351ea64bef2d63cbde3f341b118971bfcae1b1e25"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/restart-denied.log",
+      "bytes": 550,
+      "sha256": "ccb2438a0dd993bc38161c2a86a7896f5cbe7c9821f0994f61434a86c787c245"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/failed-ingress-notification-revokes-fixture-lease/wire-arrivals.json",
+      "bytes": 95,
+      "sha256": "089037cfc85edd4b5faabc235573ac473b235a700c61c987c45d1108c482f02f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/authority/final.json",
+      "bytes": 25164,
+      "sha256": "e45bbc1e7658a9e1ba4eb89cb073dd46fcc4b957992867b0de101cf35b4492b2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/authority/ready.json",
+      "bytes": 184,
+      "sha256": "8eb21b3f46d38c89f445e080141dc14a03e43250931e8084e1e96bcce78d8310"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "d2b0f73b961622852065b48350939e75c6d6dd8dfa1a8d00a713b100143787be"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/disabled-crowd-preparation-service.json",
+      "bytes": 42,
+      "sha256": "cbd65b60bbea3094e0cedf1a2a21040f9c1343972922d36348b2481bc6f9da98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/recovered-read-only.json",
+      "bytes": 25040,
+      "sha256": "2690a83e14b1dd2eac7b6ba5a9fe5d03fb15fb4638416ecc00574074b5bf19a9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/restart-denied.log",
+      "bytes": 550,
+      "sha256": "0fa586d07ce69d2bd1971403cecfcadfef9841fdb0542651a22736000e2dd83f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-aborted-is-terminal/wire-arrivals.json",
+      "bytes": 96,
+      "sha256": "192e61c625d0a99773f386b75cec7ccd8359207a96cceac8db9170eac45a8051"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/authority/final.json",
+      "bytes": 25164,
+      "sha256": "f8a13acee80c02292aff71cc5929f2f84bd614f6788d59ea36845907e9a34fef"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/authority/ready.json",
+      "bytes": 184,
+      "sha256": "f3713db83ad4864a64d240ee2cfbd5d706bf5512e53a75ad1f51dfd8b1a42679"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "d8c42fd384a4bec53c7dec97e7c0adb31597f9c436c90e61278cad74e503ed9b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/disabled-crowd-preparation-service.json",
+      "bytes": 42,
+      "sha256": "cbd65b60bbea3094e0cedf1a2a21040f9c1343972922d36348b2481bc6f9da98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/recovered-read-only.json",
+      "bytes": 25040,
+      "sha256": "adf2a0decac0937082e6fae168b76ba66569896b2527c0049cb9b819c4d3eded"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/restart-denied.log",
+      "bytes": 550,
+      "sha256": "90d1ec91bd7b29bfe308f5ea06e3ddd095850f0e012d7d2883e7bc9470194198"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-connect-is-terminal/wire-arrivals.json",
+      "bytes": 125,
+      "sha256": "ab6698f2b08cd14182f53de62e95aeccf9537c7b1bbe6f36e7079d73410ca13d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/authority/final.json",
+      "bytes": 25006,
+      "sha256": "96a1d592bbb6274de9930d0254d7828c562c70d2a170a892253d287b4c31b7ee"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/authority/ready.json",
+      "bytes": 184,
+      "sha256": "408d43570169f406428e9ba8351dab6a9aaa4bcbbcfb1e35c3dfbb4102577609"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "82cb60b71aa1e6af195eac9f0d3d1e3e7e2af015f93e48f4326162dd5a83a6cc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/recovered-read-only.json",
+      "bytes": 24882,
+      "sha256": "fbddd8b6a8d921b458ec31de167e6d6997c0738e574ae7653d826b56353b43a5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/restart-denied.log",
+      "bytes": 550,
+      "sha256": "8c739a0b60700d5f71fd99b00bf8d41795188d5e2e9c68c5ce88df28a9db93e5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-disconnect-revokes/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/authority/final.json",
+      "bytes": 25166,
+      "sha256": "650f4fa03e097dce513a49cbc1845348cd77c42cd6a5908e4be853431b8f4edb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/authority/ready.json",
+      "bytes": 184,
+      "sha256": "881d808647836f0c8f048bb7f1d7ceba47f1a6536d1570f04b2184be6c129ffd"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "386953e8f6022c2cfbf844337d02493a59596884495508a0790fbde3a0c0ba41"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/disabled-crowd-preparation-service.json",
+      "bytes": 42,
+      "sha256": "cbd65b60bbea3094e0cedf1a2a21040f9c1343972922d36348b2481bc6f9da98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/recovered-read-only.json",
+      "bytes": 25042,
+      "sha256": "e244c1187e797d0db12b325ac2e2503f3f1e76a7a743b9bc44758c7ae9b890f9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/restart-denied.log",
+      "bytes": 550,
+      "sha256": "a848d5c35e7ae52d710f2d91b8d57027932c3efdd8b78ab43ff3e6131c77df29"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/fixture-oversized-is-terminal/wire-arrivals.json",
+      "bytes": 97,
+      "sha256": "7e7b45d96b353769478f8caed14ec86a8690c7b7c4da6562fb1fbcc03eb32f8a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/authority/final.json",
+      "bytes": 25005,
+      "sha256": "41194cc679117d5a803db0bb0b1cc148815ef8a059c4a6f4da392e4387177ef4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/authority/ready.json",
+      "bytes": 184,
+      "sha256": "8ea8a60246e5ba55b1111473e356fa55dc77e353f2a66efa55d798d7ec1ab6d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "3302d35fd6c382725718b16676938288bfc9c66b7f7b0d553a0f5ae0b1f254c0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/recovered-read-only.json",
+      "bytes": 24881,
+      "sha256": "a1b46f323a51193cb4c904d52e40faf29f191fc738ba3237157197e12c271265"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/restart-denied.log",
+      "bytes": 550,
+      "sha256": "46edaa744dccf5ec6759778e193f69ccd7cc82033860f47f5c4e279641dfba9a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/forged-handle-stops-subsequent-work/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/authority/ready.json",
+      "bytes": 184,
+      "sha256": "6e5c507358a5666e7326020776988c87034d3dcf703e985ade4552cd249047be"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "3eaa230ea079afdf2a410118b0ef674215f15a2372d8cf166a725acc486971c4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/recovered-read-only.json",
+      "bytes": 25189,
+      "sha256": "e7fe050de54af5263275f295f35bed8e836d0ee939638b212f408268f564a814"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/restart-denied.log",
+      "bytes": 550,
+      "sha256": "ecbbb999192dcb504e01dae8bbccbdf8ff857eea89a52f23dd3eb8a5c2197ad5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_after_arrival/wire-arrivals.json",
+      "bytes": 224,
+      "sha256": "218ad3c6256520f3a1104dc438e251f5f82cc9f46cc26f60f4053b832bf6f1d6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/authority/ready.json",
+      "bytes": 184,
+      "sha256": "318f8e5c0d67dd536fc32922cf24478fce5fc53661d87de0272a893a24edcb4e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "9f5fb09d011fef8148e1635053e73a4034828e7d2d27f142cefbcf9fd5f2ac47"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/recovered-read-only.json",
+      "bytes": 25190,
+      "sha256": "2fcbc0723ddf909030aeb788ed2107b21c5b72ff9d20aabc66a955bf0cf0a81c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/restart-denied.log",
+      "bytes": 550,
+      "sha256": "f6f17fb7cce974447d04bba564ed86e53dc7abb7262bc81bfc539d93a044705d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/kill_before_arrival/wire-arrivals.json",
+      "bytes": 224,
+      "sha256": "bb06a938d4267aa49de9bf17ce5838454f019b24969d59b6f372ef3567b7be55"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/authority/final.json",
+      "bytes": 25174,
+      "sha256": "6fe4912fe92ff494bfc36759a68c15326a33bd05a58616a69a9edd453a7abfcc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/authority/ready.json",
+      "bytes": 184,
+      "sha256": "6f86c807c37e5e22373da2c73b399f4eb3ebe79a642df597e99648b138ab8341"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "3d8321186b0b4cd8eab95bfb2dae5bb283125fa6e2a2efe64c3a796d524b7f1b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/disabled-crowd-preparation-service.json",
+      "bytes": 42,
+      "sha256": "cbd65b60bbea3094e0cedf1a2a21040f9c1343972922d36348b2481bc6f9da98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/recovered-read-only.json",
+      "bytes": 25050,
+      "sha256": "94411d62c5417894d0235e4dfc368622a9cb8c280cc0ffff960125e0dd9dcda0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/restart-denied.log",
+      "bytes": 550,
+      "sha256": "aa84c2f550c72b46ce961b58c0c19b74ddd8d91c5f76d307b18e0eeefd9cbf2c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/orphan-fixture-ingress-is-terminal/wire-arrivals.json",
+      "bytes": 113,
+      "sha256": "34d0cf7b9a0c054aa1ff38abf5b2f74a1e306b29893eee91018ac5bbd75d5b37"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/authority/process.log",
+      "bytes": 16,
+      "sha256": "daf071121a9ffe32bbce44190e37a068c96d08bff63fd7b660dd95b77d786dca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/authority/ready.json",
+      "bytes": 184,
+      "sha256": "4421e4365855b3f7e50dc6296d4166a3740585ca8419d600593c3ac65142c5c7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/authority/registry.sqlite",
+      "bytes": 57344,
+      "sha256": "ff9a013aa2257daeb69b06bda4071e69cffd79e8d21b59a1e5fbfca74e697fa2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/recovered-read-only.json",
+      "bytes": 32314,
+      "sha256": "2220a0e6bd8dc9fe38140d7c71fac019283d831fae4651c5397bc1939ec59a78"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/restart-denied.log",
+      "bytes": 550,
+      "sha256": "db8d6021c37ee1688790a5cfd3cf81194763e94b31b34d58c0d88c0598d0cddf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/post-publish-crash-remains-incomplete/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/authority/final.json",
+      "bytes": 25861,
+      "sha256": "dad8fef7f14a5729fe6e00c8d500e82ec45334c7989f73dc9e9b9e42553d098a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/authority/ready.json",
+      "bytes": 184,
+      "sha256": "b39853f2a1a146dd9c22e66202941e3f43acaf5bb3da15e69781bdbb4b29b7fc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "d07988594deea2f24ec5f27486d25fa340f167a96d5bf31ce4da3005b54aadb3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/recovered-read-only.json",
+      "bytes": 25737,
+      "sha256": "3584eecce03a65e3843232ccf4617c48139c8989dfb205e4a156b8b5805c271c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/restart-denied.log",
+      "bytes": 550,
+      "sha256": "eab26479c16b350a64c50e07d665058e1ddc06b86a0bb1b4bb98f7fc9c56c094"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/rebound-service-cannot-acknowledge-another-job/wire-arrivals.json",
+      "bytes": 224,
+      "sha256": "a295c3693dc42ef5100c419b1b9d7a2fbaeefa09117f38df571739317c5eeb26"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/authority/final.json",
+      "bytes": 30015,
+      "sha256": "08f473aa7161e71e3447b8ea469dcc0e1b655d800f82c1a856e7cb1a960dcb9a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/authority/process.log",
+      "bytes": 184,
+      "sha256": "b11c253f69d438cc966f64c341fbf63f0f3de266826ef026c726d2c7a95418d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/authority/ready.json",
+      "bytes": 184,
+      "sha256": "f1a9ac578f917a4665f0ac5ade6a272293f2da8d185f6e5a4c2596bfab0ff85e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/authority/registry.sqlite",
+      "bytes": 49152,
+      "sha256": "ade0abec927c774aba5b0fd6d5a607a7bde1656f2d5ad7643f6d250882da7477"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/recovered-read-only.json",
+      "bytes": 29891,
+      "sha256": "47fb7da53b6b038c85972cfebc088288e939713b7fcdfd46fe66a9c1fa8b8f43"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/restart-denied.log",
+      "bytes": 550,
+      "sha256": "1da6c48ef4b8bc2ea711205946a3d936a3c715c8d9e7b26ee6072e1cbe69f5db"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/replacement-no-reset-and-stale-handle/wire-arrivals.json",
+      "bytes": 445,
+      "sha256": "9b0cd9d6a136a54806ec2f78a0c776e79914ddf2b8dc01dd189c0a3fd26c3f37"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/results.json",
+      "bytes": 6389,
+      "sha256": "46178bab56467257c96b10e40c4ccd69e428b106e4de6d2cbc3d88369cf34e87"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/authority/final.json",
+      "bytes": 28797,
+      "sha256": "fce0cccc5d263e9c85460c08b06e1f03dbb441b215efbd81a5a2ed6ebcfaec7b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/authority/process.log",
+      "bytes": 184,
+      "sha256": "747d06d0d7f75fd574f02ed5b2613643550056d56aef480fbcb54a5260d50095"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/authority/ready.json",
+      "bytes": 184,
+      "sha256": "bd74d959f78de35a10ed1f776543b207857b71159f59fffb9c426acbbead793f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/authority/registry.sqlite",
+      "bytes": 49152,
+      "sha256": "5b28758761731484020475ee0e7bed75063160477fbff7e2e574fccd17111e77"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-0-result.json",
+      "bytes": 18,
+      "sha256": "467483ad4afd4d5551061cd22ed3e250721f60316ffab2f1b36c77b451e78135"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-0.json",
+      "bytes": 424,
+      "sha256": "09092bd8b0576bad53b940cefd3e2b448db304869c4ffafeea7fbc6d4a3992d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-0.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-1-result.json",
+      "bytes": 87,
+      "sha256": "bf255ede714534716d8d907bde5ee5ba1c10b1a15c48430824f54f24f3a9aa27"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-1.json",
+      "bytes": 424,
+      "sha256": "8f0ff11af3883cd234591e0b26dc1e7e61a489f7719f99d8de4231784e3d4ad0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/child-1.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/recovered-read-only.json",
+      "bytes": 28673,
+      "sha256": "356afaacc20b4f6571071369c4e2f89da89ecb8ea55e5c6bdd2e295ce42c7090"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/restart-denied.log",
+      "bytes": 550,
+      "sha256": "a94f2f56bf0091904ca8cfdf53a7e9ec995202dd8c2d57601a97374ad8f21f7f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/simultaneous-consumption/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/source-and-tool-locks.json",
+      "bytes": 14293,
+      "sha256": "7197fd1f1ee77e69a3abbc2b0b83b482882492a0128c4dfd71f322800ed439d2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/authority/final.json",
+      "bytes": 25005,
+      "sha256": "302d90777908f18756cc9bd1e2d8661f7af6bad2f50a5ec52b6d0a9501b02402"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/authority/process.log",
+      "bytes": 184,
+      "sha256": "ecaf6bfac34e266ef465435d51de44aae6c96cd339a1faddd466eee8b1760c79"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/authority/ready.json",
+      "bytes": 184,
+      "sha256": "fce4ca2c6ac6a1b6bb39913bae091e371a7cb6b5a4678b579a851a93634d72ff"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "6a1ff4944c8f9bfb6c34fd6a50418eb1ae59136efc1453c422fa0dc5a919c64c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/recovered-read-only.json",
+      "bytes": 24881,
+      "sha256": "f36d060e1901828d7eb66b202722d3add65452a144fbd726762bd45e2b0a51e5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/restart-denied.log",
+      "bytes": 550,
+      "sha256": "08b0e84a51d6160093850a34870bd3791944e7d80988be30d993a5e17f1ac2d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-lock-denies-without-refund-or-resume/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/authority/final.json",
+      "bytes": 25005,
+      "sha256": "8e401e0743d4b07f0f208b1e6ce1627702ea6185fb86c659bbad074052394ef5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/authority/process.log",
+      "bytes": 184,
+      "sha256": "41ba328cba7de50d8365284d970120b4657038bb479abc1ff3c13b75e193fd82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/authority/ready.json",
+      "bytes": 184,
+      "sha256": "f57c9409caaf4eb6a53321475e8863543e59583a224a3131e2c471c82371e14e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/authority/registry.sqlite",
+      "bytes": 40960,
+      "sha256": "1d9457c4bfc5fb2efedb1b01df8ccc473589ecde908b9695a87f471d0418ec52"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/recovered-read-only.json",
+      "bytes": 24881,
+      "sha256": "12bcb8e36b41e71c39421326de05d28f309830f93dda566f660c71e2f59a32dd"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/restart-denied.log",
+      "bytes": 550,
+      "sha256": "78165b089bc084af4cd480d661b05c9cf71b2027d0facbf68871e2dc9e20276c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/storage-unavailable-denies-without-new-registry/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/authority/bootstrap.json",
+      "bytes": 18407,
+      "sha256": "a54d550b64ebc2013e8a31479e92289b3fb21c9dcf9c92a33c9f9d8b39d9b2bf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/authority/final.json",
+      "bytes": 32439,
+      "sha256": "cb99c3552c24e2690f5713881a4104709a3c8daeb333a31005c7a752a2aa90eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/authority/process.log",
+      "bytes": 184,
+      "sha256": "747d06d0d7f75fd574f02ed5b2613643550056d56aef480fbcb54a5260d50095"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/authority/ready.json",
+      "bytes": 184,
+      "sha256": "3f5d03ceaca5562e0eab57a7485cfc7e065402cfa3b35b631796bcd725c45000"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/authority/registry.sqlite",
+      "bytes": 57344,
+      "sha256": "a6fdaf8370de8bbd6d1bb595174effff3eea016882bdb45539fc6dc9ee83468b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/failure-envelope.json",
+      "bytes": 8836,
+      "sha256": "11e565d17964dfe03c5140e520938f35acbdfa00397474d6ae80e04381fd8bfe"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/recovered-read-only.json",
+      "bytes": 32315,
+      "sha256": "87cf023220a079b60fef31b37f2d117673f36901e3ad8fce3552d259ad16cc94"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/restart-denied.log",
+      "bytes": 550,
+      "sha256": "15c1b187d9cdbca2a0c1d5a7343a706ce3d15eeecffc3194c882f218672bb39e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04/zero-call-completion-and-final-receipt-controls/wire-arrivals.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-04.log",
+      "bytes": 4570,
+      "sha256": "3635a501d92bd10e68059f9cea3ddd93de6cc6046bc7a570c18ae1f6558b330c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/controls-red-01.log",
+      "bytes": 608,
+      "sha256": "3ffa167b8e1fdf36fbd084bd40291cec586101b43245c8a06522eb2758295d3f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/driver-red.log",
+      "bytes": 706,
+      "sha256": "46f2bd50bf78e6cf43f7c0c6661c0eccc27d30a7fc0cb3e1c83f66347d7a194e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/final-build-receipt.json",
+      "bytes": 15934,
+      "sha256": "d25484e06f45d6cfed68ff357b7ec4851f04f9821842a7bc82b5b881ac2ab1b0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/final-build.log",
+      "bytes": 168,
+      "sha256": "01a8e56fdf31f41e4811bef7660977655a5ef72ef1159ffa01a2cec3d80ad7be"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/final-source.tar.gz",
+      "bytes": 923963,
+      "sha256": "a70ffad749a87fbacad1a0c7d7e5ab3847d86fa55868cd60ccd1afb7d0038c9d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/fixture-green-01.log",
+      "bytes": 491,
+      "sha256": "b31b7effe050a8840b858a7263665a463515fef5291af5cc27752382aa24d4ed"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/fixture-green-02.log",
+      "bytes": 489,
+      "sha256": "3277d4ccc74329a2ecbb1d677aaeedba18a5a59b0d43dc136a9b05ef32e418f2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/integration-build-01.log",
+      "bytes": 1529,
+      "sha256": "53cdbe9ec0ac016f335e21868fa38001c3a9e6a900819564b27c430c458eb7db"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/integration-build-02.log",
+      "bytes": 1629,
+      "sha256": "fe3f69fec0dba3c124a2434e07c2db706d68ed343230c8d279f2b5b7d4c75640"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/journal-green-01.log",
+      "bytes": 692,
+      "sha256": "9a41f8d8f876f99fa8145e0f220eb662d4718f6f9f789a75ff72295cd9a475b5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/journal-green-02.log",
+      "bytes": 926,
+      "sha256": "496efac5f0dfde1036b0c11ab8bdc5e7c0a08d703a4da14bd3467d8414e31609"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/journal-red-02.log",
+      "bytes": 2284,
+      "sha256": "40c1b288bf0cd5468ebc5853179147ebca822821308dc7d5ca82802eb9759cd6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/journal-red-03.log",
+      "bytes": 1816,
+      "sha256": "2c741c8e57d3087d45735fcd31281c658c9c230b67234be452b5e923bb277da9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/journal-red.log",
+      "bytes": 977,
+      "sha256": "0ec5357801af8619b17827fadf86a5dc3f16a04e910a9ef70534446343e24569"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/labels-green.log",
+      "bytes": 902,
+      "sha256": "432698d5707cf98e0d72ee3f8b3a28bc240c4768ede54dbb58eee2e5eea02729"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/liveness-green-01.log",
+      "bytes": 1736,
+      "sha256": "65f614f2be71ca5e6a70c677fac34265f702904805685e09225238cba10408b9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/liveness-red.log",
+      "bytes": 979,
+      "sha256": "3f3197b90c53fefa5b9401d5130c4afcbd158c7e0d6c76b17c964144bf11c851"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/notification-red-01.log",
+      "bytes": 605,
+      "sha256": "b0d6eacf38116e64b6f380f77584dfc808a1d7032e59ac35edfbd7b5dd8fb19c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/orphan-red-01.log",
+      "bytes": 1012,
+      "sha256": "4d4873245a137e30ac42016bfa1c58bf306265e69f04dfe75355027b2d06902f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/orphan-red-02.log",
+      "bytes": 669,
+      "sha256": "99ec8cef9eb69a68713d1b6471da8057e39705c8532a1ae050a24bee6ecbeee8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/paired-green.log",
+      "bytes": 2622,
+      "sha256": "2c3ab1ab5d7bdb962784eeba13181447f4dbbeb14ca10d862d246b32ee1c008b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/restore-red.log",
+      "bytes": 974,
+      "sha256": "1ebe9253623f34a0e8df3d01f3fc72210accc882e53097ed35bf8be8930882f5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/review-controls-green-01.log",
+      "bytes": 1944,
+      "sha256": "6bf1aadaf5e42f5b2092e22e32f21a11e639d389f9c1a998f7105a92adcb394c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/review-controls-green-02.log",
+      "bytes": 1380,
+      "sha256": "ac6cf4ff73e0a76f395ff336caedfce9e47e3c671ba575eb0952b26cc3423ac7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/review-controls-red.log",
+      "bytes": 2967,
+      "sha256": "bfb3ef63ebf10787a6677f00ffae6b3112b66bbf323f2e5108f2ac4a2a3ea5d2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/review-green-03.log",
+      "bytes": 1848,
+      "sha256": "c0f6e318c82c0ce9f695354fafc3f476ff4357ebf3699f6b5c222c360558e746"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/checkpoint.json",
+      "bytes": 216,
+      "sha256": "d61f845d0ec7ad8e0437330fa0cb14c28f7b880abdcf8c994c9a7d360a8f84d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/cold.jsonl",
+      "bytes": 303042,
+      "sha256": "66217d9bb2785f950ead0b5e61dcf2d0a9dbeef008ed86a308ce715a1bcf0e57"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/command.log",
+      "bytes": 351,
+      "sha256": "80dcc52d8d3320ee07481da90c97849332a3fe8211fa52e15b7b0d06b55b8325"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/execution.json",
+      "bytes": 167,
+      "sha256": "4666fa98e0722199cc481a88bc4fc3f6b94b395149e815e52d9115eb5998cad7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "604cddaecd11a11131b49bd2ee5dbe4d13905acd40723199a85bda04955e5906"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/native.log",
+      "bytes": 191,
+      "sha256": "e2cc3bca93a8a052505ea058fe762db9e2150574327a11bde89bbd4e37a150d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/provider-inventory.json",
+      "bytes": 972296,
+      "sha256": "136b24b45d093338894af714b9154c0df105e1963e881760c5f6e38864364cb4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/records.json",
+      "bytes": 379127,
+      "sha256": "146b78cf585839dd680d56604f013625a7458f178e0dfdeab046d4c33ed2018b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/results.json",
+      "bytes": 390787,
+      "sha256": "937aeb5a4d6b59ac4bbe45abb4a8581e5b7470acb096d762ce069762cda3f6ce"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/session.json",
+      "bytes": 547,
+      "sha256": "428b36bd0c61cce7d5e5fa86fc5f081f54b1a9274a178791665053a7d5ae48e6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/source-hashes-after.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/cold/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "50bdb4a3814b17119d049fcf60a3462002dbf603c74fac24b724fb2a6c66c8f1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "66f02e2119a8207c52609c0753390024a1fc6dc80014324edafe80c343766834"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/native.log",
+      "bytes": 191,
+      "sha256": "70f9c5d379b0ece95c604c204c56397080166366a8c16045b95a6f79f32cad24"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/preparation.json",
+      "bytes": 125826,
+      "sha256": "6a5776357b6aebc33ea81ff278298c5a0d8bafda1c840254c77eb74e528ed6f6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/session.json",
+      "bytes": 417,
+      "sha256": "4fbc7619b32a9dd6a490084d5f5b6b9793c8a84c1e418282739f7ab4c031b3cb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/preparation-inputs.json",
+      "bytes": 128217,
+      "sha256": "fde4f648a2dccd9e3e450eb1035af93b7d4143dc271041fb5829d27aa42d5e76"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/projection-spec.json",
+      "bytes": 2435,
+      "sha256": "2b7f26054bfe16c4a0b00fbcd13e00c560b94cb89d08a43f674d3aba214cdf8d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/result.provisional.json",
+      "bytes": 10517,
+      "sha256": "3f2ce6b9f755ecf35cec42c4527e23ad4bcd3155574bff1d24915109f719e510"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/review/command.log",
+      "bytes": 41,
+      "sha256": "7391cf36c572de8fc919523c2184070f8502d291c87715781b6c24738df0e97a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/review/expectations.json",
+      "bytes": 2225,
+      "sha256": "23f5f173ce606f43b3a629d11181244da0856197d42b04881aebb32a60d189d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/review/review.json",
+      "bytes": 2942,
+      "sha256": "c3a8bafb2eab43fe0acc62bb4a145308616e7c1d94b372e661a73f7ea13e171a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/score.provisional.json",
+      "bytes": 9629,
+      "sha256": "0086f476b8cdc784090325a89c116e833a00ca9c4245257eda0dfe09485723a0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/scoring-contract.json",
+      "bytes": 139785,
+      "sha256": "31cdddfc31c7312d6334f0949be832152bb7a64a1f49fe8b8194edf584521985"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/selected-review.json",
+      "bytes": 1364,
+      "sha256": "386519621ce885fb763a275f06c6e526d61556d69e598877bb7ba037d8d5fa4b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-billie/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/cold/native.log",
+      "bytes": 552,
+      "sha256": "b5994d9eb2d802afb3f07cc24f64722b7cb2e83e87038229bc335caf936c3775"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/cold/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/cold/session.json",
+      "bytes": 544,
+      "sha256": "931315f78cc704bee8424c77b3a741bd104bd0745f77d3fd382e2e12c2dfd9ac"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/cold/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/independent-request.json",
+      "bytes": 863,
+      "sha256": "846b46b99b6d2dcbf55fd84bb278b47c311f303a94be90e1564bfbfece5b4cea"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "a2e82267921013918f081ce840f4d204b1efc628430b2126743b109de8ebc531"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "aee9d4ae6f5b1a5a68a4938034ccc8f0cf9c4418188d26550dc12dd5a275aa0c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/native.log",
+      "bytes": 191,
+      "sha256": "ada8ae67c19096b966e25cba35b6909503d04511ac79709d776cb02826b4c2ed"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/preparation.json",
+      "bytes": 75891,
+      "sha256": "b9f9a23434a95b1631e1dc4a3a7f3afea16cef1683163f4dfff13bc36a2e33cb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/session.json",
+      "bytes": 415,
+      "sha256": "535638d95338cd400d0d682a61ce712bc7fbd0bfdbd15f4f2dc616708639029f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/preparation/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/review/command.log",
+      "bytes": 42,
+      "sha256": "496c2612214ccde99040116289bba823c00f605c4a74733fc3c45eb3d9e2aa36"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/review/expectations.json",
+      "bytes": 2795,
+      "sha256": "a38cb719ccd4af8931b960dc4c0ca43c722da4fd9ecc4efa6052e7df04f5a0c8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/review/review.json",
+      "bytes": 3616,
+      "sha256": "f87cfcbce8839fffb31e0e40d7a4398f578d4157a79625b43f4d50551f0f7604"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/selected-review.json",
+      "bytes": 1452,
+      "sha256": "cdb4a76ac4477d74192dbcc17842005fc44f86ed7e213719f9975115713269c0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-crowd/service.json",
+      "bytes": 1245966,
+      "sha256": "83a7efe2126a7a33c94526d8fe39e05e4b33ee509c399464ad2147eaed00a922"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/checkpoint.json",
+      "bytes": 214,
+      "sha256": "25fc298870ee3e0bb42df350e92628172af7974a74e0a42eaf5a86364239b0d5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/cold.jsonl",
+      "bytes": 307821,
+      "sha256": "457c33c3adc9857130c16817cf037f195d0a37596345b8f593d016c641926538"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/command.log",
+      "bytes": 349,
+      "sha256": "5cbaf5dc8646d8ec874d2ed969c9f88112ac43b75629619ae7914b94149068a9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/execution.json",
+      "bytes": 167,
+      "sha256": "0f49c161f89b12878b9b1d67af32608c2e6383608a801d157de10dd0a886cc3b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "a47c8a9357e6ecbf5f5f0f97ab7fb8d8be0dcc3cae6cfe6c6941a02632af3545"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/native.log",
+      "bytes": 298,
+      "sha256": "8bbbbc96e8adb2605422f194c93d7b6ede313eadc7997e42edda04f94c46a1e3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/provider-inventory.json",
+      "bytes": 999271,
+      "sha256": "e98b2fc37ff13f5d4d146ddffdccd9fc684f4447445a31a8a0861cf404076acd"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/records.json",
+      "bytes": 342197,
+      "sha256": "034ed89015b1a2bedbdc44837523566c6e8e360b74965dbb26ff094b51be0036"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/results.json",
+      "bytes": 349898,
+      "sha256": "a25c06a28ad8311bf6d08635b827e8f8dc7a7a0263b0d5d4cf7f6016d9f76c8e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/session.json",
+      "bytes": 541,
+      "sha256": "2579821fdc22fe81f7d339df8e244d0f8a320117f800d7d6480464006778b095"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/source-hashes-after.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/cold/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "f15954f5f0529c42147c5a0a476c6fb974e72cec83bf467b6a743f165ea4383c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "6eb419fbb1cca3a6bd24ff9c4f4344fda8a82bd06da2b8c1935fd391cecfbc71"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/native.log",
+      "bytes": 298,
+      "sha256": "7082c2641e1e794e6c145bfcc7d9e90568d436975b296efb33b4aff5287e0af9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/preparation.json",
+      "bytes": 32941,
+      "sha256": "ca6997a24997dcdd138ecbcfb0dd5ac5710a29f8d9695a580e977b514dbc9730"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/session.json",
+      "bytes": 413,
+      "sha256": "4ac785be7d7d4f9b125c18994cd70715c3bffe861330f983297a7daf2869a2ee"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/preparation-inputs.json",
+      "bytes": 33400,
+      "sha256": "e9afa89880b22d3caf465a610f60395a19ce942382514d34ceb1dd12285e14bc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/projection-spec.json",
+      "bytes": 2427,
+      "sha256": "8e6b7b59e98c7609746fa111bc0c8a76b0c60be0ddffa5879cf936965504d162"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/result.provisional.json",
+      "bytes": 18305,
+      "sha256": "5cb5b03a03e1408691d03de1e1e530b6e5f10107e97d5f27cb3b285d02ac11b9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/review/command.log",
+      "bytes": 42,
+      "sha256": "fb428e09b10b3530f645b7f2fdecd9a1e221b083b5e9a4f5f3b2198846585a98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/review/expectations.json",
+      "bytes": 3698,
+      "sha256": "a5c88d25a47f13c3f7ec7c7fa2b0608bbb877e07a619b6f25cfa72d55564fa8d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/review/review.json",
+      "bytes": 4410,
+      "sha256": "cc3cccc10aa4f38815bd64849c20b6d76efa5124928c0ce1e04bfda39161e515"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/score.provisional.json",
+      "bytes": 17053,
+      "sha256": "d6201f4d901e7fc92fa84f1b1e159023742769c42675b8cc66be9f953ff1fc66"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/scoring-contract.json",
+      "bytes": 51222,
+      "sha256": "480e655eb42397b9c77c5388784db192b5efda139190003b55b5853a4fc060ae"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/selected-review.json",
+      "bytes": 1282,
+      "sha256": "9df5404744dd111ac7e8b95a49f64f21cc8c5fb5af83a1ccb085b511837cf15b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/assistance-enya/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority/bootstrap.json",
+      "bytes": 333162,
+      "sha256": "2bf299856793c7e477f4252ca14507270de3bd3597520a2644e67ab274b85320"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority/final.json",
+      "bytes": 545426,
+      "sha256": "7d0a42e2a19540804354f435caa98269eaba21aeff166a76a36e72b5e3f22af1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority/process.log",
+      "bytes": 286,
+      "sha256": "12f75b74962944acd86b0294e84f813c4d83ac7c384cc147efb1797255c4569a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority/ready.json",
+      "bytes": 184,
+      "sha256": "657368f766f8c63250db728df639a0229edf8b8b24bc72c00494ebd853e9e757"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority/registry.sqlite",
+      "bytes": 917504,
+      "sha256": "256f50d0a1759f6ab8a87e030339fd9ff5950e78845779756f70f66d6f7243d7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/authority-incomplete.json",
+      "bytes": 545427,
+      "sha256": "0523267b3f6ed496114cba3e54993f27c4468b5a96ff6e5cbe8ba530d7f0827e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/checkpoint.json",
+      "bytes": 214,
+      "sha256": "373ed475545e72966c900d91d4633cb07f4a0653d61f4123b459365bb36c0238"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/cold.jsonl",
+      "bytes": 302796,
+      "sha256": "cb77d0832f29ac4ee9e9a77f04a0dcca0c4b6fb5399e6fed77353fa620336d58"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/command.log",
+      "bytes": 349,
+      "sha256": "93cfe59e98cb27fda9456fb445f268bccef1a61bd8ace541729b03ffb52b9069"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/execution.json",
+      "bytes": 167,
+      "sha256": "4666fa98e0722199cc481a88bc4fc3f6b94b395149e815e52d9115eb5998cad7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "4cdd166e8f85e03f53d6334f04a25cc741b45919378e88cbc2b49c7b05d649ca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/native.log",
+      "bytes": 191,
+      "sha256": "09643262dc8065bf8f68237ad889a11eb811463efc4cf2785e6ff5ca22cb966d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/provider-inventory.json",
+      "bytes": 972296,
+      "sha256": "1e17dfb66056d4898b5e0c0734f70fdcca61b8f971fa518e81e5acd7a7e69058"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/records.json",
+      "bytes": 378881,
+      "sha256": "2fcc41ab75242ed142d3ca7fdf36332079c3102d15c2ace14b8c6b2436b1aa41"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/results.json",
+      "bytes": 390539,
+      "sha256": "932b96b91883e5f7d256aeecb21c7bddec94a23ae9d1131266feac0ab015fb1a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/session.json",
+      "bytes": 541,
+      "sha256": "b62d5e90de599076a06ba5e830f1b900eaf7b18543fe9863c7e2343fa7881169"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/source-hashes-after.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/cold/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "50bdb4a3814b17119d049fcf60a3462002dbf603c74fac24b724fb2a6c66c8f1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "426ff20da9b11232cfd548cf60048882bf678826d4264cffa27f1bcce87704fa"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/native.log",
+      "bytes": 191,
+      "sha256": "e0f9ab8b0b1973f6d1e28a1fa5876deff5c9230afd6fb80d33d21910b24140b8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/preparation.json",
+      "bytes": 125716,
+      "sha256": "6a591fa637ffe1910327633ccb7a19bfc88b2e2f08be5f438af6687deb6b49a5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/session.json",
+      "bytes": 413,
+      "sha256": "7e161eba8e78efe96be80f6bee8f8afa2245caefc8431d32874121142a3fbf89"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/preparation-inputs.json",
+      "bytes": 128107,
+      "sha256": "0d4655841c915791d1945796f10c5b8c7f0d18caa1f672120a0aa97cb28adae2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/projection-spec.json",
+      "bytes": 2425,
+      "sha256": "c04a22516a712fb0718ebe5a64910bc1afe05a9eff55c2476c1bc57752a723df"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/result.provisional.json",
+      "bytes": 10459,
+      "sha256": "ae62d2597e6c35d1752075347d4230830cf86983ef21eef1c393143bc351e37f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/review/command.log",
+      "bytes": 41,
+      "sha256": "7391cf36c572de8fc919523c2184070f8502d291c87715781b6c24738df0e97a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/review/expectations.json",
+      "bytes": 2225,
+      "sha256": "23f5f173ce606f43b3a629d11181244da0856197d42b04881aebb32a60d189d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/review/review.json",
+      "bytes": 2942,
+      "sha256": "c3a8bafb2eab43fe0acc62bb4a145308616e7c1d94b372e661a73f7ea13e171a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/score.provisional.json",
+      "bytes": 9575,
+      "sha256": "0ed66523c495fabaad6ee09081d564be0f26c40a6605534b7fcb7105269fcd7b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/scoring-contract.json",
+      "bytes": 139571,
+      "sha256": "4e2f92d180cfc1db4b7d320d9f319fdb9f0a52e481a860a6449cd84f70df0bc2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/selected-review.json",
+      "bytes": 1364,
+      "sha256": "386519621ce885fb763a275f06c6e526d61556d69e598877bb7ba037d8d5fa4b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-billie/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/checkpoint.json",
+      "bytes": 213,
+      "sha256": "39c14fae3f7b666124b62734b2fb297ee2dc46e3e73a54d7a65ac32f85fe9b72"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/cold.jsonl",
+      "bytes": 138661,
+      "sha256": "00c52fa0efb80de6b68ee4a277f820f166a86f6aec5393a226416a55ae2e444a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/command.log",
+      "bytes": 348,
+      "sha256": "9043c598a607ff301437c98e85fceef63e6ccef31b64bef92c453d87f4868b4a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/execution.json",
+      "bytes": 167,
+      "sha256": "3a5fde47d8d07cfaf9d3b0ab7664e16d1a3724a39e63c931e3ec287f946defb6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "5fcbdca582aa38bb3960784695cc536980b2a0637eea7e8f3407f2af5a231019"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/native.log",
+      "bytes": 191,
+      "sha256": "708b7f12aca003958d5047ce036d306d26279abf92e5e573e57a417fb544dd1a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/provider-inventory.json",
+      "bytes": 969228,
+      "sha256": "92297055ba1ee88d3edc60f7870dea582cb4804482149c6cc2b56431d312dca2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/records.json",
+      "bytes": 202164,
+      "sha256": "682e78e30b5b8cf7968906d92e0f5a5d2a8e9ed3471e7d02741dc61706339183"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/results.json",
+      "bytes": 213039,
+      "sha256": "e5cef7a24ee66d27d94cdd804ef9e8c9bac438921780410a235b39a18a21fa01"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/session.json",
+      "bytes": 538,
+      "sha256": "d59ffa2984d3975b41b04ba3347bfa3a5e305b1481dd9c6c804b000d9608622c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/source-hashes-after.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/cold/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "a2e82267921013918f081ce840f4d204b1efc628430b2126743b109de8ebc531"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "f3c85a56086c4a4a9581d7fc5a26729eeb82024a4ff88110b2963e4abf51a545"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/native.log",
+      "bytes": 191,
+      "sha256": "4336cd90a14854bf5d5c348af4a0df0df8084c82418248c2c96c88bd948c8357"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/preparation.json",
+      "bytes": 74287,
+      "sha256": "831933a7aeb2a1950da8ad7503f1ef9b254ea015c5aecf7aae833d737d60fbe2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/session.json",
+      "bytes": 411,
+      "sha256": "b0aef0cfa1a096f3a77faec86b55eaf3e572882effa6602f682d857fdcc8cde0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/preparation-inputs.json",
+      "bytes": 77022,
+      "sha256": "75c9f96870681f2da22b3f6b0130e279422ab14d0ade236ac1f1ab938d6c82bb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/projection-spec.json",
+      "bytes": 2844,
+      "sha256": "c83df1ed191c566748af719820c75cc2085c741af948b3cad7e0fa7212714e32"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/result.provisional.json",
+      "bytes": 12225,
+      "sha256": "8184d8d27671cd85f673153ba280662d3cefb37e4c7cd578f7a6efc1bbc7596f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/review/command.log",
+      "bytes": 42,
+      "sha256": "496c2612214ccde99040116289bba823c00f605c4a74733fc3c45eb3d9e2aa36"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/review/expectations.json",
+      "bytes": 2795,
+      "sha256": "a38cb719ccd4af8931b960dc4c0ca43c722da4fd9ecc4efa6052e7df04f5a0c8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/review/review.json",
+      "bytes": 3616,
+      "sha256": "f87cfcbce8839fffb31e0e40d7a4398f578d4157a79625b43f4d50551f0f7604"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/score.provisional.json",
+      "bytes": 11233,
+      "sha256": "03423bd37d52b646c110f4729ca82eff80786617fe542a94972c5bfd684f5463"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/scoring-contract.json",
+      "bytes": 92757,
+      "sha256": "1f68d10b4dbf93704f1d9f374b86d6cba220bfcfa3c99719a6779ffb0b3a2b4f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/selected-review.json",
+      "bytes": 1452,
+      "sha256": "cdb4a76ac4477d74192dbcc17842005fc44f86ed7e213719f9975115713269c0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-crowd/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/checkpoint.json",
+      "bytes": 212,
+      "sha256": "1fc5dede6b5d34eb5e3ef59d0a9857889edc3291bfdfdb43f26dacfada1c1d82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/cold.jsonl",
+      "bytes": 307753,
+      "sha256": "903e746c353f8a5892afc4027a9915d1fc5b052ff137d881afb0c5824451f79f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/command.log",
+      "bytes": 347,
+      "sha256": "4a4a9c5fd7a3a5ca35e86d80202f523f0836fd91446ed3b153746bb118e9b423"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/execution.json",
+      "bytes": 167,
+      "sha256": "0f49c161f89b12878b9b1d67af32608c2e6383608a801d157de10dd0a886cc3b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "96052ee42576dea01adb99f0368acd62ce98c211a5a7eed5cf705d3145265133"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/native.log",
+      "bytes": 298,
+      "sha256": "00e50dbd422c4c2e113b31ef91fddbe27acad9c36590a5150277cc4f3df991b5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/provider-inventory.json",
+      "bytes": 999271,
+      "sha256": "ab1fe7f45e2012dbe97e5e3200abc60cf50e3c32dd4c75bf4e20b82e88d1c7a3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/records.json",
+      "bytes": 342129,
+      "sha256": "716d0055e9ab664027b0d808cb5dce60cb5a2d151da7730f31cf63f1cab026d8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/results.json",
+      "bytes": 349828,
+      "sha256": "046aef62c3c44c1432a6ab62968e41b35f5fbd95b54eedad8f4c221a1cd258cc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/session.json",
+      "bytes": 535,
+      "sha256": "a080931c9341f81dc26005b54636707907f08c544f7494a21d982e51f1552d14"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/source-hashes-after.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/cold/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "f15954f5f0529c42147c5a0a476c6fb974e72cec83bf467b6a743f165ea4383c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "723d584af23156089afdc2c2b80fb54a4c56c5734a846f474ec97187fda4fa5d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/native.log",
+      "bytes": 298,
+      "sha256": "0ff6aa1f41d69e58168ac8dd78a7cbf4bd7c941508cba86f9053fc2aff2bd395"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/preparation.json",
+      "bytes": 32907,
+      "sha256": "f43a386ff5e6d286eb8589f04f3684d179a5ecde5b14b4694ce9219a2cc1ea0d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/session.json",
+      "bytes": 409,
+      "sha256": "1491d7ac8a867ef6b04930d8c870fd9429153ba5dd29bdce92043e6244f93a2e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/preparation-inputs.json",
+      "bytes": 33366,
+      "sha256": "cd12da9b0f50da19e8cd0299164501b1ae7323c4c65ace923fbf4bc3376b1009"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/projection-spec.json",
+      "bytes": 2417,
+      "sha256": "4cef43b908153f77f00e6a1f1258a293a1fd5f3a3e1e25371aaf0f7a6de9ca63"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/result.provisional.json",
+      "bytes": 18205,
+      "sha256": "88334a72fedac2a07f27d6a850762d9d38738c0fc103d5c2c2d158f0059a515b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/review/command.log",
+      "bytes": 42,
+      "sha256": "fb428e09b10b3530f645b7f2fdecd9a1e221b083b5e9a4f5f3b2198846585a98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/review/expectations.json",
+      "bytes": 3698,
+      "sha256": "a5c88d25a47f13c3f7ec7c7fa2b0608bbb877e07a619b6f25cfa72d55564fa8d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/review/review.json",
+      "bytes": 4410,
+      "sha256": "cc3cccc10aa4f38815bd64849c20b6d76efa5124928c0ce1e04bfda39161e515"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/score.provisional.json",
+      "bytes": 16957,
+      "sha256": "64e4e8ecfdc9d447579f1aaa49ed0972ff880aa09f7497e60b577cd0561fe129"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/scoring-contract.json",
+      "bytes": 51014,
+      "sha256": "2af8a2e7aa5db6a5d242d6227ae6c01d10fab45b96c8b73796e93941a9fd071c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/selected-review.json",
+      "bytes": 1282,
+      "sha256": "9df5404744dd111ac7e8b95a49f64f21cc8c5fb5af83a1ccb085b511837cf15b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/disabled-enya/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/failure-envelope.json",
+      "bytes": 84471,
+      "sha256": "86e5dd022890656b106443fe07e0fb3711801aee3665619413616c552d03e479"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/fixture-source-locks.json",
+      "bytes": 338758,
+      "sha256": "1b1b2198449f04371e948941c3bd777af65eb8d2b532766d9f5c179412cb1996"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/frozen-checkpoint.json",
+      "bytes": 471891,
+      "sha256": "88be02316c1b25aac2d4ebcb990631494699b39dc9efd8f0802dd29a4853f311"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/native-evaluator",
+      "bytes": 121675824,
+      "sha256": "11ecf76eb5554129ad2455fe3d35e48d775a7d56fb630fd938cd076c89c3c59f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/providers.json",
+      "bytes": 1220687,
+      "sha256": "d9f63a13681cba375b29e8d304c7ce8e2cf6ae6fc692fdb4ec1b3dec7cb55521"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/selection-status.json",
+      "bytes": 186,
+      "sha256": "ceba3a19bf29811c050f56de1117da20bd7c68a93135b8e884ce7b943abf7c6a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/selection.json",
+      "bytes": 2381,
+      "sha256": "9dce8bea7ec9031929f08d41f4f3f3a349381a5ab85d63fbc23f08ad10fccb5a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01/source-and-tool-locks.json",
+      "bytes": 17978,
+      "sha256": "da68b3deeb2edc9f9565b4b2309ad7c6627b997e0db95714605fa2a6a63dfa35"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-01-driver.log",
+      "bytes": 1120,
+      "sha256": "9e9d761133ef3612dcf1b493d1785f0262a631026272b201f69296f0222e2be5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/checkpoint.json",
+      "bytes": 216,
+      "sha256": "d61f845d0ec7ad8e0437330fa0cb14c28f7b880abdcf8c994c9a7d360a8f84d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/cold.jsonl",
+      "bytes": 303038,
+      "sha256": "d5add5e0d27981c55746b90c9b93ceb4067cd2fd618a00c3245cbab6aab7ed37"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/command.log",
+      "bytes": 351,
+      "sha256": "80dcc52d8d3320ee07481da90c97849332a3fe8211fa52e15b7b0d06b55b8325"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/execution.json",
+      "bytes": 167,
+      "sha256": "4666fa98e0722199cc481a88bc4fc3f6b94b395149e815e52d9115eb5998cad7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "b0960d94b3be37d71f70d99c7553274bd6c674bc37c2dc1a051af2bbcbbb5331"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/native.log",
+      "bytes": 191,
+      "sha256": "7fe6aeb75e0a158863180699f056aee4284ebc4fd335a7cb3f54f254592b149e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/provider-inventory.json",
+      "bytes": 972296,
+      "sha256": "7eab5c8596509030253a5203692d46683fee98d40a7ee2ff05e7654142535782"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/records.json",
+      "bytes": 379123,
+      "sha256": "9f8923bd47b0bd77d045f7f5fedeb9f17c71469b7235d3871f7dd36ac9a5aabc"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/results.json",
+      "bytes": 390783,
+      "sha256": "4ed6e496e4f33e5a71027587f5cb64bf9222cde0587c1817d75d58f34af637f9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/session.json",
+      "bytes": 547,
+      "sha256": "d5758331597e75c65f87a6c93102e77d32752b7c8684d3a51e0bf5dd5828dbd2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/source-hashes-after.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/cold-fixture-ingress.json",
+      "bytes": 753430,
+      "sha256": "9fdad90897e2d9e5c7715e7255d7e5a4d9e2f8ce78d5a161e0310de6c2026091"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "50bdb4a3814b17119d049fcf60a3462002dbf603c74fac24b724fb2a6c66c8f1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "89f5889b1404b325c9e93e4880f1d4f413bb7fec7400d1e44816a1e1637e4560"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/native.log",
+      "bytes": 191,
+      "sha256": "8d98c6a498fc644f170767a14e19056f0bb19f1f3308ebe1271b7daf45301362"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/preparation.json",
+      "bytes": 125826,
+      "sha256": "7129105193c1af41473121a74bcde387be68baa9ebfe9b42da9554825b6a6658"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/session.json",
+      "bytes": 417,
+      "sha256": "4a6e9bc0b12e0f38fbbca215a664848d73d7e4d70c80287b6677d4b847e31e16"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation-fixture-ingress.json",
+      "bytes": 753430,
+      "sha256": "4eba758b792a18646bb94784a1077530278fbce4c30388dc4658787ae150c97b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/preparation-inputs.json",
+      "bytes": 128217,
+      "sha256": "c7a6f360107e6e75b5e4addfc3159784e4fb6f676d09b1a4c0daaff290f0e728"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/projection-spec.json",
+      "bytes": 2435,
+      "sha256": "4b1a4d98da406e17562ce1a7bd61d07f4f435f50229e1a80346ee2f36d5bee04"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/result.provisional.json",
+      "bytes": 10517,
+      "sha256": "3f2ce6b9f755ecf35cec42c4527e23ad4bcd3155574bff1d24915109f719e510"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/review/command.log",
+      "bytes": 41,
+      "sha256": "7391cf36c572de8fc919523c2184070f8502d291c87715781b6c24738df0e97a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/review/expectations.json",
+      "bytes": 2225,
+      "sha256": "23f5f173ce606f43b3a629d11181244da0856197d42b04881aebb32a60d189d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/review/review.json",
+      "bytes": 2942,
+      "sha256": "c3a8bafb2eab43fe0acc62bb4a145308616e7c1d94b372e661a73f7ea13e171a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/score.provisional.json",
+      "bytes": 9629,
+      "sha256": "0086f476b8cdc784090325a89c116e833a00ca9c4245257eda0dfe09485723a0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/scoring-contract.json",
+      "bytes": 139785,
+      "sha256": "7923effa5daff4ccb9aeedd7af58b2b17bae408d9b3fde7b2d3021181ef9ff3d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/selected-review.json",
+      "bytes": 1364,
+      "sha256": "386519621ce885fb763a275f06c6e526d61556d69e598877bb7ba037d8d5fa4b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-billie/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/checkpoint.json",
+      "bytes": 215,
+      "sha256": "d1129c2e50081ea1fcf533a5f61c13b959c71491dd1320db9a639b6fabcec35c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/cold.jsonl",
+      "bytes": 142788,
+      "sha256": "b28cfc3bd620b2c13e48d25fb6e541dd557e47e3df268631469931c4d61b4346"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/command.log",
+      "bytes": 350,
+      "sha256": "f4e7bf0b58aa4d7e16efb2ce89ab0cc849c2e3ba7a64b6d9031c3c5284bc9038"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/execution.json",
+      "bytes": 167,
+      "sha256": "643ea358ee02f9a5579a738695d0f124e8594a11d7d5545b4ff3a3f1242b3c91"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/inventory-final.json",
+      "bytes": 969855,
+      "sha256": "0e0c52b29a291d691d8f791fdef76c84e43b60cab5f1f209b143bcf9ff10b980"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/native.log",
+      "bytes": 191,
+      "sha256": "faae02c3edd8f0b7a9f7823e2ff9f6f643d762788da5ae683a94302005a7c288"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/provider-inventory.json",
+      "bytes": 969673,
+      "sha256": "d46ea214381ea38edb1e0a67bf4d9ec46e384cafcac8b19c614f7b45a7484d11"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/records.json",
+      "bytes": 208189,
+      "sha256": "26c20289a81892eaec68fa558c158d0c51d47b6f40cce62144c401fef5eda9e3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/results.json",
+      "bytes": 219301,
+      "sha256": "e9a73827a414f002b43b666390a350f43f79d43256469e82dd6f3a21502005be"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/session.json",
+      "bytes": 544,
+      "sha256": "47d2b3ac9ea039e8cee37ab9d0b300c8e34ff097d7d239611f80f9444135884c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/source-hashes-after.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/cold-fixture-ingress.json",
+      "bytes": 751723,
+      "sha256": "18c4eefe4b1411d07d80e17d1eb768520e10900458142e6cfc96ca8948a939ff"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/independent-request.json",
+      "bytes": 863,
+      "sha256": "846b46b99b6d2dcbf55fd84bb278b47c311f303a94be90e1564bfbfece5b4cea"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "a2e82267921013918f081ce840f4d204b1efc628430b2126743b109de8ebc531"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "69e68d95a242f310a0c382280d45ba0845054d3fc01c3084661a8097a71f0c68"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/native.log",
+      "bytes": 191,
+      "sha256": "adadd583c6aea2c6697f10c167c6f709e2ddd7c698d2fbe81544ded16f13ee43"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/preparation.json",
+      "bytes": 75891,
+      "sha256": "c673977e42b6ae0f9cc52d0f6554f8a15a626c3c11c929e55854846c721e5aeb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/session.json",
+      "bytes": 415,
+      "sha256": "2d8a0c32385762a20cf1f467b45987bc05eb1e0336d41587a81ec9359367da29"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation-fixture-ingress.json",
+      "bytes": 751381,
+      "sha256": "89ffe48509499ad7184539b235dfe523b5b1c05c0b1610a44e7435efc4a2759e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/preparation-inputs.json",
+      "bytes": 78704,
+      "sha256": "19fa9f83a32e6f46d714f40ee30d3a31215c71aa0f0dd738ab597d3e4e9fdca0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/projection-spec.json",
+      "bytes": 2854,
+      "sha256": "e8bb01b8108355728bc3f68f0ace5e49c7670c159f52d048254ac4fa571c7b9a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/result.provisional.json",
+      "bytes": 12473,
+      "sha256": "df4fc345f10fcbb440a4efbfe4ffcc142f22df6f8ba411c4a52edbfd540ee2ff"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/review/command.log",
+      "bytes": 42,
+      "sha256": "496c2612214ccde99040116289bba823c00f605c4a74733fc3c45eb3d9e2aa36"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/review/expectations.json",
+      "bytes": 2795,
+      "sha256": "a38cb719ccd4af8931b960dc4c0ca43c722da4fd9ecc4efa6052e7df04f5a0c8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/review/review.json",
+      "bytes": 3616,
+      "sha256": "f87cfcbce8839fffb31e0e40d7a4398f578d4157a79625b43f4d50551f0f7604"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/score.provisional.json",
+      "bytes": 11474,
+      "sha256": "96276d6e09abba4ea7ce85ac5453d5c2f4b97f1a8b05221943e3c1614991606e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/scoring-contract.json",
+      "bytes": 94563,
+      "sha256": "31503c057e8cae4a779cb4abb9abfdc7d69fccb23f0e7fbd29141911fb5e356e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/selected-review.json",
+      "bytes": 1452,
+      "sha256": "cdb4a76ac4477d74192dbcc17842005fc44f86ed7e213719f9975115713269c0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-crowd/service.json",
+      "bytes": 1245966,
+      "sha256": "83a7efe2126a7a33c94526d8fe39e05e4b33ee509c399464ad2147eaed00a922"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/checkpoint.json",
+      "bytes": 214,
+      "sha256": "25fc298870ee3e0bb42df350e92628172af7974a74e0a42eaf5a86364239b0d5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/cold.jsonl",
+      "bytes": 307821,
+      "sha256": "fb54bf31f2e9cfd2466e7be65b217d554be5bb1593946bfad9d1d63fdee16793"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/command.log",
+      "bytes": 349,
+      "sha256": "5cbaf5dc8646d8ec874d2ed969c9f88112ac43b75629619ae7914b94149068a9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/execution.json",
+      "bytes": 167,
+      "sha256": "0f49c161f89b12878b9b1d67af32608c2e6383608a801d157de10dd0a886cc3b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "590c6608b8371ae9181b1be8e0bac2ab68f42bac65a4a8112fbdfeadde57cc67"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/native.log",
+      "bytes": 298,
+      "sha256": "e695127b81abbd93977cf45a6bc2fe59616a99e49f47952b501d9dab1028c602"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/provider-inventory.json",
+      "bytes": 999271,
+      "sha256": "0f165bc93ace7d79303d4b6aff79dd51023697c3ab8279c7cb2b7943ddd1e79d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/records.json",
+      "bytes": 342197,
+      "sha256": "fde07c9feeba39069e7d61a257d2dad7756a94deec373e6ea69e772d361208b3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/results.json",
+      "bytes": 349898,
+      "sha256": "073bba8c912be3ce79da85a5108d04e713356fa1fb682592250f27a55bf5a709"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/session.json",
+      "bytes": 541,
+      "sha256": "c8a86ef1671eea97843e3c137593c26af32cc283dceec191b6056be4687bf05e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/source-hashes-after.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/cold-fixture-ingress.json",
+      "bytes": 770125,
+      "sha256": "ae1c230d17a7c0f0ce380e42e07eaa810cb00c045f1a34de6182f186e5574bb4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "f15954f5f0529c42147c5a0a476c6fb974e72cec83bf467b6a743f165ea4383c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "5b1a8969e63d7d82f375ecbfd36af98567d3c8f74acb2caf4cfb14dadfb085d9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/native.log",
+      "bytes": 298,
+      "sha256": "16f10149a551d501ee48cb2658b03ffb20c0d573f9d4a2bf31873f7d7f63c65a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/preparation.json",
+      "bytes": 32941,
+      "sha256": "2aa8a39fa758ab27ee324b78718c95081ce57d1a078dd979ee6b5bc4690bc7f7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/session.json",
+      "bytes": 413,
+      "sha256": "3cc0df45d71f1247c995c05e7a761d593e9ec255044ec0b4d8cc20c4071da842"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation-fixture-ingress.json",
+      "bytes": 770125,
+      "sha256": "be590779433aebfd7287db24de90bdd12d4025ebb69c0a328f8d06bf4df8abc1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/preparation-inputs.json",
+      "bytes": 33400,
+      "sha256": "82ec23877e8510b9bfc237488ba49c8c32e72d0d2b1bdd383b1f08ca94089a05"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/projection-spec.json",
+      "bytes": 2427,
+      "sha256": "3cd4d6053b639e504c865103faff84816a04e06a5653b8429ff3874c2bfba3af"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/result.provisional.json",
+      "bytes": 18305,
+      "sha256": "5cb5b03a03e1408691d03de1e1e530b6e5f10107e97d5f27cb3b285d02ac11b9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/review/command.log",
+      "bytes": 42,
+      "sha256": "fb428e09b10b3530f645b7f2fdecd9a1e221b083b5e9a4f5f3b2198846585a98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/review/expectations.json",
+      "bytes": 3698,
+      "sha256": "a5c88d25a47f13c3f7ec7c7fa2b0608bbb877e07a619b6f25cfa72d55564fa8d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/review/review.json",
+      "bytes": 4410,
+      "sha256": "cc3cccc10aa4f38815bd64849c20b6d76efa5124928c0ce1e04bfda39161e515"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/score.provisional.json",
+      "bytes": 17053,
+      "sha256": "d6201f4d901e7fc92fa84f1b1e159023742769c42675b8cc66be9f953ff1fc66"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/scoring-contract.json",
+      "bytes": 51222,
+      "sha256": "ac9b9588aadbcda684d231feba76134709da6c7e4f1d012ecb73e8517cb5d76c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/selected-review.json",
+      "bytes": 1282,
+      "sha256": "9df5404744dd111ac7e8b95a49f64f21cc8c5fb5af83a1ccb085b511837cf15b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/assistance-enya/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority/bootstrap.json",
+      "bytes": 333162,
+      "sha256": "f8d94c7f501be478e23140816dc7dab3cfb071ed81b1dd55eb6f7f314ec5e674"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority/final.json",
+      "bytes": 551717,
+      "sha256": "86b76b5fe51bb527bc03e7df1da4ff2b38f9c996077f4403cfa303faf89223e4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority/process.log",
+      "bytes": 286,
+      "sha256": "f29194f646179e4f1de11d818f0b9d48bbde523ea7c9a74c18e86ba231625aa2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority/ready.json",
+      "bytes": 184,
+      "sha256": "18258a0296564ed3c8bfd0500d5c549a8bf04f16d2cda1c580cace33aee86ead"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority/registry.sqlite",
+      "bytes": 925696,
+      "sha256": "08decfc90f27395fd30009086632cf9195911f213428aa86eb999dffa2c251f8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/authority-receipt.json",
+      "bytes": 551718,
+      "sha256": "edfe12088298540af31ce82f653311aa2bc20a4de01392746a4151062922f37d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/checkpoint.json",
+      "bytes": 214,
+      "sha256": "373ed475545e72966c900d91d4633cb07f4a0653d61f4123b459365bb36c0238"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/cold.jsonl",
+      "bytes": 302796,
+      "sha256": "d11589e6e33813a7f5231017e349b3d9d527c981c6c30c18772c9b888578e125"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/command.log",
+      "bytes": 349,
+      "sha256": "93cfe59e98cb27fda9456fb445f268bccef1a61bd8ace541729b03ffb52b9069"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/execution.json",
+      "bytes": 167,
+      "sha256": "4666fa98e0722199cc481a88bc4fc3f6b94b395149e815e52d9115eb5998cad7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "f6914c67363ac804103fb2ecb6a217fd4d8cb1946c0e14bd8212859696cc3bdf"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/native.log",
+      "bytes": 191,
+      "sha256": "8c70075de46d6cebf776b0e3f7bacf84f3a6b9782f47cd5821b0161c0b3a22c8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/provider-inventory.json",
+      "bytes": 972296,
+      "sha256": "b47292d69f1a591b47892781c677958bede9d621defbe3ac82618a115185381f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/records.json",
+      "bytes": 378881,
+      "sha256": "38204dbf945226b0dc054341c52cb2e01d14a3c6596b44abbf769b8f159d2c0f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/results.json",
+      "bytes": 390539,
+      "sha256": "758f0f06e2dd40dd9b98873a547ab036c7bcfc7743b59ebb5b0ac6c3575f8908"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/session.json",
+      "bytes": 541,
+      "sha256": "0365339efc4eec9cb94417648101133a44482a038ad451fdc8fbc7c7f5a6717c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/source-hashes-after.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/cold-fixture-ingress.json",
+      "bytes": 753430,
+      "sha256": "00e6511ec7a2311dc6f3ab631550498460b8807c378cc177e2e7217c59c2282d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "50bdb4a3814b17119d049fcf60a3462002dbf603c74fac24b724fb2a6c66c8f1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/inventory-final.json",
+      "bytes": 972478,
+      "sha256": "5690bbe5baa22a3b175a059fdb51e0f551859885e5e10b25fa35e90db9184afa"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/native.log",
+      "bytes": 191,
+      "sha256": "1b4caac51b2df8f6ed266d06285271019f6624e7828f12a025913c860d83685d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/preparation.json",
+      "bytes": 125716,
+      "sha256": "8a5f36801a04a193db58d488083242bb83b71ef65bdf9cc9e98850a92540d307"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/session.json",
+      "bytes": 413,
+      "sha256": "e787073d863d46321cb87e06f13b208b4564f602d7e52e2ed2ea052ed87e9947"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation/source-hashes-before.json",
+      "bytes": 1476,
+      "sha256": "e8ae4b4a088e11f8f90c3a48a53917bb06201f733e21e421aacc5187eaeaf60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation-fixture-ingress.json",
+      "bytes": 753430,
+      "sha256": "562a5be0d172da8e5d7c24654c23b8d0063b1585b8768385e0d3dca216d941a7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/preparation-inputs.json",
+      "bytes": 128107,
+      "sha256": "db0f4aac91d9c7758b843096a772d424fe8255a2091ef7a16392b5570bd0436d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/projection-spec.json",
+      "bytes": 2425,
+      "sha256": "d0196d4bfd51b57bfb69351ba9484a4a566e6685aee026f8aa8502bc635e1595"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/result.provisional.json",
+      "bytes": 10459,
+      "sha256": "ae62d2597e6c35d1752075347d4230830cf86983ef21eef1c393143bc351e37f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/review/command.log",
+      "bytes": 41,
+      "sha256": "7391cf36c572de8fc919523c2184070f8502d291c87715781b6c24738df0e97a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/review/expectations.json",
+      "bytes": 2225,
+      "sha256": "23f5f173ce606f43b3a629d11181244da0856197d42b04881aebb32a60d189d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/review/review.json",
+      "bytes": 2942,
+      "sha256": "c3a8bafb2eab43fe0acc62bb4a145308616e7c1d94b372e661a73f7ea13e171a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/score.provisional.json",
+      "bytes": 9575,
+      "sha256": "0ed66523c495fabaad6ee09081d564be0f26c40a6605534b7fcb7105269fcd7b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/scoring-contract.json",
+      "bytes": 139571,
+      "sha256": "3c705a2305ad9b6d9babf95a030ce46c383a25668f5aa57a99799186632429b3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/selected-review.json",
+      "bytes": 1364,
+      "sha256": "386519621ce885fb763a275f06c6e526d61556d69e598877bb7ba037d8d5fa4b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-billie/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/checkpoint.json",
+      "bytes": 213,
+      "sha256": "39c14fae3f7b666124b62734b2fb297ee2dc46e3e73a54d7a65ac32f85fe9b72"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/cold.jsonl",
+      "bytes": 138661,
+      "sha256": "2d889f824fc36c4cf0fe1331af7fd6ce3be998b0dc210d5cbd602ea5dfaca4f1"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/command.log",
+      "bytes": 348,
+      "sha256": "9043c598a607ff301437c98e85fceef63e6ccef31b64bef92c453d87f4868b4a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/execution.json",
+      "bytes": 167,
+      "sha256": "3a5fde47d8d07cfaf9d3b0ab7664e16d1a3724a39e63c931e3ec287f946defb6"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "fd85b713e067959e6e6cd44bd92022388cddc19eccbea6cb331f6b7e0978cd8f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/native.log",
+      "bytes": 191,
+      "sha256": "b8328d18074040ed3bbb4408bfb20a17ae2dd9e13f61cd05ed4b00d33937dd21"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/provider-inventory.json",
+      "bytes": 969228,
+      "sha256": "c4bbc06a1871f84788f279bd93776f3425451acdd8428f3fc0f7e89817e1e21d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/records.json",
+      "bytes": 202164,
+      "sha256": "7b48846540890c1687af6d6135cc5faf34b5fb897a62b3a0616e252bec88225a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/results.json",
+      "bytes": 213039,
+      "sha256": "62eb0946e8e689f8b3146fb9d5cdf28cdc9720b3a21d59198da360094d2e5c6d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/session.json",
+      "bytes": 538,
+      "sha256": "78818dd090d30694de65c587f9069b5e3f2a4d5ae97bc5f16bd3c7f2c05d2b64"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/source-hashes-after.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/cold-fixture-ingress.json",
+      "bytes": 751381,
+      "sha256": "64115af24af0cf4b5bc409ea0d586352aaba42dd5883b58ca2f445e146a89f98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "a2e82267921013918f081ce840f4d204b1efc628430b2126743b109de8ebc531"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/inventory-final.json",
+      "bytes": 969410,
+      "sha256": "eeaceca820f7c33e6ef5c11847a708b8d3ce5ef9ef25bae8b454eab34ee27633"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/native.log",
+      "bytes": 191,
+      "sha256": "1e0affe71cad0cc87377ccf7ca3f05281120292515733ed5532e0e32329fafc4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/preparation.json",
+      "bytes": 74287,
+      "sha256": "35d278a9a288b553cc902b6443fcc502c4681e14b7b8be65424bf34f3ada9923"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/session.json",
+      "bytes": 411,
+      "sha256": "460fcbb695ee62225d9a144d5f0479d2af09329848740a5bbefeadb38c218ba4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation/source-hashes-before.json",
+      "bytes": 1694,
+      "sha256": "85d909b78ce1de7453157e93af4d52b7e09e68f978bec18d1467753e730e18f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation-fixture-ingress.json",
+      "bytes": 751381,
+      "sha256": "8562a7bbc16218bc3bd50c9a55df9f3f8d7031685ed2bd408ab49289b40fd757"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/preparation-inputs.json",
+      "bytes": 77022,
+      "sha256": "6eb2a05fd1ddad8d7f531c2b92479c41e16d3f35340e64bf4d2f92b2af53e881"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/projection-spec.json",
+      "bytes": 2844,
+      "sha256": "f3c49eb8276e0147617cb75fdc0aa6a6c31b16eaffaa8a920502970ccfa799ec"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/result.provisional.json",
+      "bytes": 12225,
+      "sha256": "8184d8d27671cd85f673153ba280662d3cefb37e4c7cd578f7a6efc1bbc7596f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/review/command.log",
+      "bytes": 42,
+      "sha256": "496c2612214ccde99040116289bba823c00f605c4a74733fc3c45eb3d9e2aa36"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/review/expectations.json",
+      "bytes": 2795,
+      "sha256": "a38cb719ccd4af8931b960dc4c0ca43c722da4fd9ecc4efa6052e7df04f5a0c8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/review/review.json",
+      "bytes": 3616,
+      "sha256": "f87cfcbce8839fffb31e0e40d7a4398f578d4157a79625b43f4d50551f0f7604"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/score.provisional.json",
+      "bytes": 11233,
+      "sha256": "03423bd37d52b646c110f4729ca82eff80786617fe542a94972c5bfd684f5463"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/scoring-contract.json",
+      "bytes": 92757,
+      "sha256": "ad2c56230172d6eb7b4a22be95a214d08ea8fdd4f5c387c264c9419bc6123e0d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/selected-review.json",
+      "bytes": 1452,
+      "sha256": "cdb4a76ac4477d74192dbcc17842005fc44f86ed7e213719f9975115713269c0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-crowd/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/approved-fixtures.json",
+      "bytes": 962218,
+      "sha256": "dbf7b399c8e35d5699d7a1e158b8715fe027199738ede4304aa6039fdb45981c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/checkpoint.json",
+      "bytes": 212,
+      "sha256": "1fc5dede6b5d34eb5e3ef59d0a9857889edc3291bfdfdb43f26dacfada1c1d82"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/cold.jsonl",
+      "bytes": 307753,
+      "sha256": "c324b8529cc022f750c3bcb5b792f750684f41e0eb79e62097ec9285e2df38b7"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/command.log",
+      "bytes": 347,
+      "sha256": "4a4a9c5fd7a3a5ca35e86d80202f523f0836fd91446ed3b153746bb118e9b423"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/execution.json",
+      "bytes": 167,
+      "sha256": "0f49c161f89b12878b9b1d67af32608c2e6383608a801d157de10dd0a886cc3b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "e5ac92ced75f0e6b59040c44edf8210fbc255a988415ae333fbd7e60641714e2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/native.log",
+      "bytes": 298,
+      "sha256": "548c9b0e59a5d8a131b43bddb108a31b43b32ca4971dd6d44ecf1463bb991792"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/provider-inventory.json",
+      "bytes": 999271,
+      "sha256": "f60b48c802a9d0c97315aa07c4ef636d7082ed7e00be4dadddba76c8cd35bf1d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/records.json",
+      "bytes": 342129,
+      "sha256": "562612d7a7cc2e2a6f3a096472e1d6afeb35432ffa8dce1d388b3f39d4a8cc83"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/results.json",
+      "bytes": 349828,
+      "sha256": "76e19b3c790cd37d7c63cd4d554f385e4afdd9a14efe913c9156cddfe792d958"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/session.json",
+      "bytes": 535,
+      "sha256": "713ccc1fea07b7cf50a6a02836b824f2674ed2ea02446ab468395fac413ff391"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/source-hashes-after.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/cold-fixture-ingress.json",
+      "bytes": 770125,
+      "sha256": "4dbb35edb3e4b48d9e650d576ce635f14e164984d7170a7041842a0bc2f0e178"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/execution.json",
+      "bytes": 167,
+      "sha256": "f15954f5f0529c42147c5a0a476c6fb974e72cec83bf467b6a743f165ea4383c"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/inventory-final.json",
+      "bytes": 999453,
+      "sha256": "93943d776a8a025d40d26c632c81449e98d6ec88d8a5af37e69573ff0ea4d109"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/native.log",
+      "bytes": 298,
+      "sha256": "59013b0e5c57df2b29d239933d237cc905561fef1728002eda89c51cae948178"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/preparation.json",
+      "bytes": 32907,
+      "sha256": "b14be88bef28ce4a1c456ed22852af9edda12ee08712d1c74265d6d8349708d0"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/records.json",
+      "bytes": 3,
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/session.json",
+      "bytes": 409,
+      "sha256": "d6cd0ac6adb7bfa74e9a48902e75e34ff7eafc179a414fdee18683042a0b7d5d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation/source-hashes-before.json",
+      "bytes": 2766,
+      "sha256": "5b0b0ca827f57c3d2f2289f93c12e6eb0c72469f5b69618d5ba7cef8ca05c105"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation-fixture-ingress.json",
+      "bytes": 770125,
+      "sha256": "5b6055725cb352c85343865bc8f5e3c8f85c7e01c2b5289c219b16bceb6c4a91"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/preparation-inputs.json",
+      "bytes": 33366,
+      "sha256": "129d586a583759d9a18342c87cf45ebdc13a7fc029d5abb03e26c4bb98973fa3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/projection-spec.json",
+      "bytes": 2417,
+      "sha256": "ec3df18251bf9a74768758eb4f7ae036381248c17a0d509754138a699ba10bec"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/result.provisional.json",
+      "bytes": 18205,
+      "sha256": "88334a72fedac2a07f27d6a850762d9d38738c0fc103d5c2c2d158f0059a515b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/review/command.log",
+      "bytes": 42,
+      "sha256": "fb428e09b10b3530f645b7f2fdecd9a1e221b083b5e9a4f5f3b2198846585a98"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/review/expectations.json",
+      "bytes": 3698,
+      "sha256": "a5c88d25a47f13c3f7ec7c7fa2b0608bbb877e07a619b6f25cfa72d55564fa8d"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/review/review.json",
+      "bytes": 4410,
+      "sha256": "cc3cccc10aa4f38815bd64849c20b6d76efa5124928c0ce1e04bfda39161e515"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/safety-input.json",
+      "bytes": 32,
+      "sha256": "61f37d6f37838a944b1fe19064ff2dc0fcdacaf88039513dd07a39612f0b00eb"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/score.provisional.json",
+      "bytes": 16957,
+      "sha256": "64e4e8ecfdc9d447579f1aaa49ed0972ff880aa09f7497e60b577cd0561fe129"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/scoring-contract.json",
+      "bytes": 51014,
+      "sha256": "07d995856035169cd85d9040edd9d45950a0d9ba89a91efbe4858ce04f6a60f4"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/selected-review.json",
+      "bytes": 1282,
+      "sha256": "9df5404744dd111ac7e8b95a49f64f21cc8c5fb5af83a1ccb085b511837cf15b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/disabled-enya/service.json",
+      "bytes": 1245215,
+      "sha256": "1e63c026119137015084ad028e26e40b1607c9b1b7c3ba163dfd423149d5eeca"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/fixture-source-locks.json",
+      "bytes": 338758,
+      "sha256": "1b1b2198449f04371e948941c3bd777af65eb8d2b532766d9f5c179412cb1996"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/frozen-checkpoint.json",
+      "bytes": 472119,
+      "sha256": "4bf795bb140dc92ed0eabc4d98ea7646c76c685d39e304bcfa71a94558032187"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/native-evaluator",
+      "bytes": 121808160,
+      "sha256": "a017ec5080ef4a1eb0513e865993a1bf6f94ed4590064f491f3858c82777f60b"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/providers.json",
+      "bytes": 1220687,
+      "sha256": "d9f63a13681cba375b29e8d304c7ce8e2cf6ae6fc692fdb4ec1b3dec7cb55521"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/requested-membership.json",
+      "bytes": 7516,
+      "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/results.json",
+      "bytes": 91587,
+      "sha256": "7834c3534ed822e72e3726c4347bb67abfb9866f993156c616c6665f74358b54"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/selection-status.json",
+      "bytes": 161,
+      "sha256": "37262526bc1e72381c42e35605ec9d20f5f9ad6d1b5055509c00bca9decca5c9"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/selection.json",
+      "bytes": 2381,
+      "sha256": "9dce8bea7ec9031929f08d41f4f3f3a349381a5ab85d63fbc23f08ad10fccb5a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/source-and-tool-locks.json",
+      "bytes": 17978,
+      "sha256": "25f761ec21cd2ff4e1a9124b3af326653431ed4cb5b95b6c5b65913c5fc5a47e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02/wire-reconciliation.json",
+      "bytes": 198,
+      "sha256": "baa316957dcd0fe48bed5efecc02feff8419598380745633238124f672ba1ff5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-audit-controls.json",
+      "bytes": 346,
+      "sha256": "7a58a169c4dee1cc5c57d401f969d5b302bcf9df57e9badf26ef962feaa38703"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-audit-controls.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-audit.json",
+      "bytes": 3101,
+      "sha256": "cd7412b4bb0fc3344f54bac39bafe01880b0ef2b9d8141fffb34d49aa5d956d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-audit.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-driver.log",
+      "bytes": 751,
+      "sha256": "8de1dc26a12e96d2feea4931e8038f8e0d01bd6711bebb86f56b0efd35e16446"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/run-02-projection-controls.json",
+      "bytes": 2945,
+      "sha256": "e71d02f2995810216cc54883ff963feabbe16268cbdb28f9aa3deac00792c456"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/scorer-green.log",
+      "bytes": 118,
+      "sha256": "443186714ff59acf1ec71d8ae061a3b6c3d83973b907d78001d5882fb3673e27"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/settlement-red-01.log",
+      "bytes": 643,
+      "sha256": "734550da8727d16be7192677397224cb1be1c985068d97ef38ce956295e9879e"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/snapshot-red-02.log",
+      "bytes": 1122,
+      "sha256": "39da0805867cc6f4f3d4d93b4b473fae73caf1158d13ca88cb5d101e14f73efa"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/snapshot-red.log",
+      "bytes": 897,
+      "sha256": "8329d789c1e3d1f2ada8fb6b2a67650659be6a66330c4eb8cd805b7e0f4c4a0f"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/unattached-finish-red.log",
+      "bytes": 1033,
+      "sha256": "8f69e20918fb97d15b7e2f71a894ff4ebb5b66ca6bbc861af54ce2f30f535070"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-authority-20261112/write-boundary-red.log",
+      "bytes": 2101,
+      "sha256": "37bd294b23b669690bff2dc11685ad55e36a647c222987b6a44a44adcb398a35"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An explicit offline mock replay mode shares durable reservations and failure accounting across preparation, native jobs and replacement fixtures. It denies resumed runs and reconciles loopback arrivals without enabling live calls or real credentials.
 - Mock-only tagging replay can compare disabled and assisted cold runs on retained disposable files, keep failed observations in scoring, and export compact fixture accounting. Live calls remain disabled.
 - Offline tagging evaluation can score frozen user-accepted genre alternatives separately from catalog agreement and acoustic accuracy, while retaining failed and unavailable observations. Live models remain disabled.
 - A separate mock-only assistance evaluator can check frozen request approvals, shared attempt limits, and source bindings without enabling live models. Catalog-value scoring keeps unavailable decisions and unscorable musical genre separate from successful fills.

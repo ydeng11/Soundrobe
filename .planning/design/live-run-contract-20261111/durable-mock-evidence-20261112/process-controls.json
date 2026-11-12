@@ -1,0 +1,227 @@
+{
+  "executableSha256": "a017ec5080ef4a1eb0513e865993a1bf6f94ed4590064f491f3858c82777f60b",
+  "results": [
+    {
+      "name": "simultaneous-consumption",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "competing-model-children",
+      "wires": 1,
+      "operations": 1,
+      "modelReservations": 1,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "replacement-no-reset-and-stale-handle",
+      "wires": 2,
+      "operations": 2,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "forged-handle-stops-subsequent-work",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "fixture-disconnect-revokes",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "orphan-fixture-ingress-is-terminal",
+      "wires": 1,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "rebound-service-cannot-acknowledge-another-job",
+      "wires": 1,
+      "operations": 1,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "failed-ingress-notification-revokes-fixture-lease",
+      "wires": 1,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "fixture-connect-is-terminal",
+      "wires": 1,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "fixture-oversized-is-terminal",
+      "wires": 1,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "fixture-aborted-is-terminal",
+      "wires": 1,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "storage-lock-denies-without-refund-or-resume",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "storage-unavailable-denies-without-new-registry",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "post-publish-crash-remains-incomplete",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "complete",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "zero-call-completion-and-final-receipt-controls",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "complete",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "before_reservation_commit",
+      "wires": 0,
+      "operations": 0,
+      "modelReservations": 0,
+      "storedState": "preparing",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "after_reservation_commit",
+      "wires": 0,
+      "operations": 1,
+      "modelReservations": 0,
+      "storedState": "preparing",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "after_dispatch_admission",
+      "wires": 0,
+      "operations": 1,
+      "modelReservations": 0,
+      "storedState": "preparing",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "kill_before_arrival",
+      "wires": 1,
+      "operations": 1,
+      "modelReservations": 0,
+      "storedState": "preparing",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    },
+    {
+      "name": "kill_after_arrival",
+      "wires": 1,
+      "operations": 1,
+      "modelReservations": 0,
+      "storedState": "preparing",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    }
+  ],
+  "powerLossOrPhysicalFlushProved": false,
+  "liveAuthority": false
+}

@@ -49,8 +49,9 @@ function failureEnvelope(output) {
     groundedAssistanceAccuracyCredit: 0, acceptedCertificate: false, writableDelta: [] };
 }
 module.exports = { pairedColdJobs, failureEnvelope };
-async function inventoryAt(base, compact = false) {
-  const response = await fetch(`${base}/__fixtures${compact ? '/compact' : ''}`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error' });
+async function inventoryAt(base, compact = false, session) {
+  const response = await fetch(`${base}/__fixtures${compact ? '/compact' : ''}`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error',
+    headers: session ? { 'x-soundrobe-mock-session': session } : {} });
   if (!response.ok) throw Error('Inventory status failed');
   const chunks = []; let size = 0;
   for await (const chunk of response.body) {
@@ -62,8 +63,9 @@ async function inventoryAt(base, compact = false) {
 }
 
 async function main(output, executable, userLabelDirectory, mode) {
-  if (mode !== undefined && mode !== '--paired-cold') throw Error('Unsupported evaluation mode');
-  const paired = mode === '--paired-cold';
+  if (mode !== undefined && !['--paired-cold', '--durable-mock'].includes(mode)) throw Error('Unsupported evaluation mode');
+  const durable = mode === '--durable-mock';
+  const paired = mode === '--paired-cold' || durable;
   if (paired && !userLabelDirectory) throw Error('Paired cold selection requires frozen scorer-only user labels');
   const phases = paired ? ['cold'] : ['cold', 'warm'];
   output = path.resolve(output);
@@ -94,7 +96,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
-  const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs',
+  const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
     ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
     'scripts/review_auto_tag_subset.py', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
     '.planning/research/bounded-assistance-machine-labels-20261111.json',
@@ -142,6 +144,10 @@ async function main(output, executable, userLabelDirectory, mode) {
   locks.push(...fixtureLocks, binding(path.join(fixtures, 'candidate-pools.json')), binding(path.join(fixtures, 'provider-discovery.json')));
   save(path.join(output, 'fixture-source-locks.json'), fixtureLocks);
   const executions = [];
+  const pending = [], preparations = [];
+  if (durable) activeAuthority = await require('./mock-authority.cjs').start(binary, output,
+    read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks });
+  const authority = durable ? activeAuthority : null;
   for (const job of jobs) {
     const directory = path.join(output, job.name);
     fs.mkdirSync(directory);
@@ -191,9 +197,19 @@ async function main(output, executable, userLabelDirectory, mode) {
       ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
       response: { genre: 'Scripted diagnostic genre', confidence: 0.8 },
       ...(job.unknownUsage ? {} : { usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 } }) } } : {}) });
-    let service = createService(serviceManifest);
+    let session, fixtureLease;
+    let fixtureAuthority = authority ? { socket: authority.socket, onFatal: () => fixtureLease?.abandon() } : undefined;
+    let service = createService(serviceManifest, fixtureAuthority);
     service.listen(0, '127.0.0.1'); await once(service, 'listening');
     let base = `http://127.0.0.1:${service.address().port}`;
+    async function register(stage) {
+      session = await authority.command({ op: 'register', job: job.name, stage, endpoint: base,
+        manifest_sha256: binding(serviceManifest).sha256 });
+      fixtureAuthority.service = session.service;
+      fixtureLease = await require('./mock-authority.cjs').lease(authority.socket, session.service, 'fixture');
+      base = authority.gateway;
+    }
+    if (authority) await register('preparation');
     const inventoryFile = path.join(directory, 'approved-fixtures.json');
     const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR'].filter(k => process.env[k]).map(k => [k, process.env[k]]));
     Object.assign(env, { SOUNDROBE_AUTO_TAG_EVAL_CORPUS: corpus, SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT: sourceRoot,
@@ -208,9 +224,17 @@ async function main(output, executable, userLabelDirectory, mode) {
     async function invoke(name, bounded) {
       checkLocks();
       const target = path.join(directory, name); fs.mkdirSync(target);
+      if (authority) {
+        const descriptor = path.join(target, 'session.json');
+        save(descriptor, { client: { socket: authority.socket, handle: session.client }, job: job.name,
+          stage: name === 'preparation' ? 'preparation' : 'execution', gateway: base,
+          retained_root: path.join(directory, 'retained-native'),
+          preparation: name === 'preparation' ? null : path.join(directory, 'preparation', 'preparation.json') });
+        env.SOUNDROBE_MOCK_EVALUATION = descriptor;
+      }
       const log = fs.openSync(path.join(target, 'native.log'), 'wx');
       try {
-        const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${paired ? 'paired_cold_mock_auto_tag_eval' : bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
+        const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${authority ? 'durable_cold_mock_auto_tag_eval' : paired ? 'paired_cold_mock_auto_tag_eval' : bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
           '--ignored', '--nocapture'], { cwd: root, env: { ...env, SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: target,
             SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: true, stdio: ['ignore', log, log] });
         let watchdogExpired = false;
@@ -224,7 +248,7 @@ async function main(output, executable, userLabelDirectory, mode) {
           return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
         });
         save(path.join(target, 'records.json'), exported);
-        const observed = await inventoryAt(base, paired);
+        const observed = await inventoryAt(base, paired, session?.client);
         save(path.join(target, 'inventory-final.json'), observed);
         save(path.join(target, 'execution.json'), { exitCode, signal, watchdogExpired, records: exported.length,
           providerRequests: observed.requests.length, modelRequests: observed.modelRequests.length,
@@ -234,9 +258,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     }
     try {
       if (paired) {
-        save(inventoryFile, { records: (await inventoryAt(base, true)).records });
-        const final = await invoke('cold', false);
-        const preparationFile = path.join(final.target, 'preparation.json');
+        save(inventoryFile, { records: (await inventoryAt(base, true, session?.client)).records });
+        async function project(final, preparationFile) {
         if (!fs.existsSync(preparationFile)) throw Error(`No validated preparation for ${job.name}; retained requested membership`);
         const bindings = { corpus: binding(corpus), expectations: binding(expectations),
           ...(matchesUserLabels(job) ? userBindings : {}),
@@ -268,6 +291,38 @@ async function main(output, executable, userLabelDirectory, mode) {
             || executions.at(-1).score.observedFieldSlots !== executions.at(-1).score.requestedFieldSlots
             || executions.at(-1).score.serviceFailureSlots !== 0
             || final.exported.some(r => r.serviceFailureObserved || !r.payloadUnchanged || r.pairedMock.stopped)) throw Error('Cold mock execution non-clean; retain partial scoring and full membership');
+        }
+        if (authority) {
+          const preparation = await invoke('preparation', false);
+          const preparationFile = path.join(preparation.target, 'preparation.json');
+          if (preparation.exitCode !== 0 || preparation.signal || preparation.inventory.misses.length
+              || preparation.exported.length || preparation.inventory.modelRequests.length || !fs.existsSync(preparationFile)) throw Error('Durable preparation incomplete');
+          const prepared = read(preparationFile);
+          const requestEvents = prepared.plan.events.filter(e => e.kind === 'request');
+          if (requestEvents.length > (job.role ? 1 : 0) || requestEvents.some(e => canonical(e.body) !== canonical(body))) throw Error('Prepared mock request differs');
+          preparations.push({ job: job.name, input: prepared.fieldObservations.inputSha256, inventory: preparation.inventory });
+          await require('./mock-authority.cjs').rpc(authority.socket, session.client, { op: 'close' });
+          pending.push(async () => {
+            fixtureAuthority = { socket: authority.socket, onFatal: () => fixtureLease?.abandon() };
+            service = createService(serviceManifest, fixtureAuthority);
+            service.listen(0, '127.0.0.1'); await once(service, 'listening');
+            base = `http://127.0.0.1:${service.address().port}`;
+            await register('execution');
+            env.SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL = base;
+            try {
+              const final = await invoke('cold', false);
+              await project(final, preparationFile);
+              await require('./mock-authority.cjs').rpc(authority.socket, session.client, { op: 'close' });
+            } finally {
+              service.closeAllConnections(); await new Promise(resolve => service.close(resolve));
+              fs.writeFileSync(path.join(directory, 'cold-fixture-ingress.json'), service.compactInventory(), { flag: 'wx' });
+              await fixtureLease.release();
+            }
+          });
+        } else {
+          const final = await invoke('cold', false);
+          await project(final, path.join(final.target, 'preparation.json'));
+        }
         continue;
       }
       const preparation = await invoke('preparation-disabled', false);
@@ -352,7 +407,38 @@ async function main(output, executable, userLabelDirectory, mode) {
         modelRequests: final.inventory.modelRequests.length, misses: final.inventory.misses.length }));
     } finally {
       service.closeAllConnections(); await new Promise(resolve => service.close(resolve));
+      if (authority) {
+        fs.writeFileSync(path.join(directory, 'preparation-fixture-ingress.json'), service.compactInventory(), { flag: 'wx' });
+        await fixtureLease.release();
+      }
     }
+  }
+  if (authority) {
+    for (const subject of ['crowd', 'billie', 'enya']) {
+      if (preparations.find(p => p.job === `disabled-${subject}`).input !== preparations.find(p => p.job === `assistance-${subject}`).input) throw Error('Paired pre-freeze baseline mismatch');
+    }
+    const frozen = await authority.command({ op: 'freeze' });
+    save(path.join(output, 'frozen-checkpoint.json'), await authority.command({ op: 'report' }));
+    await authority.command({ op: 'consume', fake_checkpoint_sha256: frozen.checkpoint });
+    for (const execute of pending) await execute();
+    const report = await authority.command({ op: 'report' });
+    for (const job of jobs) {
+      const session = Object.values(report.sessions).find(s => s.stage === 'execution' && s.job === job.name);
+      if (!session || session.observation_sha256 !== binding(path.join(output, job.name, 'cold', 'cold.jsonl')).sha256) {
+        throw Error('Durable observation receipt differs from consumed export');
+      }
+    }
+    const inventories = [...preparations.map(p => p.inventory), ...jobs.map(j => read(path.join(output, j.name, 'cold', 'inventory-final.json')))];
+    const wires = inventories.flatMap(i => i.wireArrivals), ids = wires.map(w => w.operation);
+    if (new Set(ids).size !== ids.length || ids.some(id => !report.operations[id]?.arrived)
+        || ids.length !== report.counters.arrived || report.counters.reserved !== report.counters.completed
+        || report.counters.inventory !== wires.filter(w => w.route === '/__fixtures/compact').length
+        || report.counters.model > 1 || report.counters.provider !== inventories.reduce((n,i) => n+i.requests.length,0)
+        || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0)) throw Error('Durable wire reconciliation failed');
+    save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length, uniqueOperations: new Set(ids).size });
+    await authority.command({ op: 'publish' });
+    save(path.join(output, 'authority-receipt.json'), await authority.settle(false, report));
+    activeAuthority = null;
   }
   const requested = read(path.join(output, 'requested-membership.json'));
   for (const [key, actual] of Object.entries({
@@ -373,7 +459,13 @@ async function main(output, executable, userLabelDirectory, mode) {
   save(path.join(output, 'selection-status.json'), { executionStatus: 'complete', scoringStatus: 'insufficient',
     resultsFile: path.relative(root, path.join(output, 'results.json')) });
 }
-if (require.main === module) main(...process.argv.slice(2)).catch(error => {
+let activeAuthority;
+if (require.main === module) main(...process.argv.slice(2)).catch(async error => {
+  if (activeAuthority) {
+    try { save(path.join(admittedOutput, 'authority-incomplete.json'), await activeAuthority.settle(true)); }
+    catch (failure) { console.error(String(failure)); }
+    activeAuthority = null;
+  }
   if (admittedOutput && fs.existsSync(path.join(admittedOutput, 'requested-membership.json'))) {
     if (read(path.join(admittedOutput, 'selection.json')).version === 2) {
       save(path.join(admittedOutput, 'failure-envelope.json'), failureEnvelope(admittedOutput));

@@ -71,7 +71,8 @@ function loadRecords(manifestPath) {
   return records;
 }
 
-function createService(manifestPath) {
+function createService(manifestPath, authority) {
+  if (authority && typeof authority.onFatal !== 'function') throw Error('mock fixture requires a fatal lease callback');
   const records = loadRecords(manifestPath);
   const scripted = readJson(manifestPath).scriptedModel;
   if (scripted && (!Number.isInteger(scripted.maxRequests) || scripted.maxRequests < 1
@@ -86,11 +87,31 @@ function createService(manifestPath) {
   const modelRequests = [];
   const wireArrivals = [];
   const misses = new Map();
-  const server = http.createServer((request, response) => {
+  const compactInventory = () => {
+    const compact = { schemaVersion: 1, compact: true, groundTruth: 'unreviewed_provider_evidence',
+      records: records.map(({ bytes, ...record }) => ({ ...record, bytes: bytes.length })),
+      requests, modelRequests: modelRequests.map(({ body, response: result, ...record }) => ({
+        ...record, responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)) })),
+      wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] };
+    const bytes = Buffer.from(JSON.stringify(compact));
+    if (bytes.length > 8388608) throw Error('compact_inventory_ceiling');
+    return bytes;
+  };
+  let terminal = false;
+  const denyIngress = async (reason) => {
+    if (!authority) return;
+    if (terminal) return;
+    terminal = true;
+    try {
+      await require('./auto-tag-eval-replay/mock-authority.cjs').rpc(authority.socket, authority.service, {
+        op: 'ingress_denied', reason,
+      });
+    } catch { authority.onFatal(); }
+  };
+  const server = http.createServer(async (request, response) => {
     const url = new URL(request.url, 'http://127.0.0.1');
     const wire = { method: request.method, route: url.pathname, status: null, state: 'receiving' };
     wireArrivals.push(wire);
-    request.on('aborted', () => { wire.state = 'aborted'; });
     const send = (status, body, headers = {}) => {
       wire.status = status;
       wire.state = 'responded';
@@ -98,13 +119,34 @@ function createService(manifestPath) {
       response.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': bytes.length, ...headers });
       response.end(bytes);
     };
+    if (terminal) { request.resume(); return send(409, { error: 'mock_fixture_terminal' }); }
+    let received = Buffer.alloc(0);
+    try {
+      for await (const chunk of request) {
+        if (received.length + chunk.length > 65536) {
+          wire.state = 'oversized'; await denyIngress('oversized'); request.destroy(); return;
+        }
+        received = Buffer.concat([received, chunk]);
+      }
+      if (authority) {
+        if (terminal) return send(409, { error: 'mock_fixture_terminal' });
+        const operation = request.headers['x-soundrobe-mock-operation'];
+        if (!authority.service || typeof operation !== 'string') {
+          await denyIngress('missing_operation'); return send(409, { error: 'mock_arrival_denied' });
+        }
+        wire.operation = operation;
+        await require('./auto-tag-eval-replay/mock-authority.cjs').rpc(authority.socket, authority.service, {
+          op: 'arrival', operation,
+          request_sha256: sha256(Buffer.from(JSON.stringify([request.method, request.url, sha256(received)]))),
+        });
+      }
+    } catch {
+      wire.state = request.aborted ? 'aborted' : 'arrival_denied';
+      await denyIngress(request.aborted ? 'aborted' : 'arrival_denied');
+      return send(409, { error: 'mock_arrival_denied' });
+    }
     if (scripted && request.method === 'POST' && url.pathname === '/model/chat/completions') {
-      let bytes = '';
-      request.on('data', chunk => {
-        bytes += chunk;
-        if (Buffer.byteLength(bytes) > 65536) { wire.state = 'oversized'; request.destroy(); }
-      });
-      request.on('end', () => {
+      const bytes = received.toString();
         let body;
         try { body = JSON.parse(bytes); } catch { return send(400, { error: 'invalid_json' }); }
         const user = body.messages?.filter(message => message.role === 'user');
@@ -131,7 +173,6 @@ function createService(manifestPath) {
         modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)), bytes: Buffer.byteLength(bytes) });
         if (!allowed) misses.set(`model-${modelRequests.length}`, { provider: 'scripted_model', status });
         send(status, result);
-      });
       return;
     }
     if (request.method !== 'GET') return send(405, { error: 'read_only_fixture_service' });
@@ -139,14 +180,8 @@ function createService(manifestPath) {
       wire.status = 200;
       wire.state = 'responded';
       if (url.pathname === '/__fixtures/compact') {
-        const compact = { schemaVersion: 1, compact: true, groundTruth: 'unreviewed_provider_evidence',
-          records: records.map(({ bytes, ...record }) => ({ ...record, bytes: bytes.length })),
-          requests, modelRequests: modelRequests.map(({ body, response: result, ...record }) => ({
-            ...record, responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)) })),
-          wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] };
-        const bytes = Buffer.from(JSON.stringify(compact));
-        if (bytes.length > 8388608) return send(507, { error: 'compact_inventory_ceiling' });
-        return send(200, bytes);
+        try { return send(200, compactInventory()); }
+        catch { return send(507, { error: 'compact_inventory_ceiling' }); }
       }
       return send(200, { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
         records: records.map(({ bytes, ...record }) => ({ ...record, body: JSON.parse(bytes.toString()) })),
@@ -165,11 +200,13 @@ function createService(manifestPath) {
     }
     send(record.status, record.bytes, record.headers);
   });
-  server.on('connect', (request, socket) => {
+  server.on('connect', async (request, socket) => {
     wireArrivals.push({ method: 'CONNECT', route: /^[a-z0-9.-]+:\d+$/i.test(request.url)
       ? request.url : '[invalid authority]', status: 403, state: 'denied_tunnel' });
+    await denyIngress('connect');
     socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
   });
+  server.compactInventory = compactInventory;
   return server;
 }
 

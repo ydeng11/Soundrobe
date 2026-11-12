@@ -1,0 +1,30 @@
+{
+  "run-01": {
+    "status": "incomplete",
+    "observedFieldSlots": 183,
+    "serviceFailureSlots": 33,
+    "requestedFieldSlots": 216,
+    "modelWires": 0,
+    "failure": "one-request frozen plan rejected during restore",
+    "preFixSourceBytesSeparatelyArchived": false
+  },
+  "run-02": {
+    "status": "complete",
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "serviceFailureSlots": 0,
+    "userAcceptance": {
+      "requestedFieldSlots": 22,
+      "observedFieldSlots": 22,
+      "agreeingFieldSlots": 0,
+      "serviceFailureSlots": 0
+    },
+    "nativeAudit": "run-audit.json"
+  },
+  "supersededControls": [
+    "controls-02",
+    "controls-03"
+  ],
+  "finalControls": "controls-04",
+  "rawEvidenceRetained": true
+}

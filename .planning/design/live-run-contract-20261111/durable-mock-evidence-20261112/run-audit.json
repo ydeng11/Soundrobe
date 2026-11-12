@@ -1,0 +1,109 @@
+{
+  "native": {
+    "run": ".amp/in/artifacts/durable-mock-authority-20261112/run-02",
+    "checks": "passed",
+    "evaluations": [
+      {
+        "name": "disabled-crowd",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 15,
+        "modelRequests": 0,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 16,
+        "nativeElapsedMs": 6622
+      },
+      {
+        "name": "disabled-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26363
+      },
+      {
+        "name": "disabled-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 159517
+      },
+      {
+        "name": "assistance-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26469
+      },
+      {
+        "name": "assistance-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 159706
+      },
+      {
+        "name": "assistance-crowd",
+        "variant": "eligible_request",
+        "outcome": "needs_review",
+        "providerRequests": 15,
+        "modelRequests": 1,
+        "wireArrivals": 18,
+        "inventoryBytes": 969855,
+        "matchedEvents": 17,
+        "nativeElapsedMs": 7192
+      }
+    ],
+    "providerRequests": 236,
+    "modelRequests": 1,
+    "wireArrivals": 249,
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "labelableSlots": 30,
+    "userAcceptanceRequested": 22,
+    "userAcceptanceAgreeing": 0,
+    "groundedAssistanceAccuracyCredit": 0
+  },
+  "durable": {
+    "runId": "72b402d6-b70d-400e-9ad3-cfa46d8f9f0a",
+    "checkpoint": "d4652c5bbfe171f352e9065f74b6c4bdabe14d11833d2b7be8cd4cdc192238aa",
+    "counts": {
+      "arrived": 497,
+      "completed": 497,
+      "inventory": 24,
+      "model": 1,
+      "provider": 472,
+      "reserved": 497
+    },
+    "inventoryBytesMin": 969410,
+    "inventoryBytesMax": 999453,
+    "sessions": 12,
+    "consumptions": 1,
+    "receipt": "complete",
+    "actualWireArrivals": 497
+  },
+  "auditor": {
+    "historicalSourceSha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+    "adaptedSourceSha256": "5a2c4703762ea1de8296ec6c53e4efe0a628470210ae7a192265242c179c24e5",
+    "adaptation": "preparation/preparation.json instead of cold/preparation.json"
+  },
+  "liveAuthority": false,
+  "powerLossProved": false,
+  "groundedAssistanceAccuracyCredit": 0
+}

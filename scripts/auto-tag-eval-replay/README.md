@@ -313,3 +313,75 @@ exhaustive discovery. Source, policy, or input changes invalidate the observatio
 The exporter is a diagnostic within the existing workflow, not a new certificate
 framework or tagger. Its passing contracts do not erase historical safety findings
 or earn scripted assistance grounded-accuracy credit.
+
+## Run the cold selection with durable mock accounting
+
+`run-bounded.cjs --durable-mock` uses a native test-only broker on Unix. The
+application has no broker entry point or live-enable switch. This mode requires
+the existing ignored generated inputs under `.amp/in/eval-dummies/`, the frozen
+scorer-only label directory, and the matching native test executable. These
+dependencies do not provide fresh-clone exact replay or executable attestation.
+
+Build the server-library test executable without loading `.env.local`:
+
+```sh
+cargo test --offline --manifest-path src-tauri/Cargo.toml \
+    --no-default-features --features server --lib --no-run
+```
+
+Use the executable path printed by Cargo, a new output directory, and the frozen
+label directory. Never select the live evaluator or use original music as input.
+
+```sh
+node scripts/auto-tag-eval-replay/run-bounded.cjs \
+    .amp/in/artifacts/NEW_RUN "$test_executable" \
+    .planning/plans/crowd-lu-user-acceptance-v1-20261111 --durable-mock
+```
+
+The broker owns six cold jobs, 72 observations and 216 requested field slots
+from preparation onward. Every preparation finishes and closes its native and
+fixture leases before one checkpoint freezes. One fake checkpoint consumption
+admits execution on the same retained files with new caches and replacement
+fixture sessions. Ordinary matching, assistance eligibility, WriteQueue ownership
+and scorer-only user labels remain unchanged.
+
+SQLite transactions serialize reservations, dispatch admission and stop. The
+cumulative limits are 512 provider operations, 32 compact-inventory operations,
+one conditional scripted model request and 576 operations in total. Arrival and
+response settlement are separate facts. A reservation does not authorize a send.
+A dispatch or atomic write admitted before stop may finish after stop. No new
+admission follows stop, and no rollback or cancellation of socket bytes is promised.
+
+The broker accepts only registered numeric-loopback routes. It never supplies
+real credentials, reads account configuration or forwards upstream. Fixtures
+stop admission on invalid ingress. If notification fails, they abandon their
+persistent lease. Unknown outcomes, invalid handles, duplicate consumption,
+storage errors and unexpected lease loss terminate the run without refund or
+resumed execution. Existing registries permit read-only incomplete reporting,
+not restart. The fake verifier and opaque handles assume trusted reviewed mock
+processes. They are not authenticated user approval or malicious-user containment.
+
+`source-and-tool-locks.json`, `frozen-checkpoint.json`, the SQLite registry,
+`wire-reconciliation.json` and `authority-receipt.json` bind the run. Final
+publication requires a clean broker exit and a complete receipt matching the
+checkpoint, membership, sources, preparations, observations and counters. Missing
+or terminal receipts retain the full incomplete denominator. Per-job compact
+fixture snapshots preserve operation accounting even when post-failure HTTP
+inventory is unavailable. The 8-MiB compact-inventory ceiling is unchanged.
+
+Run the offline process and crash controls with a completed run's membership:
+
+```sh
+node scripts/auto-tag-eval-replay/check-mock-authority.cjs \
+    .amp/in/artifacts/NEW_CONTROLS "$test_executable" \
+    .amp/in/artifacts/EXISTING_RUN/requested-membership.json
+```
+
+The controls compare actual loopback arrivals with reservations, race separate
+children, replace fixture sessions and deny recovery after storage faults or
+process crashes. Test-only bootstrap selectors cover reservation commit and
+dispatch windows. SQLite process-restart observations do not prove power-loss
+durability, physical flushing or platform-wide guarantees. Storage tickets,
+independent supervision, whole-run deadlines, credential custody, live approval,
+billing and privacy-retention enforcement remain outside this mode. Scripted
+responses always earn zero grounded assistance accuracy credit.

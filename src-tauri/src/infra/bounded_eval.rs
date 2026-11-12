@@ -148,6 +148,31 @@ impl PairedMock {
         })))
     }
 
+    pub(crate) fn restore(
+        plan: &Value,
+        endpoint: &str,
+        model_allowed: bool,
+    ) -> Result<Self, String> {
+        let events = plan["events"].as_array().ok_or("missing frozen events")?;
+        let requests = events.iter().filter(|e| e["kind"] == "request").count();
+        if plan["mode"] != "mock_only"
+            || plan["preparing"] != true
+            || plan["stopped"] != false
+            || plan["requests"].as_u64() != Some(requests as u64)
+            || requests > usize::from(model_allowed)
+            || events.len() > 64
+            || plan["planSha256"] != sha(&serde_json::to_vec(events).unwrap())
+            || events
+                .iter()
+                .any(|e| serde_json::to_vec(e).unwrap().len() > 262144)
+        {
+            return Err("invalid frozen mock plan".into());
+        }
+        let prepared = Self::preparation(endpoint, model_allowed)?;
+        prepared.0.lock().unwrap().events = events.clone();
+        Ok(prepared.replay())
+    }
+
     pub(crate) fn complete(&self) -> Result<(), String> {
         let mut s = self.0.lock().unwrap();
         if s.stopped || (!s.preparing && s.cursor != s.events.len()) {
@@ -236,6 +261,10 @@ pub(crate) fn paired_event(mut event: Value) -> Result<bool, String> {
             Ok(false)
         })
         .unwrap_or(Ok(false))
+        .map_err(|error| {
+            deny("paired mock drift");
+            error
+        })
 }
 
 pub(crate) fn paired_assisted(value: Value) {
@@ -643,12 +672,22 @@ pub(crate) fn write_guard() -> impl Fn() -> Result<(), String> + Send + 'static 
         .try_with(|s| (s.budget.clone(), s.job.clone(), s.input.clone()))
         .ok();
     let paired = PAIRED.try_with(Clone::clone).ok();
+    #[cfg(unix)]
+    let authority = crate::infra::mock_run_authority::Client::current();
     move || {
         if paired.as_ref().is_some_and(|p| {
             let s = p.0.lock().unwrap();
             s.preparing || s.stopped
         }) {
+            #[cfg(unix)]
+            if let Some(client) = &authority {
+                let _ = client.command(crate::infra::mock_run_authority::Command::Stop);
+            }
             return Err("paired write not admitted".into());
+        }
+        #[cfg(unix)]
+        if let Some(client) = &authority {
+            client.command(crate::infra::mock_run_authority::Command::MutationAdmission)?;
         }
         match &scope {
             Some((budget, job, input)) => budget.validate_job(&job, &input),
@@ -675,6 +714,10 @@ pub(crate) fn response_limit() -> Option<usize> {
 }
 
 pub(crate) fn deny(reason: &'static str) -> String {
+    #[cfg(unix)]
+    if let Some(client) = crate::infra::mock_run_authority::Client::current() {
+        let _ = client.command(crate::infra::mock_run_authority::Command::Stop);
+    }
     let _ = ACTIVE.try_with(|s| {
         let mut state = s.budget.0.lock().unwrap();
         state.stopped = Some(reason);
@@ -819,6 +862,39 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+
+    #[tokio::test]
+    async fn paired_restore_keeps_conditional_requests_but_restarts_execution_accounting() {
+        let endpoint = "http://127.0.0.1:1234/model";
+        for allowed in [false, true] {
+            let plan = PairedMock::preparation(endpoint, allowed).unwrap();
+            let body = json!({"response_format":{"json_schema":{"name":"GenreFillResponse"}}});
+            if allowed {
+                plan.run(async {
+                    assert!(paired_request(endpoint, &body).is_err());
+                })
+                .await;
+            }
+            let frozen = plan.observations();
+            assert_eq!(frozen["requests"], u32::from(allowed));
+            let replay = PairedMock::restore(&frozen, endpoint, allowed).unwrap();
+            assert_eq!(replay.observations()["requests"], 0);
+            replay
+                .run(async {
+                    if allowed {
+                        paired_request(endpoint, &body).unwrap();
+                    }
+                })
+                .await;
+            replay.complete().unwrap();
+            let mut forged = frozen.clone();
+            forged["requests"] = json!(if allowed { 0 } else { 1 });
+            assert!(PairedMock::restore(&forged, endpoint, allowed).is_err());
+            if allowed {
+                assert!(PairedMock::restore(&frozen, endpoint, false).is_err());
+            }
+        }
+    }
 
     #[tokio::test]
     async fn paired_mock_plan_is_dry_and_replay_rejects_drift_before_effects() {

@@ -1,0 +1,69 @@
+{
+  "freshDuringCommitDelivery": true,
+  "nativeTaggingOrMockServiceExecutions": 0,
+  "typecheck": "passed",
+  "portableScorerTests": 19,
+  "frozenUserProjectionTests": 3,
+  "deliveryVerifierTests": 5,
+  "deliveryVerifierTDD": "three negatives fail against permissive stub; committed-reader control reproduces untracked-binary Git read; all five pass after corrections",
+  "reprojectedSlots": 216,
+  "scorerCorruptionControls": 70,
+  "freshAuditMatchesSealedResult": true,
+  "retainedDependenciesChecked": 664,
+  "scriptSyntaxChecks": 4,
+  "whitespaceCheck": "git diff --cached --check passed",
+  "historicalFrozenLabelFiveTestSuite": "not rerun; retained one pre-existing binding error remains explicit",
+  "reusedNativeAndMockGates": "reused-gates.json",
+  "logs": [
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/typecheck.log",
+      "bytes": 46,
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/scorer.log",
+      "bytes": 118,
+      "sha256": "fcb40d69064d7875061e9c43a167839a19255ce12469d15d2de513b0a28a4fa8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/frozen-user-projection.log",
+      "bytes": 607,
+      "sha256": "6d1eeaabef379a340377d184f6866e94273eb281301a1ea6731589807b24f9a8"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/verifier-red.log",
+      "bytes": 2055,
+      "sha256": "dca541331a81018a3954837f555ec271d61011eeb09d3b9f3c1f81ca32fd1702"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/verifier-green.log",
+      "bytes": 102,
+      "sha256": "dbdd9674448a06e1b0c30ab882947d9cb7fc864e7d7c138852e5ad3f9de059a5"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/fresh-run-audit.json",
+      "bytes": 3101,
+      "sha256": "cd7412b4bb0fc3344f54bac39bafe01880b0ef2b9d8141fffb34d49aa5d956d3"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/fresh-projection-controls.json",
+      "bytes": 2945,
+      "sha256": "e71d02f2995810216cc54883ff963feabbe16268cbdb28f9aa3deac00792c456"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/worktree-verification.json",
+      "bytes": 162,
+      "sha256": "5b5e921703c76b0fbf1d408f32e2522dfda420a30cd865a2f9eec1ad00552c4a"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/committed-reader-red.log",
+      "bytes": 1477,
+      "sha256": "71338912ef11ce81483a6451cdd8cb093ee3b8e3583769c00d23ac420cbd5d35"
+    },
+    {
+      "path": ".amp/in/artifacts/durable-mock-delivery-20261112/committed-reader-green.log",
+      "bytes": 103,
+      "sha256": "6d024d30205e269c3848bc234f2d070697fe5a86ac5cc9f4004ee91571f6f353"
+    }
+  ]
+}

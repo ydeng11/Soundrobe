@@ -1,0 +1,36 @@
+{
+  "fiveHistoricalTests": {
+    "passed": 4,
+    "errors": 1,
+    "failedCheck": "test_reproducible_packet"
+  },
+  "changedPacketFields": [
+    "bindings"
+  ],
+  "bindingDriftAlreadyAtStartingHEAD": {
+    "scripts/auto-tag-eval-replay/score-observations.py": {
+      "sealed": "1222426479f9180b0184f5a27e42b6441c7736ae0d0c131d136a75e08b994afe",
+      "current": "9bbe5274e8dda4ff2daaf424528d507ff5068b4f7522d15bda26dcf1f55c6e98",
+      "head": "9bbe5274e8dda4ff2daaf424528d507ff5068b4f7522d15bda26dcf1f55c6e98"
+    },
+    "src-tauri/src/commands/auto_tag.rs": {
+      "sealed": "5f2e49fe5d380027ccd83a2c1f08e56fb656c0e9bd9ab4209899c07ef89dac59",
+      "current": "4a25fa62022643efb78cb3ea389744772e3001106bfa810129868f013c9ed88b",
+      "head": "4a25fa62022643efb78cb3ea389744772e3001106bfa810129868f013c9ed88b"
+    }
+  },
+  "labelValuesAndOccurrenceSourcesUnchanged": true,
+  "historicalSeals": [
+    {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS",
+      "entries": 7,
+      "status": "unchanged"
+    },
+    {
+      "path": ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS",
+      "entries": 8,
+      "status": "unchanged"
+    }
+  ],
+  "historicalPacketsRewritten": false
+}

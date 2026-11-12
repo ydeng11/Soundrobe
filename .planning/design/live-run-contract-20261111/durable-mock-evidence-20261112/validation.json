@@ -1,0 +1,53 @@
+{
+  "command": "CARGO_NET_OFFLINE=true just --no-dotenv check",
+  "exitCode": 0,
+  "typecheck": "passed",
+  "renderer": {
+    "passed": 858,
+    "failed": 0
+  },
+  "desktopRustLibrary": {
+    "passed": 1309,
+    "failed": 0,
+    "ignored": 32
+  },
+  "fixtureScript": {
+    "passed": 12,
+    "failed": 0
+  },
+  "reviewAndSuiteScript": {
+    "passed": 10,
+    "failed": 0
+  },
+  "serverRustLibrary": {
+    "passed": 778,
+    "failed": 0,
+    "ignored": 21
+  },
+  "serverAudioCLI": {
+    "passed": 14,
+    "failed": 0,
+    "ignored": 12
+  },
+  "serverRecoveryCLI": {
+    "passed": 5,
+    "failed": 0
+  },
+  "ignoredTestsClaimedAsPassing": false,
+  "credentialedOrDisplaySmokesRun": false,
+  "combinedLogSha256": "39c0f0a530f448a7e40d79a154aea41278b1d14e80e1e0f9c1a6597f611915e6",
+  "extraChecks": {
+    "authorityPassed": 12,
+    "authorityProcessExplicitlyIgnored": 1,
+    "pairedPassed": 23,
+    "portableScorerPassed": 19,
+    "processWireScenarios": 20,
+    "projectionCorruptions": 70,
+    "durableAuditCorruptions": 8,
+    "historicalLabelTestsPassed": 4,
+    "historicalLabelTestsErrors": 1
+  },
+  "historicalLabelFailure": "label-binding-status.json",
+  "gitDiffCheck": "passed",
+  "scriptSyntax": "four maintained CommonJS tools passed node --check"
+}

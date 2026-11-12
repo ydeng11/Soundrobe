@@ -12,7 +12,7 @@ use crate::commands::tracks::TrackData;
 use crate::state::config::{load_from, ProcessEnv};
 use crate::state::sqlite::CacheState;
 use crate::state::write_queue::WriteQueue;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
@@ -1060,7 +1060,7 @@ fn selected_track_evidence(result: Option<&AutoTagRunResult>) -> Option<Value> {
     })
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 struct SyntheticMaterialization {
     track_count: usize,
     bytes: u64,
@@ -3536,6 +3536,65 @@ async fn paired_cold_mock_auto_tag_eval() {
     Box::pin(run_auto_tag_eval(None, Some(&arm))).await;
 }
 
+#[cfg(unix)]
+#[tokio::test]
+#[ignore = "explicit durable mock session on disposable generated inputs only"]
+async fn durable_cold_mock_auto_tag_eval() {
+    use crate::infra::mock_run_authority::{Command, Evaluation, Stage};
+    let descriptor =
+        PathBuf::from(std::env::var("SOUNDROBE_MOCK_EVALUATION").expect("explicit mock session"));
+    let context = Evaluation::read(&descriptor).expect("invalid mock session");
+    let base = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").unwrap();
+    assert_eq!(
+        base.trim_end_matches('/'),
+        context.gateway.trim_end_matches('/')
+    );
+    offline_eval_providers(&base).unwrap();
+    let lease = context
+        .client
+        .lease("native")
+        .expect("native liveness admission denied");
+    let attached = context
+        .client
+        .command(Command::Attach {
+            executable_sha256: format!(
+                "{:x}",
+                Sha256::digest(fs::read(std::env::current_exe().unwrap()).unwrap())
+            ),
+            preparation_sha256: context
+                .preparation
+                .as_ref()
+                .map(|_| format!("{:x}", Sha256::digest(context.preparation_bytes().unwrap()))),
+        })
+        .expect("native attachment denied");
+    assert_eq!(attached["job"], context.job);
+    assert_eq!(
+        attached["stage"],
+        serde_json::to_value(context.stage).unwrap()
+    );
+    let arm = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ARM").unwrap();
+    assert!(matches!(arm.as_str(), "disabled" | "assistance"));
+    context
+        .scope(async {
+            Box::pin(run_auto_tag_eval(None, Some(&arm))).await;
+            if context.stage == Stage::Execution {
+                let output =
+                    PathBuf::from(std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR").unwrap());
+                context
+                    .client
+                    .command(Command::Finish {
+                        observation_sha256: format!(
+                            "{:x}",
+                            Sha256::digest(fs::read(output.join("cold.jsonl")).unwrap())
+                        ),
+                    })
+                    .expect("mock completion denied");
+            }
+        })
+        .await;
+    lease.release().expect("native quiescence unknown");
+}
+
 /// Separate opt-in preparation path. It cannot activate external models/providers.
 #[tokio::test]
 #[ignore = "requires a frozen mock manifest and separate one-shot mock approval"]
@@ -3575,6 +3634,12 @@ async fn run_auto_tag_eval(
     budget: Option<crate::infra::bounded_eval::Budget>,
     paired_arm: Option<&str>,
 ) {
+    use crate::infra::mock_run_authority::{Command as MockCommand, Evaluation, Stage};
+    let durable = Evaluation::current();
+    let frozen_preparation = durable
+        .as_ref()
+        .filter(|d| d.stage == Stage::Execution)
+        .map(|d| serde_json::from_slice::<Value>(&d.preparation_bytes().unwrap()).unwrap());
     let corpus_path = PathBuf::from(
         std::env::var("SOUNDROBE_AUTO_TAG_EVAL_CORPUS")
             .expect("SOUNDROBE_AUTO_TAG_EVAL_CORPUS required"),
@@ -3696,6 +3761,15 @@ async fn run_auto_tag_eval(
     if let Some(arm) = paired_arm {
         assert_eq!(selected.len(), 1, "one cold arm per isolated invocation");
         let case = selected[0];
+        if let Some(context) = &durable {
+            let short = match case.case_id.as_str() {
+                "036e0a00e45b" => "crowd",
+                "54e7923a3000" => "billie",
+                "f7756354af37" => "enya",
+                _ => panic!("unsupported mock job"),
+            };
+            assert_eq!(context.job, format!("{arm}-{short}"));
+        }
         assert!(
             matches!(
                 (case.case_id.as_str(), profile.as_str()),
@@ -3778,21 +3852,36 @@ async fn run_auto_tag_eval(
     config.remote_lookup_enabled = Some(true);
     config.discogs_enabled = Some(true);
     config.lyrics_download_enabled = Some(false);
-    let temp_root = if paired_arm.is_some() {
+    let temp_root = if let Some(context) = &durable {
+        context.retained_root.clone()
+    } else if paired_arm.is_some() {
         artifact_dir.join("retained-native")
     } else {
         PathBuf::from("/private/tmp")
             .join(format!("soundrobe-auto-tag-eval-{}", uuid::Uuid::new_v4()))
     };
-    if paired_arm.is_some() {
+    if paired_arm.is_some() && frozen_preparation.is_none() {
         assert!(
             !temp_root.exists(),
             "retained paired media cannot be reused"
         );
     }
     fs::create_dir_all(&temp_root).expect("create evaluation temp root");
-    let cache_path = temp_root.join("cache.db");
-    let cache = CacheState::new(temp_root.clone());
+    let store_root = if durable.is_some() {
+        temp_root.join(if frozen_preparation.is_some() {
+            "execution-stores"
+        } else {
+            "setup-stores"
+        })
+    } else {
+        temp_root.clone()
+    };
+    if durable.is_some() {
+        assert!(!store_root.exists(), "stores cannot be reused");
+        fs::create_dir(&store_root).unwrap();
+    }
+    let cache_path = store_root.join("cache.db");
+    let cache = CacheState::new(store_root.clone());
     assert!(cache.initialize(Some(cache_path.to_str().unwrap())));
     let providers = if let Some(base) = &mock_url {
         config.discogs_token = None;
@@ -3810,8 +3899,8 @@ async fn run_auto_tag_eval(
             .expect("provider inventory not approved");
     }
     let queue = WriteQueue::default();
-    let alias_file = temp_root.join("aliases.json");
-    let worker_root = temp_root.join("worker");
+    let alias_file = store_root.join("aliases.json");
+    let worker_root = store_root.join("worker");
     let worker = crate::state::worker::WorkerStore::new_in(worker_root.clone());
     assert!(worker.initialize());
     let mut records = Vec::new();
@@ -3852,18 +3941,32 @@ async fn run_auto_tag_eval(
                 .join(phase)
                 .join(&case.case_id)
                 .join(safe_relative_folder(&case.source_relative_folder));
-            let synthetic = materialize_synthetic_case(&source, &destination, &queue)
-                .await
-                .expect("materialize synthetic FLAC evaluation folder");
-            let copied_before = hash_map(&destination);
+            let synthetic = if let Some(preparation) = &frozen_preparation {
+                assert!(destination.is_dir(), "frozen physical folder missing");
+                serde_json::from_value::<SyntheticMaterialization>(
+                    preparation["materialization"].clone(),
+                )
+                .unwrap()
+            } else {
+                materialize_synthetic_case(&source, &destination, &queue)
+                    .await
+                    .expect("materialize synthetic FLAC evaluation folder")
+            };
+            let copied_before = if let Some(preparation) = &frozen_preparation {
+                serde_json::from_value(preparation["copiedBeforeProfile"].clone()).unwrap()
+            } else {
+                hash_map(&destination)
+            };
             assert_eq!(copied_before.len(), synthetic.track_count);
-            apply_profile(&destination, &profile, &queue)
-                .await
-                .expect("apply evaluation input profile");
-            safety_input
-                .apply(&destination, &queue)
-                .await
-                .expect("apply disposable safety input");
+            if frozen_preparation.is_none() {
+                apply_profile(&destination, &profile, &queue)
+                    .await
+                    .expect("apply evaluation input profile");
+                safety_input
+                    .apply(&destination, &queue)
+                    .await
+                    .expect("apply disposable safety input");
+            }
             let preflight = build_lookup_request(&destination).expect("build clean lookup request");
             assert!(
                 destination
@@ -3905,7 +4008,32 @@ async fn run_auto_tag_eval(
                 "tracks": portable_reader_tracks(&destination, serde_json::to_value(&baseline_tracks).unwrap()).unwrap()
             })).unwrap();
             let profile_input_hash = format!("{:x}", Sha256::digest(profile_input_json.as_bytes()));
-            let paired = if let Some(arm) = paired_arm {
+            let paired = if let Some(preparation) = &frozen_preparation {
+                assert_eq!(
+                    preparation["fieldObservations"]["inputSha256"], profile_input_hash,
+                    "frozen profile drift"
+                );
+                let physical = collect_audio_files(&destination)
+                    .iter()
+                    .map(|file| RecordingSource::capture(Path::new(file)).unwrap())
+                    .collect::<Vec<_>>();
+                assert_eq!(
+                    preparation["physicalSources"],
+                    serde_json::to_value(physical).unwrap(),
+                    "frozen physical binding drift"
+                );
+                Some(
+                    crate::infra::bounded_eval::PairedMock::restore(
+                        &preparation["plan"],
+                        &format!(
+                            "{}/model",
+                            mock_url.as_deref().unwrap().trim_end_matches('/')
+                        ),
+                        paired_arm == Some("assistance") && case.case_id == "036e0a00e45b",
+                    )
+                    .expect("invalid frozen replay"),
+                )
+            } else if let Some(arm) = paired_arm {
                 let base = mock_url.as_deref().expect("paired requires mock URL");
                 let plan = crate::infra::bounded_eval::PairedMock::preparation(
                     &format!("{}/model", base.trim_end_matches('/')),
@@ -3922,6 +4050,12 @@ async fn run_auto_tag_eval(
                     .iter()
                     .map(|file| RecordingSource::capture(Path::new(file)).unwrap())
                     .collect::<Vec<_>>();
+                if let Some(context) = &durable {
+                    context
+                        .client
+                        .command(MockCommand::SealInputs)
+                        .expect("seal preparation inputs");
+                }
                 let preparation = plan
                     .run(async {
                         let result = tokio::time::timeout(
@@ -3985,9 +4119,35 @@ async fn run_auto_tag_eval(
                         "sourceRoot":source_root.strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()).unwrap(),
                         "requestJson":portable.to_string()},
                     "physicalSources":physical,"plan":plan.observations(),"executionCacheBefore":execution_cache_before,
+                    "materialization":synthetic,"copiedBeforeProfile":copied_before,
                     "preparationCacheAfter":cache_counts(&prep_root.join("cache.db")),"separateStores":true,
                     "ancillaryPolicy":"excluded before dispatch in both arms", "liveAuthority":false
                 })).unwrap()).unwrap();
+                if let Some(context) = &durable {
+                    let requests = plan.observations()["events"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .filter(|e| e["kind"] == "request")
+                        .cloned()
+                        .collect::<Vec<_>>();
+                    assert!(requests.len() <= 1);
+                    context
+                        .client
+                        .command(MockCommand::Prepared {
+                            preparation_sha256: format!(
+                                "{:x}",
+                                Sha256::digest(
+                                    fs::read(artifact_dir.join("preparation.json")).unwrap()
+                                )
+                            ),
+                            request_sha256: requests.first().map(|e| {
+                                format!("{:x}", Sha256::digest(e["body"].to_string().as_bytes()))
+                            }),
+                        })
+                        .expect("durable preparation denied");
+                    return;
+                }
                 Some(plan.replay())
             } else {
                 None
@@ -4461,7 +4621,15 @@ pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String
     {
         return Err("offline service must be an HTTP 127.0.0.1 origin".into());
     }
+    let mut headers = reqwest::header::HeaderMap::new();
+    if let Some(client) = crate::infra::mock_run_authority::Client::current() {
+        headers.insert(
+            "x-soundrobe-mock-session",
+            client.handle.parse().map_err(|_| "invalid mock session")?,
+        );
+    }
     let http = reqwest::Client::builder()
+        .default_headers(headers)
         .no_proxy()
         // Force even ancillary artwork HTTP/CONNECT attempts through the
         // fixture server, which never forwards traffic to another host.
