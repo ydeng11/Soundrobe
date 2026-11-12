@@ -1,0 +1,41 @@
+{
+  "kind": "metadata-only final design consistency checks; not enforcement proof",
+  "sourceHead": "4b0a9cfc41db8476721b2cc1fd453e121b85bc17",
+  "sourceHashesChecked": 21,
+  "membership": {
+    "evaluations": 6,
+    "uniquePhysicalOccurrences": 36,
+    "repeatedPhysicalObservations": 72,
+    "requestedFieldSlots": 216,
+    "catalogLabelSlots": 8,
+    "userAcceptanceSlots": 22,
+    "labelableSlots": 30,
+    "unscorableSlots": 186,
+    "uniqueUserLabels": 11,
+    "uniqueOccurrenceFieldLabels": 15
+  },
+  "sealEntries": {
+    "crowd-lu-user-acceptance-v1-20261111/SHA256SUMS": 7,
+    "scorable-assistance-contract-20261111/SHA256SUMS": 8,
+    "offline-user-acceptance-integration-20261111/delivery-SHA256SUMS": 33
+  },
+  "resourceMeasurementsReproduced": 7,
+  "designBindings": {
+    ".planning/design/live-run-contract-20261111/README.md": "ff65f83529430b87885097227f18e2a211dfc7a820f5ac54657659f550b8d1c7",
+    ".planning/design/live-run-contract-20261111/check_design.py": "73f97e6d955378c31b9eb77ea8e0939676d053b6843aeaf5b95bb81021b00bd9",
+    ".planning/design/live-run-contract-20261111/execution-protocol.md": "ca0d2381a55b6ce0325fc77558b639d216ab2d869bb9077f45c9b4162e3f1cb8",
+    ".planning/design/live-run-contract-20261111/history/README-revision6.md": "5de1652f2c8db5a85b961a0d3239e47f15df130c0a7f72e84e1556ecb6f4c4d0",
+    ".planning/design/live-run-contract-20261111/history/check_design-revision6.py": "7ced898097191da282a2f582f866a99ab15626712c92004348e081bdcdf85fb3",
+    ".planning/design/live-run-contract-20261111/history/proposal-revision6.json": "7144e0dada7579cec173c48b34be649d1ae7a504d5089b2335a28a06c10aa75c",
+    ".planning/design/live-run-contract-20261111/history/review-first-pass.md": "e6b84d60e713586366b34b88a9962afc13fa0e65eecc733e4b140f2ff9b055cb",
+    ".planning/design/live-run-contract-20261111/history/validation-revision6.json": "e6e95ff4603dc76a312ac51248c9ab39426aef06541bff60a0085009340211f2",
+    ".planning/design/live-run-contract-20261111/proposal.json": "8531f383aaf58e59a0f4867a6c0fea97d97bfd950630888e8387d974574f1c3a",
+    ".planning/design/live-run-contract-20261111/resource-bounds.md": "09d1413e19751d05c279f521029ebff00ddca88da2b6576689f32646e819ffab",
+    ".planning/design/live-run-contract-20261111/resource-measurements.json": "8188445fcb17c195af8e695dc8424fa5f9f6bdcdfcff8823b9dd5154c895fcbc",
+    ".planning/design/live-run-contract-20261111/review.md": "fd1de9bbe2b1eae94245d8bf50081da13cb175487dc0959aee518eefb816d574",
+    ".planning/design/live-run-contract-20261111/source-bindings.json": "4ac0ea10cca7901294eb193967bdbaff6cc3ee71fc095a2bd72d824194ad1d6c"
+  },
+  "reviews": "See review.md for independent findings, rechecks and author dispositions; no implementation proof",
+  "trackedWorktreeAndIndexUnchanged": true,
+  "noEvaluationOrMediaOrCredentialAccess": true
+}

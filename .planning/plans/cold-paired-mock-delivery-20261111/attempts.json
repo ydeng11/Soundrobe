@@ -1,0 +1,227 @@
+{
+  "attempts": [
+    {
+      "run": "run-01",
+      "status": "non-clean",
+      "disposition": "Accepted genre introduced unprepared review event; membership retained. Older envelope records projectedFieldSlots=0, not a final projection of every partial export.",
+      "log": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-01.log",
+        "bytes": 971,
+        "sha256": "ceab69522f4db21953e5517369e1aba76b22667a90cda1053edae7b296216a18"
+      },
+      "failureCounts": {
+        "requestedFieldSlots": 216,
+        "projectedFieldSlots": 0
+      },
+      "envelope": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-01/failure-envelope.json",
+        "bytes": 8344,
+        "sha256": "82b7c62bd6c2d218a70a6090fcbeeba2d7d5d58a4cbac68079235402004298c9"
+      }
+    },
+    {
+      "run": "run-02",
+      "status": "superseded",
+      "disposition": "Completed before final actual-event consistency and transport corrections; not final proof.",
+      "log": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-02.log",
+        "bytes": 751,
+        "sha256": "8de1dc26a12e96d2feea4931e8038f8e0d01bd6711bebb86f56b0efd35e16446"
+      }
+    },
+    {
+      "run": "run-03",
+      "status": "incomplete",
+      "disposition": "Source-lock drift stopped remaining work; 216 requested, 60 observed, 156 failed slots.",
+      "log": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-03.log",
+        "bytes": 750,
+        "sha256": "bd7f6d1cad96a4cbb8ab14cbad0b3b472f395a80a3aa2ddc0be5c749a8b12862"
+      },
+      "failureCounts": {
+        "requestedFieldSlots": 216,
+        "observedFieldSlots": 60,
+        "serviceFailureSlots": 156
+      },
+      "envelope": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-03/failure-envelope.json",
+        "bytes": 33418,
+        "sha256": "d5b299a4b8a355e2d4421d6d0ac76cbcff71079687eb400888bc4b20949a069a"
+      }
+    },
+    {
+      "run": "run-04",
+      "status": "pre-admission failure",
+      "disposition": "Python inspection timed out before requested-membership creation or native admission. No fabricated membership or observations.",
+      "log": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-04.log",
+        "bytes": 1416,
+        "sha256": "c78cd771bfba287ccdf20a395a91ed4fc7965f6b4515aaa170411bec434f9e56"
+      }
+    },
+    {
+      "run": "run-05",
+      "status": "complete mock execution; scoring insufficient",
+      "disposition": "Final-source run; 216 observed slots, zero user agreement and zero grounded AI credit.",
+      "log": {
+        "path": ".amp/in/artifacts/cold-paired-development-20261111/run-05.log",
+        "bytes": 751,
+        "sha256": "8de1dc26a12e96d2feea4931e8038f8e0d01bd6711bebb86f56b0efd35e16446"
+      }
+    }
+  ],
+  "supersededNativeSuite": {
+    "passed": 736,
+    "failed": 28,
+    "ignored": 19,
+    "log": {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/server-final.log",
+      "bytes": 133262,
+      "sha256": "e3a2f57ff75096aa21a4a48998bc4cb2f552d98515ed91c068155eab8d89ecb6"
+    },
+    "disposition": "All 28 failed names passed individually on the final binary, followed by 765/0/19 full final-source result. Cause of launch delays is unproven; no timeout or security setting relaxed.",
+    "individualResults": [
+      {
+        "test": "commands::auto_tag::collection_tests::coverage_v3::coverage_v3_folder_budget_resumes_without_raising_per_file_limits",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-00.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::coverage_v3::coverage_v3_tied_possible_id_audio_conflicts_block_both_sides_only",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-01.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::coverage_v3::coverage_v3_timeout_keeps_progress_but_never_patches_before_duplicate_validation",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-02.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::duplicate_encodings_preserve_each_files_own_collaborators",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-03.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_review",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-04.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::verified_acoustic_identity_survives_a_conflicting_provider_recording_map",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-05.log"
+      },
+      {
+        "test": "commands::auto_tag::collection_tests::verified_collection_core_finishes_without_changing_edition_fields",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-06.log"
+      },
+      {
+        "test": "commands::auto_tag::tests::acoustid_resolver_writes_complete_musicbrainz_mapping_through_write_queue",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-07.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_24_bit_requires_checksum_count_and_byte_cap",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-08.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_bounds_both_tool_errors_and_fingerprint_output",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-09.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_cancellation_and_timeout_reap_both_children_and_release_the_permit",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-10.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_execution_budget_starts_after_waiting_for_other_jobs",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-11.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_only_runs_after_an_actual_failed_raw_exit",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-12.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_preserves_native_24_bit_mono_and_stereo_precision",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-13.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_recovers_complete_audio_without_accepting_failed_direct_frames",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-14.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_refuses_signal_termination_and_replacement_during_the_direct_attempt",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-15.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_refuses_unverifiable_or_unsupported_streaminfo_before_decoding",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-16.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_rejects_failed_tools_and_invalid_fingerprint_output",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-17.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_rejects_in_place_audio_replacement_with_restored_modification_time",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-18.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_rejects_source_mutation_and_replacement",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-19.log"
+      },
+      {
+        "test": "infra::acoustid::flac_tests::verified_pcm_requires_exact_checksum_and_complete_sample_count",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-20.log"
+      },
+      {
+        "test": "infra::acoustid::tests::fpcalc_failures_are_bounded_and_never_echo_process_output",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-21.log"
+      },
+      {
+        "test": "infra::acoustid::tests::raw_fingerprinting_requests_the_full_span_and_rejects_non_frame_output",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-22.log"
+      },
+      {
+        "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_ignore_metadata_not_audio_and_bind_all_sources",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-23.log"
+      },
+      {
+        "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_never_expand_nominations_or_merge_transformed_audio",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-24.log"
+      },
+      {
+        "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_preserve_native_precision_channels_and_full_frame_count",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-25.log"
+      },
+      {
+        "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_reject_corruption_silence_other_codecs_and_stale_hashes",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-26.log"
+      },
+      {
+        "test": "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_revalidate_earlier_file_and_directory_bindings",
+        "exit": 0,
+        "log": ".amp/in/artifacts/cold-paired-development-20261111/isolated-failure-27.log"
+      }
+    ]
+  },
+  "independentReview": "review.md; report dispositions, not authenticated attestation"
+}

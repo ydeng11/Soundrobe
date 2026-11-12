@@ -1,0 +1,30 @@
+{
+  "kind": "non-executable consolidated design proposal",
+  "designVersion": "paired-crowd-user-acceptance-cold-v1",
+  "sourceHead": "4b0a9cfc41db8476721b2cc1fd453e121b85bc17",
+  "executionAuthorized": false,
+  "activationAvailable": false,
+  "currentAuthorizedLiveAttempts": 0,
+  "arms": ["disabled", "assistance"],
+  "phases": ["cold"],
+  "evaluationScopeDifferencesProposed": ["Exclude ancillary stages before dispatch in both arms; preserve provider matching flags and genre eligibility"],
+  "ledgerLifecycleProposed": ["preparing", "frozen/quiescent", "approval-consumed", "executing", "terminal"],
+  "resourceCountingProposed": "Provider, inventory and model operations each count once; fixture arrivals corroborate provider operations, inventory ingress is separately capped; denied operations count once and terminate",
+  "unresolvedImplementationGates": ["Authenticated trust/registry provisioning", "Configured descriptor and broker-only credential/socket custody", "Protected child channel", "Durability and independent supervisor", "Finite parse/storage/candidate/finalization ceilings", "Exact serving identity/retention/billing evidence"],
+  "sample": ".planning/plans/scorable-assistance-contract-20261111/sample.json",
+  "userLabels": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json",
+  "jobs": [
+    {"caseId": "036e0a00e45b", "profile": "tagged_recovery", "sampleSelector": "/jobs/0", "files": 11, "assistanceRoleCandidate": "GenreFillResponse", "recommendedMaxAttempts": 1},
+    {"caseId": "54e7923a3000", "profile": "tagged_recovery", "sampleSelector": "/jobs/1", "files": 9, "assistanceRoleCandidate": null, "recommendedMaxAttempts": 0},
+    {"caseId": "f7756354af37", "profile": "folder_filename", "sampleSelector": "/jobs/2", "files": 16, "assistanceRoleCandidate": null, "recommendedMaxAttempts": 0}
+  ],
+  "executionOrderCandidate": ["disabled:036e0a00e45b", "disabled:54e7923a3000", "disabled:f7756354af37", "assistance:54e7923a3000", "assistance:f7756354af37", "assistance:036e0a00e45b"],
+  "expectedMembership": {"evaluations": 6, "uniquePhysicalOccurrences": 36, "repeatedPhysicalObservations": 72, "requestedFieldSlots": 216, "catalogLabelSlots": 8, "userAcceptanceSlots": 22, "labelableSlots": 30, "unscorableSlots": 186, "uniqueUserLabels": 11, "uniqueOccurrenceFieldLabels": 15},
+  "limitsCandidate": {"totalModelAttempts": 1, "previousRecommendationUpperBoundNotAllowance": 2, "modelRetries": 0, "schemaRepairs": 0, "modelConcurrency": 1, "inputTokensPerAttempt": 4096, "outputParameterPerAttempt": 1024, "requestBodyBytes": 32768, "decodedResponseBytes": 65536, "completionMs": 30000, "modelScopeMs": 60000, "localPreparationMs": 300000, "wholeExecutionMs": 600000, "providerSendAndFixtureArrivalsEach": 512, "inventoryFetches": 32, "inventoryDecodedBytesEach": 8388608, "deniedAncillaryAttempts": 16, "totalHttpOperations": 576, "liveCatalogAcousticAncillaryCalls": 0, "jsonParseLimits": null, "fixtureBodyAndStorageLimits": null, "candidateAndReadbackLimits": null},
+  "transportCandidates": {"apiFormat": "openai", "router": "OpenRouter", "baseUrl": "https://openrouter.ai/api/v1", "wireUrl": "https://openrouter.ai/api/v1/chat/completions", "historicalModelCandidate": "deepseek/deepseek-v4-flash-0731", "temperature": 0.2, "maxTokens": 1024, "stream": false, "modelFallbacks": false, "providerFallbacks": false, "redirects": false, "proxies": false, "byok": false, "tools": false},
+  "approvals": {"model": null, "immutableRevision": null, "tokenizer": null, "endpoint": null, "servingEndpointSlug": null, "retentionAndExceptions": null, "localRawRetentionPolicy": null, "feeAndPriceRevision": null, "overshootFreeProviderGuarantee": null, "residualSpendingRiskAcceptance": null, "monetaryAllowance": null, "signingIdentity": null, "trustRoot": null, "manifestDigest": null},
+  "billing": {"historicalDollarIllustration": 0.05, "illustrationIsApprovedOrEnforcedCeiling": false, "hardBilledTokenGuarantee": false, "decision": "Blocked until overshoot-free terms/enforcement or separately explicit quantified residual-risk acceptance and fee/allowance approval; neither exists here"},
+  "scoring": {"basis": "exposed user acceptance, not acoustic truth or holdouts", "acceptedGenreStringsExactly": ["Pop", "Mandopop", "Pop, Mandopop"], "normalize": false, "groundedAiCredit": 0, "acceptedCertificate": false, "writableDelta": [], "expectedAnswersInModelInputs": false, "zeroCallHoldsValid": true},
+  "historicalLimits": {"cookieJarPostwriteHashComparisonsUnavailable": 4, "freshCloneNativeReproduction": false, "historicalSealsChanged": false},
+  "designOnly": "No consumer or runtime switch is provided. This object intentionally does not match the native mock manifest schema. Recommendations require later implementation/testing and separate authenticated execution approval."
+}

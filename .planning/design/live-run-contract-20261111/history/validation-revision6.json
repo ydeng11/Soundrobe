@@ -1,0 +1,32 @@
+{
+  "kind": "metadata-only final design consistency checks; not enforcement proof",
+  "sourceHead": "4b0a9cfc41db8476721b2cc1fd453e121b85bc17",
+  "sourceHashesChecked": 21,
+  "membership": {
+    "evaluations": 6,
+    "uniquePhysicalOccurrences": 36,
+    "repeatedPhysicalObservations": 72,
+    "requestedFieldSlots": 216,
+    "catalogLabelSlots": 8,
+    "userAcceptanceSlots": 22,
+    "labelableSlots": 30,
+    "unscorableSlots": 186,
+    "uniqueUserLabels": 11,
+    "uniqueOccurrenceFieldLabels": 15
+  },
+  "sealEntries": {
+    "crowd-lu-user-acceptance-v1-20261111/SHA256SUMS": 7,
+    "scorable-assistance-contract-20261111/SHA256SUMS": 8,
+    "offline-user-acceptance-integration-20261111/delivery-SHA256SUMS": 33
+  },
+  "designBindings": {
+    ".planning/design/live-run-contract-20261111/README.md": "5de1652f2c8db5a85b961a0d3239e47f15df130c0a7f72e84e1556ecb6f4c4d0",
+    ".planning/design/live-run-contract-20261111/check_design.py": "7ced898097191da282a2f582f866a99ab15626712c92004348e081bdcdf85fb3",
+    ".planning/design/live-run-contract-20261111/proposal.json": "7144e0dada7579cec173c48b34be649d1ae7a504d5089b2335a28a06c10aa75c",
+    ".planning/design/live-run-contract-20261111/review.md": "e6b84d60e713586366b34b88a9962afc13fa0e65eecc733e4b140f2ff9b055cb",
+    ".planning/design/live-run-contract-20261111/source-bindings.json": "4ac0ea10cca7901294eb193967bdbaff6cc3ee71fc095a2bd72d824194ad1d6c"
+  },
+  "reviews": "Two independent draft reviews; author dispositions not independently reapproved",
+  "trackedWorktreeAndIndexUnchanged": true,
+  "noEvaluationOrMediaOrCredentialAccess": true
+}

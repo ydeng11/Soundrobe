@@ -118,6 +118,7 @@ function createService(manifestPath) {
             '$EVAL_MEDIA/');
         }
         const allowed = modelRequests.length < scripted.maxRequests
+          && (!scripted.bodySha256 || sha256(Buffer.from(bytes)) === scripted.bodySha256)
           && body.model === 'scripted/genre-v1'
           && body.response_format?.json_schema?.name === schemaName
           && user?.length === 1 && isDeepStrictEqual(payload, scripted.payload);
@@ -127,16 +128,26 @@ function createService(manifestPath) {
           ...(scripted.usage === undefined ? {} : { usage: scripted.usage }),
         } : { error: allowed ? 'scripted_service_failure' : 'offline_model_fixture_missing' };
         // Only the body is retained, never authentication or other headers.
-        modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)) });
+        modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)), bytes: Buffer.byteLength(bytes) });
         if (!allowed) misses.set(`model-${modelRequests.length}`, { provider: 'scripted_model', status });
         send(status, result);
       });
       return;
     }
     if (request.method !== 'GET') return send(405, { error: 'read_only_fixture_service' });
-    if (url.pathname === '/__fixtures') {
+    if (url.pathname === '/__fixtures' || url.pathname === '/__fixtures/compact') {
       wire.status = 200;
       wire.state = 'responded';
+      if (url.pathname === '/__fixtures/compact') {
+        const compact = { schemaVersion: 1, compact: true, groundTruth: 'unreviewed_provider_evidence',
+          records: records.map(({ bytes, ...record }) => ({ ...record, bytes: bytes.length })),
+          requests, modelRequests: modelRequests.map(({ body, response: result, ...record }) => ({
+            ...record, responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)) })),
+          wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] };
+        const bytes = Buffer.from(JSON.stringify(compact));
+        if (bytes.length > 8388608) return send(507, { error: 'compact_inventory_ceiling' });
+        return send(200, bytes);
+      }
       return send(200, { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
         records: records.map(({ bytes, ...record }) => ({ ...record, body: JSON.parse(bytes.toString()) })),
         requests, modelRequests, wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] });

@@ -1,0 +1,159 @@
+{
+  "scope": "Fresh metadata/source checks for local commit delivery; no native execution, tagging, fixture/model service, media write, live call or fetch.",
+  "nativeRuntimeGates": "reused; see reused-gates.json",
+  "checks": [
+    {
+      "name": "packet-controls",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        ".planning/plans/cold-paired-mock-delivery-20261111/test_verify.py"
+      ],
+      "startedUtc": "2026-11-12T00:42:26.183092+00:00",
+      "elapsedSeconds": 0.196,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/packet-controls.log",
+      "logSha256": "21d314427ab8c8ad8af338b28b7c6b5873b2320ad2339ea9add26f605e746ad0"
+    },
+    {
+      "name": "retained-digests",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        ".planning/plans/cold-paired-mock-delivery-20261111/verify.py",
+        "--local"
+      ],
+      "startedUtc": "2026-11-12T00:42:26.379139+00:00",
+      "elapsedSeconds": 0.486,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/retained-digests.log",
+      "logSha256": "a015773e971b476549358d0237f07099c9b930898f95dc03ed3e34abc82b296b"
+    },
+    {
+      "name": "retained-run-audit",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        ".planning/plans/cold-paired-mock-delivery-20261111/audit-run.py",
+        ".amp/in/artifacts/cold-paired-development-20261111/run-05"
+      ],
+      "startedUtc": "2026-11-12T00:42:26.864954+00:00",
+      "elapsedSeconds": 1.094,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/retained-run-audit.log",
+      "logSha256": "d16ea65c8c67c416f3eeaa121997ae686879e732c50952defa72aea6460eb215"
+    },
+    {
+      "name": "retained-projection-controls",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        ".planning/plans/cold-paired-mock-delivery-20261111/audit-projection-controls.py",
+        ".amp/in/artifacts/cold-paired-development-20261111/run-05"
+      ],
+      "startedUtc": "2026-11-12T00:42:27.959171+00:00",
+      "elapsedSeconds": 9.327,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/retained-projection-controls.log",
+      "logSha256": "e71d02f2995810216cc54883ff963feabbe16268cbdb28f9aa3deac00792c456"
+    },
+    {
+      "name": "scorer-including-three-local-label-tests",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "test_observation_scoring.ObservationScoring",
+        "test_observation_scoring.NativeProjection",
+        "test_observation_scoring.FrozenUserProjection",
+        "test_observation_scoring.ColdDriverSelection"
+      ],
+      "startedUtc": "2026-11-12T00:42:37.286381+00:00",
+      "elapsedSeconds": 1.396,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/portable-scorer.log",
+      "logSha256": "e8f25346efe1f93e07c464b5fe5bae5c57938b0687d669a6ec153b02d0126af1",
+      "passed": 22,
+      "localInputDependentTests": 3
+    },
+    {
+      "name": "driver-syntax",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/run-bounded.cjs"
+      ],
+      "startedUtc": "2026-11-12T00:42:38.682391+00:00",
+      "elapsedSeconds": 0.149,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/driver-syntax.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "fixture-syntax",
+      "command": [
+        "node",
+        "--check",
+        "scripts/mock-provider-service.cjs"
+      ],
+      "startedUtc": "2026-11-12T00:42:38.831124+00:00",
+      "elapsedSeconds": 0.063,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/fixture-syntax.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "startedUtc": "2026-11-12T00:42:38.894487+00:00",
+      "elapsedSeconds": 3.024,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/typecheck.log",
+      "logSha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "name": "whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "startedUtc": "2026-11-12T00:42:41.918614+00:00",
+      "elapsedSeconds": 0.042,
+      "exit": 0,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/whitespace.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "portable-scorer-subset",
+      "command": [
+        "/usr/bin/python3",
+        "-B",
+        "-m",
+        "unittest",
+        "test_observation_scoring.ObservationScoring",
+        "test_observation_scoring.NativeProjection",
+        "test_observation_scoring.ColdDriverSelection"
+      ],
+      "startedUtc": "2026-11-12T00:43:34.250246+00:00",
+      "elapsedSeconds": 0.501,
+      "exit": 0,
+      "passed": 19,
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/portable-scorer-19.log",
+      "logSha256": "a29dad6c6a217a932ea1184e88eee39efd3a940669a8ada82f5b8ae3fb5c3a71"
+    }
+  ],
+  "packetReview": {
+    "method": "author source and diff inspection; not another independent runtime review",
+    "findings": "No unused dependencies, hidden runtime execution or missing scope guards found in the metadata verifier. Positive and altered-byte, rebound-membership and cap controls passed.",
+    "redControl": {
+      "log": ".amp/in/artifacts/cold-paired-delivery-20261111/verifier-red.log",
+      "disposition": "Expected missing-checker failure before implementation, not an application defect."
+    }
+  }
+}

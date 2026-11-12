@@ -1,0 +1,88 @@
+{
+  "version": 2,
+  "jobs": [
+    {
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "population": "artist-batch-extension",
+      "review": "reviewed-cjk-artist-2-20261108.json",
+      "name": "disabled-crowd",
+      "arm": "disabled",
+      "role": null
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "population": "original",
+      "review": "reviewed-expansion-2-20261108.json",
+      "name": "disabled-billie",
+      "arm": "disabled",
+      "role": null
+    },
+    {
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "population": "original",
+      "review": "reviewed-expansion-2-20261108.json",
+      "name": "disabled-enya",
+      "arm": "disabled",
+      "role": null
+    },
+    {
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "population": "original",
+      "review": "reviewed-expansion-2-20261108.json",
+      "name": "assistance-billie",
+      "arm": "assistance",
+      "role": null
+    },
+    {
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "population": "original",
+      "review": "reviewed-expansion-2-20261108.json",
+      "name": "assistance-enya",
+      "arm": "assistance",
+      "role": null
+    },
+    {
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "population": "artist-batch-extension",
+      "review": "reviewed-cjk-artist-2-20261108.json",
+      "name": "assistance-crowd",
+      "arm": "assistance",
+      "role": "GenreFillResponse"
+    }
+  ],
+  "phases": [
+    "cold"
+  ],
+  "fields": [
+    "title",
+    "artists",
+    "genre"
+  ],
+  "model": "scripted/genre-v1",
+  "purpose": "scripted mock wiring, zero grounded accuracy",
+  "realProviderCalls": 0,
+  "realModelCalls": 0,
+  "originalMediaOperations": 0,
+  "orchestration": {
+    "childTimeoutMs": 600000,
+    "pythonTimeoutMs": 60000,
+    "inventoryTimeoutMs": 15000,
+    "inventoryBytes": 8388608
+  },
+  "userBindings": {
+    "userAcceptance": {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json",
+      "sha256": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2"
+    },
+    "userAcceptanceSeal": {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS",
+      "sha256": "a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4"
+    }
+  }
+}

@@ -487,6 +487,13 @@ impl OpenRouterClient {
         let mut parse_error = None;
 
         for repair_attempt in 0..2 {
+            #[cfg(test)]
+            if repair_attempt > 0 && crate::infra::bounded_eval::paired_active() {
+                crate::infra::bounded_eval::paired_stop();
+                return Err(OpenRouterError::Network(
+                    "paired mock forbids schema repair".into(),
+                ));
+            }
             let max_tokens = if repair_attempt > 0
                 && finish_reason(payload.as_ref()).as_deref() == Some("length")
             {
@@ -592,6 +599,12 @@ impl OpenRouterClient {
         diagnostics: &mut CompletionDiagnostics,
     ) -> Result<Value, OpenRouterError> {
         let attempts = self.retry_delays.len() + 1;
+        #[cfg(test)]
+        let attempts = if crate::infra::bounded_eval::paired_active() {
+            1
+        } else {
+            attempts
+        };
         tracing::debug!(
             model = ?diagnostic_label(Some(&self.model)),
             timeout_ms = self.timeout.as_millis(),
@@ -821,10 +834,15 @@ impl OpenRouterClient {
             body["provider"] = json!({"sort": {"by": "price"}, "preferred_min_throughput": {"p90": 50}, "allow_fallbacks": true});
         }
         #[cfg(test)]
+        crate::infra::bounded_eval::paired_request(&self.base_url, &body)
+            .map_err(OpenRouterError::Network)?;
+        #[cfg(test)]
         crate::infra::bounded_eval::authorize(&self.base_url, &body, policy.router_metadata)
             .map_err(OpenRouterError::Network)?;
         #[cfg(test)]
-        let scoped_http = if crate::infra::bounded_eval::active() {
+        let scoped_http = if crate::infra::bounded_eval::active()
+            || crate::infra::bounded_eval::paired_active()
+        {
             Client::builder()
                 .no_proxy()
                 .redirect(reqwest::redirect::Policy::none())

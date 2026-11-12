@@ -9,23 +9,63 @@ const read = p => JSON.parse(fs.readFileSync(p));
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const binding = p => ({ path: path.relative(root, p), sha256: sha(fs.readFileSync(p)) });
 const save = (p, value) => fs.writeFileSync(p, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value)
+  : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
+    : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
 const fixtures = path.join(root, 'test/fixtures/tauri/auto-tag-eval');
 const scorer = path.join(root, 'scripts/auto-tag-eval-replay/score-observations.py');
 const orchestration = { childTimeoutMs: 600000, pythonTimeoutMs: 60000, inventoryTimeoutMs: 15000, inventoryBytes: 128 * 1024 * 1024 };
 let admittedOutput;
-async function inventoryAt(base) {
-  const response = await fetch(`${base}/__fixtures`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error' });
+function pairedColdJobs() {
+  const cases = {
+    crowd: { caseId: '036e0a00e45b', profile: 'tagged_recovery', population: 'artist-batch-extension', review: 'reviewed-cjk-artist-2-20261108.json' },
+    billie: { caseId: '54e7923a3000', profile: 'tagged_recovery', population: 'original', review: 'reviewed-expansion-2-20261108.json' },
+    enya: { caseId: 'f7756354af37', profile: 'folder_filename', population: 'original', review: 'reviewed-expansion-2-20261108.json' },
+  };
+  return [['disabled', 'crowd'], ['disabled', 'billie'], ['disabled', 'enya'],
+    ['assistance', 'billie'], ['assistance', 'enya'], ['assistance', 'crowd']].map(([arm, name]) => ({
+      ...cases[name], name: `${arm}-${name}`, arm, role: arm === 'assistance' && name === 'crowd' ? 'GenreFillResponse' : null }));
+}
+function failureEnvelope(output) {
+  const requested = read(path.join(output, 'requested-membership.json'));
+  const evaluations = requested.evaluations.map(e => {
+    const ids = e.physicalPaths.flatMap(p => e.fields.map(f => `${e.arm}/${e.caseId}/${e.profile}/${e.phase}/${p}/${f}`));
+    const resultFile = path.join(output, e.name, 'result.provisional.json');
+    let score = null;
+    try {
+      const result = read(resultFile);
+      if (['name', 'arm', 'caseId', 'profile'].every(k => result[k] === e[k])
+          && result.score.requestedFieldSlots === ids.length
+          && canonical(result.score.fields.map(f => f.id).sort()) === canonical([...ids].sort())) score = result.score;
+    } catch { /* Unvalidated exports never become observations. */ }
+    return { ...e, nativeObservation: score ? 'validated_projection' : 'unavailable',
+      score, requestedFieldSlots: ids.length, observedFieldSlots: score?.observedFieldSlots ?? 0,
+      serviceFailureSlots: score?.serviceFailureSlots ?? ids.length,
+      projectionFile: score ? path.relative(root, resultFile) : null };
+  });
+  return { ...requested, evaluations, outcome: 'incomplete',
+    observedFieldSlots: evaluations.reduce((n, e) => n + e.observedFieldSlots, 0),
+    serviceFailureSlots: evaluations.reduce((n, e) => n + e.serviceFailureSlots, 0),
+    groundedAssistanceAccuracyCredit: 0, acceptedCertificate: false, writableDelta: [] };
+}
+module.exports = { pairedColdJobs, failureEnvelope };
+async function inventoryAt(base, compact = false) {
+  const response = await fetch(`${base}/__fixtures${compact ? '/compact' : ''}`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error' });
   if (!response.ok) throw Error('Inventory status failed');
   const chunks = []; let size = 0;
   for await (const chunk of response.body) {
     size += chunk.length;
-    if (size > orchestration.inventoryBytes) throw Error('Inventory byte ceiling');
+    if (size > (compact ? 8388608 : orchestration.inventoryBytes)) throw Error('Inventory byte ceiling');
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString());
 }
 
-async function main(output, executable, userLabelDirectory) {
+async function main(output, executable, userLabelDirectory, mode) {
+  if (mode !== undefined && mode !== '--paired-cold') throw Error('Unsupported evaluation mode');
+  const paired = mode === '--paired-cold';
+  if (paired && !userLabelDirectory) throw Error('Paired cold selection requires frozen scorer-only user labels');
+  const phases = paired ? ['cold'] : ['cold', 'warm'];
   output = path.resolve(output);
   if (!output.startsWith(path.join(root, '.amp/in/artifacts') + path.sep)) throw Error('Use a new local evidence directory');
   const evidenceRoot = fs.realpathSync(path.join(root, '.amp/in/artifacts'));
@@ -37,7 +77,7 @@ async function main(output, executable, userLabelDirectory) {
   const binary = path.join(output, 'native-evaluator');
   fs.copyFileSync(path.resolve(executable), binary, fs.constants.COPYFILE_EXCL);
   // Expectations and role/safety scope precede ALL preparation and final outputs.
-  const jobs = [
+  const jobs = paired ? pairedColdJobs() : [
     { name: 'provider', caseId: '0c9e8b505ea7', profile: 'assisted_without_ids', population: 'original', role: null, review: 'reviewed-subset.json' },
     { name: 'genre', caseId: '036e0a00e45b', profile: 'tagged_recovery', population: 'artist-batch-extension', role: 'GenreFillResponse', review: 'reviewed-cjk-artist-2-20261108.json' },
     { name: 'unknown-usage', caseId: '036e0a00e45b', profile: 'tagged_recovery', population: 'artist-batch-extension', role: 'GenreFillResponse', review: 'reviewed-cjk-artist-2-20261108.json', unknownUsage: true },
@@ -72,15 +112,16 @@ async function main(output, executable, userLabelDirectory) {
     try { return execFileSync('python3', ['-B', ...args], { timeout: orchestration.pythonTimeoutMs }); }
     finally { checkLocks(); }
   };
-  save(path.join(output, 'selection.json'), { version: 1, jobs, phases: ['cold', 'warm'], fields: ['title', 'artists', 'genre'],
+  save(path.join(output, 'selection.json'), { version: paired ? 2 : 1, jobs, phases, fields: ['title', 'artists', 'genre'],
     model: 'scripted/genre-v1', purpose: 'scripted mock wiring, zero grounded accuracy',
-    realProviderCalls: 0, realModelCalls: 0, originalMediaOperations: 0, orchestration, userBindings });
+    realProviderCalls: 0, realModelCalls: 0, originalMediaOperations: 0,
+    orchestration: { ...orchestration, ...(paired ? { inventoryBytes: 8388608 } : {}) }, userBindings });
   const independentLabels = read(path.join(root, '.planning/research/bounded-assistance-machine-labels-20261111.json'));
   const evaluations = jobs.flatMap(job => {
     const corpus = read(path.join(root, '.amp/in/eval-dummies', job.population, 'corpus.json'));
     const selected = corpus.cases.filter(c => c.caseId === job.caseId);
     if (selected.length !== 1) throw Error('Ambiguous requested physical case');
-    return ['cold', 'warm'].map(phase => ({ name: job.name, caseId: job.caseId, profile: job.profile, phase,
+    return phases.map(phase => ({ name: job.name, ...(paired ? { arm: job.arm } : {}), caseId: job.caseId, profile: job.profile, phase,
       physicalPaths: selected[0].tracks.map(t => t.relativePath), fields: ['title', 'artists', 'genre'],
       userLabelSelectors: matchesUserLabels(job) ? userLabels.labelSelectors : [],
       labelSelectors: independentLabels.occurrences.filter(l => l.caseId === job.caseId)
@@ -140,7 +181,14 @@ async function main(output, executable, userLabelDirectory) {
     // never a model answer key. The scripted response is not an accepted genre.
     const source = job.role ? read(path.join(fixtures, 'provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json')) : null;
     const payload = source ? { artist: '盧廣仲', album: source.title, tracks: source.media.flatMap(m => m.tracks.map(t => t.title)) } : null;
-    save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: 2, payload,
+    const body = job.role ? { model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
+      messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
+        { role: 'user', content: canonical(payload) }],
+      response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {
+        type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } } : null;
+    if (paired && body) fs.writeFileSync(path.join(directory, 'independent-request.json'), canonical(body), { flag: 'wx' });
+    save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
+      ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
       response: { genre: 'Scripted diagnostic genre', confidence: 0.8 },
       ...(job.unknownUsage ? {} : { usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 } }) } } : {}) });
     let service = createService(serviceManifest);
@@ -152,6 +200,8 @@ async function main(output, executable, userLabelDirectory) {
       SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS: expectations, SOUNDROBE_AUTO_TAG_EVAL_PROFILE: job.profile,
       SOUNDROBE_AUTO_TAG_EVAL_CASES: job.caseId, SOUNDROBE_AUTO_TAG_EVAL_ARTISTS: '',
       SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL: base, SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE: 'disabled' });
+    if (paired) Object.assign(env, { SOUNDROBE_AUTO_TAG_EVAL_ARM: job.arm,
+      SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE: job.role ? 'scripted' : 'disabled' });
     const safetyInput = path.join(directory, 'safety-input.json');
     save(safetyInput, { cancelAfterGenre: job.cancelAfterGenre === true });
     env.SOUNDROBE_AUTO_TAG_EVAL_SAFETY_INPUT = safetyInput;
@@ -160,7 +210,7 @@ async function main(output, executable, userLabelDirectory) {
       const target = path.join(directory, name); fs.mkdirSync(target);
       const log = fs.openSync(path.join(target, 'native.log'), 'wx');
       try {
-        const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
+        const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${paired ? 'paired_cold_mock_auto_tag_eval' : bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
           '--ignored', '--nocapture'], { cwd: root, env: { ...env, SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: target,
             SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: true, stdio: ['ignore', log, log] });
         let watchdogExpired = false;
@@ -169,12 +219,12 @@ async function main(output, executable, userLabelDirectory) {
         }, orchestration.childTimeoutMs);
         const [exitCode, signal] = await once(child, 'exit').finally(() => clearTimeout(timer));
         checkLocks();
-        const exported = ['cold', 'warm'].flatMap(phase => {
+        const exported = phases.flatMap(phase => {
           const file = path.join(target, phase + '.jsonl');
           return fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse) : [];
         });
         save(path.join(target, 'records.json'), exported);
-        const observed = await inventoryAt(base);
+        const observed = await inventoryAt(base, paired);
         save(path.join(target, 'inventory-final.json'), observed);
         save(path.join(target, 'execution.json'), { exitCode, signal, watchdogExpired, records: exported.length,
           providerRequests: observed.requests.length, modelRequests: observed.modelRequests.length,
@@ -183,6 +233,43 @@ async function main(output, executable, userLabelDirectory) {
       } finally { fs.closeSync(log); }
     }
     try {
+      if (paired) {
+        save(inventoryFile, { records: (await inventoryAt(base, true)).records });
+        const final = await invoke('cold', false);
+        const preparationFile = path.join(final.target, 'preparation.json');
+        if (!fs.existsSync(preparationFile)) throw Error(`No validated preparation for ${job.name}; retained requested membership`);
+        const bindings = { corpus: binding(corpus), expectations: binding(expectations),
+          ...(matchesUserLabels(job) ? userBindings : {}),
+          labels: binding(path.join(root, '.planning/research/bounded-assistance-machine-labels-20261111.json')),
+          packet: binding(path.join(root, '.planning/research/bounded-assistance-label-review-20261111.json')),
+          preparation: binding(preparationFile), source: binding(path.join(root, 'src-tauri/src/commands/auto_tag.rs')),
+          fixtures: binding(inventoryFile), service: binding(serviceManifest), executable: binding(binary), driver: binding(__filename), scorer: binding(scorer) };
+        const specFile = path.join(directory, 'projection-spec.json');
+        save(specFile, { version: 2, mode: 'mock', arm: job.arm, bindings, fields: ['title', 'artists', 'genre'], phases,
+          sourceRoot: path.relative(root, sourceRoot), caseIds: [job.caseId], profile: job.profile });
+        const preparationRows = path.join(directory, 'preparation-inputs.json'); save(preparationRows, [read(preparationFile)]);
+        const contract = path.join(directory, 'scoring-contract.json');
+        python([scorer, 'freeze-native', specFile, preparationRows, contract]);
+        const scoreFile = path.join(directory, 'score.provisional.json');
+        python([scorer, 'project-native', contract, binding(contract).sha256, path.join(final.target, 'records.json'), '-', scoreFile]);
+        const plan = read(preparationFile).plan;
+        const requestEvents = plan.events.filter(e => e.kind === 'request');
+        if (requestEvents.length > (job.role ? 1 : 0) || final.inventory.modelRequests.length !== requestEvents.length
+            || requestEvents.some(e => canonical(e.body) !== canonical(body))
+            || final.inventory.modelRequests.some(r => r.sha256 !== sha(Buffer.from(canonical(body))))) throw Error('Conditional request or serialized-body binding differs');
+        executions.push({ name: job.name, arm: job.arm, caseId: job.caseId, profile: job.profile,
+          exitCode: final.exitCode, signal: final.signal, requestedPhysicalOccurrences: item.tracks.length,
+          providerRequests: final.inventory.requests.length, modelRequests: final.inventory.modelRequests.length,
+          wireArrivals: final.inventory.wireArrivals.length, misses: final.inventory.misses.length,
+          planVariant: plan.variant, liveAuthority: false, score: read(scoreFile) });
+        save(path.join(directory, 'result.provisional.json'), executions.at(-1));
+        console.log(JSON.stringify({ name: job.name, variant: plan.variant, modelRequests: final.inventory.modelRequests.length, score: read(scoreFile).outcomes }));
+        if (final.exitCode !== 0 || final.signal || final.inventory.misses.length || final.exported.length !== 1
+            || executions.at(-1).score.observedFieldSlots !== executions.at(-1).score.requestedFieldSlots
+            || executions.at(-1).score.serviceFailureSlots !== 0
+            || final.exported.some(r => r.serviceFailureObserved || !r.payloadUnchanged || r.pairedMock.stopped)) throw Error('Cold mock execution non-clean; retain partial scoring and full membership');
+        continue;
+      }
       const preparation = await invoke('preparation-disabled', false);
       if (preparation.exitCode !== 0 || preparation.exported.length !== 2 || preparation.inventory.modelRequests.length || preparation.inventory.misses.length) {
         throw Error(`Preparation failed for ${job.name}; inspect retained native log`);
@@ -216,14 +303,6 @@ async function main(output, executable, userLabelDirectory) {
         const file = path.join(sourceRoot, item.sourceRelativeFolder, track.relativePath);
         bindings[`media:${track.relativePath}`] = binding(file);
       }
-      const body = job.role ? { model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
-        messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
-          { role: 'user', content: JSON.stringify(payload, Object.keys(payload).sort()) }],
-        response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {
-          type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } } : null;
-      const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value)
-        : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
-          : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
       const limits = { attempts: 2, retries: 0, repairs: 0, reservedOutputTokens: 2048,
         requestBytes: 65536, responseBytes: 32 * 1024 * 1024, elapsedMs: 240000 };
       const approvedJobs = preparation.exported.map(row => ({ id: `${row.caseId}/${row.profile}/${row.phase}`,
@@ -296,6 +375,12 @@ async function main(output, executable, userLabelDirectory) {
 }
 if (require.main === module) main(...process.argv.slice(2)).catch(error => {
   if (admittedOutput && fs.existsSync(path.join(admittedOutput, 'requested-membership.json'))) {
+    if (read(path.join(admittedOutput, 'selection.json')).version === 2) {
+      save(path.join(admittedOutput, 'failure-envelope.json'), failureEnvelope(admittedOutput));
+      save(path.join(admittedOutput, 'selection-status.json'), { executionStatus: 'incomplete', scoringStatus: 'partial_or_unavailable',
+        failureEnvelope: path.relative(root, path.join(admittedOutput, 'failure-envelope.json')) });
+      console.error(error); process.exitCode = 1; return;
+    }
     const requested = read(path.join(admittedOutput, 'requested-membership.json'));
     save(path.join(admittedOutput, 'failure-envelope.json'), { ...requested,
       outcome: 'incomplete', error: String(error), projectedFieldSlots: 0,

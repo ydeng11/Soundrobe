@@ -126,6 +126,41 @@ it("replays metadata rejection controls without accepting arbitrary schemas, pat
   expect(stats.misses).toHaveLength(3);
 });
 
+it("compacts bodies without losing arrivals, misses or exact serialized model binding", async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-compact-mock-"));
+  roots.push(root);
+  const manifest = path.join(root, "manifest.json");
+  const payload = { artist: "Catalog artist", tracks: ["Catalog title"] };
+  const body = { model: "scripted/genre-v1", messages: [{ role: "user", content: JSON.stringify(payload) }],
+    response_format: { json_schema: { name: "GenreFillResponse" } }, temperature: 0.2 };
+  const serialized = JSON.stringify(body);
+  const digest = crypto.createHash("sha256").update(serialized).digest("hex");
+  fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1,
+    records: [{ provider: "discogs", path: "/releases/1", body: { large: "x".repeat(9000000) } }],
+    scriptedModel: { maxRequests: 2, payload, bodySha256: digest, response: { genre: "Diagnostic", confidence: 0.8 } } }));
+  const server = createService(manifest);
+  servers.push(server);
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const post = (text: string) => fetch(`${base}/model/chat/completions`, { method: "POST", body: text });
+  expect((await post(JSON.stringify({ ...body, temperature: 1 }))).status).toBe(501);
+  expect((await post(serialized)).status).toBe(200);
+  await fetch(`${base}/discogs/releases/missing`);
+  const response = await fetch(`${base}/__fixtures/compact`);
+  const raw = await response.text();
+  expect(response.status).toBe(200);
+  expect(Buffer.byteLength(raw)).toBeLessThan(8388608);
+  const stats = JSON.parse(raw);
+  expect(stats.records[0]).toMatchObject({ bytes: 9000012, sha256: expect.any(String) });
+  expect(stats.records[0]).not.toHaveProperty("body");
+  expect(stats.modelRequests.map((r: { status: number }) => r.status)).toEqual([501, 200]);
+  expect(stats.modelRequests[1]).toMatchObject({ sha256: digest, bytes: Buffer.byteLength(serialized) });
+  expect(stats.modelRequests[1]).not.toHaveProperty("body");
+  expect(stats.modelRequests[1]).not.toHaveProperty("response");
+  expect(stats.misses).toHaveLength(2);
+  expect(stats.wireArrivals).toHaveLength(4);
+});
+
 it("imports locked raw detail snapshots from existing pools for offline review", async () => {
   const manifest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-import-")), "manifest.json");
   roots.push(path.dirname(manifest));

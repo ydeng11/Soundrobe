@@ -3523,7 +3523,17 @@ async fn native_synthetic_flac_lookup_equivalence_uses_production_reader() {
 #[tokio::test]
 #[ignore = "requires explicit corpus source, credentials, and live providers"]
 async fn live_auto_tag_eval() {
-    Box::pin(run_auto_tag_eval(None)).await;
+    Box::pin(run_auto_tag_eval(None, None)).await;
+}
+
+#[tokio::test]
+#[ignore = "explicit paired cold mock replay on disposable generated inputs only"]
+async fn paired_cold_mock_auto_tag_eval() {
+    let base = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL").expect("loopback mock required");
+    offline_eval_providers(&base).expect("strict loopback providers required");
+    let arm = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ARM").expect("explicit arm required");
+    assert!(matches!(arm.as_str(), "disabled" | "assistance"));
+    Box::pin(run_auto_tag_eval(None, Some(&arm))).await;
 }
 
 /// Separate opt-in preparation path. It cannot activate external models/providers.
@@ -3558,10 +3568,13 @@ async fn bounded_mock_auto_tag_eval() {
     budget
         .verify_provider_base(&base)
         .expect("provider origin not approved");
-    Box::pin(run_auto_tag_eval(Some(budget))).await;
+    Box::pin(run_auto_tag_eval(Some(budget), None)).await;
 }
 
-async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
+async fn run_auto_tag_eval(
+    budget: Option<crate::infra::bounded_eval::Budget>,
+    paired_arm: Option<&str>,
+) {
     let corpus_path = PathBuf::from(
         std::env::var("SOUNDROBE_AUTO_TAG_EVAL_CORPUS")
             .expect("SOUNDROBE_AUTO_TAG_EVAL_CORPUS required"),
@@ -3616,6 +3629,19 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
     }
     let source_root = fs::canonicalize(evaluation_source_root(&corpus.source_root))
         .expect("evaluation source root exists");
+    if paired_arm.is_some() {
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        assert!(
+            source_root.starts_with(checkout.join(".amp/in/eval-dummies")),
+            "paired input must be generated disposable media"
+        );
+        assert!(
+            fs::canonicalize(&artifact_dir)
+                .unwrap()
+                .starts_with(checkout.join(".amp/in/artifacts")),
+            "paired output must remain local evidence"
+        );
+    }
     if let Some(budget) = &budget {
         budget
             .verify_source_root(&source_root)
@@ -3667,6 +3693,26 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
         })
         .collect::<Vec<_>>();
     assert!(!selected.is_empty(), "filters selected no evaluation cases");
+    if let Some(arm) = paired_arm {
+        assert_eq!(selected.len(), 1, "one cold arm per isolated invocation");
+        let case = selected[0];
+        assert!(
+            matches!(
+                (case.case_id.as_str(), profile.as_str()),
+                ("036e0a00e45b" | "54e7923a3000", PROFILE_RECOVERY)
+                    | ("f7756354af37", PROFILE_DISCOVERY)
+            ),
+            "unsupported paired case/profile"
+        );
+        assert_eq!(
+            std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE").as_deref(),
+            Ok(if arm == "assistance" && case.case_id == "036e0a00e45b" {
+                "scripted"
+            } else {
+                "disabled"
+            })
+        );
+    }
     if let Some(budget) = &budget {
         let mut jobs = Vec::new();
         for phase in ["cold", "warm"] {
@@ -3732,8 +3778,18 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
     config.remote_lookup_enabled = Some(true);
     config.discogs_enabled = Some(true);
     config.lyrics_download_enabled = Some(false);
-    let temp_root = PathBuf::from("/private/tmp")
-        .join(format!("soundrobe-auto-tag-eval-{}", uuid::Uuid::new_v4()));
+    let temp_root = if paired_arm.is_some() {
+        artifact_dir.join("retained-native")
+    } else {
+        PathBuf::from("/private/tmp")
+            .join(format!("soundrobe-auto-tag-eval-{}", uuid::Uuid::new_v4()))
+    };
+    if paired_arm.is_some() {
+        assert!(
+            !temp_root.exists(),
+            "retained paired media cannot be reused"
+        );
+    }
     fs::create_dir_all(&temp_root).expect("create evaluation temp root");
     let cache_path = temp_root.join("cache.db");
     let cache = CacheState::new(temp_root.clone());
@@ -3772,7 +3828,12 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
     )
     .unwrap();
     let run_started = Instant::now();
-    for phase in ["cold", "warm"] {
+    let phases: &[&str] = if paired_arm.is_some() {
+        &["cold"]
+    } else {
+        &["cold", "warm"]
+    };
+    for &phase in phases {
         for case in &selected {
             assert!(
                 run_started.elapsed() <= RUN_TIMEOUT,
@@ -3844,6 +3905,93 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
                 "tracks": portable_reader_tracks(&destination, serde_json::to_value(&baseline_tracks).unwrap()).unwrap()
             })).unwrap();
             let profile_input_hash = format!("{:x}", Sha256::digest(profile_input_json.as_bytes()));
+            let paired = if let Some(arm) = paired_arm {
+                let base = mock_url.as_deref().expect("paired requires mock URL");
+                let plan = crate::infra::bounded_eval::PairedMock::preparation(
+                    &format!("{}/model", base.trim_end_matches('/')),
+                    arm == "assistance" && case.case_id == "036e0a00e45b",
+                )
+                .unwrap();
+                let prep_root = temp_root.join("preparation");
+                fs::create_dir_all(&prep_root).unwrap();
+                let prep_cache = CacheState::new(prep_root.clone());
+                assert!(prep_cache.initialize(Some(prep_root.join("cache.db").to_str().unwrap())));
+                let prep_providers = offline_eval_providers(base).unwrap();
+                let prep_alias = prep_root.join("aliases.json");
+                let physical = collect_audio_files(&destination)
+                    .iter()
+                    .map(|file| RecordingSource::capture(Path::new(file)).unwrap())
+                    .collect::<Vec<_>>();
+                let preparation = plan
+                    .run(async {
+                        let result = tokio::time::timeout(
+                            Duration::from_secs(300),
+                            resolve_and_apply_album_with_review_intent(
+                                &destination,
+                                &config,
+                                AutoTagServices {
+                                    providers: &prep_providers,
+                                    cache: &prep_cache,
+                                    queue: &queue,
+                                    alias_file: &prep_alias,
+                                },
+                                &AtomicBool::new(false),
+                                None,
+                                |_| Ok(()),
+                                |_, _| {},
+                                |_, _, _| {},
+                            ),
+                        )
+                        .await;
+                        if plan.observations()["variant"] == "hold" {
+                            let value = result
+                                .as_ref()
+                                .expect("preparation timeout")
+                                .as_ref()
+                                .expect("preparation hold failed");
+                            crate::infra::bounded_eval::paired_event(
+                                json!({"kind":"hold", "reason":value.reason_code,
+                            "outcome":value.outcome, "providerAttempts":value.provider_attempts}),
+                            )
+                            .unwrap();
+                        }
+                        result
+                    })
+                    .await;
+                plan.complete().expect("valid plan-only preparation");
+                preparation
+                    .expect("preparation timed out")
+                    .expect("preparation resolution failed");
+                assert_eq!(hash_map(&destination), baseline, "preparation wrote media");
+                assert_eq!(
+                    physical,
+                    collect_audio_files(&destination)
+                        .iter()
+                        .map(|file| RecordingSource::capture(Path::new(file)).unwrap())
+                        .collect::<Vec<_>>(),
+                    "preparation rebound media"
+                );
+                assert!(
+                    !alias_file.exists(),
+                    "preparation contaminated execution aliases"
+                );
+                let execution_cache_before = cache_counts(&cache_path);
+                let mut portable = serde_json::to_value(&preflight).unwrap();
+                portable["path"] = json!(".");
+                fs::write(artifact_dir.join("preparation.json"), serde_json::to_vec_pretty(&json!({
+                    "arm":arm,"caseId":case.case_id,"profile":profile,"phase":"cold",
+                    "sourceRelativeFolder":case.source_relative_folder,"providerMode":"offline_fixtures",
+                    "fieldObservations":{"inputJson":profile_input_json,"inputSha256":profile_input_hash,
+                        "sourceRoot":source_root.strip_prefix(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap()).unwrap(),
+                        "requestJson":portable.to_string()},
+                    "physicalSources":physical,"plan":plan.observations(),"executionCacheBefore":execution_cache_before,
+                    "preparationCacheAfter":cache_counts(&prep_root.join("cache.db")),"separateStores":true,
+                    "ancillaryPolicy":"excluded before dispatch in both arms", "liveAuthority":false
+                })).unwrap()).unwrap();
+                Some(plan.replay())
+            } else {
+                None
+            };
             let budget_job = format!("{}/{profile}/{phase}", case.case_id);
             let admission_error = budget
                 .as_ref()
@@ -3922,9 +4070,34 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
                 budget
                     .run(&budget_job, &profile_input_hash, execution)
                     .await
+            } else if let Some(paired) = &paired {
+                paired.run(execution).await
             } else {
                 execution.await
             };
+            if let Some(paired) = &paired {
+                if paired.observations()["variant"] == "hold" {
+                    if let Ok(Ok(value)) = &result {
+                        paired
+                            .run(async {
+                                crate::infra::bounded_eval::paired_event(
+                                    json!({"kind":"hold", "reason":value.reason_code,
+                            "outcome":value.outcome,"providerAttempts":value.provider_attempts}),
+                                )
+                            })
+                            .await
+                            .unwrap();
+                    }
+                }
+                if let Err(error) = paired.complete() {
+                    fs::write(
+                        artifact_dir.join("paired-failure.json"),
+                        serde_json::to_vec_pretty(&paired.observations()).unwrap(),
+                    )
+                    .unwrap();
+                    panic!("{error}");
+                }
+            }
             let elapsed_ms = started.elapsed().as_millis();
             let (outcome, error, native, resolver_error, timed_out) = match result {
                 Ok(Ok(value)) => (
@@ -4028,6 +4201,10 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
             record["reviewPendingAfterRestart"] = json!(review_pending);
             record["actionableReviewAfterRestart"] = json!(actionable_review);
             record["assistanceMode"] = json!(assistance.as_deref().unwrap_or("disabled"));
+            if let Some(paired) = &paired {
+                record["arm"] = json!(paired_arm);
+                record["pairedMock"] = paired.observations();
+            }
             record["serviceFailureObserved"] = json!(
                 resolver_error
                     || timed_out
@@ -4160,21 +4337,34 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
                 .unwrap(),
             )
             .unwrap();
-            fs::remove_dir_all(&destination).expect("remove synthetic evaluation media");
+            if paired_arm.is_none() {
+                fs::remove_dir_all(&destination).expect("remove synthetic evaluation media");
+            }
         }
     }
     let provider_miss_count = if let Some(base) = mock_url.as_deref() {
-        let inventory = providers
+        let endpoint = if paired_arm.is_some() {
+            "__fixtures/compact"
+        } else {
+            "__fixtures"
+        };
+        let mut response = providers
             .http()
-            .get(format!("{}/__fixtures", base.trim_end_matches('/')))
+            .get(format!("{}/{endpoint}", base.trim_end_matches('/')))
             .send()
             .await
             .expect("read offline provider inventory")
             .error_for_status()
-            .expect("offline provider inventory returned an error")
-            .json::<Value>()
-            .await
-            .expect("parse offline provider inventory");
+            .expect("offline provider inventory returned an error");
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response.chunk().await.unwrap() {
+            if paired_arm.is_some() {
+                assert!(bytes.len() + chunk.len() <= 8388608, "inventory ceiling");
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let inventory: Value =
+            serde_json::from_slice(&bytes).expect("parse offline provider inventory");
         let miss_count = inventory
             .get("misses")
             .and_then(Value::as_array)
@@ -4223,13 +4413,17 @@ async fn run_auto_tag_eval(budget: Option<crate::infra::bounded_eval::Budget>) {
     fs::write(
         artifact_dir.join("command.log"),
         format!(
-            "status={run_status}\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases=2\nper_folder_timeout_seconds={}\nprovider_misses={provider_miss_count}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib live_auto_tag_eval -- --ignored --nocapture\n",
+            "status={run_status}\nrun_id={run_id}\nprofile={profile}\nmedia_mode=synthetic_flac\nselected_cases={}\nphases={}\nper_folder_timeout_seconds={}\nprovider_misses={provider_miss_count}\nnative_test_passed=1\nnative_test_failed=0\nnative_test_ignored=0\ncommand=cargo test --manifest-path src-tauri/Cargo.toml --lib {} -- --ignored --nocapture\n",
             selected.len(),
+            phases.len(),
             PER_FOLDER_TIMEOUT.as_secs()
+            ,if paired_arm.is_some() { "paired_cold_mock_auto_tag_eval" } else { "live_auto_tag_eval" }
         ),
     )
     .unwrap();
-    fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
+    if paired_arm.is_none() {
+        fs::remove_dir_all(&temp_root).expect("remove temporary evaluation media");
+    }
 }
 
 fn configure_eval_assistance(

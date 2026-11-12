@@ -1,0 +1,213 @@
+{
+  "evaluations": [
+    {
+      "name": "disabled-crowd",
+      "arm": "disabled",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [
+        "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    },
+    {
+      "name": "disabled-billie",
+      "arm": "disabled",
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Billie Eilish - COPYCAT.flac",
+        "02. Billie Eilish - idontwannabeyouanymore.flac",
+        "03. Billie Eilish - my boy.flac",
+        "04. Billie Eilish - watch.flac",
+        "05. Billie Eilish - party favor.flac",
+        "06. Billie Eilish - bellyache.flac",
+        "07. Billie Eilish - ocean eyes.flac",
+        "08. Billie Eilish - hostage.flac",
+        "09. Billie Eilish - &burn.flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [],
+      "labelSelectors": [
+        "54e7923a3000/I//cases/98/tracks/8/title",
+        "54e7923a3000/I//cases/98/tracks/8/artists"
+      ]
+    },
+    {
+      "name": "disabled-enya",
+      "arm": "disabled",
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Enya - Orinoco Flow (Remastered 1997).flac",
+        "02. Enya - Caribbean Blue (Remastered 1997).flac",
+        "03. Enya - Book Of Days (Remastered 1997).flac",
+        "04. Enya - Anywhere Is (Remastered 1997).flac",
+        "05. Enya - Only If....flac",
+        "06. Enya - The Celts (Remastered 1997).flac",
+        "07. Enya - China Roses (Remastered 1997).flac",
+        "08. Enya - Shepherd Moons (Remastered 1997).flac",
+        "09. Enya - Ebudae (Remastered 1997).flac",
+        "10. Enya - Storms In Africa (Remastered 1997).flac",
+        "11. Enya - Watermark (Remastered 1997).flac",
+        "12. Enya - Paint The Sky With Stars.flac",
+        "13. Enya - Marble Halls (Remastered 1997).flac",
+        "14. Enya - On My Way Home (Remastered 1997).flac",
+        "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+        "16. Enya - Boadicea (Remastered 1997).flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [],
+      "labelSelectors": []
+    },
+    {
+      "name": "assistance-billie",
+      "arm": "assistance",
+      "caseId": "54e7923a3000",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Billie Eilish - COPYCAT.flac",
+        "02. Billie Eilish - idontwannabeyouanymore.flac",
+        "03. Billie Eilish - my boy.flac",
+        "04. Billie Eilish - watch.flac",
+        "05. Billie Eilish - party favor.flac",
+        "06. Billie Eilish - bellyache.flac",
+        "07. Billie Eilish - ocean eyes.flac",
+        "08. Billie Eilish - hostage.flac",
+        "09. Billie Eilish - &burn.flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [],
+      "labelSelectors": [
+        "54e7923a3000/I//cases/98/tracks/8/title",
+        "54e7923a3000/I//cases/98/tracks/8/artists"
+      ]
+    },
+    {
+      "name": "assistance-enya",
+      "arm": "assistance",
+      "caseId": "f7756354af37",
+      "profile": "folder_filename",
+      "phase": "cold",
+      "physicalPaths": [
+        "01. Enya - Orinoco Flow (Remastered 1997).flac",
+        "02. Enya - Caribbean Blue (Remastered 1997).flac",
+        "03. Enya - Book Of Days (Remastered 1997).flac",
+        "04. Enya - Anywhere Is (Remastered 1997).flac",
+        "05. Enya - Only If....flac",
+        "06. Enya - The Celts (Remastered 1997).flac",
+        "07. Enya - China Roses (Remastered 1997).flac",
+        "08. Enya - Shepherd Moons (Remastered 1997).flac",
+        "09. Enya - Ebudae (Remastered 1997).flac",
+        "10. Enya - Storms In Africa (Remastered 1997).flac",
+        "11. Enya - Watermark (Remastered 1997).flac",
+        "12. Enya - Paint The Sky With Stars.flac",
+        "13. Enya - Marble Halls (Remastered 1997).flac",
+        "14. Enya - On My Way Home (Remastered 1997).flac",
+        "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+        "16. Enya - Boadicea (Remastered 1997).flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [],
+      "labelSelectors": []
+    },
+    {
+      "name": "assistance-crowd",
+      "arm": "assistance",
+      "caseId": "036e0a00e45b",
+      "profile": "tagged_recovery",
+      "phase": "cold",
+      "physicalPaths": [
+        "01 Intro.flac",
+        "02 勵志論.flac",
+        "03 自我的介紹.flac",
+        "04 雨時多雲偶陣晴.flac",
+        "05 狂迪.flac",
+        "06 像你.flac",
+        "07 肌肉的記憶.flac",
+        "08 輕輕.flac",
+        "09 冒煙的燈泡.flac",
+        "10 明年.flac",
+        "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+      ],
+      "fields": [
+        "title",
+        "artists",
+        "genre"
+      ],
+      "userLabelSelectors": [
+        "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+        "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+      ],
+      "labelSelectors": [
+        "036e0a00e45b/C//cases/0/tracks/10/title",
+        "036e0a00e45b/C//cases/0/tracks/10/artists"
+      ]
+    }
+  ],
+  "requestedPhysicalOccurrences": 72,
+  "requestedFieldSlots": 216,
+  "predeclaredLabelableSlots": 30,
+  "uniqueUserAcceptanceLabels": 11,
+  "uniqueSelectedOccurrenceFieldLabels": 15
+}

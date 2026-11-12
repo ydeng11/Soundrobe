@@ -1,0 +1,8 @@
+{
+  "checked": "same actual serialized request with scorer labels present and absent",
+  "sha256": "846b46b99b6d2dcbf55fd84bb278b47c311f303a94be90e1564bfbfece5b4cea",
+  "bytes": 863,
+  "matrixRequests": 1,
+  "separateLabelFreeControlRequests": 1,
+  "acousticAccuracyClaim": false
+}

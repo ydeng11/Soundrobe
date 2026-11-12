@@ -4220,12 +4220,51 @@ async fn resolve_tags_via_llm(
 #[path = "auto_tag_benchmark.rs"]
 mod latency_benchmark;
 
+#[cfg(test)]
+fn paired_candidate(candidate: &AlbumCandidate) -> Result<(), ApiError> {
+    if crate::infra::bounded_eval::paired_active() {
+        for track in &candidate.tracks {
+            let source = track
+                .source
+                .as_ref()
+                .ok_or_else(|| ApiError::Message("paired source missing".into()))?;
+            if RecordingSource::capture(&source.path)? != *source {
+                crate::infra::bounded_eval::paired_stop();
+                return Err(ApiError::Message("paired prewrite source changed".into()));
+            }
+        }
+    }
+    crate::infra::bounded_eval::paired_event(serde_json::json!({
+        "kind":"candidate", "candidate":candidate, "acceptedMatch":candidate.accepted_match,
+        "sources":candidate.tracks.iter().map(|t| &t.source).collect::<Vec<_>>()
+    }))
+    .map(|_| ())
+    .map_err(ApiError::Message)
+}
+
+#[cfg(test)]
+fn paired_review_intent(candidate: &AlbumCandidate, required: bool) -> Result<(), ApiError> {
+    paired_candidate(candidate)?;
+    crate::infra::bounded_eval::paired_event(
+        serde_json::json!({"kind":"review", "required":required}),
+    )
+    .map(|_| ())
+    .map_err(ApiError::Message)
+}
+
 async fn fill_genre_if_missing(
     candidate: &AlbumCandidate,
     request: &LookupRequest,
     config: &AutoTagConfig,
     cancelled: &AtomicBool,
 ) -> (AlbumCandidate, Option<GenreFillOutcome>) {
+    #[cfg(test)]
+    if let Err(error) = paired_candidate(candidate) {
+        return (
+            candidate.clone(),
+            Some(GenreFillOutcome::Failed(error.to_string())),
+        );
+    }
     if ai_circuit_open() {
         return (
             candidate.clone(),
@@ -4300,6 +4339,10 @@ async fn fill_genre_if_missing(
             model: model.to_string(),
             input_sha256: format!("{:x}", Sha256::digest(payload.to_string().as_bytes())),
         });
+        #[cfg(test)]
+        crate::infra::bounded_eval::paired_assisted(
+            serde_json::to_value(&filled.assisted_genre).unwrap(),
+        );
         for (track, local) in filled.tracks.iter_mut().zip(&request.tracks) {
             track.genre = local.genre.clone();
         }
@@ -5283,6 +5326,13 @@ async fn resolve_and_apply_album_with_acoustid_override(
             basic = filled;
             report_genre_fill(genre_outcome, &mut provider_diagnostics, &mut report);
             check_cancelled(cancelled)?;
+            #[cfg(test)]
+            crate::infra::bounded_eval::paired_event(
+                serde_json::json!({"kind":"branch", "name":"album_content"}),
+            )
+            .map_err(ApiError::Message)?;
+            #[cfg(test)]
+            paired_review_intent(&basic, true)?;
             review_intent(&basic)?;
             let written = apply_candidate_tags_reported(
                 album_path,
@@ -5295,34 +5345,39 @@ async fn resolve_and_apply_album_with_acoustid_override(
             )
             .await?;
             let readback = read_album(album_path)?;
-            if written != basic.tracks.len()
-                || readback.tracks.len() != basic.tracks.len()
-                || readback
-                    .tracks
-                    .iter()
-                    .zip(&basic.tracks)
-                    .any(|(actual, expected)| {
-                        actual.title != expected.title
-                            || actual.artist != expected.artist
-                            || actual.artists != expected.artists
-                            || actual.album != basic.album
-                            || actual.album_artist != basic.album_artist
-                            || actual.album_artists != basic.album_artists
-                            || actual.track_number != expected.track_number
-                            || actual.track_total != expected.track_total
-                            || actual.disc_number != expected.disc_number
-                            || actual.year != basic.year
-                            || actual.genre.as_ref()
-                                != expected
-                                    .genre
-                                    .as_ref()
-                                    .filter(|genre| !genre.trim().is_empty())
-                                    .or(basic.genre.as_ref())
-                            || actual.disc_total != expected.disc_total
-                            || actual.musicbrainz_album_id.is_some()
-                            || actual.discogs_release_id.is_some()
-                            || actual.musicbrainz_track_id.is_some()
-                    })
+            #[cfg(test)]
+            let validate_readback = !crate::infra::bounded_eval::paired_preparing();
+            #[cfg(not(test))]
+            let validate_readback = true;
+            if validate_readback
+                && (written != basic.tracks.len()
+                    || readback.tracks.len() != basic.tracks.len()
+                    || readback
+                        .tracks
+                        .iter()
+                        .zip(&basic.tracks)
+                        .any(|(actual, expected)| {
+                            actual.title != expected.title
+                                || actual.artist != expected.artist
+                                || actual.artists != expected.artists
+                                || actual.album != basic.album
+                                || actual.album_artist != basic.album_artist
+                                || actual.album_artists != basic.album_artists
+                                || actual.track_number != expected.track_number
+                                || actual.track_total != expected.track_total
+                                || actual.disc_number != expected.disc_number
+                                || actual.year != basic.year
+                                || actual.genre.as_ref()
+                                    != expected
+                                        .genre
+                                        .as_ref()
+                                        .filter(|genre| !genre.trim().is_empty())
+                                        .or(basic.genre.as_ref())
+                                || actual.disc_total != expected.disc_total
+                                || actual.musicbrainz_album_id.is_some()
+                                || actual.discogs_release_id.is_some()
+                                || actual.musicbrainz_track_id.is_some()
+                        }))
             {
                 return Err(ApiError::Message(
                     "basic album tag readback did not match the accepted mapping".into(),
@@ -5363,6 +5418,10 @@ async fn resolve_and_apply_album_with_acoustid_override(
             for (track, local) in shared.tracks.iter_mut().zip(&request.tracks) {
                 track.source = local.source.clone();
             }
+            #[cfg(test)]
+            crate::infra::bounded_eval::paired_event(serde_json::json!({"kind":"branch", "name":"country_independent_recordings", "releaseIds":release_ids})).map_err(ApiError::Message)?;
+            #[cfg(test)]
+            paired_review_intent(&shared, true)?;
             review_intent(&shared)?;
             let (written, _) =
                 apply_recording_tags(album_path, &shared.tracks, services.queue, None).await?;
@@ -5522,6 +5581,10 @@ async fn resolve_and_apply_album_with_acoustid_override(
                 for (track, local) in shared.tracks.iter_mut().zip(&request.tracks) {
                     track.source = local.source.clone();
                 }
+                #[cfg(test)]
+                crate::infra::bounded_eval::paired_event(serde_json::json!({"kind":"branch", "name":"common_recording_fields", "releaseIds":editions})).map_err(ApiError::Message)?;
+                #[cfg(test)]
+                paired_review_intent(&shared, true)?;
                 review_intent(&shared)?;
                 let (written, _) =
                     apply_recording_tags(album_path, &shared.tracks, services.queue, None).await?;
@@ -5696,36 +5759,44 @@ async fn resolve_and_apply_album_with_acoustid_override(
         || config.discogs_enabled != Some(false)
         || config.theaudiodb_api_key.is_some()
     {
-        let remote = RemoteArtworkClient::new(
-            services.providers.http(),
-            config.discogs_token.clone(),
-            config.theaudiodb_api_key.clone(),
-        );
-        if let Some((_bytes, source, path)) =
-            download_album_artwork_at(album_path, &remote, services.queue).await
-        {
-            report(
-                "source",
-                format!("Cover art: {}", path.display()),
-                Some(serde_json::json!({
-                    "source": "cover",
-                    "provider": source,
-                    "path": path.to_string_lossy()
-                })),
+        // Only the explicit paired mock scope excludes ancillary stages. Desktop
+        // flags and matching/genre eligibility above are unchanged.
+        #[cfg(test)]
+        let exclude_ancillary = crate::infra::bounded_eval::paired_active();
+        #[cfg(not(test))]
+        let exclude_ancillary = false;
+        if !exclude_ancillary {
+            let remote = RemoteArtworkClient::new(
+                services.providers.http(),
+                config.discogs_token.clone(),
+                config.theaudiodb_api_key.clone(),
             );
-        }
-        if let Some((_bytes, source, path)) =
-            download_artist_artwork_at(album_path, &remote, services.queue).await
-        {
-            report(
-                "source",
-                format!("Artist art: {}", path.display()),
-                Some(serde_json::json!({
-                    "source": "artist",
-                    "provider": source,
-                    "path": path.to_string_lossy()
-                })),
-            );
+            if let Some((_bytes, source, path)) =
+                download_album_artwork_at(album_path, &remote, services.queue).await
+            {
+                report(
+                    "source",
+                    format!("Cover art: {}", path.display()),
+                    Some(serde_json::json!({
+                        "source": "cover",
+                        "provider": source,
+                        "path": path.to_string_lossy()
+                    })),
+                );
+            }
+            if let Some((_bytes, source, path)) =
+                download_artist_artwork_at(album_path, &remote, services.queue).await
+            {
+                report(
+                    "source",
+                    format!("Artist art: {}", path.display()),
+                    Some(serde_json::json!({
+                        "source": "artist",
+                        "provider": source,
+                        "path": path.to_string_lossy()
+                    })),
+                );
+            }
         }
     }
     check_cancelled(cancelled)?;
@@ -5769,7 +5840,10 @@ fn checkpoint_candidate_review(
     candidate: &AlbumCandidate,
     review_intent: &mut impl FnMut(&AlbumCandidate) -> Result<(), ApiError>,
 ) -> Result<(), ApiError> {
-    if candidate.source == LookupSource::Llm || candidate.assisted_genre.is_some() {
+    let required = candidate.source == LookupSource::Llm || candidate.assisted_genre.is_some();
+    #[cfg(test)]
+    paired_review_intent(candidate, required)?;
+    if required {
         review_intent(candidate)?;
     }
     Ok(())
@@ -6428,6 +6502,14 @@ async fn apply_recording_tags(
         if let Some(id) = &track.musicbrainz_track_id {
             fields["musicbrainzTrackId"] = id.clone().into();
         }
+        #[cfg(test)]
+        if crate::infra::bounded_eval::paired_event(serde_json::json!({
+            "kind":"recording_patch", "path":path, "fields":fields, "source":track.source
+        }))
+        .map_err(ApiError::Message)?
+        {
+            continue;
+        }
         let patch = serde_json::from_value(fields)
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
         let before = track.source.clone();
@@ -6512,6 +6594,21 @@ async fn apply_candidate_tags_reported(
     clear_tags: &[String],
     mut report_write: impl FnMut(&str),
 ) -> Result<usize, ApiError> {
+    #[cfg(test)]
+    paired_candidate(candidate)?;
+    #[cfg(test)]
+    {
+        let selected = match scope {
+            CandidateApplyScope::AllTracks => None,
+            CandidateApplyScope::SelectedTracks(indices) => {
+                let mut indices = indices.iter().copied().collect::<Vec<_>>();
+                indices.sort_unstable();
+                Some(indices)
+            }
+        };
+        crate::infra::bounded_eval::paired_event(serde_json::json!({"kind":"application_scope", "selectedIndices":selected, "clearTags":clear_tags}))
+            .map_err(ApiError::Message)?;
+    }
     let fallback_artist = album_path
         .parent()
         .and_then(Path::file_name)
@@ -6627,6 +6724,15 @@ async fn apply_candidate_tags_reported(
             // by not inserting a lyrics key (serde default = Patch::Omitted).
         }
         apply_clear_tag_fields(&mut fields, clear_tags);
+        #[cfg(test)]
+        if crate::infra::bounded_eval::paired_event(serde_json::json!({
+            "kind":"patch", "path":file_path, "fields":fields,
+            "source":track.and_then(|t| t.source.as_ref())
+        }))
+        .map_err(ApiError::Message)?
+        {
+            continue;
+        }
         let patch: TrackPatch = serde_json::from_value(fields.into())
             .map_err(|error| ApiError::WriteTask(error.to_string()))?;
         let guard_sources = group_sources.clone();
@@ -7013,16 +7119,50 @@ mod tests {
             .await
             .unwrap();
         let before = read_album(&album).unwrap();
-        let tracks = vec![TrackCandidate {
+        let mut tracks = vec![TrackCandidate {
             title: Some("Song (Demo)".into()),
             artist: Some("Singer feat. Guest".into()),
             artists: vec!["Singer".into(), "Guest".into()],
             musicbrainz_track_id: Some("verified-recording".into()),
+            source: Some(RecordingSource::capture(&file).unwrap()),
             ..TrackCandidate::default()
         }];
-        let first = apply_recording_tags(&album, &tracks, &queue, None)
+        let plan = crate::infra::bounded_eval::PairedMock::preparation(
+            "http://127.0.0.1:1234/model",
+            false,
+        )
+        .unwrap();
+        let baseline = fs::read(&file).unwrap();
+        assert_eq!(
+            plan.run(apply_recording_tags(&album, &tracks, &queue, None))
+                .await
+                .unwrap()
+                .0,
+            0
+        );
+        assert_eq!(
+            fs::read(&file).unwrap(),
+            baseline,
+            "plan-only recording patches are dry"
+        );
+        let changed = plan.replay();
+        let mut wrong = tracks.clone();
+        wrong[0].title = Some("Song".into());
+        assert!(changed
+            .run(apply_recording_tags(&album, &wrong, &queue, None))
+            .await
+            .is_err());
+        assert_eq!(
+            fs::read(&file).unwrap(),
+            baseline,
+            "version drift stops before dispatch"
+        );
+        let replay = plan.replay();
+        let first = replay
+            .run(apply_recording_tags(&album, &tracks, &queue, None))
             .await
             .unwrap();
+        replay.complete().unwrap();
         assert_eq!(first.0, 1);
         let after = read_album(&album).unwrap();
         assert_eq!(after.tracks[0].album, before.tracks[0].album);
@@ -7035,6 +7175,7 @@ mod tests {
         );
         assert_eq!(after.tracks[0].title.as_deref(), Some("Song (Demo)"));
         let once = fs::read(&file).unwrap();
+        tracks[0].source = Some(RecordingSource::capture(&file).unwrap());
         apply_recording_tags(&album, &tracks, &queue, None)
             .await
             .unwrap();
@@ -7803,6 +7944,53 @@ mod tests {
         })
         .expect_err("provider identity must not hide an assisted field's review obligation");
         assert!(error.to_string().contains("review store unavailable"));
+    }
+
+    #[tokio::test]
+    async fn paired_response_review_has_a_prepared_conditional_checkpoint() {
+        use crate::infra::bounded_eval::{paired_assisted, PairedMock};
+        let plan = PairedMock::preparation("http://127.0.0.1:1234/model", true).unwrap();
+        let base = AlbumCandidate {
+            source: LookupSource::Musicbrainz,
+            ..Default::default()
+        };
+        plan.run(async {
+            checkpoint_candidate_review(&base, &mut |_| {
+                panic!("no inferred review in preparation")
+            })
+            .unwrap();
+            paired_candidate(&base).unwrap();
+        })
+        .await;
+        let replay = plan.replay();
+        let mut filled = base.clone();
+        filled.genre = Some("Diagnostic".into());
+        filled.assisted_genre = Some(AssistedGenre {
+            value: "Diagnostic".into(),
+            model: "scripted/genre-v1".into(),
+            input_sha256: "fixture".into(),
+        });
+        let mut persisted = 0;
+        replay
+            .run(async {
+                paired_assisted(serde_json::to_value(&filled.assisted_genre).unwrap());
+                checkpoint_candidate_review(&filled, &mut |_| {
+                    assert!(
+                        replay.observations()["matchedEvents"].as_u64().unwrap() >= 2,
+                        "compare the conditional review before persistence"
+                    );
+                    persisted += 1;
+                    Ok(())
+                })
+                .unwrap();
+                paired_candidate(&filled).unwrap();
+            })
+            .await;
+        assert_eq!(persisted, 1);
+        assert!(
+            replay.complete().is_ok(),
+            "review and application must not consume each other's plan events"
+        );
     }
 
     #[tokio::test]

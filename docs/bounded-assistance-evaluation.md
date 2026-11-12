@@ -2,6 +2,22 @@
 
 This capability is test-only and mock-only. It does not activate a real model, authenticate a real approval, or provide a hard spending limit. Ordinary evaluation still defaults to disabled assistance and accepts only explicitly scripted loopback assistance. The disabled-only rehearsal runner is unchanged.
 
+## Cold paired mock replay
+
+The maintained `run-bounded.cjs` also accepts an explicit `--paired-cold` fourth argument, after the frozen user-label directory. Its default cold/warm diagnostic selection is unchanged.
+
+The paired selection runs Crowd Lu, Billie Eilish, and Enya in disabled and assistance arms, in that order except that assistance Crowd runs last. All six jobs are cold. The selection retains 36 captured physical identities, 72 observations, and 216 requested title, ordered-artist, and genre slots. Thirty slots have labels, including 22 exact user-acceptance slots. User labels belong to the scorer only. They neither configure the model fixture nor establish acoustic truth.
+
+The ignored `paired_cold_mock_auto_tag_eval` entrypoint runs the existing coordinator twice on each job's same retained disposable files. Plan-only preparation uses separate caches, aliases, and provider clients and skips media writes. Execution starts with fresh stores and compares the ordered source, candidate, request, review, and patch plan before effects. Both album and artist artwork stages are explicitly excluded in this evaluation scope. Ordinary desktop matching and genre eligibility are unchanged.
+
+Only assistance Crowd may reach one genre request. No retries or schema repairs are permitted. Provider-only applications and explicit zero-call holds are valid outcomes. The model fixture compares the complete serialized request against an independently constructed catalog-derived request. Its diagnostic response is not a quality claim or an accepted-answer fixture.
+
+`/__fixtures/compact` retains every fixture route, response digest and byte length, provider request, model-request digest, miss, and wire arrival without embedding response bodies. Paired native and driver readers enforce the unchanged 8-MiB inventory ceiling. The legacy full-body endpoint remains available to existing diagnostics. Candidate and readback exports remain separate from inventory accounting.
+
+Requested membership is frozen before native execution. Missing or unvalidated execution observations remain unavailable and failed within the denominator; preparation never supplies readback. Scores remain provisional until all jobs pass execution and preservation checks. A complete execution still reports insufficient semantic evidence, zero grounded-model accuracy credit, no accepted certificate, and no write authority.
+
+This slice uses trusted local mocks and an in-process comparison plan. It does **not** implement the proposed live broker, authenticated approval, durable shared counters, credential custody, storage/VFS tickets, independent supervisor, hard whole-run resource ceilings, paid retention policy, or billing guarantees. Fixture request counts are observations, not shared admission. The driver has a per-child timeout, not host-failure containment. Raw diagnostic evidence is retained locally; the proposed paid-output sink and deletion policy is not enforced by this mock path. Packaged field-level highlights are not verified by native worker persistence.
+
 ## Native boundary
 
 `infra::bounded_eval` scopes the existing coordinator's OpenAI-format model transport. The separately ignored `bounded_mock_auto_tag_eval` entrypoint requires all ordinary evaluation inputs plus `SOUNDROBE_BOUNDED_EVAL_MANIFEST` and a separately supplied `SOUNDROBE_BOUNDED_EVAL_APPROVED_SHA256`. This digest is mock admission, not user approval. There is no supported external endpoint, real credential lookup, or live activation option.

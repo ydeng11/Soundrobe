@@ -4,6 +4,7 @@ import importlib.util
 import hashlib
 import json
 import pathlib
+import subprocess
 import tempfile
 import unittest
 
@@ -151,6 +152,116 @@ class NativeProjection(unittest.TestCase):
         self.assertEqual(result['outcomes'], {'correct_catalog_fill': 2, 'correct_catalog_change': 2, 'unscorable': 2})
         self.assertEqual(result['groundedAssistanceAccuracyCredit'], 0)
         self.assertEqual(result['writableDelta'], [])
+
+    def test_cold_arm_projection_retains_missing_execution_without_warm_substitution(self):
+        self.spec.update(version=2, mode='mock', arm='assistance', phases=['cold'])
+        self.rows = [dict(self.rows[0], arm='assistance')]
+        events = [{'kind': 'patch', 'path': 'disc/02.flac', 'fields': {'title': 'Song (Live)'}}]
+        digest = hashlib.sha256(json.dumps(events, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        plan = dict(mode='mock_only', preparing=True, stopped=False, events=events,
+                    planSha256=digest, requests=0, matchedEvents=0, variant='provider_only')
+        preparation = dict(self.rows[0], plan=plan)
+        raw = json.dumps(preparation).encode()
+        (self.root / 'preparation.json').write_bytes(raw)
+        self.spec['bindings']['preparation'] = {'path': 'preparation.json', 'sha256': hashlib.sha256(raw).hexdigest()}
+        self.rows[0]['pairedMock'] = dict(plan, preparing=False, matchedEvents=1, observedEvents=events)
+        contract = self.freeze()
+        self.assertEqual(contract['jobs'][0]['id'], 'assistance/case/tagged_recovery/cold')
+        result = scorer.project_native(self.root, contract, [])
+        self.assertEqual(result['requestedFieldSlots'], 3)
+        self.assertEqual(result['observedFieldSlots'], 0)
+        self.assertEqual(result['serviceFailureSlots'], 3)
+        self.assertEqual(result['predeclaredLabelableSlots'], 2)
+        self.assertEqual(result['outcomes'], {'observation_unknown': 3})
+        self.assertEqual(result['groundedAssistanceAccuracyCredit'], 0)
+        # A failed observation can still agree; failure never erases its slot.
+        self.rows[0]['serviceFailureObserved'] = True
+        observed = scorer.project_native(self.root, contract, self.rows)
+        self.assertEqual(observed['serviceFailureSlots'], 3)
+        self.assertEqual(observed['outcomes']['correct_catalog_fill'], 1)
+        for evidence in [None, dict(self.rows[0]['pairedMock'], stopped=True),
+                         dict(self.rows[0]['pairedMock'], matchedEvents=0),
+                         dict(self.rows[0]['pairedMock'], events=[]),
+                         {k: v for k, v in self.rows[0]['pairedMock'].items() if k != 'observedEvents'},
+                         dict(self.rows[0]['pairedMock'], observedEvents=[]),
+                         dict(self.rows[0]['pairedMock'], observedEvents=[{
+                             'kind': 'patch', 'path': 'not-approved.flac', 'fields': {'title': 'Unapproved'}}])]:
+            invalid = dict(self.rows[0], serviceFailureObserved=False)
+            if evidence is None:
+                invalid.pop('pairedMock')
+            else:
+                invalid['pairedMock'] = evidence
+            unavailable = scorer.project_native(self.root, contract, [invalid])
+            self.assertEqual(unavailable['observedFieldSlots'], 0)
+            self.assertEqual(unavailable['serviceFailureSlots'], 3)
+            self.assertEqual(unavailable['outcomes'], {'observation_unknown': 3})
+        for changed in [dict(self.rows[0], arm='disabled'), dict(self.rows[0], phase='warm'),
+                        dict(self.rows[0], caseId='another')]:
+            with self.assertRaises(ValueError):
+                scorer.project_native(self.root, contract, [changed])
+        with self.assertRaises(ValueError):
+            scorer.project_native(self.root, contract, self.rows * 2)
+        for change in [dict(mode='live'), dict(arm='unknown'), dict(phases=['cold', 'warm'])]:
+            with self.assertRaises(ValueError):
+                scorer.freeze_native_contract(self.root, dict(self.spec, **change), self.rows)
+
+    def test_observed_genre_delta_is_bound_to_request_and_other_fields_remain_exact(self):
+        self.spec.update(version=2, mode='mock', arm='assistance', phases=['cold'])
+        self.rows = [dict(self.rows[0], arm='assistance')]
+        payload = '{"album":"Album","artist":"A","tracks":["Song (Live)"]}'
+        request = {'kind': 'request', 'body': {'model': 'scripted/genre-v1',
+                   'messages': [{'role': 'user', 'content': payload}]}}
+        base = {'kind': 'candidate', 'candidate': {'source': 'musicbrainz', 'genre': None}}
+        events = [request, base, {'kind': 'review', 'required': False}, base,
+                  {'kind': 'patch', 'path': 'disc/02.flac', 'fields': {'title': 'Song (Live)'}}]
+        plan = dict(mode='mock_only', preparing=True, stopped=False, events=events,
+                    planSha256=hashlib.sha256(json.dumps(events, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+                    requests=1, matchedEvents=0, variant='eligible_request')
+        raw = json.dumps(dict(self.rows[0], plan=plan)).encode()
+        (self.root / 'preparation.json').write_bytes(raw)
+        self.spec['bindings']['preparation'] = {'path': 'preparation.json', 'sha256': hashlib.sha256(raw).hexdigest()}
+        observed = copy.deepcopy(events)
+        observed[1]['candidate'].update(genre='Diagnostic', assisted_genre={
+            'value': 'Diagnostic', 'model': 'scripted/genre-v1',
+            'input_sha256': hashlib.sha256(payload.encode()).hexdigest()})
+        observed[3] = copy.deepcopy(observed[1])
+        observed[2]['required'] = True
+        observed[4]['fields']['genre'] = 'Diagnostic'
+        self.rows[0]['pairedMock'] = dict(plan, preparing=False, matchedEvents=len(events), observedEvents=observed)
+        contract = self.freeze()
+        self.assertEqual(scorer.project_native(self.root, contract, self.rows)['observedFieldSlots'], 3)
+        # No response-derived fields (e.g. rejected/low-confidence response) is also valid.
+        unchanged = copy.deepcopy(self.rows)
+        unchanged[0]['pairedMock']['observedEvents'] = events
+        self.assertEqual(scorer.project_native(self.root, contract, unchanged)['observedFieldSlots'], 3)
+        controls = []
+        for key, value in [('model', 'other'), ('input_sha256', '0' * 64), ('value', 'Other')]:
+            changed = copy.deepcopy(observed)
+            changed[1]['candidate']['assisted_genre'][key] = value
+            controls.append(changed)
+        changed = copy.deepcopy(observed)
+        changed[4]['fields']['title'] = 'Song'
+        controls.append(changed)
+        changed = copy.deepcopy(observed)
+        changed[4]['fields']['genre'] = 'Unrelated'
+        controls.append(changed)
+        changed = copy.deepcopy(observed)
+        changed[4]['fields'].pop('genre')
+        controls.append(changed)
+        changed = copy.deepcopy(observed)
+        changed[3] = copy.deepcopy(base)
+        controls.append(changed)
+        changed = copy.deepcopy(observed)
+        changed[2]['required'] = False
+        controls.append(changed)
+        controls.append(list(reversed(observed)))
+        for actual in controls:
+            with self.subTest(actual=actual):
+                changed = copy.deepcopy(self.rows)
+                changed[0]['pairedMock']['observedEvents'] = actual
+                result = scorer.project_native(self.root, contract, changed)
+                self.assertEqual(result['observedFieldSlots'], 0)
+                self.assertEqual(result['serviceFailureSlots'], 3)
 
     def test_corruption_omission_duplicates_and_wrong_relative_paths_reject(self):
         contract = self.freeze()
@@ -384,10 +495,43 @@ class FrozenUserProjection(unittest.TestCase):
                 scorer.freeze_native_contract(self.root, spec, self.rows)
 
 
+class ColdDriverSelection(unittest.TestCase):
+    def test_explicit_cold_plan_has_six_arm_qualified_jobs_and_one_conditional_role(self):
+        driver = str(pathlib.Path(__file__).with_name('run-bounded.cjs').resolve())
+        jobs = json.loads(subprocess.check_output(['node', '-e',
+            'console.log(JSON.stringify(require(process.argv[1]).pairedColdJobs()))', driver]))
+        self.assertEqual([(j['arm'], j['caseId']) for j in jobs], [
+            ('disabled', '036e0a00e45b'), ('disabled', '54e7923a3000'), ('disabled', 'f7756354af37'),
+            ('assistance', '54e7923a3000'), ('assistance', 'f7756354af37'), ('assistance', '036e0a00e45b')])
+        self.assertEqual(len({j['name'] for j in jobs}), 6)
+        self.assertEqual([j['name'] for j in jobs if j['role']], ['assistance-crowd'])
+
+    def test_failure_publication_keeps_validated_scores_and_unfinished_denominators(self):
+        driver = str(pathlib.Path(__file__).with_name('run-bounded.cjs').resolve())
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            fields = ['title', 'artists', 'genre']
+            evaluations = [dict(name=f'{arm}-case', arm=arm, caseId='case', profile='tagged_recovery',
+                phase='cold', fields=fields, physicalPaths=['one.flac']) for arm in ['disabled', 'assistance']]
+            (root / 'requested-membership.json').write_text(json.dumps(dict(evaluations=evaluations,
+                requestedFieldSlots=6, requestedPhysicalOccurrences=2, predeclaredLabelableSlots=2)))
+            ready = root / 'disabled-case'
+            ready.mkdir()
+            (ready / 'result.provisional.json').write_text(json.dumps(dict(name='disabled-case',
+                caseId='case', arm='disabled', profile='tagged_recovery', score=dict(requestedFieldSlots=3,
+                observedFieldSlots=3, serviceFailureSlots=0, fields=[dict(id=f'disabled/case/tagged_recovery/cold/one.flac/{f}') for f in fields]))))
+            result = json.loads(subprocess.check_output(['node', '-e',
+                'console.log(JSON.stringify(require(process.argv[1]).failureEnvelope(process.argv[2])))', driver, directory]))
+            self.assertEqual(result['requestedFieldSlots'], 6)
+            self.assertEqual(result['observedFieldSlots'], 3)
+            self.assertEqual(result['serviceFailureSlots'], 3)
+            self.assertEqual(result['evaluations'][1]['nativeObservation'], 'unavailable')
+
+
 def load_tests(loader, tests, pattern):
     # Portable controls stay runnable without ignored local planning records.
     return unittest.TestSuite(loader.loadTestsFromTestCase(case)
-                              for case in [ObservationScoring, NativeProjection])
+                              for case in [ObservationScoring, NativeProjection, ColdDriverSelection])
 
 
 if __name__ == '__main__':

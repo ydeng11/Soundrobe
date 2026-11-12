@@ -1,0 +1,81 @@
+{
+  "run": ".amp/in/artifacts/cold-paired-development-20261111/run-05",
+  "checks": "passed",
+  "evaluations": [
+    {
+      "name": "disabled-crowd",
+      "variant": "provider_only",
+      "outcome": "applied",
+      "providerRequests": 30,
+      "modelRequests": 0,
+      "wireArrivals": 33,
+      "inventoryBytes": 974261,
+      "matchedEvents": 16,
+      "nativeElapsedMs": 5177
+    },
+    {
+      "name": "disabled-billie",
+      "variant": "provider_only",
+      "outcome": "applied",
+      "providerRequests": 36,
+      "modelRequests": 0,
+      "wireArrivals": 39,
+      "inventoryBytes": 980043,
+      "matchedEvents": 14,
+      "nativeElapsedMs": 25620
+    },
+    {
+      "name": "disabled-enya",
+      "variant": "hold",
+      "outcome": "needs_review",
+      "providerRequests": 170,
+      "modelRequests": 0,
+      "wireArrivals": 173,
+      "inventoryBytes": 1026087,
+      "matchedEvents": 1,
+      "nativeElapsedMs": 158725
+    },
+    {
+      "name": "assistance-billie",
+      "variant": "provider_only",
+      "outcome": "applied",
+      "providerRequests": 36,
+      "modelRequests": 0,
+      "wireArrivals": 39,
+      "inventoryBytes": 980043,
+      "matchedEvents": 14,
+      "nativeElapsedMs": 25871
+    },
+    {
+      "name": "assistance-enya",
+      "variant": "hold",
+      "outcome": "needs_review",
+      "providerRequests": 170,
+      "modelRequests": 0,
+      "wireArrivals": 173,
+      "inventoryBytes": 1026087,
+      "matchedEvents": 1,
+      "nativeElapsedMs": 158683
+    },
+    {
+      "name": "assistance-crowd",
+      "variant": "eligible_request",
+      "outcome": "needs_review",
+      "providerRequests": 30,
+      "modelRequests": 1,
+      "wireArrivals": 34,
+      "inventoryBytes": 974647,
+      "matchedEvents": 17,
+      "nativeElapsedMs": 4973
+    }
+  ],
+  "providerRequests": 472,
+  "modelRequests": 1,
+  "wireArrivals": 491,
+  "requestedFieldSlots": 216,
+  "observedFieldSlots": 216,
+  "labelableSlots": 30,
+  "userAcceptanceRequested": 22,
+  "userAcceptanceAgreeing": 0,
+  "groundedAssistanceAccuracyCredit": 0
+}

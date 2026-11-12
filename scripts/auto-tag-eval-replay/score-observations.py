@@ -77,9 +77,18 @@ def indexed_tracks(tracks, expected):
     return result
 
 
+def native_job_id(spec, row):
+    identity = f'{row["caseId"]}/{row["profile"]}/{row["phase"]}'
+    return f'{row["arm"]}/{identity}' if spec['version'] == 2 else identity
+
+
 def freeze_native_contract(root, spec, records):
     """Freeze ALL requested slots from independent sources and prewrite observations only."""
-    if spec['version'] != 1 or spec['fields'] != ['title', 'artists', 'genre'] or spec['phases'] != ['cold', 'warm']:
+    paired = spec['version'] == 2
+    valid_scope = (spec.get('mode') == 'mock' and spec.get('arm') in ['disabled', 'assistance']
+                   and spec['phases'] == ['cold']) if paired else (
+                       spec['version'] == 1 and spec['phases'] == ['cold', 'warm'])
+    if not valid_scope or spec['fields'] != ['title', 'artists', 'genre']:
         raise ValueError('unsupported projection contract')
     bindings = spec['bindings']
     for binding in bindings.values():
@@ -96,8 +105,9 @@ def freeze_native_contract(root, spec, records):
     sources = {key: checked_json(root, {'path': str(pathlib.PurePosixPath(packet['sourceRoot']) / value['path']),
                                       'sha256': value['sha256']})
                for key, value in packet['sourceRegister'].items()}
-    expected_jobs = [f'{case}/{spec["profile"]}/{phase}' for phase in spec['phases'] for case in spec['caseIds']]
-    jobs = {f'{r["caseId"]}/{r["profile"]}/{r["phase"]}': r for r in records}
+    expected_jobs = [native_job_id(spec, dict(caseId=case, profile=spec['profile'], phase=phase,
+                                            arm=spec.get('arm'))) for phase in spec['phases'] for case in spec['caseIds']]
+    jobs = {native_job_id(spec, r): r for r in records}
     if len(set(expected_jobs)) != len(expected_jobs) or len(jobs) != len(records) or set(jobs) != set(expected_jobs):
         raise ValueError('requested job/phase membership mismatch')
     cases = {c['caseId']: c for c in corpus['cases']}
@@ -187,17 +197,83 @@ def freeze_native_contract(root, spec, records):
                     slots[-1].update(labelBasis='user_acceptance', labelVersion=user_labels['version'],
                         acceptedValues=occurrence['acceptedGenreValues'], labelOccurrence=occurrence['inventorySelector'])
     # Own the snapshot; subsequent caller mutation must not update frozen authority.
-    return json.loads(json.dumps({'version': 1, 'spec': spec, 'jobs': frozen_jobs, 'slots': slots,
-        'labelCoverage': {'uniqueOccurrenceFieldLabels': len({(s['labelOccurrence'], s['field'], s['job'].split('/')[0])
+    result = {'version': spec['version'], 'spec': spec, 'jobs': frozen_jobs, 'slots': slots,
+        'labelCoverage': {'uniqueOccurrenceFieldLabels': len({(s['labelOccurrence'], s['field'], s['job'].split('/')[-3])
                             for s in slots if s['acceptedValues'] is not None}),
                           'replicatedLabelableSlots': sum(s['acceptedValues'] is not None for s in slots),
-                          'uniqueUserAcceptanceLabels': len(user_labels['occurrences']) if user_labels else 0}}))
+                          'uniqueUserAcceptanceLabels': len(user_labels['occurrences']) if user_labels else 0}}
+    if paired:
+        preparation = checked_json(root, bindings['preparation'])
+        plan = preparation['plan']
+        events_digest = hashlib.sha256(json.dumps(plan['events'], ensure_ascii=False,
+            sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+        if (len(expected_jobs) != 1 or native_job_id(spec, preparation) != expected_jobs[0]
+                or plan['mode'] != 'mock_only' or plan['preparing'] is not True
+                or plan['stopped'] is not False or plan['planSha256'] != events_digest
+                or plan['requests'] != sum(e['kind'] == 'request' for e in plan['events'])):
+            raise ValueError('invalid bound preparation plan')
+        result['pairedPlans'] = {expected_jobs[0]: plan}
+        # Preparation INPUTS freeze membership and baselines, never execution readback.
+        result['preparationInputs'] = [{**{key: row[key] for key in [
+            'caseId', 'profile', 'phase', 'arm', 'sourceRelativeFolder', 'providerMode']},
+            'fieldObservations': {key: row['fieldObservations'][key] for key in [
+                'inputJson', 'inputSha256', 'requestJson', 'sourceRoot']}} for row in records]
+    return json.loads(json.dumps(result))
+
+
+def paired_observations_match(planned, execution):
+    """Check actual events, not the copied plan or its claimed cursor."""
+    observed = execution.get('observedEvents')
+    if not isinstance(observed, list) or len(observed) != len(planned['events']):
+        return False
+    request, assisted = None, None
+    try:
+        for base, event in zip(planned['events'], observed):
+            expected = json.loads(json.dumps(base))
+            if event['kind'] == 'request':
+                request = event['body']
+            if event['kind'] == 'candidate' and 'assisted_genre' in event['candidate']:
+                candidate = event['candidate']
+                provenance = candidate['assisted_genre']
+                users = [m['content'] for m in request['messages'] if m['role'] == 'user'] if request else []
+                if (len(users) != 1 or not isinstance(provenance, dict)
+                        or set(provenance) != {'value', 'model', 'input_sha256'}
+                        or not isinstance(provenance['value'], str) or not provenance['value'].strip()
+                        or provenance['model'] != request['model']
+                        or provenance['input_sha256'] != hashlib.sha256(users[0].encode()).hexdigest()
+                        or candidate['genre'] != provenance['value']
+                        or (assisted is not None and assisted != provenance)):
+                    return False
+                assisted = provenance
+            if assisted and expected['kind'] == 'candidate':
+                expected['candidate'].update(genre=assisted['value'], assisted_genre=assisted)
+            if assisted and expected['kind'] == 'review' and expected['required'] is False:
+                if event['required'] is not True:
+                    return False
+                expected['required'] = True
+            if assisted and expected['kind'] == 'patch' and 'genre' not in expected['fields']:
+                expected['fields']['genre'] = assisted['value']
+            if event != expected:
+                return False
+        return True
+    except (KeyError, TypeError, AttributeError):
+        return False
 
 
 def project_native(root, contract, records, manifest=None):
     """Validate native membership/baselines before making any scorer observations."""
     try:
-        if freeze_native_contract(root, contract['spec'], records) != contract:
+        paired = contract['spec']['version'] == 2
+        validation_rows = records
+        if paired:
+            expected = {j['id'] for j in contract['jobs']}
+            seen = [native_job_id(contract['spec'], row) for row in records]
+            if len(set(seen)) != len(seen) or not set(seen) <= expected:
+                raise ValueError('unexpected or duplicate execution membership')
+            available = dict(zip(seen, records))
+            validation_rows = [available.get(native_job_id(contract['spec'], row), row)
+                               for row in contract['preparationInputs']]
+        if freeze_native_contract(root, contract['spec'], validation_rows) != contract:
             raise ValueError('native baseline/request or frozen contract changed')
         if manifest is not None:
             raw_manifest = checked_bytes(root, manifest)
@@ -221,9 +297,22 @@ def project_native(root, contract, records, manifest=None):
             for row in records:
                 if row['boundedAssistance']['manifestSha256'] != manifest_digest or row['profileInputSha256'] != row['fieldObservations']['inputSha256']:
                     raise ValueError('native invocation not bound to frozen manifest')
-        by_job = {f'{r["caseId"]}/{r["profile"]}/{r["phase"]}': r for r in records}
+        by_job = {native_job_id(contract['spec'], r): r for r in records}
+        invalid_jobs = set()
+        if paired:
+            for job_id, row in by_job.items():
+                planned = contract['pairedPlans'][job_id]
+                execution = row.get('pairedMock', {})
+                if (not isinstance(execution, dict) or execution.get('mode') != 'mock_only'
+                        or execution.get('preparing') is not False or execution.get('stopped') is not False
+                        or any(execution.get(key) != planned[key] for key in ['events', 'planSha256', 'variant', 'requests'])
+                        or execution.get('matchedEvents') != len(planned['events'])
+                        or not paired_observations_match(planned, execution)):
+                    invalid_jobs.add(job_id)
         readbacks = {}
         for job in contract['jobs']:
+            if job['id'] not in by_job or job['id'] in invalid_jobs:
+                continue
             obs = by_job[job['id']]['fieldObservations']
             if type(obs['readbackAvailable']) is not bool:
                 raise ValueError('readback availability must be explicit')
@@ -236,6 +325,10 @@ def project_native(root, contract, records, manifest=None):
                 raise ValueError('unavailable readback requires a reader error and no invented values')
         observations = []
         for slot in contract['slots']:
+            if slot['job'] not in by_job or slot['job'] in invalid_jobs:
+                observations.append({'id': slot['id'], 'readbackAvailable': False,
+                    'readback': None, 'serviceFailure': True, 'decisionVisibility': 'unavailable'})
+                continue
             row = by_job[slot['job']]
             available = row['fieldObservations']['readbackAvailable']
             if type(row['serviceFailureObserved']) is not bool:
@@ -334,10 +427,14 @@ if __name__ == '__main__':
             raw = pathlib.Path(source_path).read_bytes()
             if hashlib.sha256(raw).hexdigest() != expected:
                 raise ValueError('changed frozen projection contract')
-            manifest_raw = pathlib.Path(manifest_path).read_bytes()
-            manifest_binding = {'path': str(pathlib.Path(manifest_path).resolve().relative_to(root)),
-                                'sha256': hashlib.sha256(manifest_raw).hexdigest()}
-            result = project_native(root, json.loads(raw), json.loads(pathlib.Path(records_path).read_text()), manifest_binding)
+            contract = json.loads(raw)
+            if manifest_path == '-' and contract['spec'].get('version') == 2 and contract['spec'].get('mode') == 'mock':
+                manifest_binding = None  # In-process mock plan, no durable admission claim.
+            else:
+                manifest_raw = pathlib.Path(manifest_path).read_bytes()
+                manifest_binding = {'path': str(pathlib.Path(manifest_path).resolve().relative_to(root)),
+                                    'sha256': hashlib.sha256(manifest_raw).hexdigest()}
+            result = project_native(root, contract, json.loads(pathlib.Path(records_path).read_text()), manifest_binding)
         with pathlib.Path(output_path).open('x') as output:
             json.dump(result, output, ensure_ascii=False, indent=2)
             output.write('\n')

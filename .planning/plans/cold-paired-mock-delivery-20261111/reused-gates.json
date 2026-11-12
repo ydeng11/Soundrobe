@@ -1,0 +1,63 @@
+{
+  "status": "reused prior gates, not executed for commit delivery",
+  "overlap": "Counts overlap and must not be summed. The 19 ignored native tests did not run in that suite.",
+  "gates": [
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/server-final-source.log",
+      "bytes": 81500,
+      "sha256": "1bf473b749a9970df1e29a7decc29cb2efd9baf8b496e91906d457b867911288",
+      "passed": 765,
+      "failed": 0,
+      "ignored": 19
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/frozen-boundaries-green.log",
+      "bytes": 2338,
+      "sha256": "a89b0677283e9d9d16db0a77048b096208e591d485662aa51514f79457f80ff0",
+      "passed": 22,
+      "failed": 0,
+      "ignored": 0
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/scorer-final-22.log",
+      "bytes": 121,
+      "sha256": "ceec0e06b51f8b4d957b9335a08498e9b7dd7d3b3230e1ec37e6b02d3eaa52a8",
+      "passed": 22,
+      "failed": 0,
+      "localInputDependentTests": 3
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/system-python-scorer.log",
+      "bytes": 119,
+      "sha256": "e5c0a436d72789bf0c8a05b040144e83196b78165403de395a7fa13bd858095b",
+      "passed": 19,
+      "failed": 0
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/script-regression.log",
+      "bytes": 5116,
+      "sha256": "f3a80c1d08bf8bc42ec8d85622b4720001ae5e6c169ded895c6ef3e97ec48ad0",
+      "passed": 84,
+      "files": 13,
+      "failed": 0
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/typecheck-final.log",
+      "bytes": 46,
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2",
+      "exit": 0
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/history-seal-final.log",
+      "bytes": 578,
+      "sha256": "874d30089cf09fc6146acea9717a3b35ee200ef160abf207ffdbec52db5c3846",
+      "sealedEntries": 8
+    },
+    {
+      "path": ".amp/in/artifacts/cold-paired-development-20261111/user-seal-final.log",
+      "bytes": 493,
+      "sha256": "c8b0fd733ca24b188137643553ca9b82c326ebb4f3d0ceec073d9520f5d990e3",
+      "sealedEntries": 7
+    }
+  ]
+}

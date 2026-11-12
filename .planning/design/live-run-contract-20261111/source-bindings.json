@@ -1,0 +1,263 @@
+{
+  "scope": "Inspected current ownership and historical metadata; no original-media reads, execution or enforcement attestation",
+  "head": "4b0a9cfc41db8476721b2cc1fd453e121b85bc17",
+  "branch": "artist-library-inventory",
+  "files": [
+    {
+      "path": "src-tauri/src/infra/mod.rs",
+      "sha256": "83879e78ee7ce19a70038db75c4cd13d7ca30f6406b47807d1384ad79cecd1c8",
+      "lineCount": 64,
+      "anchors": {
+        "pub(crate) mod bounded_eval;": [
+          26
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/infra/bounded_eval.rs",
+      "sha256": "250052de2dd4cceca71451d99e1a2eaa8b46eacefb28f74ffb199a324c069c7e",
+      "lineCount": 1219,
+      "anchors": {
+        "struct State {": [
+          63
+        ],
+        "pub(crate) fn prepare(": [
+          144
+        ],
+        "pub(crate) fn verify_source_root(": [
+          271
+        ],
+        "pub(crate) async fn read_inventory(": [
+          331
+        ],
+        "pub(crate) fn write_guard(": [
+          453
+        ],
+        "pub(crate) fn authorize(": [
+          488
+        ],
+        "pub(crate) fn finish(": [
+          553
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "5f2e49fe5d380027ccd83a2c1f08e56fb656c0e9bd9ab4209899c07ef89dac59",
+      "lineCount": 11951,
+      "anchors": {
+        "fn complete_provider_genre(": [
+          2280
+        ],
+        "fn providers_confirmed_no_match(": [
+          3649
+        ],
+        "async fn fill_genre_if_missing(": [
+          4223
+        ],
+        "match complete_provider_credits(&request": [
+          5572
+        ],
+        "fill_genre_if_missing(&candidate": [
+          4407,
+          5632
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/infra/openrouter.rs",
+      "sha256": "8d5d80a16acf1bd6e49f162f683354f7f8766b244214aaf504c1053d882ae99e",
+      "lineCount": 1768,
+      "anchors": {
+        "fn tag_policy(": [
+          349
+        ],
+        "async fn post_with_retries(": [
+          587
+        ],
+        "async fn measured_attempt(": [
+          675
+        ],
+        "async fn post_openai(": [
+          794
+        ],
+        "async fn read_response_text(": [
+          922
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_eval.rs",
+      "sha256": "70d912c850eec805a2304ce2fb56397f586d41809982133ce25c3b23f498c41c",
+      "lineCount": 4515,
+      "anchors": {
+        "async fn bounded_mock_auto_tag_eval(": [
+          3532
+        ],
+        "async fn run_auto_tag_eval(": [
+          3564
+        ],
+        "for phase in [\"cold\", \"warm\"]": [
+          3672,
+          3775
+        ],
+        "let profile_input_json": [
+          3842
+        ],
+        "let mut inventory = providers": [
+          4082
+        ],
+        "let provider_miss_count": [
+          4166
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/commands/mutations.rs",
+      "sha256": "7e97f8893fcb57cf0b95b1518dc013e0490d0483a47d47b43b2a38ae019c0f48",
+      "lineCount": 7816,
+      "anchors": {
+        "bounded_eval::write_guard()": [
+          803
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/state/write_queue.rs",
+      "sha256": "c7dd27035febe2094c772c8f421b598b0093a8e31e920f054cfb182e000b6b46",
+      "lineCount": 533,
+      "anchors": {
+        "pub struct WriteQueue": [
+          24
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/state/providers.rs",
+      "sha256": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4",
+      "lineCount": 7160,
+      "anchors": {
+        "pub fn http(&self)": [
+          240
+        ],
+        "impl MusicBrainzClient": [
+          604
+        ],
+        "impl DiscogsClient": [
+          2608
+        ]
+      }
+    },
+    {
+      "path": "src-tauri/src/infra/http.rs",
+      "sha256": "3d8bcb4eabb27812f26031fc88fcefce5e96fccbced187630578123b215e7b70",
+      "lineCount": 18,
+      "anchors": {
+        "pub(crate) fn retry_after_seconds": [
+          10
+        ]
+      }
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "85e0b3b6d126bf03a3b1deaa4664df6217f693c1c8540ad747f7a59d7ec273a6",
+      "lineCount": 314,
+      "anchors": {
+        "const orchestration": [
+          14
+        ],
+        "const jobs = [": [
+          40
+        ],
+        "const userLabels": [
+          53
+        ],
+        "const expectedModelWires": [
+          248
+        ],
+        "selection-status.json": [
+          257,
+          263,
+          285,
+          294,
+          310
+        ]
+      }
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/score-observations.py",
+      "sha256": "276b624c7785deb434f34d4dc55264f3d580b594398c5523ed567701dd85e5a8",
+      "lineCount": 353,
+      "anchors": {
+        "def checked_user_acceptance": [
+          26
+        ],
+        "def freeze_native_contract": [
+          80
+        ],
+        "def project_native": [
+          197
+        ],
+        "def score(": [
+          256
+        ]
+      }
+    },
+    {
+      "path": "scripts/mock-provider-service.cjs",
+      "sha256": "f0ca35608f72a71539c267e035763e95a8c9226d1dcd97c6156fba5671bdb4cf",
+      "lineCount": 268,
+      "anchors": {
+        "function createService": [
+          74
+        ],
+        "wireArrivals.push": [
+          92,
+          158
+        ],
+        "/__fixtures": [
+          137,
+          261
+        ]
+      }
+    },
+    {
+      "path": "docs/bounded-assistance-evaluation.md",
+      "sha256": "58c674bb9831dab66053b54bb529c2f2ec81fb326898249788c87dec81bd1e04"
+    },
+    {
+      "path": ".planning/plans/scorable-assistance-contract-20261111/contract.json",
+      "sha256": "6d6e748aeb3c591c0239a1c17f18bbb14c0735e02dc91519629f2da73b18876c"
+    },
+    {
+      "path": ".planning/plans/scorable-assistance-contract-20261111/sample.json",
+      "sha256": "5549f2ae2f4d1d12faf229957589c25ee1dd0ede1b076b1301334ccd192e017d"
+    },
+    {
+      "path": ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS",
+      "sha256": "8e722117cafdc6c1896d3df9effe9c6bf296800c0fb3427c45aab027fffd0340"
+    },
+    {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json",
+      "sha256": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2"
+    },
+    {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS",
+      "sha256": "a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4"
+    },
+    {
+      "path": ".planning/research/bounded-assistance-machine-labels-20261111.json",
+      "sha256": "34144c437e4aaf664151052ad1b208ab7467aae9df131b8bb6bc707abe1e02a7"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "c35df558aa629e3193f27286f312060bd641034ca711c6f96c02c41bd932ddc2"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "2b6ef00068aec1df52450ad05d819595ad834ff0f040081f44102b3793544810"
+    }
+  ],
+  "publicEvidence": "Only the sealed historical public-documentation.json observations were read. No new public or private account/provider calls.",
+  "graphEvidence": "Existing graphify query returned obsolete Electron paths; not used as current ownership proof."
+}

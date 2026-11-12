@@ -1,0 +1,21 @@
+# Cold paired mock slice implementation plan
+
+Goal: extend the maintained evaluator/driver/scorer for six arm-qualified cold observations with strict mock transport, retained preparation media and full failure denominators. Preserve legacy cold/warm diagnostics and sealed historical inputs. No commit or live capability is authorized.
+
+Architecture: evaluation-only task-scoped preparation/replay instrumentation at the existing coordinator/request/patch boundaries; fresh preparation and execution services/stores in the same native invocation on identical retained physical inputs. Existing WriteQueue performs actual writes. The maintained scorer supports an explicit mock-only cold-arm spec and partial execution projection. The maintained driver selects the six cases, retains source/tool/input bindings and compact inventory accounting under 8 MiB. This slice does not implement durable broker/approval, host containment, retention or billing enforcement.
+
+1. RED/GREEN scorer: extend `scripts/auto-tag-eval-replay/test_observation_scoring.py` before modifying `score-observations.py`. Test cold-only arm identities, omitted execution records with full denominators, wrong/duplicate arm and warm injection, failed agreement and exact scorer-only labels. Preserve existing contracts/tests.
+2. RED/GREEN native: add mock preparation/replay controls in the existing bounded-evaluation module; test exact ordered request/decision/patch comparison, changed source/patch rejection, dry preparation, zero retry/repair and zero actual model wires during preparation. Wire coordinator, native evaluator and final transport only under cfg(test), using existing resolver/patch/writer ownership. Verify holds and recording/full applications explicitly.
+3. RED/GREEN driver/service: add an explicit paired-cold mock selection to `run-bounded.cjs`, with compact inventory on an explicit endpoint rather than raising the cap. Test complete accounting/body hashes, strict model body and wrong-request denial. Retain legacy endpoint/runner behavior.
+4. Run the actual native ignored mock entrypoint on the selected six jobs and disposable generated media. Retain all failed attempts; compare serialized model bytes against independent expected request and scorer-sidecar isolation. Audit cold cache separation, same-file identity, version/credit/provider-first evidence, candidate/readback/payload and inferred review persistence. No scripted quality claim.
+5. Independently review coordination/binding diff and fix reproduced defects with regression controls. Run relevant native/scorer/service checks, inspect final diff, add operator/changelog notes and update existing artifact with source-bound results and explicit mocked/deferred guarantees. Report to source thread. No commit/push/fetch.
+
+## Final checkpoint
+
+Implemented and verified locally above unchanged HEAD `4b0a9cfc41db8476721b2cc1fd453e121b85bc17`; no commit or push. Independent review closed the reproduced review-intent, actual-event projection, consistent assistance derivation and set-valued branch ordering findings.
+
+Final evidence: `.amp/in/artifacts/cold-paired-development-20261111/run-05/`, its two audit reports, label-separation result and `final-source-bindings.json`. Six jobs completed with 216/216 observed slots, 472 provider fixture requests, one scripted model request and zero grounded quality credit. All 70 projection corruption controls passed. Exact source/binary/patch hashes are retained; earlier failed and superseded attempts remain available.
+
+Checks: final native server suite 765 passed / 0 failed / 19 explicitly ignored; focused native boundaries 22 passed; scorer 22 passed including three local label controls; scripts 84 passed across 13 files; typecheck, whitespace and all 7 + 8 historical seal entries passed. A superseded suite had 28 failures; all passed individually and the subsequent final-source suite passed. Tool-launch delay cause remains unproven; no system security setting or timeout was relaxed.
+
+The implementation/result record is revision 9 of https://ampcode.com/artifacts/assistance-sample-contract-623cef5e-4985-4829-84d3-6e24e912971c. Live broker, authenticated/durable authority, whole-run resource enforcement, paid retention/billing and packaged UI proof remain deferred. No original music, private credentials or live services were used.

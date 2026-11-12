@@ -85,6 +85,194 @@ struct Scope {
 tokio::task_local! { static ACTIVE: Scope; }
 tokio::task_local! { static ATTEMPT: std::cell::Cell<Option<usize>>; }
 
+// In-process, mock-only plan/replay. This is not durable admission or live approval.
+#[derive(Clone)]
+pub(crate) struct PairedMock(Arc<Mutex<PairedState>>);
+
+struct PairedState {
+    endpoint: String,
+    model_allowed: bool,
+    preparing: bool,
+    events: Vec<Value>,
+    observed: Vec<Value>,
+    cursor: usize,
+    requests: usize,
+    assisted: Option<Value>,
+    stopped: bool,
+}
+
+tokio::task_local! { static PAIRED: PairedMock; }
+
+impl PairedMock {
+    pub(crate) fn preparation(endpoint: &str, model_allowed: bool) -> Result<Self, String> {
+        let url = reqwest::Url::parse(endpoint).map_err(|_| "invalid mock endpoint")?;
+        if url.scheme() != "http"
+            || url.host_str() != Some("127.0.0.1")
+            || url.path() != "/model"
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err("paired scope requires a strict loopback model endpoint".into());
+        }
+        Ok(Self(Arc::new(Mutex::new(PairedState {
+            endpoint: endpoint.into(),
+            model_allowed,
+            preparing: true,
+            events: Vec::new(),
+            observed: Vec::new(),
+            cursor: 0,
+            requests: 0,
+            assisted: None,
+            stopped: false,
+        }))))
+    }
+
+    pub(crate) async fn run<F: Future>(&self, future: F) -> F::Output {
+        PAIRED.scope(self.clone(), future).await
+    }
+
+    pub(crate) fn replay(&self) -> Self {
+        let s = self.0.lock().unwrap();
+        Self(Arc::new(Mutex::new(PairedState {
+            endpoint: s.endpoint.clone(),
+            model_allowed: s.model_allowed,
+            preparing: false,
+            events: s.events.clone(),
+            observed: Vec::new(),
+            cursor: 0,
+            requests: 0,
+            assisted: None,
+            stopped: s.stopped,
+        })))
+    }
+
+    pub(crate) fn complete(&self) -> Result<(), String> {
+        let mut s = self.0.lock().unwrap();
+        if s.stopped || (!s.preparing && s.cursor != s.events.len()) {
+            s.stopped = true;
+            return Err("paired decision/request/application drift".into());
+        }
+        Ok(())
+    }
+
+    pub(crate) fn observations(&self) -> Value {
+        let s = self.0.lock().unwrap();
+        let kind = if s.events.iter().any(|e| e["kind"] == "request") {
+            "eligible_request"
+        } else if s.events.iter().any(|e| e["kind"] == "recording_patch") {
+            "recording_only"
+        } else if s.events.iter().any(|e| e["kind"] == "patch") {
+            "provider_only"
+        } else {
+            "hold"
+        };
+        json!({"mode":"mock_only", "preparing":s.preparing, "variant":kind,
+            "events":s.events, "observedEvents":s.observed, "planSha256":sha(&serde_json::to_vec(&s.events).unwrap()),
+            "matchedEvents":s.cursor, "requests":s.requests, "stopped":s.stopped,
+            "durableOrLiveEnforcement":false})
+    }
+}
+
+pub(crate) fn paired_active() -> bool {
+    PAIRED.try_with(|_| ()).is_ok()
+}
+
+pub(crate) fn paired_preparing() -> bool {
+    PAIRED
+        .try_with(|p| p.0.lock().unwrap().preparing)
+        .unwrap_or(false)
+}
+
+// True means plan-only: the caller records the exact effect but MUST NOT execute it.
+pub(crate) fn paired_event(mut event: Value) -> Result<bool, String> {
+    // These branch IDs describe a set, unlike ordered credits and track mappings.
+    if event["kind"] == "branch"
+        && matches!(
+            event["name"].as_str(),
+            Some("common_recording_fields" | "country_independent_recordings")
+        )
+    {
+        if let Some(ids) = event["releaseIds"].as_array_mut() {
+            ids.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
+        }
+    }
+    PAIRED
+        .try_with(|p| {
+            let mut s = p.0.lock().unwrap();
+            if s.stopped
+                || serde_json::to_vec(&event).unwrap().len() > 262144
+                || (s.preparing && s.events.len() >= 64)
+            {
+                s.stopped = true;
+                return Err("paired mock stopped or oversized plan".into());
+            }
+            if s.preparing {
+                s.events.push(event);
+                return Ok(true);
+            }
+            s.observed.push(event.clone());
+            let mut expected = s.events.get(s.cursor).cloned().unwrap_or(Value::Null);
+            // Derive one required final plan. Accepted assistance cannot disappear
+            // from later effects; existing local/null patch values remain exact.
+            if let Some(assisted) = &s.assisted {
+                if expected["kind"] == "review" && expected["required"] == false {
+                    expected["required"] = json!(true);
+                }
+                if expected["kind"] == "candidate" {
+                    expected["candidate"]["assisted_genre"] = assisted.clone();
+                    expected["candidate"]["genre"] = assisted["value"].clone();
+                }
+                if expected["kind"] == "patch" && expected["fields"].get("genre").is_none() {
+                    expected["fields"]["genre"] = assisted["value"].clone();
+                }
+            }
+            if event != expected {
+                s.stopped = true;
+                return Err("paired decision/request/application drift".into());
+            }
+            s.cursor += 1;
+            Ok(false)
+        })
+        .unwrap_or(Ok(false))
+}
+
+pub(crate) fn paired_assisted(value: Value) {
+    let _ = PAIRED.try_with(|p| p.0.lock().unwrap().assisted = Some(value));
+}
+
+pub(crate) fn paired_request(endpoint: &str, body: &Value) -> Result<(), String> {
+    if !paired_active() {
+        return Ok(());
+    }
+    let valid = PAIRED.with(|p| {
+        let s = p.0.lock().unwrap();
+        !s.stopped
+            && s.model_allowed
+            && s.endpoint == endpoint
+            && s.requests == 0
+            && body.pointer("/response_format/json_schema/name")
+                == Some(&json!("GenreFillResponse"))
+            && serde_json::to_vec(body).unwrap().len() <= 32768
+    });
+    if !valid {
+        paired_stop();
+        return Err("paired mock request denied".into());
+    }
+    let preparing = paired_event(json!({"kind":"request", "body":body}))?;
+    PAIRED.with(|p| p.0.lock().unwrap().requests += 1);
+    if preparing {
+        Err("paired plan-only request; no dispatch".into())
+    } else {
+        Ok(())
+    }
+}
+
+pub(crate) fn paired_stop() {
+    let _ = PAIRED.try_with(|p| p.0.lock().unwrap().stopped = true);
+}
+
 pub(crate) async fn attempt_scope<
     F: Future<Output = Result<Value, crate::infra::openrouter::OpenRouterError>>,
 >(
@@ -454,9 +642,18 @@ pub(crate) fn write_guard() -> impl Fn() -> Result<(), String> + Send + 'static 
     let scope = ACTIVE
         .try_with(|s| (s.budget.clone(), s.job.clone(), s.input.clone()))
         .ok();
-    move || match &scope {
-        Some((budget, job, input)) => budget.validate_job(&job, &input),
-        None => Ok(()),
+    let paired = PAIRED.try_with(Clone::clone).ok();
+    move || {
+        if paired.as_ref().is_some_and(|p| {
+            let s = p.0.lock().unwrap();
+            s.preparing || s.stopped
+        }) {
+            return Err("paired write not admitted".into());
+        }
+        match &scope {
+            Some((budget, job, input)) => budget.validate_job(&job, &input),
+            None => Ok(()),
+        }
     }
 }
 
@@ -474,6 +671,7 @@ pub(crate) fn response_limit() -> Option<usize> {
     ACTIVE
         .try_with(|s| s.budget.0.lock().unwrap().manifest.limits.response_bytes)
         .ok()
+        .or_else(|| paired_active().then_some(65536))
 }
 
 pub(crate) fn deny(reason: &'static str) -> String {
@@ -622,6 +820,109 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
+    #[tokio::test]
+    async fn paired_mock_plan_is_dry_and_replay_rejects_drift_before_effects() {
+        let plan = PairedMock::preparation("http://127.0.0.1:1234/model", true).unwrap();
+        let event = json!({"kind":"patch", "path":"one.flac", "fields":{"title":"Song (Live)"}, "source":{"inode":7}});
+        plan.run(async {
+            assert!(paired_event(event.clone()).unwrap());
+            assert!(paired_request(
+                "http://127.0.0.1:1234/model",
+                &json!({"response_format":{"json_schema":{"name":"GenreFillResponse"}}})
+            )
+            .is_err());
+        })
+        .await;
+        let replay = plan.replay();
+        replay
+            .run(async {
+                let mut changed = event.clone();
+                changed["source"]["inode"] = json!(8);
+                assert!(paired_event(changed).is_err());
+                assert!(health().is_err());
+            })
+            .await;
+        assert!(replay.complete().is_err());
+        let replay = plan.replay();
+        replay
+            .run(async {
+                assert!(!paired_event(event).unwrap());
+                assert!(paired_request("https://external.invalid", &json!({})).is_err());
+            })
+            .await;
+        assert!(replay.complete().is_err());
+        assert!(PairedMock::preparation("https://external.invalid", true).is_err());
+    }
+
+    #[tokio::test]
+    async fn paired_genre_delta_cannot_hide_an_unrelated_candidate_value() {
+        let plan = PairedMock::preparation("http://127.0.0.1:1234/model", true).unwrap();
+        plan.run(async {
+            paired_event(json!({"kind":"candidate", "candidate":{"genre":null}})).unwrap();
+        })
+        .await;
+        let replay = plan.replay();
+        replay
+            .run(async {
+                let provenance = json!({"value":"Diagnostic", "model":"scripted/genre-v1"});
+                paired_assisted(provenance.clone());
+                assert!(paired_event(json!({"kind":"candidate", "candidate":{
+                "genre":"Unrelated", "assisted_genre":provenance}}))
+                .is_err());
+            })
+            .await;
+        assert!(replay.complete().is_err());
+    }
+
+    #[tokio::test]
+    async fn paired_accepted_genre_is_required_through_candidate_review_and_patches() {
+        let plan = PairedMock::preparation("http://127.0.0.1:1234/model", true).unwrap();
+        let base = vec![
+            json!({"kind":"candidate", "candidate":{"genre":null}}),
+            json!({"kind":"review", "required":false}),
+            json!({"kind":"patch", "path":"missing.flac", "fields":{"title":"Song"}}),
+            json!({"kind":"patch", "path":"local.flac", "fields":{"genre":"User choice"}}),
+            json!({"kind":"patch", "path":"cleared.flac", "fields":{"genre":null}}),
+        ];
+        plan.run(async {
+            for event in &base {
+                paired_event(event.clone()).unwrap();
+            }
+        })
+        .await;
+        let provenance = json!({"value":"Diagnostic", "model":"scripted/genre-v1"});
+        let mut final_events = base.clone();
+        final_events[0]["candidate"] = json!({"genre":"Diagnostic", "assisted_genre":provenance});
+        final_events[1]["required"] = json!(true);
+        final_events[2]["fields"]["genre"] = json!("Diagnostic");
+        let valid = plan.replay();
+        valid
+            .run(async {
+                paired_assisted(provenance.clone());
+                for event in &final_events {
+                    paired_event(event.clone()).unwrap();
+                }
+            })
+            .await;
+        valid.complete().unwrap();
+        for index in 0..3 {
+            let replay = plan.replay();
+            replay
+                .run(async {
+                    paired_assisted(provenance.clone());
+                    for event in &final_events[..index] {
+                        paired_event(event.clone()).unwrap();
+                    }
+                    assert!(
+                        paired_event(base[index].clone()).is_err(),
+                        "accepted assistance cannot disappear at event {index}"
+                    );
+                })
+                .await;
+            assert!(replay.complete().is_err());
+        }
+    }
+
     fn sha(bytes: &[u8]) -> String {
         format!("{:x}", Sha256::digest(bytes))
     }
@@ -757,6 +1058,78 @@ mod tests {
             self.server.take().unwrap().join().unwrap();
             fs::remove_dir_all(&self.root).unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn paired_recording_branch_compares_release_membership_not_hashset_order() {
+        for name in ["common_recording_fields", "country_independent_recordings"] {
+            let plan = PairedMock::preparation("http://127.0.0.1:1234/model", false).unwrap();
+            plan.run(async {
+                paired_event(json!({"kind":"branch", "name":name, "releaseIds":["a", "b"]}))
+                    .unwrap();
+            })
+            .await;
+            let replay = plan.replay();
+            replay
+                .run(async {
+                    assert!(paired_event(
+                        json!({"kind":"branch", "name":name, "releaseIds":["b", "a"]})
+                    )
+                    .is_ok());
+                })
+                .await;
+            replay.complete().unwrap();
+            let wrong = plan.replay();
+            wrong
+                .run(async {
+                    assert!(paired_event(
+                        json!({"kind":"branch", "name":name, "releaseIds":["a", "c"]})
+                    )
+                    .is_err());
+                })
+                .await;
+        }
+    }
+
+    #[tokio::test]
+    async fn paired_transport_bounds_the_outer_response_before_parsing() {
+        let content = json!({"genre":"x".repeat(65536), "confidence":0.8}).to_string();
+        let f = Fixture::new(vec![(200, response(&content))]);
+        let plan = PairedMock::preparation(&f.endpoint, true).unwrap();
+        assert!(plan.run(f.request()).await.is_err());
+        let replay = plan.replay();
+        let error = replay.run(f.request()).await.unwrap_err();
+        assert_eq!(error, "network_error");
+        assert_eq!(f.count.load(Ordering::Acquire), 1);
+    }
+
+    #[tokio::test]
+    async fn paired_transport_has_zero_preparation_wires_and_no_retry_or_repair() {
+        for (status, content) in [
+            (200, "{\"genre\":\"Diagnostic\",\"confidence\":0.8}"),
+            (503, "{}"),
+            (200, "not json"),
+        ] {
+            let f = Fixture::new(vec![(status, response(content))]);
+            let plan = PairedMock::preparation(&f.endpoint, true).unwrap();
+            assert!(plan.run(f.request()).await.is_err());
+            assert_eq!(f.count.load(Ordering::Acquire), 0);
+            let replay = plan.replay();
+            let result = replay.run(f.request()).await;
+            assert_eq!(result.is_ok(), status == 200 && content.starts_with('{'));
+            assert_eq!(
+                f.count.load(Ordering::Acquire),
+                1,
+                "neither HTTP failure nor malformed content may create a second wire"
+            );
+            if status == 200 && content == "not json" {
+                assert!(replay.complete().is_err());
+            }
+        }
+        let f = Fixture::new(vec![(200, response("{}"))]);
+        let denied = PairedMock::preparation(&f.endpoint, false).unwrap();
+        assert!(denied.run(f.request()).await.is_err());
+        assert_eq!(f.count.load(Ordering::Acquire), 0);
     }
 
     fn response(content: &str) -> Value {

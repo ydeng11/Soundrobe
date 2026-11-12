@@ -1,0 +1,85 @@
+{
+  "kind": "existing JSON-only size/shape observations, no execution or media access",
+  "sourceHead": "4b0a9cfc41db8476721b2cc1fd453e121b85bc17",
+  "shapeDefinition": "root depth one; count values/containers as nodes, not object keys; UTF-8 keys included in string max",
+  "files": [
+    {
+      "path": ".planning/plans/scorable-assistance-contract-20261111/sample.json",
+      "sha256": "5549f2ae2f4d1d12faf229957589c25ee1dd0ede1b076b1301334ccd192e017d",
+      "bytes": 88106,
+      "depthNodesCollectionStringUtf8": [
+        9,
+        1937,
+        30,
+        142
+      ]
+    },
+    {
+      "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json",
+      "sha256": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2",
+      "bytes": 12591,
+      "depthNodesCollectionStringUtf8": [
+        5,
+        258,
+        19,
+        147
+      ]
+    },
+    {
+      "path": "test/fixtures/tauri/auto-tag-eval/provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json",
+      "sha256": "7593097ea5f4e5fd98aded79818d61b3c825f93756cd7c2b14145534617620cc",
+      "bytes": 10427,
+      "depthNodesCollectionStringUtf8": [
+        10,
+        491,
+        19,
+        80
+      ]
+    },
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111/genre/bounded/records.json",
+      "sha256": "30e69762da8d8d1e7b0c1117a3eb897d61d7b64e37e9063a2f5757e981df6fa2",
+      "bytes": 193927,
+      "depthNodesCollectionStringUtf8": [
+        8,
+        4266,
+        40,
+        9974
+      ]
+    },
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111/genre/bounded/inventory-final.json",
+      "sha256": "0c652ec2bdd45d6e7fe6ab12a9a0bb8567b6d03bf8ea0b705106e0a4cd42f464",
+      "bytes": 8766258,
+      "depthNodesCollectionStringUtf8": [
+        13,
+        4152,
+        42,
+        627997
+      ]
+    },
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111/hold/bounded/records.json",
+      "sha256": "b4800ead7e0bb0699f5c357d24f6200657e378a02bd917bc224660e967be14ad",
+      "bytes": 880638,
+      "depthNodesCollectionStringUtf8": [
+        8,
+        6221,
+        97,
+        12583
+      ]
+    },
+    {
+      "path": ".amp/in/artifacts/user-acceptance-native-optimized-labels-20261111/hold/bounded/inventory-final.json",
+      "sha256": "21bd0e35ea1ff1e15361005d09cb9cc03af4c37f630bca58ad30cd04094ba33f",
+      "bytes": 4751592,
+      "depthNodesCollectionStringUtf8": [
+        13,
+        103584,
+        186,
+        1671
+      ]
+    }
+  ],
+  "scopeLimit": "Seven selected existing metadata examples, not exhaustive fixture/candidate/media/source-volume calibration"
+}
