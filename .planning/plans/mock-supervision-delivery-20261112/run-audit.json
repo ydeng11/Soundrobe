@@ -1,0 +1,122 @@
+{
+  "supervision": {
+    "authority": "native_witness_and_timely_supervisor_exit",
+    "generation": "ee1d123d-9bb8-4fab-99fa-da528ab89265",
+    "supervisorExitObservedAt": 474364940,
+    "acceptedAt": 474364973,
+    "deadline": 474527434,
+    "preparationMs": 210911,
+    "requestedFieldSlots": 216
+  },
+  "native": {
+    "run": ".amp/in/artifacts/mock-supervision-20261112/run-114",
+    "checks": "passed",
+    "evaluations": [
+      {
+        "name": "disabled-crowd",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 15,
+        "modelRequests": 0,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 16,
+        "nativeElapsedMs": 6953
+      },
+      {
+        "name": "disabled-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26535
+      },
+      {
+        "name": "disabled-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 159641
+      },
+      {
+        "name": "assistance-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26648
+      },
+      {
+        "name": "assistance-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 159768
+      },
+      {
+        "name": "assistance-crowd",
+        "variant": "eligible_request",
+        "outcome": "needs_review",
+        "providerRequests": 15,
+        "modelRequests": 1,
+        "wireArrivals": 18,
+        "inventoryBytes": 969855,
+        "matchedEvents": 17,
+        "nativeElapsedMs": 6851
+      }
+    ],
+    "providerRequests": 236,
+    "modelRequests": 1,
+    "wireArrivals": 249,
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "labelableSlots": 30,
+    "userAcceptanceRequested": 22,
+    "userAcceptanceAgreeing": 0,
+    "groundedAssistanceAccuracyCredit": 0
+  },
+  "durable": {
+    "runId": "fa801a2b-6ab6-4791-887f-a69723d3de43",
+    "checkpoint": "5e67f80ba7b327d872c9adef9d54bb7d73b43b899396639bf1863adf274b54b6",
+    "counts": {
+      "arrived": 497,
+      "completed": 497,
+      "inventory": 24,
+      "model": 1,
+      "provider": 472,
+      "reserved": 497
+    },
+    "inventoryBytesMin": 969410,
+    "inventoryBytesMax": 999453,
+    "sessions": 12,
+    "consumptions": 1,
+    "receipt": "provisional_complete",
+    "actualWireArrivals": 497
+  },
+  "auditBindings": {
+    "historicalDurableAuditor": "aeed0878de308d984d86b30b66636dc5ff35432c9a5c49080ace1366b4c90b5a",
+    "adaptedDurableAuditor": "f9dd8577763c6544ce9e1784aa50b7c5aae8b4e8b3f93d6243cdcb4df5c7c2b3",
+    "native": {
+      "historicalSourceSha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+      "adaptedSourceSha256": "b62c3483647cafde1f190b5b044920e09ac91c7f9ef155f4f2da8fed99bcb841",
+      "adaptation": "preparation/preparation.json instead of cold/preparation.json"
+    }
+  },
+  "liveAuthority": false,
+  "powerLossProved": false,
+  "groundedAssistanceAccuracyCredit": 0
+}

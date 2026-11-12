@@ -1,0 +1,38 @@
+{
+  "reason": "compiler-artifact",
+  "package_id": "path+file:///Users/ihelio/code/auto_tagger/src-tauri#soundrobe@0.1.11",
+  "manifest_path": "/Users/ihelio/code/auto_tagger/src-tauri/Cargo.toml",
+  "target": {
+    "kind": [
+      "staticlib",
+      "cdylib",
+      "rlib"
+    ],
+    "crate_types": [
+      "staticlib",
+      "cdylib",
+      "rlib"
+    ],
+    "name": "soundrobe_lib",
+    "src_path": "/Users/ihelio/code/auto_tagger/src-tauri/src/lib.rs",
+    "edition": "2021",
+    "doc": true,
+    "doctest": true,
+    "test": true
+  },
+  "profile": {
+    "opt_level": "0",
+    "debuginfo": 2,
+    "debug_assertions": true,
+    "overflow_checks": true,
+    "test": true
+  },
+  "features": [
+    "server"
+  ],
+  "filenames": [
+    "/Users/ihelio/code/auto_tagger/src-tauri/target/debug/deps/soundrobe_lib-063309b8ec43ac15"
+  ],
+  "executable": "/Users/ihelio/code/auto_tagger/src-tauri/target/debug/deps/soundrobe_lib-063309b8ec43ac15",
+  "fresh": true
+}

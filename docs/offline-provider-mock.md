@@ -279,6 +279,73 @@ decisions in the separate expectations ledger. Normalized `ProviderAlbum`
 snapshots are explicitly skipped by the importer. No audio or source media is
 written by the service.
 
+## Native-supervised six-job mock replay (macOS)
+
+`scripts/auto-tag-eval-replay/run-supervised.cjs` selects the maintained cold
+evaluator through native supervision. It requires the retained generated dummy
+inputs under `.amp/in/eval-dummies/` and frozen scorer-only user labels under
+`.planning/plans/crowd-lu-user-acceptance-v1-20261111/`. It never reads the
+original library or enables live calls. This is not fresh-clone reproducibility.
+
+Build the server-feature test executable, retain an immutable copy and source
+bindings, then pass that copy and a **new** output directory to the launcher.
+The executable is the path printed by Cargo, not the desktop application:
+
+```sh
+CARGO_NET_OFFLINE=true cargo test --manifest-path src-tauri/Cargo.toml \
+  --no-default-features --features server --lib mock_run_authority -- --nocapture
+node --test scripts/auto-tag-eval-replay/test_supervision.cjs
+node scripts/auto-tag-eval-replay/run-supervised.cjs NEW_OUTPUT RETAINED_TEST_EXECUTABLE
+python3 -B scripts/auto-tag-eval-replay/audit-supervised.py NEW_OUTPUT
+node scripts/auto-tag-eval-replay/check-supervision.cjs NEW_FAULT_OUTPUT RETAINED_TEST_EXECUTABLE
+```
+
+Output directories must be beneath `.amp/in/artifacts/`. Preserve failed runs;
+never resume or promote their staging. The six cold jobs retain 72 physical
+occurrences and 216 requested field slots, including incomplete outcomes. Three
+independent preparations run concurrently; execution retains the frozen order.
+Source/tool changes during a run invalidate it. Mock/scripted agreement supplies
+no grounded model accuracy credit and does not activate the live workflow.
+
+The native preparation clock starts before bootstrap I/O and hashing. Preparation
+is bounded by 300 seconds; the once-only execution scope by 600 seconds. Native
+supervisor and broker owners exchange 250-ms heartbeats with one-second leases.
+Stopping revokes admission independently of journal progress. Only the live
+anchor may signal its own process group; successful containment additionally
+requires actual exit, reaping and whole-group ESRCH. Failure grace is ten seconds,
+without a postdeadline scoring or audit drain. Detached evaluators, Node-only
+watchdogs and the old broker drain are not used in this mode.
+
+Success authority is **native witnessed completion with timely supervisor exit**.
+After every payload writer exits, the broker syncs evidence and stages a
+generation-bound provisional report. Joint anchor retirement and actual group
+absence precede the supervisor witness and successful exit. An independent native
+receiver outside the payload group must verify that staging, read a clean complete
+stream, and observe actual successful supervisor exit before the original absolute
+monotonic deadline. Cancellation and acceptance have one irreversible winner.
+Later recording cannot turn a staged file, missing/late witness or eventual zero
+exit into success. The launcher also requires actual receiver zero exit. Lost
+receiver/host/recording can leave incomplete recovery, which is explicitly accepted;
+the implementation conservatively abandons recording at the original deadline.
+
+Native tests also exercise synthetic finalization through the real broker's
+twelve sessions, staging, joint retirement and receiver. These controls bypass
+tagging/scoring and are marked `controlOnly`; the launcher rejects them as run
+completion. They stall at sync entry, after provisional/recording rename, during
+verification, after one retirement request, at retirement intent and after the
+acceptance transition. Boundary markers must be observed before a negative can
+pass. These are scheduling controls, not proofs of bounded kernel filesystem
+calls or power-loss durability. The separate six-job run and read-only audit
+remain required for tagging integration evidence.
+
+Unexpected anchor loss or suspension, both-owner/host loss and uninterruptible
+kernel operations remain conditional containment limits. An incomplete return
+must not be read as proof of group absence. The runner is trusted mock code, not
+a malicious same-user sandbox. Physical flush/power-loss proof, authenticated live
+approval, credentials, VFS/storage tickets, billing and privacy guarantees remain
+outside this mode. Historical scheduling counterexamples and the superseded
+stronger standalone durable-publication requirement remain retained as evidence.
+
 ## Checks
 
 ```sh

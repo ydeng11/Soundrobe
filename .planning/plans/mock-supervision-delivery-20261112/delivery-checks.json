@@ -1,0 +1,208 @@
+{
+  "delivery": "local commit only, pending staging verification and commit",
+  "freshChecks": [
+    {
+      "name": "verifier-controls",
+      "command": [
+        "python3",
+        "-B",
+        ".planning/plans/mock-supervision-delivery-20261112/test_verify.py"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.529,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-verifier-controls.log",
+      "logSha256": "14700d2783f7177bd05c27f9324fd1167fc3aa04b40c1df88c6c31481a8c74b1",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-mock-authority",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/mock-authority.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.18,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-mock-authority.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-run-bounded",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/run-bounded.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.052,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-run-bounded.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-run-supervised",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/run-supervised.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.055,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-run-supervised.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-check-supervision",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/check-supervision.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.052,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-check-supervision.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-finalization-control",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/finalization-control.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.054,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-finalization-control.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "syntax-test_supervision",
+      "command": [
+        "node",
+        "--check",
+        "scripts/auto-tag-eval-replay/test_supervision.cjs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.05,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-syntax-test_supervision.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "python-syntax",
+      "command": [
+        "python3",
+        "-B",
+        "-c",
+        "from pathlib import Path; files=[Path('scripts/auto-tag-eval-replay/audit-supervised.py'),*Path('.planning/plans/mock-supervision-delivery-20261112').glob('*.py')]; [compile(p.read_bytes(),str(p),'exec') for p in files]; print(len(files),'Python files compiled in memory')"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.027,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-python-syntax.log",
+      "logSha256": "8f15c8d5740e63e5de8c2f40c10e4f599e28020333e9e1e8bf5d5d3167a15312",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "rustfmt",
+      "command": [
+        "rustfmt",
+        "--check",
+        "--edition",
+        "2021",
+        "--config",
+        "skip_children=true",
+        "src-tauri/src/infra/mock_run_authority.rs",
+        "src-tauri/src/infra/mock_run_broker.rs",
+        "src-tauri/src/infra/mock_run_supervisor.rs",
+        "src-tauri/src/infra/mock_run_ownership.rs",
+        "src-tauri/src/infra/mock_run_receiver.rs"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.198,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-rustfmt.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "archive-and-cargo-artifact",
+      "archivedSourceSupportFiles": 225,
+      "appleDoubleMetadataCompanions": 225,
+      "executableMatches": true,
+      "elapsedSeconds": 0.621,
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "read-only-audit",
+      "command": [
+        "python3",
+        "-B",
+        "scripts/auto-tag-eval-replay/audit-supervised.py",
+        ".amp/in/artifacts/mock-supervision-20261112/run-114"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 1.897,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-read-only-audit.log",
+      "logSha256": "ac836d625cbe999614b281d7bcae491e4778f1d744e6c073de705a993a752892",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "retained-bindings",
+      "command": [
+        "python3",
+        "-B",
+        ".planning/plans/mock-supervision-delivery-20261112/verify.py",
+        "--local"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.274,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-retained-bindings.log",
+      "logSha256": "028ce24257bbffb809b98b3e798e654b9626900a1388389c3edda1b6739e216e",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "unstaged-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.015,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-unstaged-whitespace.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    },
+    {
+      "name": "staged-whitespace",
+      "command": [
+        "git",
+        "diff",
+        "--cached",
+        "--check"
+      ],
+      "exit": 0,
+      "elapsedSeconds": 0.014,
+      "log": ".amp/in/artifacts/mock-supervision-20261112/delivery-128-staged-whitespace.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "freshDuringDelivery": true
+    }
+  ],
+  "correctedDeliveryProbe": {
+    "probe": 127,
+    "state": "failed assertion expecting 225 regular archive members",
+    "observedRegularMembers": 450,
+    "listedSourceSupportFiles": 225,
+    "appleDoubleMetadataCompanions": 225,
+    "sourceByteMismatches": 0,
+    "archiveModified": false
+  },
+  "reusedNativeMockGates": "reused-gates.json",
+  "nativeOrMockServiceMatricesRerun": false,
+  "liveCalls": false,
+  "originalMediaOperations": false,
+  "generatedAtUtc": "2026-11-12T13:41:49.924786+00:00"
+}

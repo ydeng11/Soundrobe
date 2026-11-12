@@ -63,8 +63,9 @@ async function inventoryAt(base, compact = false, session) {
 }
 
 async function main(output, executable, userLabelDirectory, mode) {
-  if (mode !== undefined && !['--paired-cold', '--durable-mock'].includes(mode)) throw Error('Unsupported evaluation mode');
-  const durable = mode === '--durable-mock';
+  if (mode !== undefined && !['--paired-cold', '--durable-mock', '--supervised-mock'].includes(mode)) throw Error('Unsupported evaluation mode');
+  const supervised = mode === '--supervised-mock';
+  const durable = mode === '--durable-mock' || supervised;
   const paired = mode === '--paired-cold' || durable;
   if (paired && !userLabelDirectory) throw Error('Paired cold selection requires frozen scorer-only user labels');
   const phases = paired ? ['cold'] : ['cold', 'warm'];
@@ -74,10 +75,17 @@ async function main(output, executable, userLabelDirectory, mode) {
   if (!evidenceRoot.startsWith(fs.realpathSync(root) + path.sep)) throw Error('Evidence anchor escaped checkout');
   if (!fs.realpathSync(path.dirname(output)).startsWith(evidenceRoot + path.sep)
       && fs.realpathSync(path.dirname(output)) !== evidenceRoot) throw Error('Evidence parent escaped local artifacts');
-  fs.mkdirSync(output);
+  let supervision;
+  if (supervised) {
+    if (process.env.SOUNDROBE_NATIVE_MANAGED !== '1' || output !== path.resolve(process.env.SOUNDROBE_NATIVE_OUTPUT ?? '')) throw Error('Native-owned bootstrap required');
+    supervision = read(path.join(output, 'native-supervision.json'));
+    if (!supervision.generation || !Number.isSafeInteger(supervision.start)) throw Error('Native generation missing');
+    save(path.join(output, 'driver-start.json'), { pid: process.pid, group: Number(process.env.SOUNDROBE_NATIVE_GROUP),
+      generation: supervision.generation, mode: 'native_owned_mock_only' });
+  } else fs.mkdirSync(output);
   admittedOutput = output;
-  const binary = path.join(output, 'native-evaluator');
-  fs.copyFileSync(path.resolve(executable), binary, fs.constants.COPYFILE_EXCL);
+  const binary = supervised ? fs.realpathSync(executable) : path.join(output, 'native-evaluator');
+  if (!supervised) fs.copyFileSync(path.resolve(executable), binary, fs.constants.COPYFILE_EXCL);
   // Expectations and role/safety scope precede ALL preparation and final outputs.
   const jobs = paired ? pairedColdJobs() : [
     { name: 'provider', caseId: '0c9e8b505ea7', profile: 'assisted_without_ids', population: 'original', role: null, review: 'reviewed-subset.json' },
@@ -97,6 +105,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
   const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+    ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
+      'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json', path.join(output, 'native-supervision.json')] : []),
     ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
     'scripts/review_auto_tag_subset.py', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
     '.planning/research/bounded-assistance-machine-labels-20261111.json',
@@ -129,12 +139,15 @@ async function main(output, executable, userLabelDirectory, mode) {
       labelSelectors: independentLabels.occurrences.filter(l => l.caseId === job.caseId)
         .flatMap(l => ['title', 'artists'].map(field => `${l.caseId}/${l.inventorySource}/${l.inventoryOccurrence}/${field}`)) }));
   });
-  save(path.join(output, 'requested-membership.json'), { evaluations,
+  const membership = { evaluations,
     requestedPhysicalOccurrences: evaluations.reduce((n, e) => n + e.physicalPaths.length, 0),
     requestedFieldSlots: evaluations.reduce((n, e) => n + e.physicalPaths.length * e.fields.length, 0),
     predeclaredLabelableSlots: evaluations.reduce((n, e) => n + e.labelSelectors.length + e.userLabelSelectors.length, 0),
     uniqueUserAcceptanceLabels: new Set(evaluations.flatMap(e => e.userLabelSelectors)).size,
-    uniqueSelectedOccurrenceFieldLabels: new Set(evaluations.flatMap(e => [...e.labelSelectors, ...e.userLabelSelectors])).size });
+    uniqueSelectedOccurrenceFieldLabels: new Set(evaluations.flatMap(e => [...e.labelSelectors, ...e.userLabelSelectors])).size };
+  if (supervised) {
+    if (canonical(membership) !== canonical(read(path.join(output, 'requested-membership.json')))) throw Error('Native requested membership differs');
+  } else save(path.join(output, 'requested-membership.json'), membership);
   const providers = path.join(output, 'providers.json');
   importPools(path.join(fixtures, 'candidate-pools.json'), providers);
   const pool = read(providers);
@@ -146,9 +159,22 @@ async function main(output, executable, userLabelDirectory, mode) {
   const executions = [];
   const pending = [], preparations = [];
   if (durable) activeAuthority = await require('./mock-authority.cjs').start(binary, output,
-    read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks });
+    read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
+      ...(supervised ? { supervision } : {}) }, undefined, supervision);
   const authority = durable ? activeAuthority : null;
-  for (const job of jobs) {
+  if (supervised && ['blocked-node', 'anchor-running-loss'].includes(supervision.control)) {
+    const report = await authority.command({ op: 'report' });
+    save(path.join(output, 'blocked-node.json'), { brokerResponded: true,
+      requestedFieldSlots: report.membership.requestedFieldSlots });
+    // Explicit fault control: the native owners must not need this event loop.
+    if (supervision.control === 'anchor-running-loss') {
+      const end = performance.now() + 20000;
+      while (performance.now() < end) { /* Finite orphan control, no external PID cleanup. */ }
+      process.exit(78);
+    }
+    for (;;) { /* Deliberately blocked disposable driver. */ }
+  }
+  async function prepareJob(job, index) {
     const directory = path.join(output, job.name);
     fs.mkdirSync(directory);
     const corpus = path.join(root, '.amp/in/eval-dummies', job.population, 'corpus.json');
@@ -236,9 +262,9 @@ async function main(output, executable, userLabelDirectory, mode) {
       try {
         const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${authority ? 'durable_cold_mock_auto_tag_eval' : paired ? 'paired_cold_mock_auto_tag_eval' : bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
           '--ignored', '--nocapture'], { cwd: root, env: { ...env, SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: target,
-            SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: true, stdio: ['ignore', log, log] });
+            SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: !supervised, stdio: ['ignore', log, log] });
         let watchdogExpired = false;
-        const timer = setTimeout(() => { watchdogExpired = true;
+        const timer = supervised ? null : setTimeout(() => { watchdogExpired = true;
           try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') console.error(error); }
         }, orchestration.childTimeoutMs);
         const [exitCode, signal] = await once(child, 'exit').finally(() => clearTimeout(timer));
@@ -300,9 +326,9 @@ async function main(output, executable, userLabelDirectory, mode) {
           const prepared = read(preparationFile);
           const requestEvents = prepared.plan.events.filter(e => e.kind === 'request');
           if (requestEvents.length > (job.role ? 1 : 0) || requestEvents.some(e => canonical(e.body) !== canonical(body))) throw Error('Prepared mock request differs');
-          preparations.push({ job: job.name, input: prepared.fieldObservations.inputSha256, inventory: preparation.inventory });
+          preparations[index] = { job: job.name, input: prepared.fieldObservations.inputSha256, inventory: preparation.inventory };
           await require('./mock-authority.cjs').rpc(authority.socket, session.client, { op: 'close' });
-          pending.push(async () => {
+          pending[index] = async () => {
             fixtureAuthority = { socket: authority.socket, onFatal: () => fixtureLease?.abandon() };
             service = createService(serviceManifest, fixtureAuthority);
             service.listen(0, '127.0.0.1'); await once(service, 'listening');
@@ -318,12 +344,12 @@ async function main(output, executable, userLabelDirectory, mode) {
               fs.writeFileSync(path.join(directory, 'cold-fixture-ingress.json'), service.compactInventory(), { flag: 'wx' });
               await fixtureLease.release();
             }
-          });
+          };
         } else {
           const final = await invoke('cold', false);
           await project(final, path.join(final.target, 'preparation.json'));
         }
-        continue;
+        return;
       }
       const preparation = await invoke('preparation-disabled', false);
       if (preparation.exitCode !== 0 || preparation.exported.length !== 2 || preparation.inventory.modelRequests.length || preparation.inventory.misses.length) {
@@ -413,6 +439,21 @@ async function main(output, executable, userLabelDirectory, mode) {
       }
     }
   }
+  // Only preparation is concurrent. Every job retains its own native process,
+  // physical inputs, cold stores and service. The existing shared broker meters
+  // the same requests; execution below keeps the frozen job order.
+  if (supervised) {
+    // Three preparations leave room for both long-lived leases per job and
+    // their RPCs inside the unchanged sixteen-connection broker ceiling.
+    let next = 0;
+    await Promise.all(Array.from({ length: 3 }, async () => {
+      while (next < jobs.length) {
+        const index = next++;
+        await prepareJob(jobs[index], index);
+      }
+    }));
+  }
+  else for (const [index, job] of jobs.entries()) await prepareJob(job, index);
   if (authority) {
     for (const subject of ['crowd', 'billie', 'enya']) {
       if (preparations.find(p => p.job === `disabled-${subject}`).input !== preparations.find(p => p.job === `assistance-${subject}`).input) throw Error('Paired pre-freeze baseline mismatch');
@@ -436,9 +477,11 @@ async function main(output, executable, userLabelDirectory, mode) {
         || report.counters.model > 1 || report.counters.provider !== inventories.reduce((n,i) => n+i.requests.length,0)
         || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0)) throw Error('Durable wire reconciliation failed');
     save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length, uniqueOperations: new Set(ids).size });
-    await authority.command({ op: 'publish' });
-    save(path.join(output, 'authority-receipt.json'), await authority.settle(false, report));
-    activeAuthority = null;
+    if (!supervised) {
+      await authority.command({ op: 'publish' });
+      save(path.join(output, 'authority-receipt.json'), await authority.settle(false, report));
+      activeAuthority = null;
+    }
   }
   const requested = read(path.join(output, 'requested-membership.json'));
   for (const [key, actual] of Object.entries({
@@ -456,22 +499,31 @@ async function main(output, executable, userLabelDirectory, mode) {
     requestedFieldSlots: executions.reduce((n, j) => n + j.score.requestedFieldSlots, 0),
     predeclaredLabelableSlots: executions.reduce((n, j) => n + j.score.predeclaredLabelableSlots, 0),
     groundedAssistanceAccuracyCredit: 0, acceptedCertificate: false, writableDelta: [] });
-  save(path.join(output, 'selection-status.json'), { executionStatus: 'complete', scoringStatus: 'insufficient',
-    resultsFile: path.relative(root, path.join(output, 'results.json')) });
+  if (supervised) {
+    await authority.command({ op: 'stage_result', result_sha256: binding(path.join(output, 'results.json')).sha256 });
+    const expectedAuthority = await authority.command({ op: 'report' });
+    save(path.join(output, 'authority-provisional.json'), await authority.settle(false, expectedAuthority));
+    activeAuthority = null;
+    save(path.join(output, 'selection-staged.json'), { executionStatus: 'provisional_complete', scoringStatus: 'insufficient',
+      resultsFile: path.relative(root, path.join(output, 'results.json')), authority: 'none_native_receiver_required' });
+  } else save(path.join(output, 'selection-status.json'), { executionStatus: 'complete', scoringStatus: 'insufficient',
+      resultsFile: path.relative(root, path.join(output, 'results.json')) });
 }
 let activeAuthority;
 if (require.main === module) main(...process.argv.slice(2)).catch(async error => {
+  console.error(error);
+  if (admittedOutput) save(path.join(admittedOutput, 'driver-error.json'), { error: String(error), stack: error.stack });
   if (activeAuthority) {
     try { save(path.join(admittedOutput, 'authority-incomplete.json'), await activeAuthority.settle(true)); }
     catch (failure) { console.error(String(failure)); }
     activeAuthority = null;
   }
   if (admittedOutput && fs.existsSync(path.join(admittedOutput, 'requested-membership.json'))) {
-    if (read(path.join(admittedOutput, 'selection.json')).version === 2) {
+    if (!fs.existsSync(path.join(admittedOutput, 'selection.json')) || read(path.join(admittedOutput, 'selection.json')).version === 2) {
       save(path.join(admittedOutput, 'failure-envelope.json'), failureEnvelope(admittedOutput));
       save(path.join(admittedOutput, 'selection-status.json'), { executionStatus: 'incomplete', scoringStatus: 'partial_or_unavailable',
         failureEnvelope: path.relative(root, path.join(admittedOutput, 'failure-envelope.json')) });
-      console.error(error); process.exitCode = 1; return;
+      process.exitCode = 1; return;
     }
     const requested = read(path.join(admittedOutput, 'requested-membership.json'));
     save(path.join(admittedOutput, 'failure-envelope.json'), { ...requested,
@@ -487,5 +539,5 @@ if (require.main === module) main(...process.argv.slice(2)).catch(async error =>
     save(path.join(admittedOutput, 'selection-status.json'), { executionStatus: 'incomplete', scoringStatus: 'unavailable',
       failureEnvelope: path.relative(root, path.join(admittedOutput, 'failure-envelope.json')) });
   }
-  console.error(error); process.exitCode = 1;
+  process.exitCode = 1;
 });

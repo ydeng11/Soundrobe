@@ -24,14 +24,27 @@ const IPC_BYTES: u64 = 1024 * 1024;
 struct Shared {
     journal: Journal,
     owner: String,
-    stopped: AtomicBool,
+    stopped: Arc<AtomicBool>,
     admission: std::sync::Mutex<()>,
     forwarding: Arc<Semaphore>,
     http: reqwest::Client,
     _registry_lock: std::fs::File,
+    // Unit-control seam after a real SQLite commit; true selects dispatch.
+    // Unset in broker construction and never bootstrap-selectable.
+    after_journal: Option<Box<dyn Fn(bool) + Send + Sync>>,
 }
 impl Shared {
     fn command(&self, handle: &str, command: Command) -> Result<Value, String> {
+        #[cfg(target_os = "macos")]
+        if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
+            let _ = monitor.check();
+        }
+        let stop = matches!(command, Command::Stop | Command::IngressDenied { .. });
+        if stop {
+            // Revocation cannot wait for a held journal/admission lock. Durable
+            // terminal bookkeeping may follow; it never reopens this latch.
+            self.stopped.store(true, Ordering::SeqCst);
+        }
         // Covers the fallback latch too: SQLite cannot serialize admissions
         // against an error whose terminal state could not reach storage.
         let _admission = self
@@ -49,8 +62,36 @@ impl Shared {
         if self.stopped.load(Ordering::SeqCst) && !reconcile {
             return Err("mock_authority_stopped".into());
         }
-        let stop = matches!(command, Command::Stop | Command::IngressDenied { .. });
+        let dispatch = matches!(command, Command::Dispatch { .. });
+        #[cfg(target_os = "macos")]
+        let consume = matches!(command, Command::Consume { .. });
+        if matches!(command, Command::Freeze)
+            && std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("journal-lock")
+        {
+            let root = std::path::PathBuf::from(
+                std::env::var_os("SOUNDROBE_NATIVE_OUTPUT").ok_or("mock_control_missing")?,
+            );
+            std::fs::write(
+                root.join("journal-entered"),
+                b"before actual SQLite transaction",
+            )
+            .map_err(|_| "mock_control_storage")?;
+        }
         let result = self.journal.command(handle, command);
+        #[cfg(target_os = "macos")]
+        let result = result.and_then(|value| {
+            if consume {
+                if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
+                    monitor.enter_execution()?;
+                }
+            }
+            Ok(value)
+        });
+        if result.is_ok() && !reconcile {
+            if let Some(barrier) = &self.after_journal {
+                barrier(dispatch);
+            }
+        }
         if stop || result.is_err() {
             self.stopped.store(true, Ordering::SeqCst);
             // Failure to persist stop is itself terminal in this broker. Startup
@@ -59,7 +100,17 @@ impl Shared {
                 let _ = self.journal.command(&self.owner, Command::Stop);
             }
         }
-        result
+        // A durable commit may return after independent revocation. It remains
+        // consumed, but its result cannot release a new effect/session grant.
+        #[cfg(target_os = "macos")]
+        if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
+            let _ = monitor.check();
+        }
+        if result.is_ok() && self.stopped.load(Ordering::SeqCst) && !reconcile {
+            Err("mock_authority_stopped".into())
+        } else {
+            result
+        }
     }
 }
 
@@ -98,14 +149,19 @@ impl Broker {
             .timeout(std::time::Duration::from_secs(5))
             .build()
             .map_err(|_| "mock_transport_unavailable")?;
+        let stopped = Arc::new(AtomicBool::new(false));
+        #[cfg(target_os = "macos")]
+        let stopped = super::supervisor::ownership::broker_monitor()
+            .map_or(stopped, |monitor| monitor.stopped.clone());
         let shared = Arc::new(Shared {
             journal,
             owner: owner.clone(),
-            stopped: AtomicBool::new(false),
+            stopped,
             admission: std::sync::Mutex::new(()),
             forwarding: Arc::new(Semaphore::new(16)),
             http,
             _registry_lock: lock,
+            after_journal: None,
         });
         // Darwin's Unix socket path limit is shorter than an artifact path.
         let socket_root = std::path::Path::new("/tmp").join(format!("sr-mock-{}", super::token()));
@@ -176,6 +232,13 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
             return Err("mock_ipc_invalid".into());
         }
         let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|_| "mock_ipc_invalid")?;
+        #[cfg(target_os = "macos")]
+        if envelope.command == json!({"op":"scope"}) {
+            super::require(envelope.handle == state.owner)?;
+            let monitor =
+                super::supervisor::ownership::broker_monitor().ok_or("mock_scope_unavailable")?;
+            return Ok(json!({"remainingMs":monitor.remaining()?}));
+        }
         if envelope.command == json!({"op":"report"}) {
             super::require(envelope.handle == state.owner)?;
             return state.journal.report();
@@ -197,7 +260,17 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
         }
         let stop = matches!(command, Command::Stop);
         let value = state.command(&envelope.handle, command)?;
-        if stop {
+        let supervised = {
+            #[cfg(target_os = "macos")]
+            {
+                super::supervisor::ownership::broker_monitor().is_some()
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                false
+            }
+        };
+        if stop && !supervised {
             let _quiescent = tokio::time::timeout(
                 std::time::Duration::from_secs(6),
                 state.forwarding.acquire_many(16),
@@ -230,8 +303,18 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
     if let Some((handle, role)) = watch.filter(|_| admitted) {
         let mut release = Vec::new();
         reader.get_mut().set_limit(8);
+        let eof_is_release = {
+            #[cfg(target_os = "macos")]
+            {
+                super::supervisor::ownership::broker_monitor().is_none()
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                true
+            }
+        };
         let valid = reader.read_until(b'\n', &mut release).await.is_ok()
-            && (release.is_empty() || release == b"release\n");
+            && ((eof_is_release && release.is_empty()) || release == b"release\n");
         let result = if valid {
             state.command(&handle, Command::EndLease { role })
         } else {
@@ -355,6 +438,289 @@ async fn forward(State(state): State<Arc<Shared>>, request: Request) -> Response
                 .body(Body::from(r#"{"error":"mock_authority_denied"}"#))
                 .unwrap()
         }
+    }
+}
+
+#[test]
+fn mock_authority_stop_revokes_admission_before_a_held_journal_gate_returns() {
+    let (root, journal, owner) = super::tests::setup();
+    let state = Arc::new(Shared {
+        journal: journal.clone(),
+        owner: owner.clone(),
+        stopped: Arc::new(AtomicBool::new(false)),
+        admission: std::sync::Mutex::new(()),
+        forwarding: Arc::new(Semaphore::new(16)),
+        http: reqwest::Client::builder().no_proxy().build().unwrap(),
+        _registry_lock: std::fs::File::create(root.join("control-test.lock")).unwrap(),
+        after_journal: None,
+    });
+    let held = state.admission.lock().unwrap();
+    let request = state.clone();
+    let (entered, ready) = std::sync::mpsc::sync_channel(0);
+    let stop = std::thread::spawn(move || {
+        entered.send(()).unwrap();
+        request.command(&request.owner, Command::Stop)
+    });
+    ready
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .unwrap();
+    let until = std::time::Instant::now() + std::time::Duration::from_millis(200);
+    while !state.stopped.load(Ordering::SeqCst) && std::time::Instant::now() < until {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    let revoked_while_held = state.stopped.load(Ordering::SeqCst);
+    // Always release/join before assertions, including the expected red run.
+    drop(held);
+    stop.join().unwrap().unwrap();
+    assert!(
+        revoked_while_held,
+        "a stalled journal/admission gate must not stall native revocation"
+    );
+    assert_eq!(
+        journal.report().unwrap()["membership"]["requestedFieldSlots"],
+        216
+    );
+    assert_eq!(journal.report().unwrap()["state"], "terminal");
+}
+
+#[test]
+fn mock_authority_late_committed_admission_is_consumed_but_never_acknowledged_after_stop() {
+    let (root, journal, owner) = super::tests::setup();
+    let (arrived, committed) = std::sync::mpsc::sync_channel(1);
+    let (release, waiting) = std::sync::mpsc::sync_channel(1);
+    let waiting = std::sync::Mutex::new(waiting);
+    let state = Arc::new(Shared {
+        journal: journal.clone(),
+        owner: owner.clone(),
+        stopped: Arc::new(AtomicBool::new(false)),
+        admission: std::sync::Mutex::new(()),
+        forwarding: Arc::new(Semaphore::new(16)),
+        http: reqwest::Client::builder().no_proxy().build().unwrap(),
+        _registry_lock: std::fs::File::create(root.join("return-control.lock")).unwrap(),
+        after_journal: Some(Box::new(move |_| {
+            arrived.send(()).unwrap();
+            waiting
+                .lock()
+                .unwrap()
+                .recv_timeout(std::time::Duration::from_secs(1))
+                .unwrap();
+        })),
+    });
+    let request = state.clone();
+    let admission = std::thread::spawn(move || {
+        request.command(
+            &request.owner,
+            Command::Register {
+                job: "disabled-crowd".into(),
+                stage: Stage::Preparation,
+                endpoint: "http://127.0.0.1:1234".into(),
+                manifest_sha256: super::sha(b"fixture"),
+            },
+        )
+    });
+    committed
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .unwrap();
+    let request = state.clone();
+    let stop = std::thread::spawn(move || request.command(&request.owner, Command::Stop));
+    let until = std::time::Instant::now() + std::time::Duration::from_millis(200);
+    while !state.stopped.load(Ordering::SeqCst) && std::time::Instant::now() < until {
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    let revoked = state.stopped.load(Ordering::SeqCst);
+    release.send(()).unwrap();
+    let acknowledged = admission.join().unwrap();
+    stop.join().unwrap().unwrap();
+    assert!(revoked);
+    assert_eq!(
+        acknowledged,
+        Err("mock_authority_stopped".into()),
+        "a commit returning after revocation must not yield a usable session handle"
+    );
+    let report = journal.report().unwrap();
+    assert_eq!(report["state"], "terminal");
+    assert_eq!(
+        report["sessions"].as_object().unwrap().len(),
+        1,
+        "stop is not rollback or refund"
+    );
+    assert_eq!(report["membership"]["requestedFieldSlots"], 216);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn mock_authority_revoked_post_commit_dispatch_never_reaches_fixture_wire() {
+    use std::sync::atomic::AtomicUsize;
+    for revoke in [false, true] {
+        let (root, journal, owner) = super::tests::setup();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let session = journal
+            .command(
+                &owner,
+                Command::Register {
+                    job: "disabled-crowd".into(),
+                    stage: Stage::Preparation,
+                    endpoint,
+                    manifest_sha256: super::sha(b"fixture"),
+                },
+            )
+            .unwrap();
+        let service = session["service"].as_str().unwrap().to_string();
+        journal
+            .command(
+                &service,
+                Command::Lease {
+                    role: "fixture".into(),
+                },
+            )
+            .unwrap();
+        let arrivals = Arc::new(AtomicUsize::new(0));
+        let counted = arrivals.clone();
+        let observed_journal = journal.clone();
+        let fixture = tokio::spawn(
+            axum::serve(
+                listener,
+                Router::new().fallback(move |request: Request| {
+                    let counted = counted.clone();
+                    let journal = observed_journal.clone();
+                    let service = service.clone();
+                    async move {
+                        counted.fetch_add(1, Ordering::SeqCst);
+                        let operation = request.headers()["x-soundrobe-mock-operation"]
+                            .to_str()
+                            .unwrap()
+                            .to_string();
+                        let digest = super::sha(
+                            &serde_json::to_vec(&json!([
+                                request.method().as_str(),
+                                request.uri().path_and_query().unwrap().as_str(),
+                                super::sha(b"")
+                            ]))
+                            .unwrap(),
+                        );
+                        journal
+                            .command(
+                                &service,
+                                Command::Arrival {
+                                    operation,
+                                    request_sha256: digest,
+                                },
+                            )
+                            .unwrap();
+                        Response::new(Body::from("{}"))
+                    }
+                }),
+            )
+            .into_future(),
+        );
+        let (arrived, committed) = std::sync::mpsc::sync_channel(1);
+        let (release, waiting) = std::sync::mpsc::sync_channel(1);
+        let waiting = std::sync::Mutex::new(waiting);
+        let state = Arc::new(Shared {
+            journal: journal.clone(),
+            owner: owner.clone(),
+            stopped: Arc::new(AtomicBool::new(false)),
+            admission: std::sync::Mutex::new(()),
+            forwarding: Arc::new(Semaphore::new(16)),
+            http: reqwest::Client::builder().no_proxy().build().unwrap(),
+            _registry_lock: std::fs::File::create(root.join("dispatch-control.lock")).unwrap(),
+            after_journal: Some(Box::new(move |dispatch| {
+                if dispatch {
+                    arrived.send(()).unwrap();
+                    waiting
+                        .lock()
+                        .unwrap()
+                        .recv_timeout(std::time::Duration::from_secs(1))
+                        .unwrap();
+                }
+            })),
+        });
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let gateway = format!(
+            "http://{}/__fixtures/compact",
+            listener.local_addr().unwrap()
+        );
+        let broker = tokio::spawn(
+            axum::serve(
+                listener,
+                Router::new().fallback(forward).with_state(state.clone()),
+            )
+            .into_future(),
+        );
+        let client = session["client"].as_str().unwrap().to_string();
+        let request = tokio::spawn(async move {
+            reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .unwrap()
+                .get(gateway)
+                .header("x-soundrobe-mock-session", client)
+                .send()
+                .await
+                .unwrap()
+        });
+        committed
+            .recv_timeout(std::time::Duration::from_secs(1))
+            .unwrap();
+        let report = journal.report().unwrap();
+        assert_eq!(report["counters"]["reserved"], 1);
+        assert!(report["operations"]
+            .as_object()
+            .unwrap()
+            .values()
+            .all(|o| o["dispatched"] == true));
+        assert_eq!(
+            arrivals.load(Ordering::SeqCst),
+            0,
+            "the actual wire must still be empty at the barrier"
+        );
+        let stop = if revoke {
+            let state = state.clone();
+            Some(std::thread::spawn(move || {
+                state.command(&state.owner, Command::Stop)
+            }))
+        } else {
+            None
+        };
+        if revoke {
+            let until = std::time::Instant::now() + std::time::Duration::from_millis(200);
+            while !state.stopped.load(Ordering::SeqCst) && std::time::Instant::now() < until {
+                std::thread::sleep(std::time::Duration::from_millis(1));
+            }
+        }
+        let revoked_before_release = state.stopped.load(Ordering::SeqCst);
+        release.send(()).unwrap();
+        let response = request.await.unwrap();
+        if let Some(stop) = stop {
+            stop.join().unwrap().unwrap();
+        }
+        let status = response.status();
+        let received = arrivals.load(Ordering::SeqCst);
+        let report = journal.report().unwrap();
+        fixture.abort();
+        broker.abort();
+        assert_eq!(revoked_before_release, revoke);
+        assert_eq!(
+            status,
+            if revoke {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::OK
+            }
+        );
+        assert_eq!(
+            received,
+            usize::from(!revoke),
+            "positive and revoked controls must differ at the actual loopback wire"
+        );
+        assert_eq!(
+            report["counters"]["reserved"], 1,
+            "a committed dispatch is never refunded"
+        );
+        assert_eq!(report["counters"]["arrived"], usize::from(!revoke));
+        assert_eq!(report["counters"]["completed"], usize::from(!revoke));
+        assert_eq!(report["membership"]["requestedFieldSlots"], 216);
+        eprintln!("post-commit dispatch revoke={revoke} HTTP={status} actual-fixture-arrivals={received} reserved=1 slots=216");
     }
 }
 
@@ -559,6 +925,118 @@ async fn mock_authority_owner_disconnect_is_terminal_before_any_wire() {
         216
     );
     assert_eq!(j.report().unwrap()["counters"]["reserved"], 0);
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) async fn supervised_process(
+    root: std::path::PathBuf,
+    monitor: Arc<super::supervisor::ownership::Monitor>,
+) -> Result<(), String> {
+    use super::supervisor::ownership::receiver;
+    let directory = root.join("authority");
+    let bootstrap = directory.join("bootstrap.json");
+    while !bootstrap.is_file() {
+        monitor.check()?;
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
+    let io_error = |_| "mock_supervised_storage_unavailable".to_string();
+    let (mut input, _) = receiver::read_json(&bootstrap).map_err(io_error)?;
+    let (config, _) =
+        receiver::read_json(&root.join("native-supervision.json")).map_err(io_error)?;
+    super::require(
+        input["membership"] == serde_json::from_str::<Value>(receiver::MEMBERSHIP).unwrap()
+            && input["bindings"]["supervision"] == config,
+    )?;
+    input["bindings"]["supervision"]["executionGroup"] =
+        json!(std::env::var("SOUNDROBE_NATIVE_GROUP")
+            .map_err(|_| "mock_group_missing")?
+            .parse::<i32>()
+            .map_err(|_| "mock_group_invalid")?);
+    monitor.check()?;
+    let (journal, owner) = Journal::create(
+        &directory.join("registry.sqlite"),
+        input["membership"].clone(),
+        input["bindings"].clone(),
+    )?;
+    let broker = Broker::start(journal.clone(), owner).await?;
+    receiver::durable_json(&directory, "ready.json", &broker.descriptor).map_err(io_error)?;
+    if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("stalled-storage") {
+        use std::io::Read;
+        while !root.join("storage-release").is_file() {
+            monitor.check()?;
+            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        }
+        let mut fifo = std::fs::File::open(root.join("storage-fifo")).map_err(io_error)?;
+        std::fs::write(
+            root.join("storage-read-started"),
+            b"open FIFO, before blocking read",
+        )
+        .map_err(io_error)?;
+        let mut byte = [0];
+        // Actual blocking disposable FIFO I/O; no journal or watchdog lock is
+        // held, and native owner polling must continue independently.
+        fifo.read_exact(&mut byte).map_err(io_error)?;
+        return Err("mock_storage_control_unexpectedly_resumed".into());
+    }
+    loop {
+        monitor.check()?;
+        let report = journal.report()?;
+        if report["state"] == "terminal" {
+            return Err("mock_supervised_terminal".into());
+        }
+        if report["state"] == "provisional_complete"
+            && report["ownerLive"] == false
+            && monitor.payload_exited()
+        {
+            let (_, result) = receiver::read_json(&root.join("results.json")).map_err(io_error)?;
+            super::require(report["resultSha256"] == receiver::digest_string(&result))?;
+            // All payload writers have actually exited. This normal staging is
+            // inside execution, never a postdeadline audit/drain operation.
+            let mut pending = vec![root.clone()];
+            let mut directories = Vec::new();
+            let mut files = 0;
+            let mut bytes = 0_u64;
+            while let Some(directory) = pending.pop() {
+                directories.push(directory.clone());
+                for entry in std::fs::read_dir(&directory).map_err(io_error)? {
+                    monitor.check()?;
+                    let entry = entry.map_err(io_error)?;
+                    let kind = entry.file_type().map_err(io_error)?;
+                    if kind.is_dir() {
+                        pending.push(entry.path());
+                    } else if kind.is_file() {
+                        files += 1;
+                        bytes = bytes.saturating_add(entry.metadata().map_err(io_error)?.len());
+                        super::require(files <= 4096 && bytes <= 512 * 1024 * 1024)?;
+                        receiver::fault_barrier(&root, "final-file-sync");
+                        std::fs::File::open(entry.path())
+                            .map_err(io_error)?
+                            .sync_all()
+                            .map_err(io_error)?;
+                    } else {
+                        return Err("mock_staging_non_regular_file".into());
+                    }
+                }
+            }
+            for directory in directories.into_iter().rev() {
+                monitor.check()?;
+                std::fs::File::open(directory)
+                    .map_err(io_error)?
+                    .sync_all()
+                    .map_err(io_error)?;
+            }
+            monitor.check()?;
+            receiver::durable_json(&directory, "provisional.json", &report).map_err(io_error)?;
+            monitor.check()?;
+            monitor.stage();
+            // Native retirement owns exit; no six-second async drain or final
+            // filesystem-success marker is permitted in this supervised path.
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

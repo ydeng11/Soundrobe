@@ -2,6 +2,9 @@
 #[cfg(all(feature = "server", unix))]
 #[path = "mock_run_broker.rs"]
 pub(crate) mod broker;
+#[cfg(all(feature = "server", target_os = "macos"))]
+#[path = "mock_run_supervisor.rs"]
+pub(crate) mod supervisor;
 use rusqlite::{Connection, OpenFlags, TransactionBehavior};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -63,6 +66,9 @@ pub(crate) enum Command {
     Close,
     Freeze,
     Publish,
+    StageResult {
+        result_sha256: String,
+    },
     Consume {
         fake_checkpoint_sha256: String,
     },
@@ -119,6 +125,8 @@ struct Run {
     owner_live: Option<bool>,
     #[serde(default)]
     ingress_denials: Vec<Value>,
+    #[serde(default)]
+    result_sha256: Option<String>,
 }
 #[derive(Clone, Deserialize, Serialize)]
 struct Session {
@@ -177,6 +185,17 @@ impl Run {
         let owner = handle == self.owner;
         let session = self.sessions.get(handle).cloned();
         let no_pending = self.operations.values().all(|o| o.completed);
+        let session_settled = self
+            .operations
+            .values()
+            .all(|o| o.session != handle || o.completed);
+        let staged_result = match &command {
+            Command::StageResult { result_sha256 } => {
+                require(digest_valid(result_sha256))?;
+                Some(result_sha256.clone())
+            }
+            _ => None,
+        };
         match command {
             Command::Lease { role } => {
                 if role == "owner" {
@@ -203,7 +222,10 @@ impl Run {
                 if role == "owner" {
                     require(owner && self.owner_live == Some(true))?;
                     self.owner_live = Some(false);
-                    require(self.state == "terminal" || self.state == "complete")?;
+                    require(matches!(
+                        self.state.as_str(),
+                        "terminal" | "complete" | "provisional_complete"
+                    ))?;
                 } else if role == "native" {
                     let s = session.ok_or("mock_authority_denied")?;
                     require(s.native_live == Some(true))?;
@@ -333,7 +355,7 @@ impl Run {
                         && s.native_live == Some(true)
                         && s.stage == Stage::Preparation
                         && self.state == "preparing"
-                        && no_pending
+                        && session_settled
                         && digest_valid(&preparation_sha256),
                 )?;
                 require(
@@ -371,7 +393,7 @@ impl Run {
                 require(
                     !s.closed
                         && s.finished
-                        && no_pending
+                        && session_settled
                         && s.native_live == Some(false)
                         && s.fixture_live == Some(true),
                 )?;
@@ -398,9 +420,10 @@ impl Run {
                 self.state = "frozen".into();
                 Ok(json!({"checkpoint":checkpoint}))
             }
-            Command::Publish => {
+            Command::Publish | Command::StageResult { .. } => {
                 require(
                     owner
+                        && self.bindings.get("supervision").is_some() == staged_result.is_some()
                         && self.state == "executing"
                         && self.consumptions == 1
                         && no_pending
@@ -414,8 +437,14 @@ impl Run {
                                 && s.fixture_live == Some(false)
                         }),
                 )?;
-                self.state = "complete".into();
-                Ok(json!({"complete":true}))
+                self.state = if staged_result.is_some() {
+                    "provisional_complete"
+                } else {
+                    "complete"
+                }
+                .into();
+                self.result_sha256 = staged_result;
+                Ok(json!({"complete":self.state == "complete", "state":self.state}))
             }
             Command::Consume {
                 fake_checkpoint_sha256,
@@ -899,6 +928,7 @@ impl Journal {
             broker_started: false,
             owner_live: None,
             ingress_denials: Vec::new(),
+            result_sha256: None,
         };
         let c = Connection::open(path).map_err(|_| "mock_registry_unavailable")?;
         c.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS authority (id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL);")
@@ -969,7 +999,7 @@ impl Journal {
         Ok(
             json!({"runId":run.run_id,"state":run.state,"membership":run.membership,"bindings":run.bindings,
             "checkpoint":run.checkpoint,"preparations":run.preparations,"sessions":run.sessions,"counters":run.counters(),"operations":run.operations,
-            "consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
+            "consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
         )
     }
 }
@@ -1106,6 +1136,167 @@ pub(super) mod tests {
             .as_str()
             .unwrap()
             .into()
+    }
+    #[test]
+    fn mock_authority_preparation_settles_only_its_own_operations() {
+        for (own_pending, closing_pending) in [(false, false), (true, false), (false, true)] {
+            let (root, j, owner) = setup();
+            let a = register(&j, &owner, "disabled-crowd", Stage::Preparation);
+            let b = register(&j, &owner, "disabled-enya", Stage::Preparation);
+            for session in [&a, &b] {
+                let client = session["client"].as_str().unwrap();
+                j.command(
+                    client,
+                    Command::Attach {
+                        executable_sha256: digest("test executable"),
+                        preparation_sha256: None,
+                    },
+                )
+                .unwrap();
+                j.command(client, Command::SealInputs).unwrap();
+            }
+            let client = a["client"].as_str().unwrap();
+            let pending = if own_pending {
+                client
+            } else {
+                b["client"].as_str().unwrap()
+            };
+            j.command(
+                pending,
+                Command::Reserve {
+                    method: "GET".into(),
+                    path: "/musicbrainz/ws/2/release/control".into(),
+                    body_sha256: digest(""),
+                },
+            )
+            .unwrap();
+            let prepared = j.command(
+                client,
+                Command::Prepared {
+                    preparation_sha256: digest("prepared"),
+                    request_sha256: None,
+                },
+            );
+            if own_pending {
+                assert!(
+                    prepared.is_err(),
+                    "own unfinished wire operation must deny preparation"
+                );
+            } else {
+                prepared.expect("another session's wire operation does not own this preparation");
+                if closing_pending {
+                    j.command(
+                        client,
+                        Command::Reserve {
+                            method: "GET".into(),
+                            path: "/__fixtures/compact".into(),
+                            body_sha256: digest(""),
+                        },
+                    )
+                    .unwrap();
+                }
+                j.command(
+                    client,
+                    Command::EndLease {
+                        role: "native".into(),
+                    },
+                )
+                .unwrap();
+                let closed = j.command(client, Command::Close);
+                if closing_pending {
+                    assert!(closed.is_err(), "own pending inventory prevents Close");
+                } else {
+                    closed.expect("close waits for this session only");
+                }
+                assert_eq!(j.report().unwrap()["counters"]["completed"], 0);
+                assert!(
+                    j.command(&owner, Command::Freeze).is_err(),
+                    "global freeze still requires all work"
+                );
+            }
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+    #[test]
+    fn mock_authority_staged_results_are_not_final_authority() {
+        let command = serde_json::from_value::<Command>(json!({
+            "op": "stage_result", "result_sha256": digest("scored results")
+        }));
+        assert!(
+            command.is_ok(),
+            "the supervised result handoff must be typed"
+        );
+        let (root, original, _) = setup_unleased();
+        let (j, owner) = Journal::create(
+            &root.join("supervised.sqlite"),
+            original.report().unwrap()["membership"].clone(),
+            json!({"executable":digest("test executable"), "supervision":{"generation":"test"}}),
+        )
+        .unwrap();
+        j.command(
+            &owner,
+            Command::Lease {
+                role: "owner".into(),
+            },
+        )
+        .unwrap();
+        let checkpoint = freeze(&j, &owner);
+        j.command(
+            &owner,
+            Command::Consume {
+                fake_checkpoint_sha256: checkpoint,
+            },
+        )
+        .unwrap();
+        for job in JOBS {
+            let session = register(&j, &owner, job, Stage::Execution);
+            let client = session["client"].as_str().unwrap();
+            j.command(
+                client,
+                Command::Attach {
+                    executable_sha256: digest("test executable"),
+                    preparation_sha256: Some(digest(job)),
+                },
+            )
+            .unwrap();
+            j.command(
+                client,
+                Command::Finish {
+                    observation_sha256: digest("observed"),
+                },
+            )
+            .unwrap();
+            j.command(
+                client,
+                Command::EndLease {
+                    role: "native".into(),
+                },
+            )
+            .unwrap();
+            j.command(client, Command::Close).unwrap();
+            j.command(
+                session["service"].as_str().unwrap(),
+                Command::EndLease {
+                    role: "fixture".into(),
+                },
+            )
+            .unwrap();
+        }
+        j.command(&owner, command.unwrap()).unwrap();
+        let staged = j.report().unwrap();
+        assert_eq!(staged["state"], "provisional_complete");
+        assert_eq!(staged["resultSha256"], digest("scored results"));
+        assert_eq!(staged["ownerLive"], true);
+        assert_eq!(staged["membership"]["requestedFieldSlots"], 216);
+        j.command(
+            &owner,
+            Command::EndLease {
+                role: "owner".into(),
+            },
+        )
+        .unwrap();
+        assert_eq!(j.report().unwrap()["state"], "provisional_complete");
+        assert_eq!(j.report().unwrap()["ownerLive"], false);
     }
     #[test]
     fn mock_authority_freezes_all_membership_and_consumes_only_once() {

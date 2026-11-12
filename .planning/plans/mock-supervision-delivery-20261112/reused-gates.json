@@ -1,0 +1,55 @@
+{
+  "freshDuringDelivery": false,
+  "run": "run-114",
+  "audits": [
+    "audit-115",
+    "audit-123"
+  ],
+  "native": {
+    "authority-117": {
+      "passed": 45,
+      "ignored": 3
+    },
+    "driver-118": {
+      "passed": 3
+    },
+    "faults-101": {
+      "passed": 10
+    }
+  },
+  "corruption": {
+    "controls-121": {
+      "positivePassed": 1,
+      "negativeRejected": 8
+    },
+    "controls-116": "seven isolated negatives; wire negative confounded",
+    "control-120-red": "receipt mirror prerequisite failed before correction"
+  },
+  "combined-check-102": {
+    "typecheck": "passed",
+    "renderer": 858,
+    "desktop": {
+      "passed": 1311,
+      "ignored": 32
+    },
+    "server": {
+      "passed": 811,
+      "ignored": 23
+    },
+    "audio": {
+      "passed": 14,
+      "ignored": 12
+    },
+    "recoveryCli": 5,
+    "providerMock": 12,
+    "reviewTools": 10
+  },
+  "strictClippy108and109": "failed in unchanged out-of-slice code, no waiver",
+  "gate66": {
+    "state": "failed",
+    "serverPassed": 760,
+    "failed": 50,
+    "ignored": 23
+  },
+  "run74and110": "unexplained incomplete; no every-attempt reliability claim"
+}

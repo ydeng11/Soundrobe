@@ -1,0 +1,31 @@
+{
+  "parent": "8287b6b0cb47365522ac13eab94e1c8595e90a06",
+  "branch": "artist-library-inventory",
+  "implementationFiles": {
+    "docs/CHANGELOG.md": "e8a61568b19d4b9da55f149e09cf0e99e3ab97280b2675ced57aa39e3a5b5201",
+    "docs/offline-provider-mock.md": "152e9c100bedd57a935e4add48f36c3c2244cbc534076165a8cc3142ad220c8e",
+    "scripts/auto-tag-eval-replay/audit-supervised.py": "85f51ceddd7cf045e85e2aaef9e3684c8046be7acd05bc5af6f083ce0bb570e3",
+    "scripts/auto-tag-eval-replay/check-supervision.cjs": "9a812f4b066fe9a651da43f1dd8276a3f54ffa87a2332b0c2c4c82f04b5e3d3f",
+    "scripts/auto-tag-eval-replay/finalization-control.cjs": "a515ab685be0d7181f1bcd3c0b05e50b14c29f37a4034f56b7aa4dbdb418dcba",
+    "scripts/auto-tag-eval-replay/mock-authority.cjs": "8499e89bdce1267ca33b904be86d9f72b3213e65e2710210fea61343bf7aefaf",
+    "scripts/auto-tag-eval-replay/run-bounded.cjs": "063eddcff4eeae5867fda12729c18d0b77ce2641197c5e443d5ca991c85a0b23",
+    "scripts/auto-tag-eval-replay/run-supervised.cjs": "445a561807c34735d4d02435558e2e7e654f5bf376583c0bd02727115340a9c7",
+    "scripts/auto-tag-eval-replay/test_supervision.cjs": "3019b49ad073f7710ed61bf90b9bc89ee0a68f04ab0b645e417d81d9a2d40b17",
+    "src-tauri/src/infra/mock_run_authority.rs": "3ef601514be6fdce41497a7183cd1fd9d4ef70c1333fd3986530d3ba35ca7b64",
+    "src-tauri/src/infra/mock_run_broker.rs": "883fa813e955e7a9d5cb6024ce6084b8fe73d9501f7ef65c3084549be2b9d9a4",
+    "src-tauri/src/infra/mock_run_ownership.rs": "7cbf9cf3f5018f205077dcfada746421cfca4c729b9c6bbe76249668622b1581",
+    "src-tauri/src/infra/mock_run_receiver.rs": "c16795999c9351d1cfdfec61856942a5c5e28d457813599ed0bba477b54564be",
+    "src-tauri/src/infra/mock_run_supervisor.rs": "233d7d40fadad49f74009e7ba43b585908cde6e030840ac6526f35ed3d2935fe",
+    "test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+  },
+  "implementationPatchSha256": "2faccc721ebaf4deedcd9310f34d8a698e459dc5e4d5ab54b278f60e2a12cf62",
+  "executablePath": ".amp/in/artifacts/mock-supervision-20261112/source-100/native-evaluator",
+  "executableSha256": "1f585b9822d0aa8e3846a58e3bd29cd6b56b3ff1f54245e6138a5148165b0ce3",
+  "sourceArchivePath": ".amp/in/artifacts/mock-supervision-20261112/source-100/source.tgz",
+  "sourceArchiveSha256": "20aaa21a69a18d77a021e20125922917886a5cd16e4fd3eb79dda49c84da9dbc",
+  "runStartBindings": 128,
+  "receiptBindings": 1662,
+  "exactReplayRequiresRetainedInputs": true,
+  "executableAttestation": false,
+  "artifactRevisionBeforeDelivery": 24
+}

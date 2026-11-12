@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Offline six-job mock replay can use independent native supervision with fixed preparation/execution deadlines, retained incomplete membership, and witnessed completion after actual payload and supervisor exit. Lost completion recording remains incomplete; this does not enable live calls.
 - An explicit offline mock replay mode shares durable reservations and failure accounting across preparation, native jobs and replacement fixtures. It denies resumed runs and reconciles loopback arrivals without enabling live calls or real credentials.
 - Mock-only tagging replay can compare disabled and assisted cold runs on retained disposable files, keep failed observations in scoring, and export compact fixture accounting. Live calls remain disabled.
 - Offline tagging evaluation can score frozen user-accepted genre alternatives separately from catalog agreement and acoustic accuracy, while retaining failed and unavailable observations. Live models remain disabled.
@@ -153,6 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Mock-only evaluation revokes new admissions when stop is requested, even while journal work is stalled, and withholds grants whose commits return after stop. Consumed operations are not rolled back or refunded.
 - Offline runtime-diagnostic comparison rejects altered original primary claims, duplicate primary comments, and missing, duplicated or misattributed diagnostic rows before excluding observations. Matching, eligibility and tag writes are unchanged.
 - Album-content tagging retains a preserved collaborator display and artist list even when multiple performers share one list entry, rather than replacing them with the album-artist presentation.
 - Automatic tagging preserves captured per-file track/disc numbering and totals instead of replacing them with file order or file count. Missing track positions still use file-order numbering. Coherent existing collaborator displays and lists retain their spelling, order, and relationships when performer identities are unchanged.

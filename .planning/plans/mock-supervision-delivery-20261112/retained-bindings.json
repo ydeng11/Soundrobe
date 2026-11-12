@@ -1,0 +1,224 @@
+{
+  "files": [
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-115.json",
+      "bytes": 3642,
+      "sha256": "ac836d625cbe999614b281d7bcae491e4778f1d744e6c073de705a993a752892"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-123.err",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-123.json",
+      "bytes": 3642,
+      "sha256": "ac836d625cbe999614b281d7bcae491e4778f1d744e6c073de705a993a752892"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-controls-116/results.json",
+      "bytes": 1066,
+      "sha256": "a516d378ae97103cba0c9590ffa46a96faf55fd2c17ac4256d47c5e3c679f567"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-controls-116/wire-accounting.stderr",
+      "bytes": 7592,
+      "sha256": "07fa5503484a006a897b35d6d0c26870e502494a5dfc3b9a3e8752ba76ab69a2"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-controls-120-red.log",
+      "bytes": 459,
+      "sha256": "5ffa314cb79db821384c4925a834f640580d46a54157a0f09e38fee5bb0ef822"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-controls-121/results.json",
+      "bytes": 1066,
+      "sha256": "a516d378ae97103cba0c9590ffa46a96faf55fd2c17ac4256d47c5e3c679f567"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/audit-controls-121/wire-accounting.stderr",
+      "bytes": 7884,
+      "sha256": "910bc756f1f22b097fde20dcfba1461b9b092c25e7d4e0cfee810514bf2c8e2b"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/authority-117.log",
+      "bytes": 6717,
+      "sha256": "34aa4557531a5cb794252dedb2c02ca3aa3ec0358a2ba0b416622cc0d214fa1c"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/build-107.jsonl",
+      "bytes": 191789,
+      "sha256": "7576569883c7cafc3a5899a7aed92e3ab7cf363e86ebc069feb5cc42226e53cb"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/check-audit-103.py",
+      "bytes": 3172,
+      "sha256": "32c7d71624a55aad808d2867ef2afab2ac2bb3dbcb96dfa25d312aa49f19ec41"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/check-audit-120.py",
+      "bytes": 4014,
+      "sha256": "cb8d6c87a97766ba62e3a08f2e12a3a0a49cc6877a7e92dd8e85c4851eb671d0"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/clippy-108.log",
+      "bytes": 6684,
+      "sha256": "ae53d78ac865633474d09b396523321cf0c693da8bbcf744e47afc2cf23da447"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/clippy-server-109.log",
+      "bytes": 6185,
+      "sha256": "c8dfa54cdf7fc43e4b74611d30408f0c8fc0e8317618c1faa23cddbca5e3aca5"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/combined-check-102.log",
+      "bytes": 266788,
+      "sha256": "616996d9eb0463b4d7ad4fcca1165a2314d33cd48d5751c7a00c4d7b7201ebf9"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/combined-check-66.log",
+      "bytes": 311635,
+      "sha256": "07ed2ce77d6c64412378fdf45ff8d8cc9b225d483ceadb5b146681ee3befe282"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/diagnostic-111.log",
+      "bytes": 1325,
+      "sha256": "ab644cad52d6e70b1f15e89be4004686b14c5f61ad611f81628200559e9bdc59"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/driver-118.log",
+      "bytes": 406,
+      "sha256": "fd158e842730adafeb14888a56d8c74b3173393ea0703b3e38e4976a7bb3d129"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/faults-101/results.json",
+      "bytes": 2958,
+      "sha256": "3a38eb3821ec273348749f7e4aa3d26f424142b4a1678ca2a9e8a5fcd2c7eec1"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/faults-101/source-and-tool-locks.json",
+      "bytes": 14729,
+      "sha256": "0189a2196ba7646c8eee9801c1092ab147d709b2f3612f79ffcd6545e8660c23"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/final-bindings-119.log",
+      "bytes": 983,
+      "sha256": "59ca86861c656300f0bc3d0643b37556e5ad269ab4899ce6e893a2122390f1a8"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/post-review-bindings-122.log",
+      "bytes": 983,
+      "sha256": "59ca86861c656300f0bc3d0643b37556e5ad269ab4899ce6e893a2122390f1a8"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/publication-boundary-42.jsonl",
+      "bytes": 762,
+      "sha256": "f1c323e8d91a56a0bd524be44846c709f9e542909ec17151253e4b770bee8de5"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/publication-boundary-42.rs",
+      "bytes": 4803,
+      "sha256": "203400312cd66cbd6b15719d24f7fdce6558fae8072b35f9e5f8744dac2fbbcc"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/review-113.md",
+      "bytes": 16971,
+      "sha256": "7185479e28ccfd7aea560075a20c07e225be01b0cd70bbef7afa6fa5920bca68"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-110.log",
+      "bytes": 155,
+      "sha256": "7d60307ea8a3b5e31faeb76bb1705a6c091f037abeadc31934429cf06bdd1ae6"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-110/launcher-outcome.json",
+      "bytes": 155,
+      "sha256": "7d60307ea8a3b5e31faeb76bb1705a6c091f037abeadc31934429cf06bdd1ae6"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114.log",
+      "bytes": 430,
+      "sha256": "9c7c69afa423f15c868215a4741cf9e1e8d687796b9c9f6a2e7177d9fc319b2f"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/authority-provisional.json",
+      "bytes": 553144,
+      "sha256": "6a5d660fadbfe79160a5b2bf826ab32a70a3d068bc361d281f6df1fb6a3a01af"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/authority/provisional.json",
+      "bytes": 463408,
+      "sha256": "4884562930bbe538c90090495bb00ea789b172a8382ed55002efc8f8690de1cf"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/execution-scope.json",
+      "bytes": 43,
+      "sha256": "a28d9f8551ea9df36c8d6b05650cff9e43c4d35239abf59a9d94ef5d2b70307f"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/group-identity.json",
+      "bytes": 73,
+      "sha256": "7d98604ee56d43f45621850848b225d23bf5da407edcb70de576fa54299a28b3"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/launcher-outcome.json",
+      "bytes": 405,
+      "sha256": "021cd3a76662e47a0d3fd29716882d5ee9e78fa8cf3e5a5c148ce35f14819569"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/native-supervision.json",
+      "bytes": 170,
+      "sha256": "e67e82adaa25d746331df288aadc725e4bb504a9ccc3c86e8f707f099353fd84"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/receiver-outcome.json",
+      "bytes": 588,
+      "sha256": "8602cbd03607ec4cdd38561e33907952d8e6663741671c17bb3f28f444bd68bb"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/requested-membership.json",
+      "bytes": 5789,
+      "sha256": "2c386ef198cd522465fa77657f126d8185fd6201a89063100430235c6141e76c"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/results.json",
+      "bytes": 91582,
+      "sha256": "e9ce578c8a0089baf71603365de9b87cd02f63a39a1596f0f6474dc8531e23ab"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/source-and-tool-locks.json",
+      "bytes": 18927,
+      "sha256": "d2cd0f63e0ff335484bb177b2262db598db965fbf4bdb595462cc5435ebea107"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-114/supervisor-identity.json",
+      "bytes": 27,
+      "sha256": "8860dfbe14ce486d7df6a95e49a4277a27f20c0aa293321ba9ecfe831d2e5748"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/run-74.log",
+      "bytes": 155,
+      "sha256": "7d60307ea8a3b5e31faeb76bb1705a6c091f037abeadc31934429cf06bdd1ae6"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/source-100/SHA256SUMS",
+      "bytes": 2161,
+      "sha256": "920631369c8a32ff8cd00ccc072f3c089f3d57e3c02ac78aa1d9335d19dfa738"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/source-100/archive-files.txt",
+      "bytes": 12727,
+      "sha256": "304f39f966155995d5f05c60c0589ea90f07eedd4e53b844778e7ede2ee4fe22"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/source-100/native-evaluator",
+      "bytes": 123461984,
+      "sha256": "1f585b9822d0aa8e3846a58e3bd29cd6b56b3ff1f54245e6138a5148165b0ce3"
+    },
+    {
+      "path": ".amp/in/artifacts/mock-supervision-20261112/source-100/source.tgz",
+      "bytes": 1319076,
+      "sha256": "20aaa21a69a18d77a021e20125922917886a5cd16e4fd3eb79dda49c84da9dbc"
+    }
+  ]
+}

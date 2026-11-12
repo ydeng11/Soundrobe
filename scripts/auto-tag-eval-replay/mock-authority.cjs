@@ -7,7 +7,17 @@ const { once } = require('node:events');
 const { isDeepStrictEqual } = require('node:util');
 
 function validateCompleteReceipt(receipt, expected) {
-  if (!receipt || !expected || receipt.state !== 'complete' || receipt.consumptions !== 1
+  return validateReceipt(receipt, expected, 'complete');
+}
+
+function validateProvisionalReceipt(receipt, expected) {
+  if (!/^[a-f0-9]{64}$/.test(receipt?.resultSha256 ?? '') || receipt.resultSha256 !== expected?.resultSha256
+      || !receipt.bindings?.supervision?.generation) throw Error('mock staging digest missing or mismatched');
+  return validateReceipt(receipt, expected, 'provisional_complete');
+}
+
+function validateReceipt(receipt, expected, state) {
+  if (!receipt || !expected || receipt.state !== state || receipt.consumptions !== 1
       || receipt.denied !== 0 || receipt.ownerLive !== false || receipt.liveAuthority !== false
       || !expected.checkpoint || !expected.runId
       || ['runId', 'checkpoint', 'membership', 'bindings', 'counters', 'sessions', 'preparations', 'operations']
@@ -84,18 +94,21 @@ function lease(socket, handle, role) {
   });
 }
 
-async function start(binary, output, membership, bindings, fault) {
+async function start(binary, output, membership, bindings, fault, supervision) {
   const directory = path.join(output, 'authority');
   fs.mkdirSync(directory, { mode: 0o700 });
   const bootstrap = path.join(directory, 'bootstrap.json');
   fs.writeFileSync(bootstrap, JSON.stringify({ membership, bindings, ...(fault ? { fault } : {}) }), { flag: 'wx', mode: 0o600 });
-  const log = fs.openSync(path.join(directory, 'process.log'), 'wx');
-  const child = spawn(binary, ['--exact', 'infra::mock_run_authority::broker::mock_authority_process', '--ignored', '--nocapture'], {
-    cwd: process.cwd(), env: { PATH: process.env.PATH, SOUNDROBE_MOCK_AUTHORITY_BOOTSTRAP: bootstrap },
-    stdio: ['ignore', log, log],
-  });
-  fs.closeSync(log);
-  const exited = once(child, 'exit');
+  let child, exited;
+  if (!supervision) {
+    const log = fs.openSync(path.join(directory, 'process.log'), 'wx');
+    child = spawn(binary, ['--exact', 'infra::mock_run_authority::broker::mock_authority_process', '--ignored', '--nocapture'], {
+      cwd: process.cwd(), env: { PATH: process.env.PATH, SOUNDROBE_MOCK_AUTHORITY_BOOTSTRAP: bootstrap },
+      stdio: ['ignore', log, log],
+    });
+    fs.closeSync(log);
+    exited = once(child, 'exit');
+  }
   const ready = path.join(directory, 'ready.json');
   const descriptor = await new Promise((resolve, reject) => {
     const watcher = fs.watch(directory, () => {
@@ -106,17 +119,22 @@ async function start(binary, output, membership, bindings, fault) {
       watcher.close(); clearTimeout(timer);
       if (error) reject(error); else resolve(value);
     };
-    exited.then(() => { if (!fs.existsSync(ready)) finish(Error('mock broker exited before readiness')); });
+    exited?.then(() => { if (!fs.existsSync(ready)) finish(Error('mock broker exited before readiness')); });
     if (fs.existsSync(ready)) finish(null, JSON.parse(fs.readFileSync(ready)));
   });
   if (descriptor.mode !== 'durable_mock_only') throw Error('mock broker mode mismatch');
   const ownerLease = await lease(descriptor.socket, descriptor.owner, 'owner');
-  return { ...descriptor, directory, pid: child.pid,
+  return { ...descriptor, directory, pid: child?.pid,
     command: command => rpc(descriptor.socket, descriptor.owner, command),
     async settle(failed, expected) {
       if (failed) try { await rpc(descriptor.socket, descriptor.owner, { op: 'stop' }); } catch { /* Unknown is terminal; no retries. */ }
       let releaseError;
       try { await ownerLease.release(); } catch (error) { ownerLease.abandon(); releaseError = error; }
+      if (supervision) {
+        if (releaseError) throw releaseError;
+        const receipt = await rpc(descriptor.socket, descriptor.owner, { op: 'report' });
+        return failed ? receipt : validateProvisionalReceipt(receipt, expected);
+      }
       let timer;
       let status;
       try {
@@ -134,4 +152,4 @@ async function start(binary, output, membership, bindings, fault) {
     },
   };
 }
-module.exports = { rpc, lease, start, validateCompleteReceipt };
+module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt };

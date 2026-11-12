@@ -1,0 +1,133 @@
+{
+  "controls": [
+    {
+      "control": "broker-loss",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 18.436165999999957,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8315,
+      "liveAuthority": false
+    },
+    {
+      "control": "supervisor-loss",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 23.578665999999885,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8346,
+      "liveAuthority": false
+    },
+    {
+      "control": "receiver-loss",
+      "status": [
+        null,
+        "SIGKILL"
+      ],
+      "quiescentMs": 23.160707999999886,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8376,
+      "liveAuthority": false
+    },
+    {
+      "control": "blocked-node",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 1965.4679580000002,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8404,
+      "liveAuthority": false
+    },
+    {
+      "control": "stalled-storage",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 37.745458999999755,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8451,
+      "liveAuthority": false
+    },
+    {
+      "control": "journal-lock",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 23.46312500000022,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8480,
+      "liveAuthority": false
+    },
+    {
+      "control": "supervisor-suspend",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 813.0487920000014,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8514,
+      "liveAuthority": false
+    },
+    {
+      "control": "broker-suspend",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 838.1088339999988,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8557,
+      "liveAuthority": false
+    },
+    {
+      "control": "anchor-loss",
+      "status": [
+        78,
+        null
+      ],
+      "quiescentMs": 105.91470899999877,
+      "actualGroupAbsent": true,
+      "requestedFieldSlots": 216,
+      "receiverGroup": 8289,
+      "executionGroup": 8589,
+      "liveAuthority": false
+    },
+    {
+      "control": "anchor-running-loss",
+      "status": [
+        1,
+        null
+      ],
+      "launcherReturnMs": 7130.794334,
+      "containmentAtReturn": "unknown",
+      "requestedFieldSlots": 216,
+      "liveAuthority": false
+    }
+  ],
+  "liveAuthority": false
+}
