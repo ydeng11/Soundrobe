@@ -3635,6 +3635,16 @@ async fn paired_cold_mock_auto_tag_eval() {
 #[tokio::test]
 #[ignore = "explicit durable mock session on disposable generated inputs only"]
 async fn durable_cold_mock_auto_tag_eval() {
+    // Keep model/transport/project TRACE inside the unchanged shared log cap;
+    // repetitive FLAC block diagnostics are not model privacy witnesses.
+    // stderr is captured by the admitted driver sink, never a home log file.
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_env_filter(tracing_subscriber::EnvFilter::new("trace,lofty=info"))
+        .with_writer(std::io::stderr)
+        .try_init()
+        .expect("isolated evaluation tracing");
+    tracing::info!("mock_coordinator_privacy_trace_active");
     use crate::infra::mock_run_authority::{Command, Evaluation, Stage};
     let descriptor =
         PathBuf::from(std::env::var("SOUNDROBE_MOCK_EVALUATION").expect("explicit mock session"));
@@ -3915,12 +3925,12 @@ async fn run_auto_tag_eval(
             input
         })
         .unwrap_or_default();
-    let config_path = dirs::home_dir()
-        .expect("home directory")
-        .join(".soundrobe/config.yaml");
     let mut config = if mock_url.is_some() {
         load_from("", &crate::state::config::EnvMap::new())
     } else {
+        let config_path = dirs::home_dir()
+            .expect("home directory")
+            .join(".soundrobe/config.yaml");
         load_from(
             &fs::read_to_string(config_path).expect("read Soundrobe config"),
             &ProcessEnv,
@@ -3937,6 +3947,11 @@ async fn run_auto_tag_eval(
     let assistance = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE").ok();
     configure_eval_assistance(&mut config, mock_url.as_deref(), assistance.as_deref())
         .expect("invalid evaluation assistance mode");
+    if durable.is_some() {
+        // Capability/configuration is not a credential. Only the broker's
+        // injected mock supplier can produce one after signed consumption.
+        config.llm_api_key = None;
+    }
     let trace_donors = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_DONOR_TRACE").as_deref() == Ok("1");
     if trace_donors {
         offline_eval_providers(
@@ -4291,7 +4306,7 @@ async fn run_auto_tag_eval(
                     },
                     |kind, message, data| {
                         if safety_input.cancel_after_genre
-                            && message.starts_with("Genre inferred by LLM:")
+                            && genre_applied_report(&message, data.as_ref())
                         {
                             cancelled.store(true, Ordering::Release);
                         }
@@ -4414,10 +4429,7 @@ async fn run_auto_tag_eval(
                 payload_unchanged && readback,
             );
             let selected_evidence = selected_track_evidence(native.as_ref());
-            let evidence = native
-                .as_ref()
-                .map(|value| serde_json::to_value(value).unwrap())
-                .unwrap_or_else(|| json!({"outcome":outcome,"error":error}));
+            let evidence = worker_review_projection(native.as_ref(), outcome, error.as_deref());
             worker
                 .finish_with_evidence(
                     &destination,
@@ -4470,10 +4482,7 @@ async fn run_auto_tag_eval(
                         .provider_attempts
                         .iter()
                         .any(|attempt| attempt.status == ProviderAttemptStatus::Unavailable)
-                        || result
-                            .diagnostics
-                            .iter()
-                            .any(|d| d["stage"] == "genre" && d["reason"].is_string()))
+                        || result.diagnostics.iter().any(genre_service_unavailable))
                     || budget
                         .as_ref()
                         .is_some_and(|budget| budget.observations()["stopReason"].is_string())
@@ -4683,6 +4692,200 @@ async fn run_auto_tag_eval(
     }
 }
 
+fn genre_applied_report(message: &str, data: Option<&Value>) -> bool {
+    data.is_some_and(|d| d["code"] == "genre_assisted")
+        || message.starts_with("Genre inferred by LLM:")
+}
+fn genre_service_unavailable(diagnostic: &Value) -> bool {
+    diagnostic["stage"] == "genre"
+        && (diagnostic["reason"].is_string() || diagnostic["code"] == "genre_unavailable")
+}
+#[tokio::test]
+async fn mock_privacy_codes_keep_cancel_and_failure_controls() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/artifacts/mock-transport-20261113")
+        .join(format!("report-canary-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let log_path = root.join("tracing.log");
+    let log = std::fs::File::create(&log_path).unwrap();
+    let subscriber = tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_max_level(tracing::Level::TRACE)
+        .with_writer(move || log.try_clone().unwrap())
+        .finish();
+    let _guard = tracing::subscriber::set_default(subscriber);
+    tracing::info!("privacy_report_control_entered");
+    let scope =
+        crate::infra::bounded_eval::PairedMock::preparation("http://127.0.0.1:1234/model", true)
+            .unwrap();
+    scope
+        .run(async {
+            let cancelled = AtomicBool::new(false);
+            let mut diagnostics = Vec::new();
+            let mut reports = Vec::new();
+            report_genre_fill(
+                Some(GenreFillOutcome::Applied("ACCEPTED_CANARY".into())),
+                &mut diagnostics,
+                &mut |_, message, data| {
+                    if genre_applied_report(&message, data.as_ref()) {
+                        cancelled.store(true, Ordering::Release);
+                    }
+                    reports.push(json!([message, data]));
+                },
+            );
+            assert!(
+                cancelled.load(Ordering::Acquire),
+                "typed applied event failed to trigger the actual cancellation predicate"
+            );
+            assert!(!diagnostics.iter().any(genre_service_unavailable));
+            report_genre_fill(
+                Some(GenreFillOutcome::Rejected {
+                    genre: Some("REJECTED_CANARY".into()),
+                    confidence: Some(0.59),
+                }),
+                &mut diagnostics,
+                &mut |_, message, data| reports.push(json!([message, data])),
+            );
+            assert!(!diagnostics.iter().any(genre_service_unavailable));
+            report_genre_fill(
+                Some(GenreFillOutcome::Failed("REMOTE_ERROR_CANARY".into())),
+                &mut diagnostics,
+                &mut |_, message, data| reports.push(json!([message, data])),
+            );
+            assert!(
+                diagnostics.iter().any(genre_service_unavailable),
+                "typed service failure was lost"
+            );
+            assert!(!json!([reports, diagnostics]).to_string().contains("CANARY"));
+        })
+        .await;
+    let log = fs::read_to_string(log_path).unwrap();
+    assert!(log.contains("privacy_report_control_entered"));
+    assert!(!log.contains("CANARY"));
+}
+
+fn worker_review_projection(
+    native: Option<&AutoTagRunResult>,
+    outcome: &str,
+    _error: Option<&str>,
+) -> Value {
+    // This named sink is explicitly value-bearing, but not an arbitrary native
+    // result/report dump. Project before SQLite/WAL serialization, not on export.
+    match native {
+        Some(result) => {
+            let mut evidence = json!({"outcome":result.outcome,"authority":result.authority,
+                "coreReceipts":result.core_receipts,"completionBasis":result.completion_basis,"written":result.written,
+                "assistedGenre":result.candidate.as_ref().and_then(|c|c.assisted_genre.as_ref())});
+            // The worker's proof contract distinguishes omission from null.
+            if let Some(version) = result.proof_version {
+                evidence["proofVersion"] = json!(version);
+            }
+            evidence
+        }
+        None => {
+            json!({"outcome":if outcome=="cancelled" {"cancelled"} else {"unavailable"},"code":"evaluation_unavailable"})
+        }
+    }
+}
+
+#[test]
+fn mock_privacy_worker_reopen_contains_only_typed_review_values() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/artifacts/mock-transport-20261113")
+        .join(format!("worker-canary-{}", uuid::Uuid::new_v4()));
+    fs::create_dir_all(&root).unwrap();
+    let worker_root = root.join("worker");
+    let store = crate::state::worker::WorkerStore::new_in(worker_root.clone());
+    assert!(store.initialize());
+    // Exercise the same public worker call with WAL enabled on this disposable
+    // store; ordinary WorkerStore currently uses SQLite's rollback journal.
+    let wal_control = rusqlite::Connection::open(worker_root.join("worker.db")).unwrap();
+    wal_control
+        .pragma_update(None, "journal_mode", "WAL")
+        .unwrap();
+    let path = root.join("disposable-media");
+    store
+        .enqueue(std::slice::from_ref(&path), "manual")
+        .unwrap();
+    store.mark_running(&path, "canary-run").unwrap();
+    let native = AutoTagRunResult {
+        candidate: Some(AlbumCandidate {
+            assisted_genre: Some(AssistedGenre {
+                value: "APPROVED_VALUE_CANARY".into(),
+                model: "scripted/genre-v1".into(),
+                input_sha256: "a".repeat(64),
+            }),
+            ..Default::default()
+        }),
+        reason_code: Some("ai_genre_fill".into()),
+        diagnostics: vec![
+            json!({"error":"REMOTE_ERROR_CANARY authorization=SECRET_CANARY","genre":"REJECTED_VALUE_CANARY"}),
+        ],
+        ..Default::default()
+    };
+    let evidence = worker_review_projection(Some(&native), "needs_review", Some("ERROR_CANARY"));
+    store
+        .finish_with_evidence(
+            &path,
+            "canary-run",
+            "needs_review",
+            native.reason_code.as_deref(),
+            None,
+            &evidence,
+        )
+        .unwrap();
+    assert!(
+        worker_root.join("worker.db-wal").is_file(),
+        "exercise live WAL before reopen/checkpoint"
+    );
+    for entry in fs::read_dir(&worker_root).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            let bytes = fs::read(entry.path()).unwrap();
+            for forbidden in ["REMOTE_", "SECRET_CANARY", "REJECTED_VALUE_CANARY"] {
+                assert!(
+                    !bytes
+                        .windows(forbidden.len())
+                        .any(|w| w == forbidden.as_bytes()),
+                    "pre-close worker/WAL retained {forbidden}"
+                );
+            }
+            fs::write(
+                root.join(format!(
+                    "before-close-{}",
+                    entry.file_name().to_string_lossy()
+                )),
+                bytes,
+            )
+            .unwrap();
+        }
+    }
+    drop(store);
+    let reopened = crate::state::worker::WorkerStore::new_in(worker_root.clone());
+    assert!(reopened.initialize());
+    let persisted = reopened.run_evidence("canary-run").unwrap();
+    let text = serde_json::to_string(&persisted).unwrap();
+    assert!(text.contains("APPROVED_VALUE_CANARY"));
+    for forbidden in ["REMOTE_", "SECRET_CANARY", "REJECTED_VALUE_CANARY"] {
+        assert!(
+            !text.contains(forbidden),
+            "worker reopen disclosed {forbidden}"
+        );
+        for entry in fs::read_dir(&worker_root).unwrap() {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_file() {
+                let bytes = fs::read(entry.path()).unwrap();
+                assert!(
+                    !bytes
+                        .windows(forbidden.len())
+                        .any(|w| w == forbidden.as_bytes()),
+                    "worker/WAL retained {forbidden}"
+                );
+            }
+        }
+    }
+}
+
 fn configure_eval_assistance(
     config: &mut AutoTagConfig,
     mock_url: Option<&str>,
@@ -4694,7 +4897,9 @@ fn configure_eval_assistance(
         Some("scripted") => {
             let base = mock_url.ok_or("scripted assistance requires offline providers")?;
             offline_eval_providers(base)?;
-            config.llm_api_key = Some("offline-scripted-not-a-secret".into());
+            config.llm_api_key = crate::infra::mock_run_authority::Evaluation::current()
+                .is_none()
+                .then(|| "offline-scripted-not-a-secret".into());
             config.llm_model = Some("scripted/genre-v1".into());
             config.llm_provider = Some("openai".into());
             config.llm_base_url = Some(format!("{}/model", base.trim_end_matches('/')));

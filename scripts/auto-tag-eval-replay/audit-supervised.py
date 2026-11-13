@@ -2,6 +2,7 @@
 import hashlib
 import json
 import pathlib
+import sqlite3
 import subprocess
 import sys
 import uuid
@@ -138,21 +139,42 @@ def audit(run):
         directory = run / expected['name']
         rows = [json.loads(line) for line in (directory / 'cold/cold.jsonl').read_text().splitlines() if line.strip()]
         assert load(directory / 'cold/records.json') == rows
+        assert len(rows) == 1
+        native = rows[0]['native']
+        projection = dict(outcome=native['outcome'], authority=native.get('authority'),
+            coreReceipts=native.get('coreReceipts', []), completionBasis=native.get('completionBasis'),
+            written=native['written'], assistedGenre=(native.get('candidate') or {}).get('assisted_genre'))
+        if native.get('proofVersion') is not None:
+            projection['proofVersion'] = native['proofVersion']
+        assert rows[0]['persistedEvidence'] == projection
+        worker = directory / 'retained-native/execution-stores/worker/worker.db'
+        db = sqlite3.connect(worker.as_uri() + '?mode=ro', uri=True)
+        try:
+            evidence = [json.loads(row[0]) for row in db.execute('SELECT evidence FROM worker_evidence')]
+        finally:
+            db.close()
+        assert evidence == [projection], expected['name']
         execution = load(directory / 'result.provisional.json')
         assert execution['score'] == load(directory / 'score.provisional.json')
         executions.append(execution)
     assert load(run / 'results.json')['executions'] == executions
 
     # Preserve the sealed auditors and their field/version/credit/highlight and
-    # wire checks. Only lifecycle names and the executable's retained location
-    # differ. These substitutions do not establish authority; the gate above does.
+    # wire checks. Adapt lifecycle names, the executable's retained location,
+    # the typed worker projection and the live-only supplier counter. These
+    # substitutions do not establish authority; the gate above does.
     original = ROOT / '.planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py'
     source = original.read_text()
     old_status = "assert load(run / 'selection-status.json')['executionStatus'] == 'complete'"
     new_status = "assert load(run / 'selection-staged.json')['executionStatus'] == 'provisional_complete'"
+    old_worker = "assert row['persistedEvidence']['candidate']['assisted_genre'] == row['native']['candidate']['assisted_genre']"
+    new_worker = "assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate']['assisted_genre']"
     replacements = [
         ('source = original.read_text()',
-         f'source = original.read_text()\nassert source.count({old_status!r}) == 1\nsource = source.replace({old_status!r}, {new_status!r})'),
+         f'source = original.read_text()\nassert source.count({old_status!r}) == 1\nsource = source.replace({old_status!r}, {new_status!r})'
+         f'\nassert source.count({old_worker!r}) == 1\nsource = source.replace({old_worker!r}, {new_worker!r})'),
+        ('assert receipt == stored',
+         "assert stored.pop('actualFakeLookups') == receipt['credentialLookups'] == receipt['counters']['model'] == 1\nassert receipt == stored"),
         ("run / 'authority-receipt.json'", "run / 'authority/provisional.json'"),
         ("run / 'authority/final.json'", "run / 'authority-provisional.json'"),
         ("receipt['state'] == 'complete'", "receipt['state'] == 'provisional_complete'"),
@@ -163,7 +185,10 @@ def audit(run):
         assert source.count(old) == 1, old
         source = source.replace(old, new)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
-    result = dict(supervision=dict(authority=outcome['authority'], generation=outcome['generation'],
+    wire = load(run / 'wire-reconciliation.json')
+    assert wire['actualFakeLookups'] == wire['durableLookupAdmissions'] == 1
+    result = dict(actualFakeLookups=wire['actualFakeLookups'], durableLookupAdmissions=wire['durableLookupAdmissions'],
+        workerProjection='exact_declared_fields_and_actual_worker_rows', supervision=dict(authority=outcome['authority'], generation=outcome['generation'],
         supervisorExitObservedAt=outcome['supervisorExitObservedAt'], acceptedAt=outcome['acceptedAt'],
         deadline=outcome['deadline'], preparationMs=preparation_ms, requestedFieldSlots=216),
         native=checked['native'], durable=checked['durable'],

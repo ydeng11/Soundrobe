@@ -1,0 +1,130 @@
+{
+  "head": "727482d98fd2e30468a50ccd6750a59817f6d457",
+  "branch": "artist-library-inventory",
+  "changedRepositoryPaths": [
+    "docs/CHANGELOG.md",
+    "scripts/auto-tag-eval-replay/README.md",
+    "scripts/auto-tag-eval-replay/audit-supervised.py",
+    "scripts/auto-tag-eval-replay/check-mock-authority.cjs",
+    "scripts/auto-tag-eval-replay/finalization-control.cjs",
+    "scripts/auto-tag-eval-replay/mock-authority.cjs",
+    "scripts/auto-tag-eval-replay/run-bounded.cjs",
+    "scripts/mock-provider-service.cjs",
+    "src-tauri/Cargo.lock",
+    "src-tauri/Cargo.toml",
+    "src-tauri/src/commands/auto_tag.rs",
+    "src-tauri/src/commands/auto_tag_eval.rs",
+    "src-tauri/src/infra/mock_run_authority.rs",
+    "src-tauri/src/infra/mock_run_broker.rs",
+    "src-tauri/src/infra/mock_run_ownership.rs",
+    "test/scripts/mock-provider-service.test.ts",
+    "src-tauri/src/infra/mock_run_policy.rs",
+    "src-tauri/src/infra/mock_run_transport.rs"
+  ],
+  "stagedPaths": [],
+  "source66BindingsMatched": 116,
+  "evidence": [
+    {
+      "path": "source66.json",
+      "sha256": "4012cf8927b4045926864b8fe428c627b17c1aaff2610f83ace9de747059e4b7",
+      "bytes": 17803
+    },
+    {
+      "path": "source66.patch",
+      "sha256": "1ad147a0065e3a22b4c142ceebf267c5d4bed69705e026364e57112d7e65813f",
+      "bytes": 107827
+    },
+    {
+      "path": "server-tests43",
+      "sha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f",
+      "bytes": 128771312
+    },
+    {
+      "path": "audit-privacy.py",
+      "sha256": "b6e13e712484b126f6ce783ac159bd0e942bcbd6e739bddce24e416cc3677d1e",
+      "bytes": 9549
+    },
+    {
+      "path": "run-evidence50.py",
+      "sha256": "22d828023f041fa8a7f1709c01830058a4b338e94d9718255d50e2ff331771b5",
+      "bytes": 6250
+    },
+    {
+      "path": "run-evidence65.py",
+      "sha256": "6b930990f7d2cd3b1d1413cb1de1c3c2f1cd0411003ef1af5e59b6c025c574fd",
+      "bytes": 8765
+    },
+    {
+      "path": "run-evidence.py",
+      "sha256": "6b930990f7d2cd3b1d1413cb1de1c3c2f1cd0411003ef1af5e59b6c025c574fd",
+      "bytes": 8765
+    },
+    {
+      "path": "audit-current.py",
+      "sha256": "d7ac976364b0ad2a82eeb25c61f6d68d7fbea6034e24de67d47de15e7e2bdeeb",
+      "bytes": 3347
+    },
+    {
+      "path": "check-analysis.py",
+      "sha256": "b9cbb4310f4a08400488d5fbead758c1d66f9653f7bc933227689c1a9a4602ad",
+      "bytes": 3439
+    },
+    {
+      "path": "analysis74.json",
+      "sha256": "ce412fbe1ef7f8e7a0fd4c06183f8c92029c2c92f64dcc59fd6613036348b03d",
+      "bytes": 1165
+    },
+    {
+      "path": "run69.log",
+      "sha256": "e4317c8b37b70df3a45d0014dbb0c378cd44683aca9f4705d2b8da89bac1054d",
+      "bytes": 488
+    },
+    {
+      "path": "audit70.json",
+      "sha256": "1863fcd5dfab5bb1ad631873de1d0a76783c09936994b42410e348518f59ee88",
+      "bytes": 4305
+    },
+    {
+      "path": "audit70.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "privacy71.json",
+      "sha256": "6b7c5079bf3698671ed117e7801232f0749186c916e01285035db9becee2f7b8",
+      "bytes": 108277
+    },
+    {
+      "path": "privacy71.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "check55.log",
+      "sha256": "574a85cf576c166ad04fd601817598f5eacdf7a03a8caff3dea0ca03492167e0",
+      "bytes": 283443
+    },
+    {
+      "path": "helpers67.log",
+      "sha256": "474ab9b341a031c81e6bdf3bd9f87c478fb32cf159049ddcf66263ef179f6ead",
+      "bytes": 4571
+    },
+    {
+      "path": "faults68.log",
+      "sha256": "af5e0239dda2467dde1c43baf5d2471b57a46a9311b55258d8ebe498214f9258",
+      "bytes": 107
+    },
+    {
+      "path": "final76.log",
+      "sha256": "87ffa2362312548970a836127128afed6d4ce503c87a9538736242bc2bcce90a",
+      "bytes": 3664
+    },
+    {
+      "path": "final78.json",
+      "sha256": "a5b98291f59cc8880b37e9b345a13352cd57cfa166004f09f0726e319cf000e2",
+      "bytes": 15793
+    }
+  ],
+  "delivery": "uncommitted;no_push_fetch_or_live_activation",
+  "review": "accepted_source66_run69_trusted_host_mock_only_no_blocking_defect;independent_read_only_forensics_not_workload_rerun"
+}

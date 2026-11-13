@@ -79,7 +79,7 @@ it.each([undefined, { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }
   const manifest = path.join(root, "manifest.json");
   const payload = { artist: "Billie Eilish", album: "Ocean Eyes", tracks: ["ocean eyes"] };
   fs.writeFileSync(manifest, JSON.stringify({ schemaVersion: 1, records: [], scriptedModel: {
-    maxRequests: 1, payload, response: { genre: "Pop", confidence: 0.8 }, usage,
+    maxRequests: 1, payload, response: { genre: "Pop", confidence: 0.8 }, usage, privacyCanaries: true,
   } }));
   const server = createService(manifest);
   servers.push(server);
@@ -90,15 +90,25 @@ it.each([undefined, { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }
   const post = (body: unknown) => fetch(`${url}/model/chat/completions`, {
     method: "POST", body: JSON.stringify(body), headers: { Authorization: "Bearer private" },
   });
-  expect((await post(request)).status).toBe(200);
-  expect((await post(request)).status).toBe(501);
+  const accepted = await post(request);
+  expect(accepted.status).toBe(200);
+  const parsed = await accepted.json();
+  expect(parsed.choices[0].message.content).toBe(JSON.stringify({ genre: "Pop", confidence: 0.8 }));
+  expect(parsed.usage).toEqual(usage);
+  expect(accepted.headers.get("x-private-canary")).toBe("MOCK_HEADER_SECRET_CANARY");
+  expect(parsed.diagnostic).toBe("MOCK_RAW_DIAGNOSTIC_CANARY");
+  const rejected = await post(request);
+  expect(rejected.status).toBe(501);
+  expect(await rejected.text()).toContain("MOCK_RAW_DIAGNOSTIC_CANARY");
   const stats = await (await fetch(`${url}/__fixtures`)).json();
   expect(stats.modelRequests).toHaveLength(2);
-  expect(stats.modelRequests[0].body).toEqual(request);
-  expect(stats.modelRequests[0].response.choices[0].message.content).toBe(JSON.stringify({ genre: "Pop", confidence: 0.8 }));
-  expect(stats.modelRequests[0].response.usage).toEqual(usage);
+  expect(stats.modelRequests[0]).not.toHaveProperty("body");
+  expect(stats.modelRequests[0]).not.toHaveProperty("response");
+  expect(JSON.stringify(stats.modelRequests)).not.toContain("Pop");
+  expect(stats.modelRequests[0].responseSha256).toMatch(/^[a-f0-9]{64}$/);
   expect(stats.misses).toHaveLength(1);
   expect(JSON.stringify(stats)).not.toContain("private");
+  expect(JSON.stringify(stats)).not.toContain("CANARY");
 });
 
 it("replays metadata rejection controls without accepting arbitrary schemas, paths, or file sets", async () => {

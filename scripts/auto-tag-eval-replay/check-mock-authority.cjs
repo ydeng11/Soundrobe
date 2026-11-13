@@ -4,12 +4,19 @@ const assert = require('node:assert/strict');
 const http = require('node:http');
 const { spawn, fork, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
-const { start, rpc, lease, validateCompleteReceipt } = require('./mock-authority.cjs');
+const { start, rpc, lease, validateCompleteReceipt, testApproval } = require('./mock-authority.cjs');
 const { failureEnvelope } = require('./run-bounded.cjs');
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const save = (p, value) => fs.writeFileSync(p, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
 const read = p => JSON.parse(fs.readFileSync(p));
-const body = Buffer.from('{"model":"scripted/genre-v1","control":true}');
+const genreInput = { artist: 'Control Artist', album: 'Fixture Album', tracks: ['Asymmetric Track'] };
+const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value)
+  : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
+    : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
+const body = Buffer.from(canonical({ model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
+  messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
+    { role: 'user', content: canonical(genreInput) }], response_format: { type: 'json_schema', json_schema: {
+      name: 'GenreFillResponse', schema: { type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } }));
 
 function recovered(directory) {
   return JSON.parse(execFileSync('python3', ['-B', '-c',
@@ -172,22 +179,24 @@ async function main(output, binary, membershipFile, only) {
     }
   }
   await run('simultaneous-consumption', async ({ authority, directory, prepare, wires }) => {
-    const checkpoint = await prepare();
+    await prepare();
+    const approval = testApproval(await authority.command({ op: 'report' }));
     const outcomes = await race(directory, [0, 1].map(() => ({ socket: authority.socket, handle: authority.owner,
-      command: { op: 'consume', fake_checkpoint_sha256: checkpoint } })));
+      command: { op: 'approve', approval } })));
     assert.equal(outcomes.filter(o => o.ok).length, 1); assert.equal(wires.length, 0);
     assert.equal((await authority.command({ op: 'report' })).consumptions, 1);
   });
   await run('competing-model-children', async ({ authority, directory, prepare, register, wires }) => {
-    const checkpoint = await prepare(); await authority.command({ op: 'consume', fake_checkpoint_sha256: checkpoint });
+    await prepare(); await authority.command({ op: 'approve', approval: testApproval(await authority.command({ op: 'report' })) });
     const session = await register('assistance-crowd', 'execution');
-    await race(directory, [0, 1].map(() => ({ url: authority.gateway + '/model/chat/completions', handle: session.client, model: true })));
+    await race(directory, [0, 1].map(() => ({ socket: authority.socket, handle: session.client,
+      command: { op: 'genre', input: genreInput } })));
     assert.ok(wires.length <= 1);
     const report = await authority.command({ op: 'report' });
     assert.equal(report.counters.model, 1); assert.equal(report.state, 'terminal');
   });
   await run('replacement-no-reset-and-stale-handle', async ({ authority, prepare, register, request, wires }) => {
-    const checkpoint = await prepare(true); await authority.command({ op: 'consume', fake_checkpoint_sha256: checkpoint });
+    await prepare(true); await authority.command({ op: 'approve', approval: testApproval(await authority.command({ op: 'report' })) });
     const session = await register('disabled-crowd', 'execution');
     assert.equal(await request(session), 200); await session.finish();
     assert.equal(await request(session), 409); assert.equal(wires.length, 2);
@@ -291,7 +300,7 @@ async function main(output, binary, membershipFile, only) {
     assert.notEqual(outcome, 200); assert.equal(wires.length, 0);
   });
   await run('post-publish-crash-remains-incomplete', async ({ authority, prepare, register }) => {
-    const checkpoint = await prepare(); await authority.command({ op: 'consume', fake_checkpoint_sha256: checkpoint });
+    await prepare(); await authority.command({ op: 'approve', approval: testApproval(await authority.command({ op: 'report' })) });
     for (const row of membership.evaluations) await (await register(row.name, 'execution')).finish();
     const expected = await authority.command({ op: 'report' });
     await authority.command({ op: 'publish' });
@@ -299,7 +308,7 @@ async function main(output, binary, membershipFile, only) {
     await assert.rejects(authority.settle(false, expected), 'missing final receipt was accepted');
   });
   await run('zero-call-completion-and-final-receipt-controls', async ({ authority, prepare, register, wires }) => {
-    const checkpoint = await prepare(); await authority.command({ op: 'consume', fake_checkpoint_sha256: checkpoint });
+    await prepare(); await authority.command({ op: 'approve', approval: testApproval(await authority.command({ op: 'report' })) });
     for (const row of membership.evaluations) await (await register(row.name, 'execution')).finish();
     const expected = await authority.command({ op: 'report' });
     await authority.command({ op: 'publish' });

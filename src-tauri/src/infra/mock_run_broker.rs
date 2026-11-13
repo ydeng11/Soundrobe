@@ -20,14 +20,18 @@ use tokio::{
     sync::Semaphore,
 };
 
+#[path = "mock_run_transport.rs"]
+mod transport;
 const IPC_BYTES: u64 = 1024 * 1024;
 struct Shared {
     journal: Journal,
     owner: String,
     stopped: Arc<AtomicBool>,
     admission: std::sync::Mutex<()>,
+    approval_expires: std::sync::atomic::AtomicU64,
     forwarding: Arc<Semaphore>,
     http: reqwest::Client,
+    transport: transport::Transport,
     _registry_lock: std::fs::File,
     // Unit-control seam after a real SQLite commit; true selects dispatch.
     // Unset in broker construction and never bootstrap-selectable.
@@ -62,9 +66,11 @@ impl Shared {
         if self.stopped.load(Ordering::SeqCst) && !reconcile {
             return Err("mock_authority_stopped".into());
         }
-        let dispatch = matches!(command, Command::Dispatch { .. });
-        #[cfg(target_os = "macos")]
-        let consume = matches!(command, Command::Consume { .. });
+        let dispatch = matches!(
+            command,
+            Command::Dispatch { .. } | Command::ModelSendAdmission { .. }
+        );
+        let consume = matches!(command, Command::Approve { .. });
         if matches!(command, Command::Freeze)
             && std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("journal-lock")
         {
@@ -87,11 +93,28 @@ impl Shared {
             }
             Ok(value)
         });
+        if consume {
+            if let Ok(value) = &result {
+                // Immutable expiry comes only from the verified durable claim,
+                // not an IPC field or mutable caller-supplied clock setting.
+                self.approval_expires.store(
+                    value["expiresUnixSeconds"].as_u64().unwrap(),
+                    Ordering::SeqCst,
+                );
+            }
+        }
         if result.is_ok() && !reconcile {
             if let Some(barrier) = &self.after_journal {
                 barrier(dispatch);
             }
         }
+        let result = result.and_then(|value| {
+            let expiry = self.approval_expires.load(Ordering::SeqCst);
+            if !reconcile && expiry != 0 {
+                super::require(super::policy::now()? < expiry)?;
+            }
+            Ok(value)
+        });
         if stop || result.is_err() {
             self.stopped.store(true, Ordering::SeqCst);
             // Failure to persist stop is itself terminal in this broker. Startup
@@ -130,6 +153,14 @@ impl Drop for Broker {
 }
 impl Broker {
     pub(crate) async fn start(journal: Journal, owner: String) -> Result<Self, String> {
+        Self::with_transport(journal, owner, transport::Transport::default(), None).await
+    }
+    async fn with_transport(
+        journal: Journal,
+        owner: String,
+        transport: transport::Transport,
+        after_journal: Option<Box<dyn Fn(bool) + Send + Sync>>,
+    ) -> Result<Self, String> {
         use std::os::unix::fs::PermissionsExt;
         let lock = std::fs::OpenOptions::new()
             .create(true)
@@ -144,6 +175,7 @@ impl Broker {
         }
         journal.command(&owner, Command::ClaimBroker)?;
         let http = reqwest::Client::builder()
+            .retry(reqwest::retry::never())
             .no_proxy()
             .redirect(reqwest::redirect::Policy::none())
             .timeout(std::time::Duration::from_secs(5))
@@ -158,10 +190,12 @@ impl Broker {
             owner: owner.clone(),
             stopped,
             admission: std::sync::Mutex::new(()),
+            approval_expires: std::sync::atomic::AtomicU64::new(0),
             forwarding: Arc::new(Semaphore::new(16)),
             http,
+            transport,
             _registry_lock: lock,
-            after_journal: None,
+            after_journal,
         });
         // Darwin's Unix socket path limit is shorter than an artifact path.
         let socket_root = std::path::Path::new("/tmp").join(format!("sr-mock-{}", super::token()));
@@ -241,15 +275,27 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
         }
         if envelope.command == json!({"op":"report"}) {
             super::require(envelope.handle == state.owner)?;
-            return state.journal.report();
+            let mut report = state.journal.report()?;
+            report["actualFakeLookups"] = json!(state.transport.lookups());
+            return Ok(report);
         }
         let command: Command =
             serde_json::from_value(envelope.command).map_err(|_| "mock_ipc_invalid")?;
+        let command = match command {
+            Command::Genre { input } => {
+                return state.transport.genre(&state, &envelope.handle, input).await
+            }
+            other => other,
+        };
         // Forwarding reservations and settlements are broker-internal, never
         // transferable send tickets returned to evaluated children.
         super::require(!matches!(
             command,
             Command::Reserve { .. }
+                | Command::Consume { .. }
+                | Command::CredentialLookup { .. }
+                | Command::ModelSendAdmission { .. }
+                | Command::ModelReceipt { .. }
                 | Command::Complete { .. }
                 | Command::ClaimBroker
                 | Command::Dispatch { .. }
@@ -359,6 +405,8 @@ async fn forward(State(state): State<Arc<Shared>>, request: Request) -> Response
             .ok_or("mock_route_invalid")?
             .as_str()
             .to_string();
+        // Even an exact model body cannot bypass typed broker IPC.
+        super::require(method == reqwest::Method::GET && !path.starts_with("/model"))?;
         let body = to_bytes(request.into_body(), 65536)
             .await
             .map_err(|_| "mock_request_oversize")?;
@@ -441,6 +489,436 @@ async fn forward(State(state): State<Arc<Shared>>, request: Request) -> Response
     }
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mock_authority_transport_requires_authenticated_approval_not_a_checkpoint_echo() {
+    let (_root, journal, owner) = super::tests::setup();
+    let broker = Broker::start(journal.clone(), owner.clone()).await.unwrap();
+    let checkpoint = super::tests::freeze(&journal, &owner);
+    let mut socket = tokio::net::UnixStream::connect(broker.descriptor["socket"].as_str().unwrap())
+        .await
+        .unwrap();
+    socket
+        .write_all(
+            format!(
+                "{}\n",
+                json!({"handle":owner,"command":{
+                    "op":"consume", "fake_checkpoint_sha256":checkpoint
+                }})
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let mut reply = String::new();
+    BufReader::new(socket).read_line(&mut reply).await.unwrap();
+    let reply: Value = serde_json::from_str(&reply).unwrap();
+    assert_eq!(
+        reply["ok"], false,
+        "a caller's checkpoint echo is not authenticated approval"
+    );
+    let report = journal.report().unwrap();
+    assert_eq!(report["consumptions"], 0);
+    assert_eq!(report["counters"]["model"], 0);
+    assert_eq!(report["mutationAdmissions"], 0);
+}
+
+// All signing material here is the public RFC 8032 test vector, not user trust.
+fn fixture_approval(report: &Value) -> Value {
+    let scope = json!({"runId":report["runId"], "checkpoint":report["checkpoint"],
+        "bindings":report["bindings"], "membership":report["membership"],
+        "preparations":report["preparations"],
+        "policy":"offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair"});
+    let payload = json!({"version":1, "runId":report["runId"], "checkpoint":report["checkpoint"],
+        "scopeSha256":super::sha(&serde_json::to_vec(&scope).unwrap()),
+        "nonce":uuid::Uuid::new_v4().to_string(), "expiresUnixSeconds":
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()+1200});
+    sign_fixture_payload(payload)
+}
+fn sign_fixture_payload(payload: Value) -> Value {
+    use ring::signature::Ed25519KeyPair;
+    let seed = [
+        0x9d, 0x61, 0xb1, 0x9d, 0xef, 0xfd, 0x5a, 0x60, 0xba, 0x84, 0x4a, 0xf4, 0x92, 0xec, 0x2c,
+        0xc4, 0x44, 0x49, 0xc5, 0x69, 0x7b, 0x32, 0x69, 0x19, 0x70, 0x3b, 0xac, 0x03, 0x1c, 0xae,
+        0x7f, 0x60,
+    ];
+    let signature = Ed25519KeyPair::from_seed_unchecked(&seed)
+        .unwrap()
+        .sign(&serde_json::to_vec(&payload).unwrap())
+        .as_ref()
+        .to_vec();
+    json!({"payload":payload,"signature":signature})
+}
+async fn control_request(broker: &Broker, handle: &str, command: Value) -> Value {
+    let mut socket = tokio::net::UnixStream::connect(broker.descriptor["socket"].as_str().unwrap())
+        .await
+        .unwrap();
+    socket
+        .write_all(format!("{}\n", json!({"handle":handle,"command":command})).as_bytes())
+        .await
+        .unwrap();
+    let mut reply = String::new();
+    BufReader::new(socket).read_line(&mut reply).await.unwrap();
+    serde_json::from_str(&reply).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn mock_policy_approval_is_pinned_exact_single_use_and_durable() {
+    for damage in [
+        "none",
+        "signature",
+        "expired",
+        "scope",
+        "nonce",
+        "key",
+        "checkpoint",
+        "run",
+        "extra",
+        "race",
+        "replay",
+        "revoked",
+    ] {
+        let (_root, journal, owner) = super::tests::setup();
+        let broker = Broker::start(journal.clone(), owner.clone()).await.unwrap();
+        super::tests::freeze(&journal, &owner);
+        let mut approval = fixture_approval(&journal.report().unwrap());
+        match damage {
+            "signature" => {
+                approval["signature"][0] = json!(approval["signature"][0].as_u64().unwrap() ^ 1);
+            }
+            "expired" => {
+                approval["payload"]["expiresUnixSeconds"] = json!(1);
+                approval = sign_fixture_payload(approval["payload"].clone());
+            }
+            "scope" => {
+                approval["payload"]["scopeSha256"] = json!(super::sha(b"substitute"));
+                approval = sign_fixture_payload(approval["payload"].clone());
+            }
+            "nonce" => {
+                approval["payload"]["nonce"] = json!("");
+                approval = sign_fixture_payload(approval["payload"].clone());
+            }
+            "key" => approval["publicKey"] = json!(vec![0; 32]),
+            "checkpoint" => approval["payload"]["checkpoint"] = json!(super::sha(b"other")),
+            "run" => approval["payload"]["runId"] = json!("other"),
+            "extra" => approval["payload"]["allowLive"] = json!(true),
+            "revoked" => {
+                control_request(&broker, &owner, json!({"op":"stop"})).await;
+            }
+            _ => {}
+        }
+        let command = json!({"op":"approve", "approval":approval});
+        let first;
+        if damage == "race" {
+            let (a, b) = tokio::join!(
+                control_request(&broker, &owner, command.clone()),
+                control_request(&broker, &owner, command)
+            );
+            assert_eq!(
+                usize::from(a["ok"] == true) + usize::from(b["ok"] == true),
+                1
+            );
+            first = json!({"ok":true});
+        } else {
+            first = control_request(&broker, &owner, command.clone()).await;
+            if damage == "replay" {
+                assert_eq!(control_request(&broker, &owner, command).await["ok"], false);
+            }
+        }
+        let valid = ["none", "race", "replay"].contains(&damage);
+        assert_eq!(first["ok"], valid, "approval disposition: {damage}");
+        let report = journal.report().unwrap();
+        assert_eq!(report["consumptions"], usize::from(valid));
+        assert_eq!(report["credentialLookups"], 0);
+        assert_eq!(report["counters"]["model"], 0);
+        assert_eq!(report["mutationAdmissions"], 0);
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gateway_send() {
+    for mode in [
+        "success",
+        "low-confidence",
+        "status",
+        "schema",
+        "usage",
+        "identity",
+        "oversize",
+        "redirect",
+        "gateway",
+        "input-drift",
+        "extra-url",
+        "forged-handle",
+        "replay",
+        "supplier-failure",
+        "supplier-expiry",
+        "supplier-revocation",
+        "send-commit-expiry",
+        "revoked-after-approval",
+    ] {
+        let (_root, journal, owner) = super::tests::setup();
+        let supplier_journal = journal.clone();
+        let supplier_owner = owner.clone();
+        let supplier = transport::Transport::new(Box::new(move || {
+            if mode == "supplier-revocation" {
+                supplier_journal
+                    .command(&supplier_owner, Command::Stop)
+                    .unwrap();
+            }
+            if mode == "supplier-failure" {
+                return Err("SUPPLIER_SECRET_CANARY");
+            }
+            if mode == "supplier-expiry" {
+                std::thread::sleep(std::time::Duration::from_millis(2100));
+            }
+            Ok("MOCK_ONLY_SECRET_CANARY".into())
+        }));
+        let sends = std::sync::atomic::AtomicUsize::new(0);
+        let barrier = Box::new(move |dispatch| {
+            if dispatch && sends.fetch_add(1, Ordering::SeqCst) == 1 && mode == "send-commit-expiry"
+            {
+                std::thread::sleep(std::time::Duration::from_millis(2100));
+            }
+        });
+        let broker =
+            Broker::with_transport(journal.clone(), owner.clone(), supplier, Some(barrier))
+                .await
+                .unwrap();
+        let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]});
+        let body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
+            "messages":[{"role":"system","content":"Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient."},
+                {"role":"user","content":input.to_string()}],
+            "response_format":{"type":"json_schema","json_schema":{"name":"GenreFillResponse","schema":{
+                "type":"object","properties":{"genre":{"type":"string"},"confidence":{"type":"number"}},"required":["genre","confidence"]}}}});
+        // Preparation's independent request digest is the authorization, not a
+        // URL/body supplied by the evaluated child at dispatch time.
+        super::tests::freeze_request(
+            &journal,
+            &owner,
+            Some(super::sha(body.to_string().as_bytes())),
+        );
+        let mut approval = fixture_approval(&journal.report().unwrap());
+        if ["supplier-expiry", "send-commit-expiry"].contains(&mode) {
+            let mut payload = approval["payload"].clone();
+            payload["expiresUnixSeconds"] = json!(super::policy::now().unwrap() + 2);
+            approval = sign_fixture_payload(payload);
+        }
+        assert_eq!(
+            control_request(&broker, &owner, json!({"op":"approve","approval":approval})).await
+                ["ok"],
+            true
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!("http://{}", listener.local_addr().unwrap());
+        let session = journal
+            .command(
+                &owner,
+                Command::Register {
+                    job: "assistance-crowd".into(),
+                    stage: Stage::Execution,
+                    endpoint,
+                    manifest_sha256: super::sha(b"fixture"),
+                },
+            )
+            .unwrap();
+        let client = session["client"].as_str().unwrap();
+        let service = session["service"].as_str().unwrap().to_string();
+        for (handle, role) in [(client, "native"), (service.as_str(), "fixture")] {
+            journal
+                .command(handle, Command::Lease { role: role.into() })
+                .unwrap();
+        }
+        journal
+            .command(
+                client,
+                Command::Attach {
+                    executable_sha256: super::sha(b"test executable"),
+                    preparation_sha256: Some(super::sha(b"assistance-crowd")),
+                },
+            )
+            .unwrap();
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed = captured.clone();
+        let j = journal.clone();
+        let fixture = tokio::spawn(axum::serve(listener,Router::new().fallback(move |request: Request| {
+            let observed=observed.clone(); let j=j.clone(); let service=service.clone();
+            async move {
+                let operation=request.headers()["x-soundrobe-mock-operation"].to_str().unwrap().to_string();
+                assert_eq!(request.uri().path(),"/model/chat/completions");
+                assert_eq!(request.headers()["authorization"],"Bearer MOCK_ONLY_SECRET_CANARY");
+                let bytes=to_bytes(request.into_body(),65536).await.unwrap();
+                observed.lock().unwrap().push(bytes.to_vec());
+                j.command(&service,Command::Arrival {operation,request_sha256:super::sha(&serde_json::to_vec(&json!(["POST","/model/chat/completions",super::sha(&bytes)])).unwrap())}).unwrap();
+                let mut response=json!({"model":"scripted/genre-v1","provider":"scripted-loopback-v1","choices":[{"finish_reason":"stop","message":{"content":"{\"genre\":\"ACCEPTED_CANARY\",\"confidence\":0.8}"}}],"usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}});
+                match mode {
+                    "low-confidence" => response["choices"][0]["message"]["content"]=json!("{\"genre\":\"REJECTED_CANARY\",\"confidence\":0.59}"),
+                    "schema" => response["choices"][0]["message"]["content"]=json!("RAW_SCHEMA_SECRET_CANARY"),
+                    "usage" => {response.as_object_mut().unwrap().remove("usage");}
+                    "identity" => response["model"]=json!("REMOTE_IDENTITY_CANARY"),
+                    _=>{}
+                }
+                Response::builder().status(if mode=="status" {429} else if mode=="redirect" {307} else {200})
+                    .header("x-private-canary","HEADER_SECRET_CANARY").header("location","https://invalid.example/never")
+                    .body(Body::from(if mode=="oversize" {"X".repeat(65537)} else if mode=="status" {"RAW_BODY_SECRET_CANARY".into()} else {response.to_string()})).unwrap()
+            }
+        })).into_future());
+        if mode == "revoked-after-approval" {
+            assert_eq!(
+                control_request(&broker, &owner, json!({"op":"stop"})).await["ok"],
+                true
+            );
+        }
+        let reply = if mode == "gateway" {
+            let http = reqwest::Client::builder().no_proxy().build().unwrap();
+            let response = http
+                .post(format!(
+                    "{}/model/chat/completions",
+                    broker.descriptor["gateway"].as_str().unwrap()
+                ))
+                .header("x-soundrobe-mock-session", client)
+                .body(body.to_string())
+                .send()
+                .await
+                .unwrap();
+            assert!(!response.status().is_success());
+            json!({"ok":false})
+        } else {
+            let mut command = json!({"op":"genre","input":input});
+            if mode == "input-drift" {
+                command["input"]["album"] = json!("substituted");
+            }
+            if mode == "extra-url" {
+                command["url"] = json!("https://invalid.example/never");
+            }
+            let handle = if mode == "forged-handle" {
+                "forged"
+            } else {
+                client
+            };
+            let reply = control_request(&broker, handle, command.clone()).await;
+            if mode == "replay" {
+                assert_eq!(control_request(&broker, handle, command).await["ok"], false);
+            }
+            reply
+        };
+        let accepted = ["success", "replay"].contains(&mode);
+        assert_eq!(
+            reply["ok"],
+            accepted || mode == "low-confidence",
+            "{mode}: {reply}"
+        );
+        if accepted {
+            assert_eq!(
+                reply["value"],
+                json!({"genre":"ACCEPTED_CANARY","confidence":0.8})
+            );
+        } else {
+            assert!(!reply.to_string().contains("CANARY"), "{mode}: {reply}");
+        }
+        let no_lookup = [
+            "gateway",
+            "input-drift",
+            "extra-url",
+            "forged-handle",
+            "revoked-after-approval",
+        ]
+        .contains(&mode);
+        let no_wire = no_lookup
+            || [
+                "supplier-failure",
+                "supplier-expiry",
+                "supplier-revocation",
+                "send-commit-expiry",
+            ]
+            .contains(&mode);
+        let report = control_request(&broker, &owner, json!({"op":"report"})).await;
+        assert_eq!(
+            report["value"]["actualFakeLookups"],
+            usize::from(!no_lookup)
+        );
+        assert_eq!(
+            report["value"]["credentialLookups"],
+            usize::from(!no_lookup)
+        );
+        assert!(!report.to_string().contains("CANARY"));
+        if !no_wire && mode != "oversize" {
+            let operations = report["value"]["operations"].as_object().unwrap();
+            let receipt = &operations.values().next().unwrap()["response"];
+            assert!(
+                receipt["sha256"].as_str().is_some_and(super::digest_valid),
+                "broker response binding absent: {receipt}"
+            );
+            assert_eq!(receipt["identityClaimsVerified"], false);
+        }
+        assert!(
+            !String::from_utf8_lossy(&std::fs::read(&journal.path).unwrap()).contains("CANARY")
+        );
+        let wires = captured.lock().unwrap();
+        assert_eq!(wires.len(), usize::from(!no_wire), "{mode}");
+        if !no_wire {
+            assert_eq!(wires[0], body.to_string().as_bytes());
+        }
+        fixture.abort();
+    }
+}
+
+#[test]
+fn mock_policy_ambiguous_approval_crashes_never_reopen_or_refund() {
+    for point in ["before_approval_commit", "after_approval_commit"] {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.amp/in/artifacts/mock-transport-20261113")
+            .join(format!("approval-crash-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "infra::mock_run_authority::broker::mock_policy_approval_crash_process",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env("MOCK_APPROVAL_CRASH_ROOT", &root)
+            .env("MOCK_APPROVAL_CRASH_POINT", point)
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(86), "{point}");
+        let path =
+            std::path::PathBuf::from(std::fs::read_to_string(root.join("registry-path")).unwrap());
+        let j = Journal {
+            path: path.clone(),
+            fault: None,
+        };
+        let report = j.report().unwrap();
+        assert_eq!(
+            report["consumptions"],
+            usize::from(point == "after_approval_commit")
+        );
+        assert_eq!(report["credentialLookups"], 0);
+        assert_eq!(report["mutationAdmissions"], 0);
+        let before = std::fs::read(&path).unwrap();
+        assert!(Journal::create(&path, json!({}), json!({}), None).is_err());
+        assert_eq!(
+            std::fs::read(&path).unwrap(),
+            before,
+            "recovery modified ambiguous evidence"
+        );
+    }
+}
+#[test]
+#[ignore = "isolated offline approval crash control"]
+fn mock_policy_approval_crash_process() {
+    let root = std::path::PathBuf::from(std::env::var_os("MOCK_APPROVAL_CRASH_ROOT").unwrap());
+    let (_r, mut j, owner) = super::tests::setup();
+    super::tests::freeze(&j, &owner);
+    std::fs::write(root.join("registry-path"), j.path.to_str().unwrap()).unwrap();
+    j.fault = Some(
+        serde_json::from_value(json!(std::env::var("MOCK_APPROVAL_CRASH_POINT").unwrap())).unwrap(),
+    );
+    let approval = serde_json::from_value(fixture_approval(&j.report().unwrap())).unwrap();
+    j.command(&owner, Command::Approve { approval }).unwrap();
+    panic!("ambiguous approval resumed");
+}
+
 #[test]
 fn mock_authority_stop_revokes_admission_before_a_held_journal_gate_returns() {
     let (root, journal, owner) = super::tests::setup();
@@ -449,8 +927,10 @@ fn mock_authority_stop_revokes_admission_before_a_held_journal_gate_returns() {
         owner: owner.clone(),
         stopped: Arc::new(AtomicBool::new(false)),
         admission: std::sync::Mutex::new(()),
+        approval_expires: std::sync::atomic::AtomicU64::new(0),
         forwarding: Arc::new(Semaphore::new(16)),
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
+        transport: transport::Transport::default(),
         _registry_lock: std::fs::File::create(root.join("control-test.lock")).unwrap(),
         after_journal: None,
     });
@@ -494,8 +974,10 @@ fn mock_authority_late_committed_admission_is_consumed_but_never_acknowledged_af
         owner: owner.clone(),
         stopped: Arc::new(AtomicBool::new(false)),
         admission: std::sync::Mutex::new(()),
+        approval_expires: std::sync::atomic::AtomicU64::new(0),
         forwarding: Arc::new(Semaphore::new(16)),
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
+        transport: transport::Transport::default(),
         _registry_lock: std::fs::File::create(root.join("return-control.lock")).unwrap(),
         after_journal: Some(Box::new(move |_| {
             arrived.send(()).unwrap();
@@ -621,8 +1103,10 @@ async fn mock_authority_revoked_post_commit_dispatch_never_reaches_fixture_wire(
             owner: owner.clone(),
             stopped: Arc::new(AtomicBool::new(false)),
             admission: std::sync::Mutex::new(()),
+            approval_expires: std::sync::atomic::AtomicU64::new(0),
             forwarding: Arc::new(Semaphore::new(16)),
             http: reqwest::Client::builder().no_proxy().build().unwrap(),
+            transport: transport::Transport::default(),
             _registry_lock: std::fs::File::create(root.join("dispatch-control.lock")).unwrap(),
             after_journal: Some(Box::new(move |dispatch| {
                 if dispatch {
@@ -933,6 +1417,17 @@ pub(crate) async fn supervised_process(
     monitor: Arc<super::supervisor::ownership::Monitor>,
 ) -> Result<(), String> {
     use super::supervisor::ownership::receiver;
+    // Launcher stderr may be discarded. Retain active broker/dependency TRACE
+    // through the existing charged facade, without a user logging fallback.
+    let trace = super::storage::files::File::create(root.join("broker-trace.log"))
+        .map_err(|_| "mock_trace_storage_unavailable")?;
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_max_level(tracing::Level::TRACE)
+        .with_writer(std::sync::Mutex::new(trace))
+        .try_init()
+        .map_err(|_| "mock_trace_unavailable")?;
+    tracing::info!("mock_broker_privacy_trace_active");
     let directory = root.join("authority");
     let bootstrap = directory.join("bootstrap.json");
     while !super::storage::files::metadata(&bootstrap).is_ok_and(|metadata| metadata.is_file()) {
@@ -1045,6 +1540,15 @@ pub(crate) async fn supervised_process(
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 #[ignore = "explicit isolated mock broker process, never an application entry point"]
 async fn mock_authority_process() {
+    // The native owner captures stderr through its bounded log sink. This
+    // isolated process has no user logging/configuration fallback.
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_max_level(tracing::Level::TRACE)
+        .with_writer(std::io::stderr)
+        .try_init()
+        .expect("isolated mock tracing");
+    tracing::info!("mock_broker_privacy_trace_active");
     let bootstrap = std::path::PathBuf::from(
         std::env::var("SOUNDROBE_MOCK_AUTHORITY_BOOTSTRAP").expect("explicit bootstrap"),
     );

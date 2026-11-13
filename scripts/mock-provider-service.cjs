@@ -90,8 +90,7 @@ function createService(manifestPath, authority) {
   const compactInventory = () => {
     const compact = { schemaVersion: 1, compact: true, groundTruth: 'unreviewed_provider_evidence',
       records: records.map(({ bytes, ...record }) => ({ ...record, bytes: bytes.length })),
-      requests, modelRequests: modelRequests.map(({ body, response: result, ...record }) => ({
-        ...record, responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)) })),
+      requests, modelRequests,
       wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] };
     const bytes = Buffer.from(JSON.stringify(compact));
     if (bytes.length > 8388608) throw Error('compact_inventory_ceiling');
@@ -159,20 +158,26 @@ function createService(manifestPath, authority) {
             /^\/private\/tmp\/soundrobe-auto-tag-eval-[0-9a-f-]{36}\/media\/(cold|warm)\//,
             '$EVAL_MEDIA/');
         }
-        const allowed = modelRequests.length < scripted.maxRequests
+        const allowed = (!authority || request.headers.authorization === 'Bearer MOCK_ONLY_SECRET_CANARY')
+          && modelRequests.length < scripted.maxRequests
           && (!scripted.bodySha256 || sha256(Buffer.from(bytes)) === scripted.bodySha256)
           && body.model === 'scripted/genre-v1'
           && body.response_format?.json_schema?.name === schemaName
           && user?.length === 1 && isDeepStrictEqual(payload, scripted.payload);
         const status = allowed ? (scripted.status ?? 200) : 501;
         const result = status === 200 ? {
-          model: 'scripted/genre-v1', choices: [{ message: { content: JSON.stringify(scripted.response) } }],
+          model: 'scripted/genre-v1', provider: 'scripted-loopback-v1',
+          choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(scripted.response) } }],
           ...(scripted.usage === undefined ? {} : { usage: scripted.usage }),
         } : { error: allowed ? 'scripted_service_failure' : 'offline_model_fixture_missing' };
-        // Only the body is retained, never authentication or other headers.
-        modelRequests.push({ body, status, response: result, sha256: sha256(Buffer.from(bytes)), bytes: Buffer.byteLength(bytes) });
+        if (scripted.privacyCanaries === true) result.diagnostic = 'MOCK_RAW_DIAGNOSTIC_CANARY';
+        // Inventories never retain model bodies, parsed values or headers,
+        // including the noncompact diagnostic endpoint and failure cases.
+        modelRequests.push({ status, sha256: sha256(Buffer.from(bytes)), bytes: Buffer.byteLength(bytes),
+          responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)),
+          ...(authority ? { mockCredentialPresented: request.headers.authorization === 'Bearer MOCK_ONLY_SECRET_CANARY' } : {}) });
         if (!allowed) misses.set(`model-${modelRequests.length}`, { provider: 'scripted_model', status });
-        send(status, result);
+        send(status, result, scripted.privacyCanaries === true ? { 'x-private-canary': 'MOCK_HEADER_SECRET_CANARY' } : {});
       return;
     }
     if (request.method !== 'GET') return send(405, { error: 'read_only_fixture_service' });

@@ -2,6 +2,8 @@
 #[cfg(all(feature = "server", unix))]
 #[path = "mock_run_broker.rs"]
 pub(crate) mod broker;
+#[path = "mock_run_policy.rs"]
+pub(crate) mod policy;
 #[cfg(unix)]
 #[path = "mock_run_storage.rs"]
 pub(crate) mod storage;
@@ -72,8 +74,21 @@ pub(crate) enum Command {
     StageResult {
         result_sha256: String,
     },
+    // Legacy in-process controls only; broker IPC always denies this operation.
     Consume {
         fake_checkpoint_sha256: String,
+    },
+    Approve {
+        approval: policy::Approval,
+    },
+    CredentialLookup {
+        operation: String,
+    },
+    ModelSendAdmission {
+        operation: String,
+    },
+    Genre {
+        input: policy::GenreInput,
     },
     Reserve {
         method: String,
@@ -89,6 +104,12 @@ pub(crate) enum Command {
     },
     Complete {
         operation: String,
+    },
+    ModelReceipt {
+        operation: String,
+        sha256: String,
+        bytes: u32,
+        status: u16,
     },
     Attach {
         executable_sha256: String,
@@ -123,6 +144,12 @@ struct Run {
     operations: BTreeMap<String, Operation>,
     checkpoint: Option<String>,
     consumptions: u32,
+    #[serde(default)]
+    approval_expires: Option<u64>,
+    #[serde(default)]
+    approval_sha256: Option<String>,
+    #[serde(default)]
+    credential_lookups: u32,
     denied: u32,
     mutation_admissions: u32,
     broker_started: bool,
@@ -160,6 +187,8 @@ struct Operation {
     dispatched: bool,
     arrived: bool,
     completed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    response: Option<Value>,
 }
 impl Run {
     fn counters(&self) -> Value {
@@ -187,6 +216,21 @@ impl Run {
                         | Command::IngressDenied { .. }
                 ),
         )?;
+        if let Some(expiry) = self.approval_expires {
+            if matches!(
+                command,
+                Command::Register { .. }
+                    | Command::Reserve { .. }
+                    | Command::Dispatch { .. }
+                    | Command::CredentialLookup { .. }
+                    | Command::ModelSendAdmission { .. }
+                    | Command::MutationAdmission
+                    | Command::Publish
+                    | Command::StageResult { .. }
+            ) {
+                require(policy::now()? < expiry)?;
+            }
+        }
         let owner = handle == self.owner;
         let session = self.sessions.get(handle).cloned();
         let no_pending = self.operations.values().all(|o| o.completed);
@@ -202,6 +246,9 @@ impl Run {
             _ => None,
         };
         match command {
+            // Only the broker can perform this typed operation; it is not a
+            // Journal grant or a transferable raw HTTP capability.
+            Command::Genre { .. } => Err("mock_broker_required".into()),
             Command::Lease { role } => {
                 if role == "owner" {
                     require(owner && self.owner_live.is_none() && self.state == "preparing")?;
@@ -451,6 +498,46 @@ impl Run {
                 self.result_sha256 = staged_result;
                 Ok(json!({"complete":self.state == "complete", "state":self.state}))
             }
+            Command::Approve { approval } => {
+                require(owner && self.state == "frozen" && self.consumptions == 0)?;
+                let expiry = approval.verify(self)?;
+                self.approval_sha256 = Some(sha(&serde_json::to_vec(&approval).unwrap()));
+                self.approval_expires = Some(expiry);
+                self.consumptions = 1;
+                self.state = "executing".into();
+                Ok(json!({"testFixtureOnly":true,"consumed":true,"expiresUnixSeconds":expiry}))
+            }
+            Command::CredentialLookup { operation } => {
+                require(
+                    owner
+                        && self.state == "executing"
+                        && self.approval_expires.is_some()
+                        && self.consumptions == 1
+                        && self.credential_lookups == 0
+                        && self
+                            .operations
+                            .get(&operation)
+                            .is_some_and(|o| o.category == "model" && o.dispatched && !o.completed),
+                )?;
+                self.credential_lookups += 1;
+                Ok(json!({"lookups":self.credential_lookups}))
+            }
+            Command::ModelSendAdmission { operation } => {
+                require(owner && self.state == "executing" && self.credential_lookups == 1)?;
+                let operation = self
+                    .operations
+                    .get_mut(&operation)
+                    .ok_or("mock_authority_denied")?;
+                require(
+                    operation.category == "model"
+                        && operation.dispatched
+                        && !operation.arrived
+                        && !operation.completed,
+                )?;
+                // Only the trusted broker can request this post-supplier check.
+                // Its one-shot reserve/lookup cannot be reused for retry/repair.
+                Ok(json!({"admitted":true}))
+            }
             Command::Consume {
                 fake_checkpoint_sha256,
             } => {
@@ -541,6 +628,7 @@ impl Run {
                         dispatched: false,
                         arrived: false,
                         completed: false,
+                        response: None,
                     },
                 );
                 Ok(
@@ -567,6 +655,31 @@ impl Run {
                 )?;
                 o.arrived = true;
                 Ok(json!({"arrived":true}))
+            }
+            Command::ModelReceipt {
+                operation,
+                sha256,
+                bytes,
+                status,
+            } => {
+                let o = self
+                    .operations
+                    .get_mut(&operation)
+                    .ok_or("mock_authority_denied")?;
+                require(
+                    owner
+                        && o.category == "model"
+                        && o.dispatched
+                        && o.arrived
+                        && !o.completed
+                        && o.response.is_none()
+                        && digest_valid(&sha256)
+                        && bytes <= 65536
+                        && (100..600).contains(&status),
+                )?;
+                o.response = Some(json!({"sha256":sha256,"bytes":bytes,"status":status,
+                    "identityClaimsVerified":false,"pricingVerified":false,"usageClaimsVerified":false}));
+                Ok(json!({"recorded":true}))
             }
             Command::Complete { operation } => {
                 let o = self
@@ -680,6 +793,8 @@ pub(crate) enum CrashPoint {
     BeforeReservationCommit,
     AfterReservationCommit,
     AfterDispatchAdmission,
+    BeforeApprovalCommit,
+    AfterApprovalCommit,
 }
 
 #[derive(Clone, Deserialize)]
@@ -960,6 +1075,9 @@ impl Journal {
             operations: BTreeMap::new(),
             checkpoint: None,
             consumptions: 0,
+            approval_expires: None,
+            approval_sha256: None,
+            credential_lookups: 0,
             denied: 0,
             mutation_admissions: 0,
             broker_started: false,
@@ -1008,6 +1126,7 @@ impl Journal {
     }
     pub(crate) fn command(&self, handle: &str, command: Command) -> Result<Value, String> {
         let reservation = matches!(&command, Command::Reserve { .. });
+        let approval = matches!(&command, Command::Approve { .. });
         let dispatch = matches!(&command, Command::Dispatch { .. });
         #[cfg(unix)]
         let mut c = storage::open_sqlite(&self.path, OpenFlags::SQLITE_OPEN_READ_WRITE)
@@ -1038,13 +1157,16 @@ impl Journal {
         .map_err(|_| "mock_registry_unavailable")?;
         // Faults are explicit bootstrap-only controls in this test-only module.
         // exit bypasses Rust destructors so SQLite must recover the transaction.
-        if result.is_ok() && reservation && self.fault == Some(CrashPoint::BeforeReservationCommit)
+        if result.is_ok()
+            && ((reservation && self.fault == Some(CrashPoint::BeforeReservationCommit))
+                || (approval && self.fault == Some(CrashPoint::BeforeApprovalCommit)))
         {
             std::process::exit(86);
         }
         tx.commit().map_err(|_| "mock_registry_commit_unknown")?;
         if result.is_ok()
             && ((reservation && self.fault == Some(CrashPoint::AfterReservationCommit))
+                || (approval && self.fault == Some(CrashPoint::AfterApprovalCommit))
                 || (dispatch && self.fault == Some(CrashPoint::AfterDispatchAdmission)))
         {
             std::process::exit(86);
@@ -1064,7 +1186,7 @@ impl Journal {
         Ok(
             json!({"runId":run.run_id,"state":run.state,"membership":run.membership,"bindings":run.bindings,
             "checkpoint":run.checkpoint,"preparations":run.preparations,"sessions":run.sessions,"counters":run.counters(),"operations":run.operations,
-            "consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
+            "approvalSha256":run.approval_sha256,"approvalExpires":run.approval_expires,"credentialLookups":run.credential_lookups,"testPolicy":policy::POLICY,"consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
         )
     }
 }
@@ -1327,6 +1449,9 @@ pub(super) mod tests {
         session
     }
     pub(super) fn freeze(j: &Journal, owner: &str) -> String {
+        freeze_request(j, owner, None)
+    }
+    pub(super) fn freeze_request(j: &Journal, owner: &str, request: Option<String>) -> String {
         for job in [
             "disabled-crowd",
             "disabled-billie",
@@ -1350,7 +1475,11 @@ pub(super) mod tests {
                 session["client"].as_str().unwrap(),
                 Command::Prepared {
                     preparation_sha256: digest(job),
-                    request_sha256: None,
+                    request_sha256: if job == "assistance-crowd" {
+                        request.clone()
+                    } else {
+                        None
+                    },
                 },
             )
             .unwrap();

@@ -1158,6 +1158,12 @@ mod tests {
             serde_json::from_slice(&std::fs::read(root.join("authority/ready.json")).unwrap())
                 .unwrap();
         assert_eq!(descriptor["mode"], "durable_mock_only");
+        assert!(
+            std::fs::read_to_string(root.join("broker-trace.log"))
+                .expect("managed broker must retain its charged TRACE witness")
+                .contains("mock_broker_privacy_trace_active"),
+            "discarded stderr cannot establish active managed tracing"
+        );
         let identity: serde_json::Value =
             serde_json::from_slice(&std::fs::read(root.join("group-identity.json")).unwrap())
                 .unwrap();

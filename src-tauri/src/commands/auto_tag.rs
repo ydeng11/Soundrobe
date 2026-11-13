@@ -4259,6 +4259,28 @@ fn paired_review_intent(candidate: &AlbumCandidate, required: bool) -> Result<()
     .map_err(ApiError::Message)
 }
 
+pub(crate) fn genre_request_parts(
+    payload: &serde_json::Value,
+) -> (Vec<ChatMessage>, serde_json::Value) {
+    let messages = vec![
+        ChatMessage::system(concat!(
+            "Infer a conservative music genre from the supplied artist, album, and track titles. ",
+            "Return a concise Discogs-style comma-separated genre and confidence. ",
+            "Use low confidence when the evidence is insufficient."
+        )),
+        ChatMessage::user(payload.to_string()),
+    ];
+    let schema = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "genre": {"type": "string"},
+            "confidence": {"type": "number"}
+        },
+        "required": ["genre", "confidence"]
+    });
+    (messages, schema)
+}
+
 async fn fill_genre_if_missing(
     candidate: &AlbumCandidate,
     request: &LookupRequest,
@@ -4294,9 +4316,15 @@ async fn fill_genre_if_missing(
     {
         return (candidate.clone(), None);
     }
-    let Some(api_key) = config.llm_api_key.as_deref().filter(|key| !key.is_empty()) else {
+    let api_key = config.llm_api_key.as_deref().filter(|key| !key.is_empty());
+    let configured = api_key.is_some();
+    #[cfg(test)]
+    let configured = configured
+        || crate::infra::mock_run_authority::Evaluation::current()
+            .is_some_and(|context| context.job == "assistance-crowd");
+    if !configured {
         return (candidate.clone(), None);
-    };
+    }
     let model = config
         .llm_model
         .as_deref()
@@ -4307,36 +4335,38 @@ async fn fill_genre_if_missing(
         "album": candidate.album.as_ref().or(request.album_hint.as_ref()),
         "tracks": candidate.tracks.iter().filter_map(|track| track.title.as_ref()).collect::<Vec<_>>(),
     });
-    let messages = vec![
-        ChatMessage::system(concat!(
-            "Infer a conservative music genre from the supplied artist, album, and track titles. ",
-            "Return a concise Discogs-style comma-separated genre and confidence. ",
-            "Use low confidence when the evidence is insufficient."
-        )),
-        ChatMessage::user(payload.to_string()),
-    ];
-    let schema = serde_json::json!({
-        "type": "object",
-        "properties": {
-            "genre": {"type": "string"},
-            "confidence": {"type": "number"}
-        },
-        "required": ["genre", "confidence"]
-    });
+    let (messages, schema) = genre_request_parts(&payload);
     let endpoint = crate::infra::openrouter::LlmEndpoint::from_config(
         config.llm_provider.as_deref(),
         config.llm_base_url.as_deref(),
     );
-    let result = OpenRouterClient::at(api_key, model, &endpoint.base_url)
-        .with_provider(endpoint.provider)
-        .with_generation(0.2, 1024)
-        .complete_json(messages, "GenreFillResponse", schema, cancelled)
-        .await
-        .map(|response| response.data)
-        .map_err(|error| {
-            tracing::warn!(error = %error, "auto-tag genre fill failed");
-            ai_validation_failure_from_error(&error).detail
-        });
+    let result = async {
+        #[cfg(test)]
+        if let Some(context) = crate::infra::mock_run_authority::Evaluation::current() {
+            use crate::infra::mock_run_authority::{policy::GenreInput, Command};
+            let input: GenreInput = serde_json::from_value(payload.clone())
+                .map_err(|_| "mock_input_invalid".to_string())?;
+            let body = input.body()?;
+            crate::infra::bounded_eval::paired_request(&endpoint.base_url, &body)?;
+            if cancelled.load(Ordering::Acquire) {
+                return Err("mock_cancelled".into());
+            }
+            // Only typed input and session authority cross IPC. In particular,
+            // no ordinary keyed client, URL, headers or repair path is used.
+            return context.client.command(Command::Genre { input });
+        }
+        OpenRouterClient::at(api_key.unwrap_or_default(), model, &endpoint.base_url)
+            .with_provider(endpoint.provider)
+            .with_generation(0.2, 1024)
+            .complete_json(messages, "GenreFillResponse", schema, cancelled)
+            .await
+            .map(|response| response.data)
+            .map_err(|error| {
+                tracing::warn!(error = %error, "auto-tag genre fill failed");
+                ai_validation_failure_from_error(&error).detail
+            })
+    }
+    .await;
     let outcome = genre_fill_outcome(result);
     let mut filled = candidate.clone();
     if let GenreFillOutcome::Applied(genre) = &outcome {
@@ -4362,6 +4392,25 @@ fn report_genre_fill(
     diagnostics: &mut Vec<serde_json::Value>,
     report: &mut impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) {
+    #[cfg(test)]
+    if crate::infra::bounded_eval::paired_active() {
+        // General reports are not an approved value-bearing sink. Candidate,
+        // disposable media and typed review/scoring evidence retain the value.
+        if let Some(outcome) = outcome {
+            let (kind, code) = match outcome {
+                GenreFillOutcome::Applied(_) => ("source", "genre_assisted"),
+                GenreFillOutcome::Rejected { .. } => ("warning", "genre_rejected"),
+                GenreFillOutcome::Failed(_) => ("warning", "genre_unavailable"),
+            };
+            diagnostics.push(serde_json::json!({"stage":"genre", "code":code}));
+            report(
+                kind,
+                code.into(),
+                Some(serde_json::json!({"source":"llm", "code":code})),
+            );
+        }
+        return;
+    }
     match outcome {
         Some(GenreFillOutcome::Applied(genre)) => report(
             "source",
@@ -9982,6 +10031,48 @@ mod tests {
 
         assert_eq!(protected.tracks[0].artist.as_deref(), Some("Local Artist"));
         assert_eq!(protected.tracks[0].musicbrainz_track_id, None);
+    }
+
+    #[tokio::test]
+    async fn paired_genre_reports_do_not_disclose_values_or_remote_errors() {
+        let scope = crate::infra::bounded_eval::PairedMock::preparation(
+            "http://127.0.0.1:1234/model",
+            true,
+        )
+        .unwrap();
+        scope
+            .run(async {
+                let mut reports = Vec::new();
+                let mut diagnostics = Vec::new();
+                for outcome in [
+                    GenreFillOutcome::Applied("ACCEPTED_GENRE_CANARY".into()),
+                    GenreFillOutcome::Rejected {
+                        genre: Some("REJECTED_GENRE_CANARY".into()),
+                        confidence: Some(0.1),
+                    },
+                    GenreFillOutcome::Failed(
+                        "REMOTE_ERROR_CANARY authorization=SECRET_CANARY".into(),
+                    ),
+                ] {
+                    report_genre_fill(
+                        Some(outcome),
+                        &mut diagnostics,
+                        &mut |kind, message, data| {
+                            reports.push(
+                                serde_json::json!({"kind":kind,"message":message,"data":data}),
+                            );
+                        },
+                    );
+                }
+                let text =
+                    serde_json::json!({"reports":reports,"diagnostics":diagnostics}).to_string();
+                assert!(
+                    !text.contains("CANARY"),
+                    "general reports/diagnostics disclosed remote values: {text}"
+                );
+                assert_eq!(reports.len(), 3, "safe diagnostics must remain available");
+            })
+            .await;
     }
 
     #[test]

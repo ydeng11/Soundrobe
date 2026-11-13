@@ -1,0 +1,1733 @@
+{
+  "parent": "727482d98fd2e30468a50ccd6750a59817f6d457",
+  "branch": "artist-library-inventory",
+  "checkedBindings": {
+    "source66": 116,
+    "runtimeLocks": 134,
+    "receipt": 1668,
+    "privacy71": 550,
+    "delivery80Evidence": 20
+  },
+  "exactSource66Patch": true,
+  "publicFixtureSignatureVerified": true,
+  "publicationLinksVerified": true,
+  "indexVerification": {
+    "exactPaths": 34,
+    "implementationPaths": 18,
+    "checkpointFiles": 15,
+    "scopedPlan": true,
+    "allStagedBytesMatchDisk": true,
+    "checksumEntries": 33,
+    "expectedParentVerified": true,
+    "privateKeyFiles": false,
+    "publicRfc8032FixtureOnly": true,
+    "checkerPath": ".amp/in/artifacts/mock-transport-20261113/verify-delivery82.py",
+    "checkerSha256": "808d09b7a864dd42fa45f33ce6674b16347c5a811f862f474076641fe50b554b",
+    "resultPath": ".amp/in/artifacts/mock-transport-20261113/staged82.json",
+    "resultSha256": "27f22524d29c04bf0b964d09b0cc877190a846c1c5d95be141a2c631c5a34f57",
+    "committedBytes": "Checked separately after commit before delivery report; commit identity is the containing commit"
+  },
+  "freshDeliveryChecks": {
+    "typecheck": "passed",
+    "vitest": {
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "files": [
+        "test/scripts/mock-provider-service.test.ts",
+        "test/scripts/review-auto-tag-subset.test.ts",
+        "test/scripts/build-auto-tag-eval-suite.test.ts"
+      ]
+    },
+    "supervisionNode": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "log": {
+        "path": ".amp/in/artifacts/mock-transport-20261113/delivery81-node.log",
+        "sha256": "30efaa89001be0913cd38292564cdb53071b73e76bf0fd1d2e312f92ad41a348",
+        "bytes": 3657
+      }
+    },
+    "rustfmt": "passed",
+    "whitespace": "passed",
+    "changedCjsSyntax": "passed",
+    "changedPythonAst": "passed",
+    "sourceRuntimeReceiptPrivacyDeliveryHashes": "passed",
+    "exactImplementationPaths": 18,
+    "note": "Delivery-only unit and read-only checks. No native/tagging/mock-service matrix rerun."
+  },
+  "reused": {
+    "check55": {
+      "typecheck": "passed",
+      "renderer": 858,
+      "desktop": {
+        "passed": 1364,
+        "ignored": 38
+      },
+      "server": {
+        "passed": 868,
+        "ignored": 30
+      },
+      "audio": {
+        "passed": 14,
+        "ignored": 12
+      },
+      "recovery": 5,
+      "fixture": 12,
+      "reviewTool": 10
+    },
+    "helpers67": [
+      {
+        "name": "simultaneous-consumption",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "competing-model-children",
+        "wires": 0,
+        "operations": 1,
+        "modelReservations": 1,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "replacement-no-reset-and-stale-handle",
+        "wires": 2,
+        "operations": 2,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "forged-handle-stops-subsequent-work",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "fixture-disconnect-revokes",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "orphan-fixture-ingress-is-terminal",
+        "wires": 1,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "rebound-service-cannot-acknowledge-another-job",
+        "wires": 1,
+        "operations": 1,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "failed-ingress-notification-revokes-fixture-lease",
+        "wires": 1,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "fixture-connect-is-terminal",
+        "wires": 1,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "fixture-oversized-is-terminal",
+        "wires": 1,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "fixture-aborted-is-terminal",
+        "wires": 1,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "storage-lock-denies-without-refund-or-resume",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "storage-unavailable-denies-without-new-registry",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "terminal",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "post-publish-crash-remains-incomplete",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "complete",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "zero-call-completion-and-final-receipt-controls",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "complete",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "before_reservation_commit",
+        "wires": 0,
+        "operations": 0,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "after_reservation_commit",
+        "wires": 0,
+        "operations": 1,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "after_dispatch_admission",
+        "wires": 0,
+        "operations": 1,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "kill_before_arrival",
+        "wires": 1,
+        "operations": 1,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      },
+      {
+        "name": "kill_after_arrival",
+        "wires": 1,
+        "operations": 1,
+        "modelReservations": 0,
+        "storedState": "preparing",
+        "requestedFieldSlots": 216,
+        "failureSlots": 216,
+        "recovery": "read_only_incomplete_no_resume",
+        "remainingAllowance": 0
+      }
+    ],
+    "faults68": {
+      "controls": [
+        {
+          "control": "broker-loss",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 24.09674999999993,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26197,
+          "liveAuthority": false
+        },
+        {
+          "control": "supervisor-loss",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 25.344125000000076,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26238,
+          "liveAuthority": false
+        },
+        {
+          "control": "receiver-loss",
+          "status": [
+            null,
+            "SIGKILL"
+          ],
+          "quiescentMs": 18.459375000000364,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26274,
+          "liveAuthority": false
+        },
+        {
+          "control": "blocked-node",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 1931.3912499999997,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26310,
+          "liveAuthority": false
+        },
+        {
+          "control": "stalled-storage",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 35.067041000000245,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26353,
+          "liveAuthority": false
+        },
+        {
+          "control": "journal-lock",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 30.847332999999708,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26393,
+          "liveAuthority": false
+        },
+        {
+          "control": "supervisor-suspend",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 906.2415419999998,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26437,
+          "liveAuthority": false
+        },
+        {
+          "control": "broker-suspend",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 918.5878329999996,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26493,
+          "liveAuthority": false
+        },
+        {
+          "control": "anchor-loss",
+          "status": [
+            78,
+            null
+          ],
+          "quiescentMs": 109.6234170000007,
+          "actualGroupAbsent": true,
+          "requestedFieldSlots": 216,
+          "receiverGroup": 25727,
+          "executionGroup": 26532,
+          "liveAuthority": false
+        },
+        {
+          "control": "anchor-running-loss",
+          "status": [
+            1,
+            null
+          ],
+          "launcherReturnMs": 6912.336665999999,
+          "containmentAtReturn": "unknown",
+          "requestedFieldSlots": 216,
+          "liveAuthority": false
+        },
+        {
+          "control": "storage-denial",
+          "status": [
+            78,
+            null
+          ],
+          "actualGroupAbsent": true,
+          "state": "incomplete",
+          "requestedFieldSlots": 216,
+          "validatedFieldSlots": 0,
+          "unavailableFieldSlots": 216,
+          "slots": [
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/06 像你.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/06 像你.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/06 像你.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/10 明年.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/10 明年.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/10 明年.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "disabled/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/01. Billie Eilish - COPYCAT.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/02. Billie Eilish - idontwannabeyouanymore.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/03. Billie Eilish - my boy.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/04. Billie Eilish - watch.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/05. Billie Eilish - party favor.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/06. Billie Eilish - bellyache.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/07. Billie Eilish - ocean eyes.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/08. Billie Eilish - hostage.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/54e7923a3000/tagged_recovery/cold/09. Billie Eilish - &burn.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/01. Enya - Orinoco Flow (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/02. Enya - Caribbean Blue (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/03. Enya - Book Of Days (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/04. Enya - Anywhere Is (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/05. Enya - Only If....flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/06. Enya - The Celts (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/07. Enya - China Roses (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/08. Enya - Shepherd Moons (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/09. Enya - Ebudae (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/10. Enya - Storms In Africa (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/11. Enya - Watermark (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/12. Enya - Paint The Sky With Stars.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/13. Enya - Marble Halls (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/14. Enya - On My Way Home (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/15. Enya - The Memory Of Trees (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/f7756354af37/folder_filename/cold/16. Enya - Boadicea (Remastered 1997).flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/01 Intro.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/02 勵志論.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/03 自我的介紹.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/04 雨時多雲偶陣晴.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/05 狂迪.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/06 像你.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/06 像你.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/06 像你.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/07 肌肉的記憶.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/08 輕輕.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/09 冒煙的燈泡.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/10 明年.flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/10 明年.flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/10 明年.flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/title",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/artists",
+              "observation": "unavailable",
+              "effects": "unknown"
+            },
+            {
+              "id": "assistance/036e0a00e45b/tagged_recovery/cold/11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac/genre",
+              "observation": "unavailable",
+              "effects": "unknown"
+            }
+          ],
+          "storage": {
+            "ordinaryGrowthReserved": 6769062,
+            "ordinaryWriteBytesReserved": 8191478,
+            "terminalGrowthReserved": 2097152,
+            "terminalWriteBytesReserved": 8388608,
+            "totalGrowthReserved": 8866214,
+            "totalWriteBytesReserved": 16580086,
+            "records": 15,
+            "owners": 14,
+            "stopped": true,
+            "selfBookkeepingWriteUpperBound": 138753,
+            "ledgerSha256": "3004b57983920051562d23ac0b17199f66df8775adc23ef9ddc4fe41d97bff7b",
+            "accounting": "nonrefundable_prepaid_application_vfs_not_physical_io"
+          },
+          "membershipEvidence": "matched",
+          "requestedMembershipSha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385",
+          "containment": "not_inferred_from_files",
+          "groundedAssistanceAccuracyCredit": 0,
+          "liveAuthority": false
+        }
+      ],
+      "liveAuthority": false
+    },
+    "final76": {
+      "passed": 7,
+      "skipped": 0
+    },
+    "nativeWorkload": "run69",
+    "maintainedAudit": "audit70.json",
+    "retainedPrivacy": "privacy71.json",
+    "currentNativeRendererBytes": "unchanged since check55/source43; auditor-only delta covered by audit70 and delivery syntax"
+  },
+  "negativeControls": [
+    {
+      "name": "rejected",
+      "observation": {
+        "control": "privacy-rejected",
+        "receiverExit": 78,
+        "actualExecutionGroupAbsent": true,
+        "downstreamBoundary": "observed_genre_rejected_no_false_service_failure",
+        "actualWireAttempts": "unavailable_after_interruption;not_inferred_from_one_settled_operation",
+        "sourceExecutableSha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f",
+        "requestedFieldSlots": 216,
+        "validatedFieldSlots": 0,
+        "unavailableFieldSlots": 216,
+        "approvalConsumptions": 1,
+        "durableLookupAdmissions": 1,
+        "actualLookupCounter": "unavailable_after_interruption;not_zero",
+        "modelOperations": [
+          {
+            "session": "1b913d94-b478-4605-a9c5-eeb38b1524ab",
+            "category": "model",
+            "request_sha256": "d89d8c9f0a4bd0750b70f70b47826830f0e78bf46d0f51abe5fdbb97d31c649e",
+            "dispatched": true,
+            "arrived": true,
+            "completed": true,
+            "response": {
+              "bytes": 297,
+              "identityClaimsVerified": false,
+              "pricingVerified": false,
+              "sha256": "bf3b4512341fde801361e7e132be2d80900458aea710bec5c33c1f4287367f6d",
+              "status": 200,
+              "usageClaimsVerified": false
+            }
+          }
+        ],
+        "mutationAdmissions": 241,
+        "retainedState": "executing",
+        "fixtureInventoryAvailable": true,
+        "value": "no_accuracy_credit;no_completion_promotion",
+        "privacyFilesScanned": 366
+      },
+      "scannedFiles": 366
+    },
+    {
+      "name": "status",
+      "observation": {
+        "control": "privacy-status",
+        "receiverExit": 78,
+        "actualExecutionGroupAbsent": true,
+        "downstreamBoundary": "response_received;downstream_rejection_or_cancellation_unverified",
+        "actualWireAttempts": "unavailable_after_interruption;not_inferred_from_one_settled_operation",
+        "sourceExecutableSha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f",
+        "requestedFieldSlots": 216,
+        "validatedFieldSlots": 0,
+        "unavailableFieldSlots": 216,
+        "approvalConsumptions": 1,
+        "durableLookupAdmissions": 1,
+        "actualLookupCounter": "unavailable_after_interruption;not_zero",
+        "modelOperations": [
+          {
+            "session": "38f9361d-b1ae-48b1-8076-4e3278699e62",
+            "category": "model",
+            "request_sha256": "d89d8c9f0a4bd0750b70f70b47826830f0e78bf46d0f51abe5fdbb97d31c649e",
+            "dispatched": true,
+            "arrived": true,
+            "completed": true,
+            "response": {
+              "bytes": 78,
+              "identityClaimsVerified": false,
+              "pricingVerified": false,
+              "sha256": "72548781759dcddd6ce96cebcaf51cd0adf944d3f468822850dcece738788e6c",
+              "status": 429,
+              "usageClaimsVerified": false
+            }
+          }
+        ],
+        "mutationAdmissions": 208,
+        "retainedState": "executing",
+        "fixtureInventoryAvailable": false,
+        "value": "no_accuracy_credit;no_completion_promotion",
+        "privacyFilesScanned": 344
+      },
+      "scannedFiles": 344
+    },
+    {
+      "name": "schema",
+      "observation": {
+        "control": "privacy-schema",
+        "receiverExit": 78,
+        "actualExecutionGroupAbsent": true,
+        "downstreamBoundary": "response_received;downstream_rejection_or_cancellation_unverified",
+        "actualWireAttempts": "unavailable_after_interruption;not_inferred_from_one_settled_operation",
+        "sourceExecutableSha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f",
+        "requestedFieldSlots": 216,
+        "validatedFieldSlots": 0,
+        "unavailableFieldSlots": 216,
+        "approvalConsumptions": 1,
+        "durableLookupAdmissions": 1,
+        "actualLookupCounter": "unavailable_after_interruption;not_zero",
+        "modelOperations": [
+          {
+            "session": "a6695e06-0f23-47b4-b3b7-c06131b8bb3e",
+            "category": "model",
+            "request_sha256": "d89d8c9f0a4bd0750b70f70b47826830f0e78bf46d0f51abe5fdbb97d31c649e",
+            "dispatched": true,
+            "arrived": true,
+            "completed": true,
+            "response": {
+              "bytes": 322,
+              "identityClaimsVerified": false,
+              "pricingVerified": false,
+              "sha256": "47c99297ff4db1d4adff51079a632c2023ebc7f47d9adbbc8ac47b321874f172",
+              "status": 200,
+              "usageClaimsVerified": false
+            }
+          }
+        ],
+        "mutationAdmissions": 208,
+        "retainedState": "executing",
+        "fixtureInventoryAvailable": false,
+        "value": "no_accuracy_credit;no_completion_promotion",
+        "privacyFilesScanned": 343
+      },
+      "scannedFiles": 343
+    },
+    {
+      "name": "cancel",
+      "observation": {
+        "control": "privacy-cancel",
+        "receiverExit": 78,
+        "actualExecutionGroupAbsent": true,
+        "downstreamBoundary": "response_received;downstream_rejection_or_cancellation_unverified",
+        "actualWireAttempts": "unavailable_after_interruption;not_inferred_from_one_settled_operation",
+        "sourceExecutableSha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f",
+        "requestedFieldSlots": 216,
+        "validatedFieldSlots": 0,
+        "unavailableFieldSlots": 216,
+        "approvalConsumptions": 1,
+        "durableLookupAdmissions": 1,
+        "actualLookupCounter": "unavailable_after_interruption;not_zero",
+        "modelOperations": [
+          {
+            "session": "5e7caf8a-057f-4d78-aa32-dca6e36da009",
+            "category": "model",
+            "request_sha256": "d89d8c9f0a4bd0750b70f70b47826830f0e78bf46d0f51abe5fdbb97d31c649e",
+            "dispatched": true,
+            "arrived": true,
+            "completed": true,
+            "response": {
+              "bytes": 296,
+              "identityClaimsVerified": false,
+              "pricingVerified": false,
+              "sha256": "e5391aa8e3c7d6f1007da853337cef803d19dc644aaa6adc4ea7e4b02b16f3f1",
+              "status": 200,
+              "usageClaimsVerified": false
+            }
+          }
+        ],
+        "mutationAdmissions": 208,
+        "retainedState": "executing",
+        "fixtureInventoryAvailable": false,
+        "value": "no_accuracy_credit;no_completion_promotion",
+        "privacyFilesScanned": 343
+      },
+      "scannedFiles": 343
+    }
+  ],
+  "ignoredAndUnselected": {
+    "historicalStrictClippy": "non-green;not rerun",
+    "credentialed": false,
+    "realDisplay": false,
+    "packagedSmoke": false
+  },
+  "authority": "timely witnessed actual successful supervisor exit;no staging promotion;incomplete recovery never resumes",
+  "noQualityCredit": true,
+  "userAgreement": "0/22",
+  "noLiveAuthority": true
+}

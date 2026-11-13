@@ -1,0 +1,538 @@
+[
+  {
+    "path": ".amp/in/artifacts/mock-transport-20261113/server-tests43",
+    "sha256": "f8e7b3767c11d0d67c53ff5cfb171d56aca2dcc3e3882d4f721de723d858844f"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+    "sha256": "ab6bf1c591236146492df27014899b9a581cf42f7ba5149fa939113139a4d2ff"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/score-observations.py",
+    "sha256": "8c117a33084ee3df9caf9b4180be61d5865e21063014df13edb01dee37e6f4f2"
+  },
+  {
+    "path": "scripts/mock-provider-service.cjs",
+    "sha256": "08e7fe37e4394108940b79e012166ff29499edfb52918e1ae1e03215d96d77c7"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/mock-authority.cjs",
+    "sha256": "ba23c8c578659981c40dbd6d512c1a230c44c50e152112a420cd73ace94d5b1f"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/bounded-storage.cjs",
+    "sha256": "7fbebbe58429f5883b9a16cf937489ce6f9bccbb61c8fe37868caafefc10a4df"
+  },
+  {
+    "path": "scripts/bounded_storage.py",
+    "sha256": "fd9e11fc489be589cc13688d92a6238d8ef61afb842036577c0da18b97b83484"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/audit-supervised.py",
+    "sha256": "da33aabd372429b2b83ac0c0f857f23a53869d2c4f14484fc047a5559db06a14"
+  },
+  {
+    "path": "scripts/auto-tag-eval-replay/run-supervised.cjs",
+    "sha256": "db912915a7ef7bbc2534c91da959deb822ee15f4107ca22ee389eea7c5e4c5d4"
+  },
+  {
+    "path": "test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json",
+    "sha256": "d7a6eac3fd6fd3a5acfd271983bca5650204ff82f77716b2a281acfd53c3e385"
+  },
+  {
+    "path": ".amp/in/artifacts/mock-transport-20261113/run69/native-supervision.json",
+    "sha256": "2b9371cb58da4b040c4df4bb3f2f6aa1184c1516a5aca728b4b10dce94ebc85f"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/labels.json",
+    "sha256": "ee79a00c064ae1cb3bf7a4ba872ff65580b09d73f9985740be48f01017284bd2"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/SHA256SUMS",
+    "sha256": "a76624e150427401782b8749d0998769bb80eb4792663219f28ee1a4b60e3eb4"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-annotation-sheet-20261111/row-bindings.json",
+    "sha256": "ef3432fe1ef4ae69d6a0cb4d26626b832935619b3fe23e1075e180407b4dce5c"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-annotation-sheet-20261111/sheet.md",
+    "sha256": "2c42921877bf27648a04298860aedb4924951d18269987530059386e72ca16d1"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/annotations-rev63.md",
+    "sha256": "1ec0e0df6b7f45f8dce8f96c558e12f4b0f5f6a9127cdd07cae42eb19a175340"
+  },
+  {
+    "path": ".planning/plans/scorable-assistance-contract-20261111/SHA256SUMS",
+    "sha256": "8e722117cafdc6c1896d3df9effe9c6bf296800c0fb3427c45aab027fffd0340"
+  },
+  {
+    "path": ".planning/plans/scorable-assistance-contract-20261111/sample.json",
+    "sha256": "5549f2ae2f4d1d12faf229957589c25ee1dd0ede1b076b1301334ccd192e017d"
+  },
+  {
+    "path": ".planning/research/bounded-assistance-label-review-20261111.json",
+    "sha256": "6147a03ba85fb7697f81c0341b411cdbdc38822ceead404141370caa71e3fb42"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag.rs",
+    "sha256": "f40f282c74997abb5fc45e4079daa6224f2ceda92d35d9fc72200179c55bebcc"
+  },
+  {
+    "path": "test/fixtures/tauri/auto-tag-eval/artist-batch-extension/corpus.json",
+    "sha256": "d22fa2996dc9d419c047b9e66a21f399ef63d763d947750af395722f4fa5b7e5"
+  },
+  {
+    "path": "test/fixtures/tauri/auto-tag-eval/provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json",
+    "sha256": "7593097ea5f4e5fd98aded79818d61b3c825f93756cd7c2b14145534617620cc"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/README.md",
+    "sha256": "ac66f38f39a68d586d57a48aae07aad0584bf5b63b3132ab095cfa8a886562d6"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/freeze.py",
+    "sha256": "6dee6b7541422c7f60bce2b81341e292632b45599a9f10908931fda509985bfb"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/review.md",
+    "sha256": "a6e0b79d6ac92d77d1dd1e5f1042bc8172cf52b061f04ef6e64e7f9c8dc3d412"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/test_freeze.py",
+    "sha256": "29d6e5b97c7b90b17dd5a4a1f9eb373cef3b8c49ca497e88731dbc0410669e73"
+  },
+  {
+    "path": ".planning/plans/crowd-lu-user-acceptance-v1-20261111/validation.json",
+    "sha256": "ab0f769b79bbe2c81cf28f77dc18b737a0d199f67d2f776b5561912e1325bbc1"
+  },
+  {
+    "path": "scripts/review_auto_tag_subset.py",
+    "sha256": "6758a9acff8c062583020143ad3121848f0e848b14932128a4527fbb09fffb27"
+  },
+  {
+    "path": "src-tauri/Cargo.toml",
+    "sha256": "dbad4bdcea3baf86032d00b2bb4991cf640c954f3e71fff0ea0b0b858a07c154"
+  },
+  {
+    "path": "src-tauri/Cargo.lock",
+    "sha256": "556e3d21480206cde561e32acd91aeffd8aaa060a559a453975a36b20cdf147e"
+  },
+  {
+    "path": ".planning/research/bounded-assistance-machine-labels-20261111.json",
+    "sha256": "34144c437e4aaf664151052ad1b208ab7467aae9df131b8bb6bc707abe1e02a7"
+  },
+  {
+    "path": "src-tauri/src/commands/mutations.rs",
+    "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7"
+  },
+  {
+    "path": "src-tauri/src/commands/tasks.rs",
+    "sha256": "929c34b2d3c3f490f452c01405e1bdebd198c421a5360ceba9a4ec5258794015"
+  },
+  {
+    "path": "src-tauri/src/commands/updater.rs",
+    "sha256": "914c9a21bd107aa47a4370bc0555f4ebc157366279c989d447058431b6487506"
+  },
+  {
+    "path": "src-tauri/src/commands/lyrics.rs",
+    "sha256": "243b508a64c8338fe1b6c500bb8f4de90f50fd32047cef55da08fda91e520b36"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_evidence.rs",
+    "sha256": "74ae2874ecd63306eb2762a9fa88eb18009bd948cafe61f384bd47583a774731"
+  },
+  {
+    "path": "src-tauri/src/main.rs",
+    "sha256": "7da23807d4ecec452cdac356d137e046a96b3ae482d213718459d080488cf5f3"
+  },
+  {
+    "path": "src-tauri/src/desktop.rs",
+    "sha256": "038b532810a172f7c649081d836d9406ba2b0e510ff24cf443fc762ecfc6018c"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_benchmark.rs",
+    "sha256": "1ce45de563e4fbd52144bdb4029bc4f27f452f3b47516e75bad9c25bfa6de070"
+  },
+  {
+    "path": "src-tauri/src/commands/library.rs",
+    "sha256": "fc8d844d38589124fdb6d9b917e8f75911a5f5f780bc0fc3b850683e94131300"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_eval.rs",
+    "sha256": "6a207b36f5c983e9f72247cf84db332afa793c3f45f4d702e947d264f48329ae"
+  },
+  {
+    "path": "src-tauri/src/commands/audit.rs",
+    "sha256": "66bb916bebd439b4bdbf3667efcb29642d454ce6491b70c261424854317ff260"
+  },
+  {
+    "path": "src-tauri/src/commands/assistant.rs",
+    "sha256": "cb0313d57108ffd35e3c22ad94996702a596c70afb4b1db1522529f4104b43a3"
+  },
+  {
+    "path": "src-tauri/src/commands/shell.rs",
+    "sha256": "5c5960e8cda3b74713d895a999c374ef605545501d97019919d8ae3665cc8e6f"
+  },
+  {
+    "path": "src-tauri/src/commands/track_matcher.rs",
+    "sha256": "8939eb51ecc1fe7fa21191c0a9f4c313be955f4d2f27a072d32b5944426e199d"
+  },
+  {
+    "path": "src-tauri/src/commands/directories.rs",
+    "sha256": "d2e6b0b20fc54a066a91227ddd9c79907bcac90d24f64d4ca32855b28a7f90e4"
+  },
+  {
+    "path": "src-tauri/src/commands/conversation.rs",
+    "sha256": "46e508cbd85d3752842778356cfc4c815da69b8ce02829647081291c79b8da73"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_track_core_tests.rs",
+    "sha256": "7316b615b34eb34256a1a7c54c0238b86b5d00885ee34252b7145c3d72bfb80c"
+  },
+  {
+    "path": "src-tauri/src/commands/track_matcher_groups_tests.rs",
+    "sha256": "4227f9ee74f4bd66f44340f675d6b5a5ebb9e7729171604c6b2f2e9ed05366dd"
+  },
+  {
+    "path": "src-tauri/src/commands/dataset.rs",
+    "sha256": "7697f996891e5e010602e1e7640fc7ae24123927dd4124e0df05e1d38b628ae4"
+  },
+  {
+    "path": "src-tauri/src/commands/assistant_metadata_tools.rs",
+    "sha256": "af5d57f1f9fc0e838fca5bfb66cce56409610b2a6c2c79fab9866e164d2a5396"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_coverage_v3_tests.rs",
+    "sha256": "e524561089d07f49884898fa60ac6251fd8776ae4313e1ef1efbd94add34e20d"
+  },
+  {
+    "path": "src-tauri/src/commands/artist_inventory.rs",
+    "sha256": "aced4da072b4b87c2f793658238f92230184adc52f4280baf9f379a27aa77d85"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_relapse_tests.rs",
+    "sha256": "ca038838905531f046c3e9ac0be8c3547ad9ae5615eeaab9d1a88d4c428a5049"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_collections_tests.rs",
+    "sha256": "459f25df50c6f2b68eac151ea1349b08ec0526da285e9eb0708f178f39ae0ab6"
+  },
+  {
+    "path": "src-tauri/src/commands/configuration.rs",
+    "sha256": "33de7184de13ef0519639cfd52be87814386d5a2e97a986c4bba12cc86f9cfb5"
+  },
+  {
+    "path": "src-tauri/src/commands/debug.rs",
+    "sha256": "172601d55c3b355f26e646411b36cb3b3c4ec1efd34f66f98453a085cc373620"
+  },
+  {
+    "path": "src-tauri/src/commands/tracks.rs",
+    "sha256": "cdbc3db5a5de2ae1796419e410c86ec904ab6c753b3651358e19539934e6797e"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_enya_smoke_tests.rs",
+    "sha256": "dba4213198c737417f2856b0baad04d5bbdda5d0cad2eebc3c1d99ac22393000"
+  },
+  {
+    "path": "src-tauri/src/commands/album_search.rs",
+    "sha256": "28d21abb81fd8d4cfe0eb9c08d5a1e372dc65a349815cf609ae3f5a50adfb91a"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_editions.rs",
+    "sha256": "c1b368886b506da2f00698d01b9827d218f27a840a3351a74f82da88eecd7988"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_duplicates_tests.rs",
+    "sha256": "cab12347ca0f1395ed4099869ba9ca24c0758b71957253041c97ff9cbf1dde0f"
+  },
+  {
+    "path": "src-tauri/src/commands/recording_discovery.rs",
+    "sha256": "8de70dd9774acc9cd9e80f49cad9f3d6eb7e7f0c25b87f5efcc3e7a74f26bc67"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_review.rs",
+    "sha256": "9c6bf630c98c9b00d5234b32b8ca118ebd4e3d8fba04b1dd6100583bc02f6a6d"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_acoustid.rs",
+    "sha256": "4f891165ef3c71de0f5d068e2ab1328f790c4ac7c43aba43b662c10012995bf8"
+  },
+  {
+    "path": "src-tauri/src/commands/assistant_intent.rs",
+    "sha256": "1391c42cf3cf5ec7dbe736234e43732710129f29cd059c451afd645a9554a4c8"
+  },
+  {
+    "path": "src-tauri/src/commands/covers.rs",
+    "sha256": "13ed3ced9ec2fee3b95d19e0bd7e22c6b2263f6a508cff972c003261b67ec16b"
+  },
+  {
+    "path": "src-tauri/src/commands/track_matcher_guarded_tests.rs",
+    "sha256": "6c623d334a510c0fbf6ad6b2ff2d32f60484f0ece1a8bf53dd82bbcf30dc8a59"
+  },
+  {
+    "path": "src-tauri/src/error.rs",
+    "sha256": "18a310c5395b1de37c966b942d38012421cbbc1d076490ff83004c1576d324ce"
+  },
+  {
+    "path": "src-tauri/src/commands/meta.rs",
+    "sha256": "9a68a876602aa4ef3edbfad0e786636f445668c4ec326a5f6a4d7ab11d62215f"
+  },
+  {
+    "path": "src-tauri/src/commands/mod.rs",
+    "sha256": "36255308f1e22630734cf571f659d60bf14ba3c0d5e0f4bc38f5d38cbe701de5"
+  },
+  {
+    "path": "src-tauri/src/commands/assistant_tools.rs",
+    "sha256": "3397e54bc8ffee2be500ad1d7a5f10e39dbb591f470631b2077c80c127d97909"
+  },
+  {
+    "path": "src-tauri/src/commands/organizer.rs",
+    "sha256": "43e6ee7f5539b73ac41456c6b917d3eb603ba5cf3c4959171034917e868ac19b"
+  },
+  {
+    "path": "src-tauri/src/lib.rs",
+    "sha256": "7640167e485732c4636f670012aedadcf9d29a114dcca4a2178d8e8ed97d4768"
+  },
+  {
+    "path": "src-tauri/src/server.rs",
+    "sha256": "5ae8e595ab58d594e4a5593057bd5f50e8b51c1765cbfd4b949b83e7f1e46e85"
+  },
+  {
+    "path": "src-tauri/src/commands/auto_tag_editions_tests.rs",
+    "sha256": "9719bfecd2f8693e98e80675237a7770862b838acced908eb6f8f88a9e3d923d"
+  },
+  {
+    "path": "src-tauri/src/infra/acoustid.rs",
+    "sha256": "42c4b4247e9b332174a12347498cbeb6c7cc2c92f43fe37e4c3fc3300d46593d"
+  },
+  {
+    "path": "src-tauri/src/infra/aliases.rs",
+    "sha256": "f85bbc582e918fad72faa14c64dab3497e1e9cd5d014af9da7453b1cc59be6cb"
+  },
+  {
+    "path": "src-tauri/src/infra/tag_io.rs",
+    "sha256": "57d3948f333042839814f0ada4922e0997475dd3ddcc582becf4b10fc7c25b03"
+  },
+  {
+    "path": "src-tauri/src/infra/audio_evidence_groups_tests.rs",
+    "sha256": "4239a0d145ca641108b73fee5c417f603ecfe2ab0994e1f87a8b9d6ef4f954f8"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_storage.rs",
+    "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a"
+  },
+  {
+    "path": "src-tauri/src/infra/fs.rs",
+    "sha256": "3dae5963ece48e6339fd3bac7ee8a6489cb5f3e509b5a899c9360e71b797c40f"
+  },
+  {
+    "path": "src-tauri/src/infra/http.rs",
+    "sha256": "3d8bcb4eabb27812f26031fc88fcefce5e96fccbced187630578123b215e7b70"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_supervisor.rs",
+    "sha256": "233d7d40fadad49f74009e7ba43b585908cde6e030840ac6526f35ed3d2935fe"
+  },
+  {
+    "path": "src-tauri/src/infra/text.rs",
+    "sha256": "45801439bb0201c44b4c1f52b28ee868e5ef4124affd578148cd2bf36fb07dca"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_policy.rs",
+    "sha256": "6400354a32014f7732f85675c3ebd6fc3952619aa8e459f5ab46111806804ce0"
+  },
+  {
+    "path": "src-tauri/src/infra/acoustid_flac_tests.rs",
+    "sha256": "842e99925449cf6a9b84a8ffa999f186aff5cd7918d75de5671c566051d65537"
+  },
+  {
+    "path": "src-tauri/src/infra/bounded_eval.rs",
+    "sha256": "4575bd9f069676d8ca8aeb975a4744c3f5b1415a98ed8c7624172e0b942ef3ef"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_authority.rs",
+    "sha256": "e83e3357bbe4f5e045891dfaad0febe5f8c1a6fa36f77b12ae3b1f9c79ae5be6"
+  },
+  {
+    "path": "src-tauri/src/infra/acoustid_flac.rs",
+    "sha256": "05451ad729304d4b9f8b791ef87fd4b44c2873b437721491077970e905670959"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_receiver.rs",
+    "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87"
+  },
+  {
+    "path": "src-tauri/src/infra/mod.rs",
+    "sha256": "173fef133d6c665e7bda3f59c1902fbd2192ea33adef2bd33bff220bf39541cc"
+  },
+  {
+    "path": "src-tauri/src/infra/artwork.rs",
+    "sha256": "23062aa3e1f8d44d6595d6c659cfbd6329f13733d4cc55d0038590fdfa5111f5"
+  },
+  {
+    "path": "src-tauri/src/infra/audio_evidence.rs",
+    "sha256": "763ac5fdadfd9e0bed556e9057decffb9b1fe2eee0b05da61109ca9e4b0252dc"
+  },
+  {
+    "path": "src-tauri/src/infra/logging.rs",
+    "sha256": "a53d5f2c2448ba287322f463aaab848cc8d9b61165d5c91d62cde7fe37f5f72b"
+  },
+  {
+    "path": "src-tauri/src/infra/encoding.rs",
+    "sha256": "705a8abb9317ac7f3c510e24d77754a02c30fe837a335ee07e12d0495892447f"
+  },
+  {
+    "path": "src-tauri/src/infra/agent_completion.rs",
+    "sha256": "af4517006d9f9d0c86eb41107eddf7575ed1406215eac46563d13d539ec4cdde"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_transport.rs",
+    "sha256": "bf21b36dbc258243fd16e536ab96bd972a27de65ee7eddc680ca87019d226235"
+  },
+  {
+    "path": "src-tauri/src/infra/openrouter.rs",
+    "sha256": "c485c3cc1a4ff9aad35074758e0e93455adb39991d7a8e65984bd41799f22e74"
+  },
+  {
+    "path": "src-tauri/src/infra/tag_catalog.rs",
+    "sha256": "bfaeee199aa6e5752c0232ce2830adf577240a298274c7810cbbdb7639f0f06e"
+  },
+  {
+    "path": "src-tauri/src/infra/sqlite.rs",
+    "sha256": "965c3da8c6b883e446bd610db3ba6deedccb7946d7dbc6742802846518139cc5"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_broker.rs",
+    "sha256": "3b89d1533aeac88ac04365f38c02259ee7d2e8575282f569fcd9787813802d78"
+  },
+  {
+    "path": "src-tauri/src/infra/mock_run_ownership.rs",
+    "sha256": "94ef2b488fe6c183bd94f01a0bcf9bb917efbf93cf45d6605b7464f1ff34bceb"
+  },
+  {
+    "path": "src-tauri/src/state/assistant_task.rs",
+    "sha256": "e3446a5287d5b7138bd1bc5707e560329967613572cecbe4c5f2a4234d484187"
+  },
+  {
+    "path": "src-tauri/src/state/conversation.rs",
+    "sha256": "a832ea29e7a2e8242e3bc6b4521c7c5a6c4254a476e769a968af5fc56c48768a"
+  },
+  {
+    "path": "src-tauri/src/state/events.rs",
+    "sha256": "9bcd2c41b9e42012d643200c1c10e55f0a25d090d01ef4a460d00e1709cf4db5"
+  },
+  {
+    "path": "src-tauri/src/state/cron.rs",
+    "sha256": "7db159eed7bc1e29fc0e763ab205c560b7460cbf3480241e2b7fc523e3200036"
+  },
+  {
+    "path": "src-tauri/src/state/operation.rs",
+    "sha256": "4d55b276c7b77122b3452c7a8e5bdde70b2db12057cc9fec56927d727eee8297"
+  },
+  {
+    "path": "src-tauri/src/state/sqlite.rs",
+    "sha256": "bc555639aed3ecfdc602f24266cb4f0db313ec714172389e5e2561ed66efeb25"
+  },
+  {
+    "path": "src-tauri/src/state/updater.rs",
+    "sha256": "bbcf6802368f087c442462518ef9cb841f54e660ca16d71111eed0848b40a9cd"
+  },
+  {
+    "path": "src-tauri/src/state/background.rs",
+    "sha256": "1666e21f85e602bbeac25f437006dc350547c544d67f80ae59b0c94b60d300d2"
+  },
+  {
+    "path": "src-tauri/src/state/quit_guard.rs",
+    "sha256": "f95ad9a9f2ab0a6b7abd64d92b7a76f30443e741b131199d47762fd24fa9cce0"
+  },
+  {
+    "path": "src-tauri/src/state/tasks.rs",
+    "sha256": "a046d3b3c0da4aa816220fc1dc69b6db1110d61b10700ee200d293f3b499921e"
+  },
+  {
+    "path": "src-tauri/src/state/config.rs",
+    "sha256": "d28c86fcdf0658257b14ff36308e1da9c6203fd624d011d5941bf922ab305b7a"
+  },
+  {
+    "path": "src-tauri/src/state/library.rs",
+    "sha256": "554d44f5938d3b7f7ee7001b679a4b65a171cce510aacbe57dc1bce61ce27918"
+  },
+  {
+    "path": "src-tauri/src/state/audit.rs",
+    "sha256": "34725a43782772f2ccdb652a05d2c9c40bac3b10b4aaa764ac52e1290f5e8158"
+  },
+  {
+    "path": "src-tauri/src/state/assistant.rs",
+    "sha256": "32e3d98266e8d93aa8cb35911a8b1e72b44467a0ccc3932cb69cae455f50c2cc"
+  },
+  {
+    "path": "src-tauri/src/state/provider_title_aliases.rs",
+    "sha256": "0f57501172d02efcc1e7303fc7d583d5cdb72e4dce8793c2cf87af4f93eee1c5"
+  },
+  {
+    "path": "src-tauri/src/state/worker.rs",
+    "sha256": "92d0932b0d13dbd61366dd7250ceffc7c2dc0e2ca8ec6ab6ba86c2da0e390cd4"
+  },
+  {
+    "path": "src-tauri/src/state/paths.rs",
+    "sha256": "943734b031729a4c06bdca2e6e42546fbbfa48664f8d3079a477fe5342b36826"
+  },
+  {
+    "path": "src-tauri/src/state/mod.rs",
+    "sha256": "37d6399c61714e003cce220dda0ac02ba80084cf9908e2a0da0b3100dd8a3c37"
+  },
+  {
+    "path": "src-tauri/src/state/window_state.rs",
+    "sha256": "2eeb4f790663c882f649f5b1f3025db52f652271c277063f11975b053debf13f"
+  },
+  {
+    "path": "src-tauri/src/state/write_queue.rs",
+    "sha256": "c7dd27035febe2094c772c8f421b598b0093a8e31e920f054cfb182e000b6b46"
+  },
+  {
+    "path": "src-tauri/src/state/album.rs",
+    "sha256": "f6b2b2e3a970a67934080f62f3a5a1042f85f1e7b830bc64516523b87972c5a4"
+  },
+  {
+    "path": "src-tauri/src/state/tag_source.rs",
+    "sha256": "5919c43c6be64175610018cd66b74e165c166ee6b9d091992693b72efde57738"
+  },
+  {
+    "path": "src-tauri/src/state/providers.rs",
+    "sha256": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4"
+  },
+  {
+    "path": "src-tauri/src/commands/artist_inventory/recovery_preview.rs",
+    "sha256": "e81b196b51eec3fcb611cb18891174ac95992ccc246bbfeb746070f87948e129"
+  },
+  {
+    "path": "src-tauri/src/commands/artist_inventory/recovery_preview_tests.rs",
+    "sha256": "5c1a0551c0ed2a382d72a21c89248677356fc06691e96cce9a70018645108400"
+  },
+  {
+    "path": "src-tauri/src/bin/soundrobe-inventory.rs",
+    "sha256": "e58557dbf7687c2fc5699be98fdf0bc93826724ca6997398a69262ae5b949378"
+  },
+  {
+    "path": "src-tauri/src/bin/soundrobe-server.rs",
+    "sha256": "5d04e000ad3245bee456cb5e6b2b5d124b1ef142502b9a5af7aeedb3ea4718b1"
+  },
+  {
+    "path": ".amp/in/eval-dummies/artist-batch-extension/corpus.json",
+    "sha256": "3397422c85fedd01086a22f5c331da3db2e435bc477a6d2c2443f51f6da8a861"
+  },
+  {
+    "path": "test/fixtures/tauri/auto-tag-eval/reviewed-cjk-artist-2-20261108.json",
+    "sha256": "fff85d2a879e4771aa4c685118240ec22b37bc004ca7a50cb47000287b8560e9"
+  },
+  {
+    "path": ".amp/in/eval-dummies/original/corpus.json",
+    "sha256": "865873a108f0992da7b9b67f4bfe64da075c0de7b89b65245560891cefd12112"
+  },
+  {
+    "path": "test/fixtures/tauri/auto-tag-eval/reviewed-expansion-2-20261108.json",
+    "sha256": "bc41475b27e555a6140e65fba6e2430f8968336426adc5c30c1482fc5b233229"
+  }
+]

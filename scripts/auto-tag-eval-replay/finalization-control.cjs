@@ -2,7 +2,7 @@
 // Only a native final-* control may select this fixture. All owner/session
 // transitions use the real broker; no registry rows or completion files are forged.
 const fs = require('./bounded-storage.cjs'), path = require('node:path'), crypto = require('node:crypto');
-const { start, rpc, lease } = require('./mock-authority.cjs');
+const { start, rpc, lease, testApproval } = require('./mock-authority.cjs');
 const read = file => JSON.parse(fs.readFileSync(file));
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 async function main(root, binary) {
@@ -14,8 +14,8 @@ async function main(root, binary) {
   const sessions = [];
   for (const stage of ['preparation', 'execution']) {
     if (stage === 'execution') {
-      const { checkpoint } = await authority.command({ op: 'freeze' });
-      await authority.command({ op: 'consume', fake_checkpoint_sha256: checkpoint });
+      await authority.command({ op: 'freeze' });
+      await authority.command({ op: 'approve', approval: testApproval(await authority.command({ op: 'report' })) });
     }
     for (const { name: job } of membership.evaluations) {
       const session = await authority.command({ op: 'register', job, stage,

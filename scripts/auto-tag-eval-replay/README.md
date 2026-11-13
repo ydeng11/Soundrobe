@@ -340,10 +340,11 @@ node scripts/auto-tag-eval-replay/run-bounded.cjs \
 
 The broker owns six cold jobs, 72 observations and 216 requested field slots
 from preparation onward. Every preparation finishes and closes its native and
-fixture leases before one checkpoint freezes. One fake checkpoint consumption
-admits execution on the same retained files with new caches and replacement
-fixture sessions. Ordinary matching, assistance eligibility, WriteQueue ownership
-and scorer-only user labels remain unchanged.
+fixture leases before one checkpoint freezes. The driver signs a test-only
+approval for that exact frozen scope. Its durable single-use consumption admits
+execution on the same retained files with new caches and replacement fixture
+sessions. Ordinary matching, assistance eligibility, WriteQueue ownership and
+scorer-only user labels remain unchanged.
 
 SQLite transactions serialize reservations, dispatch admission and stop. The
 cumulative limits are 512 provider operations, 32 compact-inventory operations,
@@ -358,16 +359,40 @@ stop admission on invalid ingress. If notification fails, they abandon their
 persistent lease. Unknown outcomes, invalid handles, duplicate consumption,
 storage errors and unexpected lease loss terminate the run without refund or
 resumed execution. Existing registries permit read-only incomplete reporting,
-not restart. The fake verifier and opaque handles assume trusted reviewed mock
-processes. They are not authenticated user approval or malicious-user containment.
+not restart. The compiled verifier trusts an RFC 8032 public test fixture, never
+a key supplied in a manifest or approval JSON. The signed scope binds the run,
+checkpoint, sources, executable, requests, labels, disposable roots, policies and
+limits. Expiry and revocation stop new grants without refund or resumed authority.
+Test signatures and session handles assume trusted reviewed mock processes. They
+are not real provisioned user approval or malicious-host containment.
+
+The broker reconstructs exact approved genre bytes and owns the injected fake
+credential supplier. Children receive only authenticated session operations and
+bounded parsed results. They receive no model credential, target-selection,
+header or general model-send interface. Model sends through the forwarding
+gateway are denied. The separate loopback-only model client has no redirects,
+proxy, fallback, retry or repair.
+Its request, response and per-attempt limits are 32 KiB, 64 KiB and five seconds.
+Returned identity, version, usage and pricing claims remain unverified.
+
+General reports, events, inventories and receipts omit raw model replies, headers,
+errors and parsed genre values. Accepted parsed values are allowed only in the
+bound candidate, disposable media and staging, typed worker-review and scoring
+sinks. Rejected values are discarded before IPC. Accepted-answer labels remain
+scorer-only. Evidence remains retained locally; no deletion duration is user
+consent. Real trust provisioning, credential custody, model/provider choice,
+disclosure, retention and billing controls remain unresolved for live use.
 
 `source-and-tool-locks.json`, `frozen-checkpoint.json`, the SQLite registry,
 `wire-reconciliation.json` and `authority-receipt.json` bind the run. Final
 publication requires a clean broker exit and a complete receipt matching the
 checkpoint, membership, sources, preparations, observations and counters. Missing
 or terminal receipts retain the full incomplete denominator. Per-job compact
-fixture snapshots preserve operation accounting even when post-failure HTTP
-inventory is unavailable. The 8-MiB compact-inventory ceiling is unchanged.
+fixture snapshots preserve completed inventory observations. An interrupted
+native child can terminate the driver before those snapshots or log settlement.
+Missing output is unavailable evidence, never zero arrivals or proof of no leak.
+The registry's arrival and bounded response receipts remain distinct witnesses.
+The 8-MiB compact-inventory ceiling is unchanged.
 
 Run the offline process and crash controls with a completed run's membership:
 
@@ -381,7 +406,11 @@ The controls compare actual loopback arrivals with reservations, race separate
 children, replace fixture sessions and deny recovery after storage faults or
 process crashes. Test-only bootstrap selectors cover reservation commit and
 dispatch windows. SQLite process-restart observations do not prove power-loss
-durability, physical flushing or platform-wide guarantees. Storage tickets,
-independent supervision, whole-run deadlines, credential custody, live approval,
-billing and privacy-retention enforcement remain outside this mode. Scripted
-responses always earn zero grounded assistance accuracy credit.
+durability, physical flushing or platform-wide guarantees. Bare `--durable-mock`
+does not install storage tickets or independent whole-run supervision. The
+`run-supervised.cjs` entrypoint installs both before bootstrap, with unchanged
+300-second preparation and 600-second execution scopes. See
+[`docs/offline-provider-mock.md`](../../docs/offline-provider-mock.md) for that
+mode. Neither entrypoint provisions real credential custody, live approval,
+billing guarantees or a user-approved retention duration. Scripted responses
+always earn zero grounded assistance accuracy credit.

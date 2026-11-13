@@ -152,4 +152,21 @@ async function start(binary, output, membership, bindings, fault, supervision) {
     },
   };
 }
-module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt };
+// Explicit offline signing fixture: RFC 8032 public test-vector seed. This
+// authenticates test plumbing only and MUST NOT be provisioned as user trust.
+function testApproval(report) {
+  const crypto = require('node:crypto');
+  const canonical = value => value === null || typeof value !== 'object' ? JSON.stringify(value)
+    : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
+      : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
+  const scope = { runId: report.runId, checkpoint: report.checkpoint, bindings: report.bindings,
+    membership: report.membership, preparations: report.preparations,
+    policy: 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair' };
+  const payload = { version: 1, runId: report.runId, checkpoint: report.checkpoint,
+    scopeSha256: crypto.createHash('sha256').update(canonical(scope)).digest('hex'),
+    nonce: crypto.randomUUID(), expiresUnixSeconds: Math.floor(Date.now() / 1000) + 1200 };
+  const key = crypto.createPrivateKey({ format: 'der', type: 'pkcs8', key: Buffer.from(
+    '302e020100300506032b6570042204209d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60', 'hex') });
+  return { payload, signature: [...crypto.sign(null, Buffer.from(canonical(payload)), key)] };
+}
+module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt, testApproval };

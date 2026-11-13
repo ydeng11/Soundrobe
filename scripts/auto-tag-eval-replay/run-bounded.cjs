@@ -84,6 +84,10 @@ async function main(output, executable, userLabelDirectory, mode) {
       generation: supervision.generation, mode: 'native_owned_mock_only' });
   } else fs.mkdirSync(output);
   admittedOutput = output;
+  // Failure-only native controls retain the full membership but exercise Crowd
+  // first and deliberately cannot publish a successful six-job completion.
+  const privacyControl = supervised && /^privacy-(rejected|status|schema|cancel)$/.test(supervision.control)
+    ? supervision.control : null;
   const binary = supervised ? fs.realpathSync(executable) : path.join(output, 'native-evaluator');
   if (!supervised) fs.copyFileSync(path.resolve(executable), binary, fs.constants.COPYFILE_EXCL);
   // Expectations and role/safety scope precede ALL preparation and final outputs.
@@ -162,6 +166,11 @@ async function main(output, executable, userLabelDirectory, mode) {
   const pending = [], preparations = [];
   if (durable) activeAuthority = await require('./mock-authority.cjs').start(binary, output,
     read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
+      disposableRunRoot: output, sinkPolicy: 'offline-retained-evidence-v1',
+      sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring'],
+      transport: { endpoint: 'registered-loopback-only/model/chat/completions', model: 'scripted/genre-v1', provider: 'scripted-loopback-v1',
+        attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
+        retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
   const authority = durable ? activeAuthority : null;
   if (supervised && supervision.control === 'journal-lock') {
@@ -234,7 +243,10 @@ async function main(output, executable, userLabelDirectory, mode) {
     if (paired && body) fs.writeFileSync(path.join(directory, 'independent-request.json'), canonical(body), { flag: 'wx' });
     save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
       ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
-      response: { genre: 'Scripted diagnostic genre', confidence: 0.8 },
+      privacyCanaries: true,
+      ...(privacyControl === 'privacy-status' ? { status: 429 } : {}),
+      response: { genre: privacyControl === 'privacy-rejected' ? 'MOCK_REJECTED_GENRE_CANARY' : 'MOCK_ACCEPTED_GENRE_CANARY',
+        confidence: privacyControl === 'privacy-schema' ? 'MOCK_SCHEMA_SECRET_CANARY' : privacyControl === 'privacy-rejected' ? 0.59 : 0.8 },
       ...(job.unknownUsage ? {} : { usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 } }) } } : {}) });
     let session, fixtureLease;
     let fixtureAuthority = authority ? { socket: authority.socket, onFatal: () => fixtureLease?.abandon() } : undefined;
@@ -260,7 +272,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     if (paired) Object.assign(env, { SOUNDROBE_AUTO_TAG_EVAL_ARM: job.arm,
       SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE: job.role ? 'scripted' : 'disabled' });
     const safetyInput = path.join(directory, 'safety-input.json');
-    save(safetyInput, { cancelAfterGenre: job.cancelAfterGenre === true });
+    save(safetyInput, { cancelAfterGenre: job.cancelAfterGenre === true || (Boolean(job.role) && privacyControl === 'privacy-cancel') });
     env.SOUNDROBE_AUTO_TAG_EVAL_SAFETY_INPUT = safetyInput;
     async function invoke(name, bounded) {
       checkLocks();
@@ -481,7 +493,13 @@ async function main(output, executable, userLabelDirectory, mode) {
     }
     const frozen = await authority.command({ op: 'freeze' });
     save(path.join(output, 'frozen-checkpoint.json'), await authority.command({ op: 'report' }));
-    await authority.command({ op: 'consume', fake_checkpoint_sha256: frozen.checkpoint });
+    const approval = require('./mock-authority.cjs').testApproval(await authority.command({ op: 'report' }));
+    save(path.join(output, 'test-fixture-approval.json'), approval);
+    await authority.command({ op: 'approve', approval });
+    if (privacyControl) {
+      await pending[jobs.findIndex(job => job.name === 'assistance-crowd')]();
+      throw Error('privacy_control_intentionally_incomplete');
+    }
     for (const execute of pending) await execute();
     const report = await authority.command({ op: 'report' });
     for (const job of jobs) {
@@ -496,8 +514,10 @@ async function main(output, executable, userLabelDirectory, mode) {
         || ids.length !== report.counters.arrived || report.counters.reserved !== report.counters.completed
         || report.counters.inventory !== wires.filter(w => w.route === '/__fixtures/compact').length
         || report.counters.model > 1 || report.counters.provider !== inventories.reduce((n,i) => n+i.requests.length,0)
-        || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0)) throw Error('Durable wire reconciliation failed');
-    save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length, uniqueOperations: new Set(ids).size });
+        || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0)
+        || report.credentialLookups !== report.counters.model || report.actualFakeLookups !== report.counters.model) throw Error('Durable wire reconciliation failed');
+    save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length,
+      uniqueOperations: new Set(ids).size, actualFakeLookups: report.actualFakeLookups, durableLookupAdmissions: report.credentialLookups });
     if (!supervised) {
       await authority.command({ op: 'publish' });
       save(path.join(output, 'authority-receipt.json'), await authority.settle(false, report));

@@ -86,6 +86,8 @@ html-escape = "0.2"
 windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_Threading"] }
 
 [dev-dependencies]
+# Offline test-only approval fixture; no application trust root is provisioned.
+ring = "0.17.14"
 tokio = { version = "1", features = ["test-util"] }
 
 [features]
