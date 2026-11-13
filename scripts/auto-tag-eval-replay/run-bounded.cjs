@@ -84,6 +84,13 @@ async function main(output, executable, userLabelDirectory, mode) {
       generation: supervision.generation, mode: 'native_owned_mock_only' });
   } else fs.mkdirSync(output);
   admittedOutput = output;
+  const rehearsalFile = process.env.SOUNDROBE_MODEL_REHEARSAL_PLAN;
+  let rehearsal;
+  if (rehearsalFile) {
+    if (!supervised || !fs.realpathSync(rehearsalFile).startsWith(evidenceRoot + path.sep)
+        || !fs.statSync(rehearsalFile).isFile() || fs.statSync(rehearsalFile).size > 65536) throw Error('Invalid public offline rehearsal plan');
+    rehearsal = read(rehearsalFile);
+  }
   // Failure-only native controls retain the full membership but exercise Crowd
   // first and deliberately cannot publish a successful six-job completion.
   const privacyControl = supervised && /^privacy-(rejected|status|schema|cancel)$/.test(supervision.control)
@@ -108,7 +115,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
-  const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
     'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
     'scripts/auto-tag-eval-replay/audit-supervised.py',
     ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
@@ -131,7 +138,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     finally { checkLocks(); }
   };
   save(path.join(output, 'selection.json'), { version: paired ? 2 : 1, jobs, phases, fields: ['title', 'artists', 'genre'],
-    model: 'scripted/genre-v1', purpose: 'scripted mock wiring, zero grounded accuracy',
+    model: rehearsal?.model ?? 'scripted/genre-v1', ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
+    purpose: 'scripted mock wiring, zero grounded accuracy',
     realProviderCalls: 0, realModelCalls: 0, originalMediaOperations: 0,
     orchestration: { ...orchestration, ...(paired ? { inventoryBytes: 8388608 } : {}) }, userBindings });
   const independentLabels = read(path.join(root, '.planning/research/bounded-assistance-machine-labels-20261111.json'));
@@ -167,8 +175,9 @@ async function main(output, executable, userLabelDirectory, mode) {
   if (durable) activeAuthority = await require('./mock-authority.cjs').start(binary, output,
     read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
       disposableRunRoot: output, sinkPolicy: 'offline-retained-evidence-v1',
+      ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
       sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring'],
-      transport: { endpoint: 'registered-loopback-only/model/chat/completions', model: 'scripted/genre-v1', provider: 'scripted-loopback-v1',
+      transport: { endpoint: 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
         attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
         retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
@@ -235,8 +244,10 @@ async function main(output, executable, userLabelDirectory, mode) {
     // never a model answer key. The scripted response is not an accepted genre.
     const source = job.role ? read(path.join(fixtures, 'provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json')) : null;
     const payload = source ? { artist: '盧廣仲', album: source.title, tracks: source.media.flatMap(m => m.tracks.map(t => t.title)) } : null;
-    const body = job.role ? { model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
-      ...(durable ? { reasoning: { enabled: false }, provider: { allow_fallbacks: false, require_parameters: true }, stream: false } : {}),
+    if (rehearsal && payload && canonical(payload) !== canonical(rehearsal.input)) throw Error('Public catalog input differs from rehearsal plan');
+    const body = job.role ? { model: rehearsal?.model ?? 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
+      ...(durable ? { reasoning: { enabled: false }, provider: { allow_fallbacks: false, require_parameters: true,
+        ...(rehearsal ? { only: [rehearsal.route], order: [rehearsal.route] } : {}) }, stream: false } : {}),
       messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
         { role: 'user', content: canonical(payload) }],
       response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {
@@ -244,6 +255,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     if (paired && body) fs.writeFileSync(path.join(directory, 'independent-request.json'), canonical(body), { flag: 'wx' });
     save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
       ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
+      ...(rehearsal ? { requestModel: rehearsal.model, responseModel: rehearsal.observedTarget, provider: rehearsal.provider } : {}),
       privacyCanaries: true,
       ...(privacyControl === 'privacy-status' ? { status: 429 } : {}),
       response: { genre: privacyControl === 'privacy-rejected' ? 'MOCK_REJECTED_GENRE_CANARY' : 'MOCK_ACCEPTED_GENRE_CANARY',
@@ -283,6 +295,7 @@ async function main(output, executable, userLabelDirectory, mode) {
         save(descriptor, { client: { socket: authority.socket, handle: session.client }, job: job.name,
           stage: name === 'preparation' ? 'preparation' : 'execution', gateway: base,
           retained_root: path.join(directory, 'retained-native'),
+          ...(rehearsal ? { model_rehearsal: rehearsal } : {}),
           preparation: name === 'preparation' ? null : path.join(directory, 'preparation', 'preparation.json') });
         env.SOUNDROBE_MOCK_EVALUATION = descriptor;
       }

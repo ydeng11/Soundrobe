@@ -202,7 +202,18 @@ impl Run {
             "reserved":self.operations.len(),"arrived":self.operations.values().filter(|o|o.arrived).count(),
             "completed":self.operations.values().filter(|o|o.completed).count()})
     }
-    fn apply(&mut self, handle: &str, command: Command) -> Result<Value, String> {
+    fn apply(
+        &mut self,
+        handle: &str,
+        command: Command,
+        rehearsal: Option<&policy::Rehearsal>,
+    ) -> Result<Value, String> {
+        // A saved binding is not the separately pinned verifier. Never resume
+        // a rehearsal under the default public-fixture trust after reopening.
+        require(match rehearsal {
+            Some(r) => self.bindings.get("modelRehearsal") == Some(&r.binding()),
+            None => self.bindings.get("modelRehearsal").is_none(),
+        })?;
         // Arrival/settlement can reconcile an already consumed operation after stop,
         // but never grant another operation or reopen an identity.
         require(
@@ -500,7 +511,7 @@ impl Run {
             }
             Command::Approve { approval } => {
                 require(owner && self.state == "frozen" && self.consumptions == 0)?;
-                let expiry = approval.verify(self)?;
+                let expiry = approval.verify(self, rehearsal)?;
                 self.approval_sha256 = Some(sha(&serde_json::to_vec(&approval).unwrap()));
                 self.approval_expires = Some(expiry);
                 self.consumptions = 1;
@@ -783,6 +794,7 @@ impl Run {
 pub(crate) struct Journal {
     path: PathBuf,
     fault: Option<CrashPoint>,
+    rehearsal: Option<std::sync::Arc<policy::Rehearsal>>,
 }
 
 #[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
@@ -902,6 +914,8 @@ pub(crate) struct Evaluation {
     pub(crate) gateway: String,
     pub(crate) retained_root: PathBuf,
     pub(crate) preparation: Option<PathBuf>,
+    #[serde(default)]
+    pub(crate) model_rehearsal: Option<policy::RehearsalPlan>,
     #[serde(skip)]
     preparation_snapshot: Option<Vec<u8>>,
 }
@@ -1007,6 +1021,22 @@ impl Journal {
         // Historical inline registries have no split reference and remain
         // readable without migration. A mixed representation is corruption.
         Ok((run, separated_bindings))
+    }
+
+    pub(crate) fn create_rehearsal(
+        path: &Path,
+        membership: Value,
+        mut bindings: Value,
+        rehearsal: policy::Rehearsal,
+    ) -> Result<(Self, String), String> {
+        let object = bindings
+            .as_object_mut()
+            .ok_or("mock_rehearsal_bindings_invalid")?;
+        require(!object.contains_key("modelRehearsal"))?;
+        object.insert("modelRehearsal".into(), rehearsal.binding());
+        let (mut journal, owner) = Self::create(path, membership, bindings, None)?;
+        journal.rehearsal = Some(std::sync::Arc::new(rehearsal));
+        Ok((journal, owner))
     }
 
     pub(crate) fn create(
@@ -1120,6 +1150,7 @@ impl Journal {
             Self {
                 path: path.into(),
                 fault,
+                rehearsal: None,
             },
             owner,
         ))
@@ -1142,7 +1173,7 @@ impl Journal {
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|_| "mock_registry_unavailable")?;
         let (mut run, separated_bindings) = Self::read_run(&tx)?;
-        let result = run.apply(handle, command);
+        let result = run.apply(handle, command, self.rehearsal.as_deref());
         if result.is_err() {
             run.denied += 1;
             run.state = "terminal".into();
@@ -1186,7 +1217,7 @@ impl Journal {
         Ok(
             json!({"runId":run.run_id,"state":run.state,"membership":run.membership,"bindings":run.bindings,
             "checkpoint":run.checkpoint,"preparations":run.preparations,"sessions":run.sessions,"counters":run.counters(),"operations":run.operations,
-            "approvalSha256":run.approval_sha256,"approvalExpires":run.approval_expires,"credentialLookups":run.credential_lookups,"testPolicy":policy::POLICY,"consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
+            "approvalSha256":run.approval_sha256,"approvalExpires":run.approval_expires,"credentialLookups":run.credential_lookups,"testPolicy":policy::name(&run),"consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
         )
     }
 }
@@ -1354,6 +1385,7 @@ pub(super) mod tests {
             let journal = Journal {
                 path: root.join("registry.sqlite"),
                 fault: None,
+                rehearsal: None,
             };
             let before = std::fs::read(&journal.path).unwrap();
             if fault == "before_initialization_commit" {
@@ -1802,6 +1834,7 @@ pub(super) mod tests {
         let recovered = Journal {
             path: root.join("registry.sqlite"),
             fault: None,
+            rehearsal: None,
         };
         assert_eq!(recovered.report().unwrap()["counters"]["inventory"], 1);
         assert_eq!(

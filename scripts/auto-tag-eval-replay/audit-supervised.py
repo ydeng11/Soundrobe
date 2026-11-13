@@ -2,6 +2,7 @@
 import hashlib
 import json
 import pathlib
+import re
 import sqlite3
 import subprocess
 import sys
@@ -16,6 +17,138 @@ def load(file):
 
 def digest(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
+
+
+def model_rehearsal_audit(run, receipt, requested):
+    """Join rehearsal evidence only; never establish completion or live authority."""
+    policy = 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair'
+    canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
+    compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
+    sha = lambda value: hashlib.sha256(value).hexdigest()
+    bindings = receipt['bindings']
+    selection = load(run / 'selection.json')
+    descriptors = [(expected['name'], stage, folder,
+        load(run / expected['name'] / folder / 'session.json'))
+        for expected in requested['evaluations']
+        for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]]
+    contextual = ('modelRehearsalPlan' in bindings or 'modelRehearsal' in bindings
+        or 'modelRehearsalPlan' in selection or receipt.get('testPolicy') == policy
+        or any('model_rehearsal' in descriptor for _, _, _, descriptor in descriptors))
+    if not contextual:
+        return None
+    assert 'modelRehearsalPlan' in bindings, 'model rehearsal context missing immutable plan'
+    plan = bindings['modelRehearsalPlan']
+    assert set(plan) == {'model', 'observedTarget', 'route', 'provider', 'input'}, 'model rehearsal plan fields'
+    assert set(plan['input']) == {'artist', 'album', 'tracks'}, 'model rehearsal input fields'
+    locked_plans = []
+    for source in bindings['sourcesAndTools']:
+        file = ROOT / source['path']
+        if file.suffix == '.json' and load(file) == plan:
+            assert file.resolve().is_relative_to(ROOT) and not pathlib.Path(source['path']).is_absolute()
+            assert digest(file) == source['sha256'], 'model rehearsal public plan hash drift'
+            locked_plans.append(source['path'])
+    assert len(locked_plans) == 1, 'model rehearsal public plan must be source-locked exactly once'
+    for key in ['model', 'observedTarget']:
+        assert isinstance(plan[key], str) and re.fullmatch(r'~?deepseek/[a-zA-Z0-9_.:/-]+', plan[key])
+        assert len(plan[key].encode()) <= 160
+    assert plan['model'] != plan['observedTarget'], 'request alias and response target must remain separate'
+    assert re.fullmatch(r'[a-z0-9_/-]{1,100}', plan['route']) and all(plan['route'].split('/'))
+    assert re.fullmatch(r'[a-zA-Z0-9 _/-]{1,100}', plan['provider'])
+    payload = plan['input']
+    assert isinstance(payload['tracks'], list) and len(payload['tracks']) <= 100
+    for value in [payload['artist'], payload['album']]:
+        assert value is None or isinstance(value, str)
+    for value in payload['tracks']:
+        assert isinstance(value, str)
+    for value in [payload['artist'], payload['album'], *payload['tracks']]:
+        assert value is None or (len(value.encode()) <= 2048 and not any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in value))
+    body = dict(model=plan['model'], temperature=0.2, max_tokens=1024,
+        reasoning=dict(enabled=False), stream=False,
+        provider=dict(allow_fallbacks=False, require_parameters=True, only=[plan['route']], order=[plan['route']]),
+        messages=[dict(role='system', content='Infer a conservative music genre from the supplied artist, album, and track titles. '
+            'Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.'),
+            dict(role='user', content=canonical(payload).decode())],
+        response_format=dict(type='json_schema', json_schema=dict(name='GenreFillResponse', schema=dict(
+            type='object', properties=dict(genre=dict(type='string'), confidence=dict(type='number')),
+            required=['genre', 'confidence']))))
+    request_bytes = canonical(body)
+    assert len(request_bytes) <= 32768
+    request_sha = sha(request_bytes)
+    # Public seed42 verifier is independently fixed here, never supplied by JSON.
+    verifier = bytes.fromhex('197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61')
+    assert bindings['modelRehearsal'] == dict(policy=policy, model=plan['model'], observedTarget=plan['observedTarget'],
+        providerClaim=plan['provider'], route=plan['route'], requestSha256=request_sha,
+        verifierSha256=sha(verifier), liveAuthority=False), 'model rehearsal immutable binding drift'
+    assert bindings['modelRehearsal']['liveAuthority'] is False
+    assert receipt['testPolicy'] == policy
+    assert selection['modelRehearsalPlan'] == plan and selection['model'] == plan['model']
+    names = [e['name'] for e in requested['evaluations']]
+    assert len(names) == len(set(names)) == 6 and 'assistance-crowd' in names
+    assert set(receipt['preparations']) == set(names)
+    for name, stage, folder, descriptor in descriptors:
+        assert descriptor['model_rehearsal'] == plan, f'{name}/{folder}: rehearsal descriptor drift'
+        assert descriptor['job'] == name and descriptor['stage'] == stage
+    answer = dict(genre='MOCK_ACCEPTED_GENRE_CANARY', confidence=0.8)
+    usage = dict(prompt_tokens=7, completion_tokens=3, total_tokens=10)
+    response_bytes = compact(dict(model=plan['observedTarget'], provider=plan['provider'],
+        choices=[dict(finish_reason='stop', message=dict(content=compact(answer).decode()))],
+        usage=usage, diagnostic='MOCK_RAW_DIAGNOSTIC_CANARY'))
+    response_sha = sha(response_bytes)
+    model_operations = {k: v for k, v in receipt['operations'].items() if v['category'] == 'model'}
+    assert len(model_operations) == receipt['counters']['model'] == receipt['credentialLookups'] == 1
+    operation_id, operation = next(iter(model_operations.items()))
+    assert all(operation[k] is True for k in ['dispatched', 'arrived', 'completed'])
+    assert operation['request_sha256'] == sha(compact(['POST', '/model/chat/completions', request_sha]))
+    assert operation['response'] == dict(sha256=response_sha, bytes=len(response_bytes), status=200,
+        identityClaimsVerified=False, pricingVerified=False, usageClaimsVerified=False)
+    assert all(operation['response'][k] is False for k in ['identityClaimsVerified', 'pricingVerified', 'usageClaimsVerified'])
+    for name in names:
+        directory = run / name
+        active = name == 'assistance-crowd'
+        preparation = load(directory / 'preparation/preparation.json')
+        prepared = receipt['preparations'][name]
+        assert prepared['preparationSha256'] == digest(directory / 'preparation/preparation.json'), name
+        assert prepared['requestSha256'] == (request_sha if active else None), name
+        requests = [e['body'] for e in preparation['plan']['events'] if e['kind'] == 'request']
+        assert requests == ([body] if active else []), f'{name}: prepared request drift'
+        service = load(directory / 'service.json')
+        if active:
+            assert (directory / 'independent-request.json').read_bytes() == request_bytes
+            scripted = service['scriptedModel']
+            assert {k: scripted[k] for k in ['requestModel', 'responseModel', 'provider', 'maxRequests',
+                'bodySha256', 'payload', 'response', 'usage', 'privacyCanaries']} == dict(
+                    requestModel=plan['model'], responseModel=plan['observedTarget'], provider=plan['provider'],
+                    maxRequests=1, bodySha256=request_sha, payload=payload, response=answer, usage=usage, privacyCanaries=True)
+            assert scripted.get('status', 200) == 200
+        else:
+            assert 'scriptedModel' not in service, name
+        for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]:
+            inventory = load(directory / folder / 'inventory-final.json')
+            expected_request = [dict(status=200, sha256=request_sha, bytes=len(request_bytes),
+                responseSha256=response_sha, responseBytes=len(response_bytes), mockCredentialPresented=True)] if active and stage == 'execution' else []
+            assert inventory['modelRequests'] == expected_request, f'{name}/{folder}: model inventory drift'
+            posts = [w for w in inventory['wireArrivals'] if w['method'] == 'POST']
+            assert len(posts) == len(expected_request)
+            if posts:
+                assert posts[0] == dict(operation=operation_id, method='POST', route='/model/chat/completions', status=200, state='responded')
+                session = receipt['sessions'][operation['session']]
+                assert session['job'] == name and session['stage'] == stage
+        rows = load(directory / 'cold/records.json')
+        assert len(rows) == 1
+        row = rows[0]
+        candidate = row['native'].get('candidate') or {}
+        assisted = dict(model=plan['model'], input_sha256=sha(canonical(payload)), value=answer['genre']) if active else None
+        assert candidate.get('assisted_genre') == row['persistedEvidence']['assistedGenre'] == assisted, name
+        if active:
+            assert candidate['genre'] == answer['genre']
+            assert row['fieldObservations']['tracks'] and all(t['genre'] == answer['genre'] for t in row['fieldObservations']['tracks'])
+        assert load(directory / 'scoring-contract.json')['spec']['mode'] == 'mock', name
+        score = load(directory / 'score.provisional.json')
+        assert score['groundedAssistanceAccuracyCredit'] == 0 and score['writableDelta'] == [] and not score['acceptedCertificate']
+    return dict(policy=policy, requestSha256=request_sha, responseSha256=response_sha,
+        model=plan['model'], observedTarget=plan['observedTarget'], providerClaim=plan['provider'],
+        verifierSha256=sha(verifier), preparedJobs=6, modelRequests=1,
+        identityClaimsVerified=False, groundedAssistanceAccuracyCredit=0, liveAuthority=False)
 
 
 def storage_audit(run, config, allow_stopped=False):
@@ -134,6 +267,7 @@ def audit(run):
     # Bind scorer inputs and published results to the actual native JSONL whose
     # digest the broker retained, rather than accepting two unrelated exports.
     requested = load(run / 'requested-membership.json')
+    rehearsal = model_rehearsal_audit(run, load(run / 'authority/provisional.json'), requested)
     executions = []
     for expected in requested['evaluations']:
         directory = run / expected['name']
@@ -195,6 +329,8 @@ def audit(run):
         auditBindings=dict(historicalDurableAuditor=digest(original),
             adaptedDurableAuditor=hashlib.sha256(source.encode()).hexdigest(), native=checked['auditor']),
         liveAuthority=False, powerLossProved=False, groundedAssistanceAccuracyCredit=0)
+    if rehearsal is not None:
+        result['modelRehearsal'] = rehearsal
     if config.get('storage'):
         result['storage'] = storage_audit(run, config)
     return result

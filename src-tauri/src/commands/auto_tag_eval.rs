@@ -3951,6 +3951,12 @@ async fn run_auto_tag_eval(
         // Capability/configuration is not a credential. Only the broker's
         // injected mock supplier can produce one after signed consumption.
         config.llm_api_key = None;
+        if let Some(plan) = durable
+            .as_ref()
+            .and_then(|context| context.model_rehearsal.as_ref())
+        {
+            config.llm_model = Some(plan.model.clone());
+        }
     }
     let trace_donors = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_DONOR_TRACE").as_deref() == Ok("1");
     if trace_donors {

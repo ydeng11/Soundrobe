@@ -37,7 +37,11 @@ impl Transport {
                 .acquire()
                 .await
                 .map_err(|_| "mock_transport_stopped")?;
-            let body = serde_json::to_vec(&input.body()?).unwrap();
+            let rehearsal = state.journal.rehearsal.as_deref();
+            let body = match rehearsal {
+                Some(r) => r.request_body(&input)?,
+                None => serde_json::to_vec(&input.body()?).unwrap(),
+            };
             let reservation = state.command(
                 handle,
                 Command::Reserve {
@@ -79,10 +83,13 @@ impl Transport {
             )?;
             self.lookups.fetch_add(1, Ordering::SeqCst);
             let key = (self.credentials)().map_err(|_| "mock_credential_unavailable")?;
-            let mut request = input.request(
-                &key,
-                &format!("http://127.0.0.1:{}/model", target.port().unwrap()),
-            )?;
+            let mut request = match rehearsal {
+                Some(r) => r.request(&key, target)?,
+                None => input.request(
+                    &key,
+                    &format!("http://127.0.0.1:{}/model", target.port().unwrap()),
+                )?,
+            };
             require(request.body().and_then(reqwest::Body::as_bytes) == Some(body.as_slice()))?;
             request.headers_mut().insert(
                 "x-soundrobe-mock-operation",
@@ -123,7 +130,11 @@ impl Transport {
             )?;
             state.command(&state.owner, Command::Complete { operation })?;
             require(response.status().as_u16() == 200)?;
-            let parsed = parse(&bytes)?;
+            let (model, provider) = rehearsal
+                .map_or(("scripted/genre-v1", "scripted-loopback-v1"), |r| {
+                    (r.resolved_model.as_str(), r.provider.as_str())
+                });
+            let parsed = parse(&bytes, model, provider)?;
             require(!state.stopped.load(Ordering::SeqCst))?;
             Ok(parsed)
         })
@@ -138,11 +149,11 @@ struct Answer {
     genre: String,
     confidence: f64,
 }
-fn parse(bytes: &[u8]) -> Result<Value, String> {
+fn parse(bytes: &[u8], model: &str, provider: &str) -> Result<Value, String> {
     let value: Value = serde_json::from_slice(bytes).map_err(|_| "mock_response_invalid")?;
     // These are unverified upstream claims, not attested serving identity,
     // billing, tokenizer/version or price. They authorize no external route.
-    require(value["model"] == "scripted/genre-v1" && value["provider"] == "scripted-loopback-v1")?;
+    require(value["model"] == model && value["provider"] == provider)?;
     let choices = value["choices"].as_array().ok_or("mock_response_invalid")?;
     require(choices.len() == 1 && choices[0]["finish_reason"] == "stop")?;
     let text = choices[0]["message"]["content"]
@@ -157,6 +168,12 @@ fn parse(bytes: &[u8]) -> Result<Value, String> {
             && (0.0..=1.0).contains(&answer.confidence),
     )?;
     let usage = &value["usage"];
+    if let Some(details) = usage.get("completion_tokens_details") {
+        require(details.is_object())?;
+        if let Some(reasoning) = details.get("reasoning_tokens") {
+            require(reasoning.as_u64() == Some(0))?;
+        }
+    }
     let input = usage["prompt_tokens"]
         .as_u64()
         .ok_or("mock_usage_unknown")?;

@@ -163,6 +163,7 @@ fn child(
         "SOUNDROBE_NATIVE_MANAGED",
         "SOUNDROBE_NATIVE_GENERATION",
         "SOUNDROBE_STORAGE_REQUIRED",
+        "SOUNDROBE_MODEL_REHEARSAL_PLAN",
     ] {
         if let Some(value) = std::env::var_os(key) {
             command.env(key, value);
@@ -941,6 +942,9 @@ fn native_supervision_process() {
                     if monitor.managed { "1" } else { "0" },
                 )
                 .stdin(Stdio::null());
+            if let Some(plan) = std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN") {
+                payload.env("SOUNDROBE_MODEL_REHEARSAL_PLAN", plan);
+            }
             run_anchor(payload, owners, scope);
         }
         "dead-anchor-control" => {

@@ -441,6 +441,135 @@ private development configuration is read or changed. Ordinary application
 provider behavior is unchanged; this does not create a live evaluation mode or
 provision real approval, credentials, billing controls or retention guarantees.
 
+### File-only real-model preflight
+
+`preflight-model.cjs` reads an explicitly supplied dotenv file and two public
+catalog snapshots. It never sources shell code, changes `process.env`, fetches
+metadata, sends inference, exports credentials or creates approval. It requires
+Node 20.12 or newer for the standard `util.parseEnv` parser. The file-only view
+uses `LLM_MODEL`, `LLM_PROVIDER`, `LLM_BASE_URL` and credential presence. It does
+not read private YAML or establish the effective application configuration after
+other sources. Only OpenRouter's HTTPS base is supported in this preparation.
+
+```sh
+node scripts/auto-tag-eval-replay/preflight-model.cjs \
+  .env.local MODEL_SNAPSHOT.json TARGET_ENDPOINTS_SNAPSHOT.json
+node --test scripts/auto-tag-eval-replay/test_model_preflight.cjs
+```
+
+The first snapshot is OpenRouter's public `GET /api/v1/model/{author}/{slug}`
+response for the exact configured identifier. The second is public
+`GET /api/v1/models/{author}/{slug}/endpoints` for its observed alias target, or
+the model itself when it is not an alias. These are unauthenticated catalog
+reads, not connection-test inference. Obtain them separately; this command has
+no network implementation. Snapshot age and authenticity remain operator
+responsibilities and must be rechecked before final approval.
+
+Preserve a leading `~` in the model name. A moving alias and its observed target
+are different facts; do not substitute the target in the request. An alias's
+empty endpoint list does not prove it cannot serve. The tool joins the alias
+metadata to its concrete target's endpoints, rejects unsupported parameter and
+unknown-price routes, and proposes the lowest declared text-token estimate among
+compatible candidates. A candidate is not an approved or attested serving host.
+
+The report contains only allowlisted settings, snapshot/configuration hashes,
+fixed limits, a $5 USD allowance and explicit unfinished checks. Credentials and
+the private whole-file hash are absent. Secret rotation alone does not change
+the public settings fingerprint. Price arithmetic uses integer trillionths of a
+dollar. Its 8,192-input/1,024-output text-token illustration is not a tokenizer
+proof, provider-side billing ceiling, purchase authorization or all-in fee bound.
+Unknown account terms and billing exposure still block live execution.
+
+The explicitly selected native test entry
+`infra::openrouter::tests::prepare_model_evaluation_plan` accepts paths through
+`SOUNDROBE_MODEL_PREFLIGHT_REPORT` and `SOUNDROBE_MODEL_PREFLIGHT_INPUT`. The input
+is the public `artist`/`album`/`tracks` object, never the answer labels. Build the
+normal server test executable and run only this ignored entry with `--exact`,
+`--ignored` and `--nocapture`. Use an environment containing only the required
+paths and basic execution variables, not the credential file's environment.
+The native entry validates the genre input, uses the app's existing prompt/schema
+and shared request encoder, and emits `SOUNDROBE_MODEL_PLAN=` followed by JSON.
+It adds exact `provider.only` and `provider.order` route restrictions, disables
+fallback/reasoning/streaming, hashes the actual body and binds the input/report
+bytes. It constructs no executable HTTP request, reads no credential and sends
+nothing. These native preparation helpers remain test-build-only.
+
+Both report and native plan always state `liveAuthority:false`,
+`liveDispatchAvailable:false` and `readyForExecution:false`. Neither is signed
+approval, a durable attempt reservation or a result. Real approval provisioning,
+native-only real credential supply, complete driver/readback/scoring integration
+and final-source supervised acceptance remain unfinished. No historical mock run
+certifies those paths.
+
+### Offline broker rehearsal of the prepared request
+
+The test-only native broker can bind the prepared DeepSeek request to a distinct
+`offline-model-rehearsal-v1` policy. Its native context pins the verifier outside
+approval JSON, child IPC and the saved run manifest. Immutable run bindings
+include its fingerprint, request digest, exact configured model alias, separately
+observed response-model target, candidate route and expected provider label.
+Neither a provider's response label nor the fingerprint attests hosted weights,
+provider identity or real user trust.
+
+The configured alias stays in the request. The independently observed concrete
+target is used for response validation, not silently substituted into the request.
+Input drift fails before credential lookup or wire dispatch. A signed approval
+must match the exact frozen scope, expiry and nonce and can be consumed once.
+Reopening a saved rehearsal without its native verifier context permits read-only
+reporting but cannot authorize commands under the old fixture key. The positive
+and negative contracts use deliberately public test seed `[42; 32]`; this is
+separate fixture trust, not real approval custody or provisioning.
+
+Rehearsal dispatch still permits only a registered explicit-port HTTP
+`127.0.0.1` fixture at `/model/chat/completions`. Its injected supplier returns
+fake credentials, additionally constrained by a `MOCK_` prefix. That prefix is a
+fixture convention, not a general secret classifier. This component neither
+reads `.env.local` secrets nor adds a live endpoint or activation switch. The
+same durable nonrefundable reservations, lookup count, post-supplier admission,
+HTTP executor and bounded response receipts are reused. No retry, repair,
+redirect, proxy, model fallback or provider fallback is introduced.
+
+Only a validated genre/confidence projection crosses IPC. Fully received error
+responses retain exact digest/byte/status receipts and settle the consumed
+operation without making its answer valid. Missing or excessive usage, a wrong
+model/provider claim, malformed output and reported nonzero reasoning fail
+closed. A truncated or oversized wire response retains an incomplete operation,
+not a fabricated complete receipt. Low-confidence genre text is withheld from
+IPC and general evidence.
+
+The maintained supervised launcher accepts an optional third argument containing
+the public rehearsal-plan path. It passes only that path before native ownership
+and storage admission; it does not inherit parent credentials or read the plan
+before bootstrap. The plan contains `model`, `observedTarget`, `route`, `provider`
+and public `input` (artist, album and track titles), never a verifier or credential.
+The driver locks its bytes in the signed scope. Native bootstrap independently
+selects the public test verifier and constructs the contextual Journal.
+
+All twelve worker descriptors carry the same plan. Preparations use the existing
+app request encoder; the worker rejects input/model drift and records the exact
+request alias in assistance provenance. The loopback fixture may report the
+separately observed response target. Scoring still checks provenance against the
+prepared request, retains the full requested denominator and awards no grounded
+accuracy credit for the scripted answer. The maintained read-only auditor joins
+the locked plan, six preparations, request/response receipts, fixture inventories,
+actual worker SQLite projections, media readback and scores. These joins do not
+replace the native witness and timely successful supervisor-exit requirement.
+
+Use a new output root under `.amp/in/artifacts/` and a retained test executable:
+
+```sh
+node scripts/auto-tag-eval-replay/run-supervised.cjs NEW_OUTPUT TEST_EXECUTABLE PUBLIC_REHEARSAL_PLAN
+python3 -B scripts/auto-tag-eval-replay/audit-supervised.py NEW_OUTPUT
+```
+
+The original 300/600-second scopes, 512-MiB growth/1-GiB cumulative application-write
+caps and terminal reserve are unchanged. Lost recording remains incomplete;
+staging cannot recover success. The real credential reader, actual approval
+provisioning, billing enforcement and external transport remain separate
+unfinished work. All new evaluation entry points remain absent from non-test
+application builds. A successful rehearsal verifies wiring, not real-model
+quality, hosted identity, physical disk traffic or power-loss durability.
+
 ## Checks
 
 ```sh

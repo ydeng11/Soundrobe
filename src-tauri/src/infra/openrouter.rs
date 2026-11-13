@@ -823,26 +823,15 @@ impl OpenRouterClient {
         })
     }
 
-    /// Prepare an offline evaluation request, not a completion/retry loop.
-    /// The broker owns admission, the strict HTTP executor and raw receipts.
     #[cfg(test)]
-    pub(crate) fn bounded_json_request(
+    fn bounded_evaluation_body(
         &self,
         messages: &[ChatMessage],
         schema_name: &str,
         schema: &Value,
-    ) -> Result<reqwest::Request, OpenRouterError> {
-        let denied = || OpenRouterError::Network("bounded_offline_request_denied".into());
-        let base = reqwest::Url::parse(&self.base_url).map_err(|_| denied())?;
+    ) -> Result<Value, OpenRouterError> {
+        let denied = || OpenRouterError::Network("bounded_request_denied".into());
         if self.provider != ProviderKind::OpenAi
-            || base.scheme() != "http"
-            || base.host_str() != Some("127.0.0.1")
-            || base.port().is_none()
-            || base.path() != "/model"
-            || !base.username().is_empty()
-            || base.password().is_some()
-            || base.query().is_some()
-            || base.fragment().is_some()
             || !(1..=1024).contains(&self.max_tokens)
             || !self.temperature.is_finite()
             || !(0.0..=2.0).contains(&self.temperature)
@@ -856,15 +845,82 @@ impl OpenRouterClient {
         body["reasoning"] = json!({"enabled":false});
         body["provider"] = json!({"allow_fallbacks":false,"require_parameters":true});
         body["stream"] = json!(false);
+        if serde_json::to_vec(&body).map_err(|_| denied())?.len() > 32768 {
+            return Err(denied());
+        }
+        Ok(body)
+    }
+
+    /// Non-executable preparation only. No credential access or HTTP request.
+    #[cfg(test)]
+    pub(crate) fn evaluation_request_plan(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+        route: &str,
+    ) -> Result<Value, OpenRouterError> {
+        use sha2::{Digest, Sha256};
+        let denied = || OpenRouterError::Network("evaluation_plan_denied".into());
+        let model = self.model.strip_prefix('~').unwrap_or(&self.model);
+        if self.base_url != OPENROUTER_BASE
+            || !model.starts_with("deepseek/")
+            || model.len() <= "deepseek/".len()
+            || model
+                .bytes()
+                .any(|b| !b.is_ascii_alphanumeric() && !b"_-./:".contains(&b))
+            || route.is_empty()
+            || route.len() > 100
+            || route.split('/').any(|part| part.is_empty())
+            || route
+                .bytes()
+                .any(|b| !b.is_ascii_lowercase() && !b.is_ascii_digit() && !b"_-/".contains(&b))
+        {
+            return Err(denied());
+        }
+        let mut body = self.bounded_evaluation_body(messages, schema_name, schema)?;
+        body["provider"]["only"] = json!([route]);
+        body["provider"]["order"] = json!([route]);
         let bytes = serde_json::to_vec(&body).map_err(|_| denied())?;
         if bytes.len() > 32768 {
             return Err(denied());
         }
+        Ok(json!({
+            "request":{"method":"POST","url":format!("{OPENROUTER_BASE}/chat/completions"),
+                "headers":{"content-type":"application/json"},"body":body},
+            "bodySha256":format!("{:x}",Sha256::digest(&bytes)),
+            "liveAuthority":false,"liveDispatchAvailable":false,"readyForExecution":false
+        }))
+    }
+
+    /// Prepare an offline evaluation request, not a completion/retry loop.
+    /// The broker owns admission, the strict HTTP executor and raw receipts.
+    #[cfg(test)]
+    pub(crate) fn bounded_json_request(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+    ) -> Result<reqwest::Request, OpenRouterError> {
+        let denied = || OpenRouterError::Network("bounded_offline_request_denied".into());
+        let base = reqwest::Url::parse(&self.base_url).map_err(|_| denied())?;
+        if base.scheme() != "http"
+            || base.host_str() != Some("127.0.0.1")
+            || base.port().is_none()
+            || base.path() != "/model"
+            || !base.username().is_empty()
+            || base.password().is_some()
+            || base.query().is_some()
+            || base.fragment().is_some()
+        {
+            return Err(denied());
+        }
+        let body = self.bounded_evaluation_body(messages, schema_name, schema)?;
         self.http
             .post(format!("{}/chat/completions", self.base_url))
             .bearer_auth(&self.api_key)
             .header("content-type", "application/json")
-            .body(bytes)
+            .body(serde_json::to_vec(&body).map_err(|_| denied())?)
             .build()
             .map_err(|_| denied())
     }
@@ -1156,6 +1212,138 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
     use std::thread;
+
+    #[test]
+    #[ignore = "explicit file-only evaluation preparation; no HTTP or credential access"]
+    fn prepare_model_evaluation_plan() {
+        use sha2::{Digest, Sha256};
+        let read = |name: &str| {
+            let path = std::env::var(name).expect("preflight_path_missing");
+            let file = std::fs::File::open(path).expect("preflight_file_unavailable");
+            assert!(
+                file.metadata().unwrap().is_file(),
+                "preflight_input_invalid"
+            );
+            let mut bytes = Vec::new();
+            file.take(65537)
+                .read_to_end(&mut bytes)
+                .expect("preflight_file_unavailable");
+            assert!(bytes.len() <= 65536, "preflight_input_oversized");
+            bytes
+        };
+        let report_bytes = read("SOUNDROBE_MODEL_PREFLIGHT_REPORT");
+        let report: Value =
+            serde_json::from_slice(&report_bytes).expect("preflight_report_invalid");
+        assert_eq!(report["liveAuthority"], false);
+        assert_eq!(report["readyForExecution"], false);
+        assert_eq!(report["allowanceUsdCents"], 500);
+        let input_bytes = read("SOUNDROBE_MODEL_PREFLIGHT_INPUT");
+        let input: crate::infra::mock_run_authority::policy::GenreInput =
+            serde_json::from_slice(&input_bytes).expect("preflight_input_invalid");
+        input.body().expect("preflight_input_invalid");
+        let (messages, schema) =
+            crate::commands::auto_tag::genre_request_parts(&serde_json::to_value(input).unwrap());
+        let client = OpenRouterClient::at(
+            "",
+            report["model"].as_str().expect("preflight_model_invalid"),
+            report["endpoint"]
+                .as_str()
+                .expect("preflight_endpoint_invalid"),
+        )
+        .with_generation(0.2, 1024);
+        let mut plan = client
+            .evaluation_request_plan(
+                &messages,
+                "GenreFillResponse",
+                &schema,
+                report["candidateRoute"]
+                    .as_str()
+                    .expect("preflight_route_invalid"),
+            )
+            .expect("preflight_plan_invalid");
+        plan["preflightReportSha256"] = json!(format!("{:x}", Sha256::digest(&report_bytes)));
+        plan["inputSha256"] = json!(format!("{:x}", Sha256::digest(&input_bytes)));
+        println!("SOUNDROBE_MODEL_PLAN={plan}");
+    }
+
+    #[test]
+    fn evaluation_plan_preserves_alias_and_host_without_credentials_or_send_authority() {
+        let client = OpenRouterClient::at(
+            "SECRET_PLAN_CANARY",
+            "~deepseek/deepseek-v4-flash-latest",
+            OPENROUTER_BASE,
+        )
+        .with_generation(0.2, 1024);
+        let plan = client
+            .evaluation_request_plan(
+                &[ChatMessage::user(
+                    "Public album metadata, not scoring labels",
+                )],
+                "GenreFillResponse",
+                &json!({"type":"object"}),
+                "fixture/fp8",
+            )
+            .unwrap();
+        assert_eq!(
+            plan["request"]["body"]["model"],
+            "~deepseek/deepseek-v4-flash-latest"
+        );
+        assert_eq!(
+            plan["request"]["body"]["provider"],
+            json!({
+                "only":["fixture/fp8"],"order":["fixture/fp8"],
+                "allow_fallbacks":false,"require_parameters":true
+            })
+        );
+        assert_eq!(plan["request"]["body"]["reasoning"]["enabled"], false);
+        assert_eq!(plan["request"]["body"]["stream"], false);
+        assert_eq!(
+            plan["request"]["url"],
+            "https://openrouter.ai/api/v1/chat/completions"
+        );
+        assert_eq!(plan["liveAuthority"], false);
+        assert_eq!(plan["liveDispatchAvailable"], false);
+        assert_eq!(plan["readyForExecution"], false);
+        assert!(!plan.to_string().contains("SECRET_PLAN_CANARY"));
+        assert!(plan["request"]["headers"].get("authorization").is_none());
+        let bytes = serde_json::to_vec(&plan["request"]["body"]).unwrap();
+        use sha2::{Digest, Sha256};
+        assert_eq!(plan["bodySha256"], format!("{:x}", Sha256::digest(&bytes)));
+        for route in [
+            "",
+            "fixture?key=SECRET",
+            "fixture/../other",
+            "fixture\nother",
+        ] {
+            assert!(client
+                .evaluation_request_plan(&[], "GenreFillResponse", &json!({}), route)
+                .is_err());
+        }
+        for base in [
+            "https://other.invalid/v1",
+            "http://openrouter.ai/api/v1",
+            "https://user:SECRET@openrouter.ai/api/v1",
+        ] {
+            assert!(
+                OpenRouterClient::at("key", "~deepseek/deepseek-v4-flash-latest", base)
+                    .evaluation_request_plan(&[], "GenreFillResponse", &json!({}), "fixture/fp8")
+                    .is_err()
+            );
+        }
+        assert!(client
+            .clone()
+            .with_generation(0.2, 1025)
+            .evaluation_request_plan(&[], "GenreFillResponse", &json!({}), "fixture/fp8")
+            .is_err());
+        assert!(client
+            .evaluation_request_plan(
+                &[ChatMessage::user("X".repeat(32768))],
+                "GenreFillResponse",
+                &json!({}),
+                "fixture/fp8"
+            )
+            .is_err());
+    }
 
     #[test]
     fn bounded_provider_request_preserves_deepseek_and_enforces_one_shot_policy() {

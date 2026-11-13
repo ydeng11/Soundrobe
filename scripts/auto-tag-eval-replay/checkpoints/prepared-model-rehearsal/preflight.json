@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "model": "~deepseek/deepseek-v4-flash-latest",
+  "endpoint": "https://openrouter.ai/api/v1",
+  "provider": "openrouter",
+  "source": "env_local_only",
+  "observedTarget": "deepseek/deepseek-v4-flash-0731",
+  "credentialPresent": true,
+  "candidateRoute": "wafer/us",
+  "allowanceUsdCents": 500,
+  "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+  "catalogSha256": "9d95fda337d1a614d6a131a60fb000f565a340465a0c7d7895cdcc18c751be63",
+  "limits": {
+    "modelAttempts": 1,
+    "retries": 0,
+    "repairs": 0,
+    "outputTokens": 1024,
+    "requestBytes": 32768,
+    "responseBytes": 65536,
+    "attemptMs": 5000,
+    "preparationMs": 300000,
+    "executionMs": 600000,
+    "growthBytes": 536870912,
+    "cumulativeWriteBytes": 1073741824,
+    "terminalGrowthBytes": 2097152,
+    "terminalWriteBytes": 8388608
+  },
+  "textEstimate": {
+    "usd": "0.0006627328",
+    "inputTokens": 8192,
+    "outputTokens": 1024,
+    "pricing": {
+      "prompt": "0.0000000434",
+      "completion": "0.0000003"
+    },
+    "hardBillingCap": false,
+    "limitations": "Declared text-token illustration, not a tokenizer proof or all-in fee/account guarantee."
+  },
+  "retention": {
+    "remote": "documented_provider_defaults_for_public_metadata",
+    "local": "until_result_review"
+  },
+  "catalogFreshness": "operator_supplied_snapshot_not_attested",
+  "liveAuthority": false,
+  "liveDispatchAvailable": false,
+  "readyForExecution": false,
+  "blockers": [
+    "live_dispatch_disabled",
+    "real_run_approval_missing",
+    "native_credential_isolation_not_integrated",
+    "selected_host_terms_not_bound",
+    "billing_exposure_not_verified"
+  ],
+  "planSha256": "f6cefd18bc447e4a228b9d31fb30601df214a6e8fc42ecd20c69ed1063deadd1"
+}

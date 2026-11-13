@@ -1,0 +1,65 @@
+{
+  "bodySha256": "5923deaf5e154a6deb436d079edf3b17912c011e979690a46398852f2b7bb7b8",
+  "inputSha256": "0d991f51a85f4be9f16aaa71870d682d3508690dfbb3677f56abf6f3a4214157",
+  "liveAuthority": false,
+  "liveDispatchAvailable": false,
+  "preflightReportSha256": "66da0886462b791955e73ca6b20a2abc6245891d66fab6c50a88f1ee5e9a4e1f",
+  "readyForExecution": false,
+  "request": {
+    "body": {
+      "max_tokens": 1024,
+      "messages": [
+        {
+          "content": "Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.",
+          "role": "system"
+        },
+        {
+          "content": "{\"album\":\"勵志論\",\"artist\":\"盧廣仲\",\"tracks\":[\"Intro\",\"勵志論\",\"自我的介紹\",\"雨時多雲偶陣晴\",\"狂迪\",\"像你\",\"肌肉的記憶\",\"輕輕\",\"冒煙的燈泡\",\"明年\",\"英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]\"]}",
+          "role": "user"
+        }
+      ],
+      "model": "~deepseek/deepseek-v4-flash-latest",
+      "provider": {
+        "allow_fallbacks": false,
+        "only": [
+          "wafer/us"
+        ],
+        "order": [
+          "wafer/us"
+        ],
+        "require_parameters": true
+      },
+      "reasoning": {
+        "enabled": false
+      },
+      "response_format": {
+        "json_schema": {
+          "name": "GenreFillResponse",
+          "schema": {
+            "properties": {
+              "confidence": {
+                "type": "number"
+              },
+              "genre": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "genre",
+              "confidence"
+            ],
+            "type": "object"
+          }
+        },
+        "type": "json_schema"
+      },
+      "stream": false,
+      "temperature": 0.2
+    },
+    "headers": {
+      "content-type": "application/json"
+    },
+    "method": "POST",
+    "url": "https://openrouter.ai/api/v1/chat/completions"
+  }
+}

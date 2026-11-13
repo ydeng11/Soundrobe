@@ -4346,7 +4346,14 @@ async fn fill_genre_if_missing(
             use crate::infra::mock_run_authority::{policy::GenreInput, Command};
             let input: GenreInput = serde_json::from_value(payload.clone())
                 .map_err(|_| "mock_input_invalid".to_string())?;
-            let body = input.body()?;
+            let body = if let Some(plan) = &context.model_rehearsal {
+                if model != plan.model {
+                    return Err("mock_rehearsal_model_drift".into());
+                }
+                plan.body(&input)?
+            } else {
+                input.body()?
+            };
             crate::infra::bounded_eval::paired_request(&endpoint.base_url, &body)?;
             if cancelled.load(Ordering::Acquire) {
                 return Err("mock_cancelled".into());

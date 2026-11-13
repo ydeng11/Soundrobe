@@ -1,0 +1,71 @@
+{
+  "freshDelivery": {
+    "typecheck": "passed",
+    "providerFixtureTests": {
+      "passed": 12
+    },
+    "reviewToolTests": {
+      "passed": 10
+    },
+    "nodeTests": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    },
+    "rustfmt": "passed",
+    "cjsSyntax": "passed",
+    "pythonAst": "passed",
+    "whitespace": "passed",
+    "readOnlyReaudit": "byte-identical to audit.json; not a workload",
+    "sourceArchiveBindings": 1859,
+    "receiptBindingOccurrences": 1669,
+    "uniqueReceiptBindings": 1668,
+    "privacyBindings": 550
+  },
+  "reusedSourceBound": {
+    "serverLibrary": {
+      "passed": 874,
+      "failed": 0,
+      "ignored": 31
+    },
+    "renderer": {
+      "passed": 858
+    },
+    "brokerTransportScenarios": 35,
+    "preparedApprovalScenarios": 10,
+    "nodeAuditorSemanticCorruptions": 20,
+    "sixJobRun": ".amp/in/artifacts/model-worker-rehearsal-20261113/run-01",
+    "newDeliveryWorkload": false,
+    "newIndependentRuntimeReview": false
+  },
+  "result": {
+    "slots": 216,
+    "sessions": 12,
+    "settledOperations": 497,
+    "provider": 472,
+    "inventory": 24,
+    "model": 1,
+    "fakeLookups": 1,
+    "groundedCredit": 0,
+    "userAgreement": "0/22",
+    "preparationMs": 220130,
+    "executionThroughAcceptanceMs": 450400,
+    "growthReserved": 320515873,
+    "writeReserved": 502219549
+  },
+  "controls": {
+    "retainedCopyPositive": 1,
+    "retainedCopySemanticRejections": 8,
+    "initialHarnessFailure": "expected missing-worker-plan KeyError was not classified; corrected evidence-only lever, runtime unchanged"
+  },
+  "limits": [
+    "Trusted macOS mock-only. No live calls, credential activation, trust provisioning, push or fetch.",
+    "No fresh full desktop, independent runtime review, eleven-control native fault matrix, strict Clippy or credential/display/packaged smoke.",
+    "Historical non-green Clippy, ignored tests and adverse/incomplete runs remain disclosed and retained.",
+    "One attempt, original 300/600-second scopes and 512-MiB/1-GiB caps including terminal grant remain unchanged.",
+    "Native witness plus actual timely successful supervisor exit; lost recording incomplete, no staging promotion or resume.",
+    "No real-model quality, hosted identity, billing cessation, live privacy, production approval custody, malicious-host, power-loss or physical-I/O guarantee.",
+    "Anchor-loss containment and interrupted-write privacy remain unproved. Receiver and audit negatives are compositional.",
+    "No fresh-clone exact replay or executable attestation. Ignored inputs and matching retained executable are required."
+  ]
+}

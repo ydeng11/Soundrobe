@@ -522,6 +522,61 @@ async fn mock_authority_transport_requires_authenticated_approval_not_a_checkpoi
     assert_eq!(report["mutationAdmissions"], 0);
 }
 
+// Independent, deliberately public rehearsal seed. Never user approval.
+fn rehearsal_setup() -> (std::path::PathBuf, Journal, String) {
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    let signer = Ed25519KeyPair::from_seed_unchecked(&[42; 32]).unwrap();
+    let input = serde_json::from_value(json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]})).unwrap();
+    let rehearsal = super::policy::Rehearsal::new(
+        &input,
+        "~deepseek/deepseek-v4-flash-latest",
+        "deepseek/deepseek-v4-flash-0731",
+        "wafer/us",
+        "Wafer",
+        signer.public_key().as_ref().try_into().unwrap(),
+    )
+    .unwrap();
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/artifacts/model-rehearsal-20261113")
+        .join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&root).unwrap();
+    let membership = serde_json::from_str(include_str!(
+        "../../../test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json"
+    ))
+    .unwrap();
+    let (journal, owner) = Journal::create_rehearsal(
+        &root.join("registry.sqlite"),
+        membership,
+        json!({"executable":super::sha(b"test executable")}),
+        rehearsal,
+    )
+    .unwrap();
+    journal
+        .command(
+            &owner,
+            Command::Lease {
+                role: "owner".into(),
+            },
+        )
+        .unwrap();
+    (root, journal, owner)
+}
+fn rehearsal_approval(report: &Value) -> Value {
+    use ring::signature::Ed25519KeyPair;
+    let scope = json!({"runId":report["runId"], "checkpoint":report["checkpoint"],
+        "bindings":report["bindings"], "membership":report["membership"],
+        "preparations":report["preparations"], "policy":super::policy::REHEARSAL_POLICY});
+    let payload = json!({"version":1,"runId":report["runId"],"checkpoint":report["checkpoint"],
+        "scopeSha256":super::sha(&serde_json::to_vec(&scope).unwrap()),
+        "nonce":uuid::Uuid::new_v4().to_string(), "expiresUnixSeconds":super::policy::now().unwrap()+1200});
+    let signature = Ed25519KeyPair::from_seed_unchecked(&[42; 32])
+        .unwrap()
+        .sign(&serde_json::to_vec(&payload).unwrap())
+        .as_ref()
+        .to_vec();
+    json!({"payload":payload,"signature":signature})
+}
+
 // All signing material here is the public RFC 8032 test vector, not user trust.
 fn fixture_approval(report: &Value) -> Value {
     let scope = json!({"runId":report["runId"], "checkpoint":report["checkpoint"],
@@ -559,6 +614,106 @@ async fn control_request(broker: &Broker, handle: &str, command: Value) -> Value
     let mut reply = String::new();
     BufReader::new(socket).read_line(&mut reply).await.unwrap();
     serde_json::from_str(&reply).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn model_rehearsal_approval_cannot_reuse_fixture_trust_or_recover_authority() {
+    for damage in [
+        "none",
+        "fixture-key",
+        "wrong-key",
+        "scope",
+        "expired",
+        "nonce",
+        "extra-key",
+        "replay",
+        "race",
+        "missing-pin",
+    ] {
+        let (_root, mut journal, owner) = rehearsal_setup();
+        let broker = Broker::start(journal.clone(), owner.clone()).await.unwrap();
+        super::tests::freeze_request(
+            &journal,
+            &owner,
+            Some(
+                journal.rehearsal.as_ref().unwrap().binding()["requestSha256"]
+                    .as_str()
+                    .unwrap()
+                    .into(),
+            ),
+        );
+        let mut approval = rehearsal_approval(&journal.report().unwrap());
+        if damage == "fixture-key" {
+            approval = sign_fixture_payload(approval["payload"].clone());
+        } else if ["scope", "expired", "nonce", "wrong-key"].contains(&damage) {
+            use ring::signature::Ed25519KeyPair;
+            match damage {
+                "scope" => {
+                    approval["payload"]["scopeSha256"] = json!(super::sha(b"other-settings"))
+                }
+                "expired" => approval["payload"]["expiresUnixSeconds"] = json!(1),
+                "nonce" => approval["payload"]["nonce"] = json!("invalid"),
+                _ => {}
+            }
+            let seed = if damage == "wrong-key" {
+                [43; 32]
+            } else {
+                [42; 32]
+            };
+            approval["signature"] = json!(Ed25519KeyPair::from_seed_unchecked(&seed)
+                .unwrap()
+                .sign(&serde_json::to_vec(&approval["payload"]).unwrap())
+                .as_ref()
+                .to_vec());
+        } else if damage == "extra-key" {
+            approval["publicKey"] = json!(vec![42; 32]);
+        }
+        let command = json!({"op":"approve","approval":approval});
+        let valid = ["none", "replay", "race"].contains(&damage);
+        if damage == "missing-pin" {
+            let before = std::fs::read(&journal.path).unwrap();
+            journal.rehearsal = None;
+            assert_eq!(
+                journal.report().unwrap()["membership"]["requestedFieldSlots"],
+                216
+            );
+            assert_eq!(
+                std::fs::read(&journal.path).unwrap(),
+                before,
+                "read-only recovery changed the registry"
+            );
+            let command = serde_json::from_value(command).unwrap();
+            assert!(
+                journal.command(&owner, command).is_err(),
+                "lost pin fell back to fixture trust"
+            );
+        } else if damage == "race" {
+            let (a, b) = tokio::join!(
+                control_request(&broker, &owner, command.clone()),
+                control_request(&broker, &owner, command)
+            );
+            assert_eq!(
+                usize::from(a["ok"] == true) + usize::from(b["ok"] == true),
+                1
+            );
+        } else {
+            assert_eq!(
+                control_request(&broker, &owner, command.clone()).await["ok"],
+                valid,
+                "{damage}"
+            );
+            if damage == "replay" {
+                assert_eq!(control_request(&broker, &owner, command).await["ok"], false);
+            }
+        }
+        let report = journal.report().unwrap();
+        assert_eq!(report["consumptions"], usize::from(valid), "{damage}");
+        assert_eq!(report["credentialLookups"], 0);
+        assert_eq!(report["counters"]["model"], 0);
+        assert_eq!(report["membership"]["requestedFieldSlots"], 216);
+        assert_eq!(report["liveAuthority"], false);
+        assert_eq!(report["testPolicy"], super::policy::REHEARSAL_POLICY);
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -657,8 +812,29 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
         "supplier-revocation",
         "send-commit-expiry",
         "revoked-after-approval",
+        "rehearsal-success",
+        "rehearsal-low-confidence",
+        "rehearsal-status",
+        "rehearsal-schema",
+        "rehearsal-usage",
+        "rehearsal-identity",
+        "rehearsal-provider",
+        "rehearsal-credential",
+        "rehearsal-input-drift",
+        "rehearsal-replay",
+        "rehearsal-supplier-revocation",
+        "rehearsal-supplier-failure",
+        "rehearsal-reasoning",
+        "rehearsal-usage-limit",
+        "rehearsal-truncated-wire",
     ] {
-        let (_root, journal, owner) = super::tests::setup();
+        let rehearsal = mode.starts_with("rehearsal-");
+        let mode = mode.strip_prefix("rehearsal-").unwrap_or(mode);
+        let (_root, journal, owner) = if rehearsal {
+            rehearsal_setup()
+        } else {
+            super::tests::setup()
+        };
         let supplier_journal = journal.clone();
         let supplier_owner = owner.clone();
         let supplier = transport::Transport::new(Box::new(move || {
@@ -673,7 +849,12 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
             if mode == "supplier-expiry" {
                 std::thread::sleep(std::time::Duration::from_millis(2100));
             }
-            Ok("MOCK_ONLY_SECRET_CANARY".into())
+            Ok(if mode == "credential" {
+                "sk-REAL_LOOKING_SECRET_CANARY"
+            } else {
+                "MOCK_ONLY_SECRET_CANARY"
+            }
+            .into())
         }));
         let sends = std::sync::atomic::AtomicUsize::new(0);
         let barrier = Box::new(move |dispatch| {
@@ -687,12 +868,17 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 .await
                 .unwrap();
         let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]});
-        let body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
+        let mut body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
             "reasoning":{"enabled":false},"provider":{"allow_fallbacks":false,"require_parameters":true},"stream":false,
             "messages":[{"role":"system","content":"Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient."},
                 {"role":"user","content":input.to_string()}],
             "response_format":{"type":"json_schema","json_schema":{"name":"GenreFillResponse","schema":{
                 "type":"object","properties":{"genre":{"type":"string"},"confidence":{"type":"number"}},"required":["genre","confidence"]}}}});
+        if rehearsal {
+            body["model"] = json!("~deepseek/deepseek-v4-flash-latest");
+            body["provider"]["only"] = json!(["wafer/us"]);
+            body["provider"]["order"] = json!(["wafer/us"]);
+        }
         // Preparation's independent request digest is the authorization, not a
         // URL/body supplied by the evaluated child at dispatch time.
         super::tests::freeze_request(
@@ -700,7 +886,11 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
             &owner,
             Some(super::sha(body.to_string().as_bytes())),
         );
-        let mut approval = fixture_approval(&journal.report().unwrap());
+        let mut approval = if rehearsal {
+            rehearsal_approval(&journal.report().unwrap())
+        } else {
+            fixture_approval(&journal.report().unwrap())
+        };
         if ["supplier-expiry", "send-commit-expiry"].contains(&mode) {
             let mut payload = approval["payload"].clone();
             payload["expiresUnixSeconds"] = json!(super::policy::now().unwrap() + 2);
@@ -742,9 +932,11 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
             .unwrap();
         let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
         let observed = captured.clone();
+        let responses = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let response_capture = responses.clone();
         let j = journal.clone();
         let fixture = tokio::spawn(axum::serve(listener,Router::new().fallback(move |request: Request| {
-            let observed=observed.clone(); let j=j.clone(); let service=service.clone();
+            let observed=observed.clone(); let j=j.clone(); let service=service.clone(); let response_capture=response_capture.clone();
             async move {
                 let operation=request.headers()["x-soundrobe-mock-operation"].to_str().unwrap().to_string();
                 assert_eq!(request.uri().path(),"/model/chat/completions");
@@ -753,18 +945,31 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 observed.lock().unwrap().push(bytes.to_vec());
                 j.command(&service,Command::Arrival {operation,request_sha256:super::sha(&serde_json::to_vec(&json!(["POST","/model/chat/completions",super::sha(&bytes)])).unwrap())}).unwrap();
                 let mut response=json!({"model":"scripted/genre-v1","provider":"scripted-loopback-v1","choices":[{"finish_reason":"stop","message":{"content":"{\"genre\":\"ACCEPTED_CANARY\",\"confidence\":0.8}"}}],"usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10}});
+                if rehearsal {
+                    response["model"] = json!("deepseek/deepseek-v4-flash-0731");
+                    response["provider"] = json!("Wafer");
+                }
                 match mode {
+                    "provider" => response["provider"] = json!("UNAPPROVED_HOST_CANARY"),
                     "low-confidence" => response["choices"][0]["message"]["content"]=json!("{\"genre\":\"REJECTED_CANARY\",\"confidence\":0.59}"),
                     "schema" => response["choices"][0]["message"]["content"]=json!("RAW_SCHEMA_SECRET_CANARY"),
                     "empty" => response["choices"][0]["message"]["content"]=json!(""),
                     "truncated" => response["choices"][0]["finish_reason"]=json!("length"),
                     "usage" => {response.as_object_mut().unwrap().remove("usage");}
+                    "usage-limit" => response["usage"] = json!({"prompt_tokens":7,"completion_tokens":1025,"total_tokens":1032}),
+                    "reasoning" => response["usage"]["completion_tokens_details"] = json!({"reasoning_tokens":2}),
                     "identity" => response["model"]=json!("REMOTE_IDENTITY_CANARY"),
                     _=>{}
                 }
-                Response::builder().status(if mode=="status" {429} else if mode=="redirect" {307} else {200})
+                let status = if mode=="status" {429} else if mode=="redirect" {307} else {200};
+                let bytes = if mode=="oversize" {"X".repeat(65537)} else if mode=="status" {"RAW_BODY_SECRET_CANARY".into()} else {response.to_string()};
+                response_capture.lock().unwrap().push((status, bytes.clone()));
+                let body = if mode == "truncated-wire" {
+                    Body::from_stream(futures_util::stream::iter(vec![Ok::<_,std::io::Error>("partial"),Err(std::io::Error::other("DISCONNECTED_CANARY"))]))
+                } else { Body::from(bytes) };
+                Response::builder().status(status)
                     .header("x-private-canary","HEADER_SECRET_CANARY").header("location","http://127.0.0.1:1/never")
-                    .body(Body::from(if mode=="oversize" {"X".repeat(65537)} else if mode=="status" {"RAW_BODY_SECRET_CANARY".into()} else {response.to_string()})).unwrap()
+                    .body(body).unwrap()
             }
         })).into_future());
         if mode == "revoked-after-approval" {
@@ -834,6 +1039,7 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 "supplier-expiry",
                 "supplier-revocation",
                 "send-commit-expiry",
+                "credential",
             ]
             .contains(&mode);
         let report = control_request(&broker, &owner, json!({"op":"report"})).await;
@@ -846,14 +1052,28 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
             usize::from(!no_lookup)
         );
         assert!(!report.to_string().contains("CANARY"));
-        if !no_wire && mode != "oversize" {
+        assert_eq!(
+            report["value"]["counters"]["model"],
+            usize::from(!no_lookup)
+        );
+        assert_eq!(report["value"]["membership"]["requestedFieldSlots"], 216);
+        if !no_wire {
             let operations = report["value"]["operations"].as_object().unwrap();
-            let receipt = &operations.values().next().unwrap()["response"];
-            assert!(
-                receipt["sha256"].as_str().is_some_and(super::digest_valid),
-                "broker response binding absent: {receipt}"
-            );
-            assert_eq!(receipt["identityClaimsVerified"], false);
+            let operation = operations.values().next().unwrap();
+            let receipt = &operation["response"];
+            if ["oversize", "truncated-wire"].contains(&mode) {
+                assert!(receipt.is_null());
+                assert_eq!(operation["completed"], false);
+                assert_eq!(report["value"]["state"], "terminal");
+            } else {
+                let responses = responses.lock().unwrap();
+                assert_eq!(responses.len(), 1);
+                assert_eq!(receipt["sha256"], super::sha(responses[0].1.as_bytes()));
+                assert_eq!(receipt["bytes"], responses[0].1.len());
+                assert_eq!(receipt["status"], responses[0].0);
+                assert_eq!(receipt["identityClaimsVerified"], false);
+                assert_eq!(operation["completed"], true);
+            }
         }
         assert!(
             !String::from_utf8_lossy(&std::fs::read(&journal.path).unwrap()).contains("CANARY")
@@ -892,6 +1112,7 @@ fn mock_policy_ambiguous_approval_crashes_never_reopen_or_refund() {
         let j = Journal {
             path: path.clone(),
             fault: None,
+            rehearsal: None,
         };
         let report = j.report().unwrap();
         assert_eq!(
@@ -1453,12 +1674,25 @@ pub(crate) async fn supervised_process(
             .parse::<i32>()
             .map_err(|_| "mock_group_invalid")?);
     monitor.check()?;
-    let (journal, owner) = Journal::create(
-        &directory.join("registry.sqlite"),
-        input["membership"].clone(),
-        input["bindings"].clone(),
-        None,
-    )?;
+    let plan = input["bindings"].get("modelRehearsalPlan");
+    super::require(plan.is_some() == std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN").is_some())?;
+    let (journal, owner) = if let Some(plan) = plan {
+        let plan: super::policy::RehearsalPlan =
+            serde_json::from_value(plan.clone()).map_err(|_| "mock_rehearsal_plan_invalid")?;
+        Journal::create_rehearsal(
+            &directory.join("registry.sqlite"),
+            input["membership"].clone(),
+            input["bindings"].clone(),
+            plan.context()?,
+        )?
+    } else {
+        Journal::create(
+            &directory.join("registry.sqlite"),
+            input["membership"].clone(),
+            input["bindings"].clone(),
+            None,
+        )?
+    };
     let broker = Broker::start(journal.clone(), owner).await?;
     receiver::durable_json(&directory, "ready.json", &broker.descriptor).map_err(io_error)?;
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("stalled-storage") {

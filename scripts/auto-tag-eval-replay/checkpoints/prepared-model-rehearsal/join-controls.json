@@ -1,0 +1,77 @@
+{
+  "sourceRun": ".amp/in/artifacts/model-worker-rehearsal-20261113/run-01",
+  "sourceReceiptSha256": "a08d54227721c0b3e827ac5cf1434f5f00a4a7e420b73f3ea4aa13775e2cedd9",
+  "auditorSha256": "8b898a86853bb33a45e06c5f3b4ff05bf4bdca6f6724c333e8da8d0e6d85d709",
+  "controls": [
+    {
+      "control": "positive",
+      "outcome": "accepted",
+      "result": {
+        "policy": "offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair",
+        "requestSha256": "5923deaf5e154a6deb436d079edf3b17912c011e979690a46398852f2b7bb7b8",
+        "responseSha256": "a235aa64e5241a239ac9df85374f30d9575e84f7c82a82ad4288dcc6c99286b3",
+        "model": "~deepseek/deepseek-v4-flash-latest",
+        "observedTarget": "deepseek/deepseek-v4-flash-0731",
+        "providerClaim": "Wafer",
+        "verifierSha256": "b600306cfa76723fdec395e53a9b3d9fdb78b1e2d7a23c32fcbcd2dc6d0c4092",
+        "preparedJobs": 6,
+        "modelRequests": 1,
+        "identityClaimsVerified": false,
+        "groundedAssistanceAccuracyCredit": 0,
+        "liveAuthority": false
+      }
+    },
+    {
+      "control": "rehashed-wrong-route",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": "assistance-crowd: prepared request drift"
+    },
+    {
+      "control": "response-receipt",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": ""
+    },
+    {
+      "control": "provenance-target-substitution",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": "assistance-crowd"
+    },
+    {
+      "control": "unattested-identity-promotion",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": ""
+    },
+    {
+      "control": "fixture-target-drift",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": ""
+    },
+    {
+      "control": "missing-worker-plan",
+      "outcome": "rejected",
+      "exception": "KeyError",
+      "reason": "'model_rehearsal'"
+    },
+    {
+      "control": "second-model-operation",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": ""
+    },
+    {
+      "control": "false-grounded-credit",
+      "outcome": "rejected",
+      "exception": "AssertionError",
+      "reason": ""
+    }
+  ],
+  "passed": 9,
+  "failed": 0,
+  "nativeFaultsExecuted": false,
+  "liveAuthority": false
+}

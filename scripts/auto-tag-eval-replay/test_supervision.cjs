@@ -21,6 +21,119 @@ test('explicitly released staging is valid evidence, never complete authority', 
   }
 });
 
+test('prepared model rehearsal audit joins exact alias request, response receipts and retained provenance', () => {
+  const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+  const { spawnSync } = require('node:child_process');
+  const root = fs.mkdtempSync(path.resolve('.amp/in/model-audit-'));
+  const sha = b => crypto.createHash('sha256').update(b).digest('hex');
+  const canonical = value => JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v)
+    ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
+  const plan = { model: '~deepseek/deepseek-v4-flash-latest', observedTarget: 'deepseek/deepseek-v4-flash-0731',
+    route: 'wafer/us', provider: 'Wafer', input: { artist: '盧廣仲', album: 'Album', tracks: ['Intro', 'Title'] } };
+  const policy = 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair';
+  const body = { model: plan.model, temperature: 0.2, max_tokens: 1024, reasoning: { enabled: false }, stream: false,
+    provider: { allow_fallbacks: false, require_parameters: true, only: [plan.route], order: [plan.route] },
+    messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
+      { role: 'user', content: canonical(plan.input) }],
+    response_format: { type: 'json_schema', json_schema: { name: 'GenreFillResponse', schema: {
+      type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } };
+  const request = Buffer.from(canonical(body)), requestSha256 = sha(request);
+  const responseValue = { genre: 'MOCK_ACCEPTED_GENRE_CANARY', confidence: 0.8 };
+  const response = JSON.stringify({ model: plan.observedTarget, provider: plan.provider,
+    choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(responseValue) } }],
+    usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }, diagnostic: 'MOCK_RAW_DIAGNOSTIC_CANARY' });
+  const names = ['disabled-billie', 'disabled-enya', 'disabled-crowd', 'assistance-billie', 'assistance-enya', 'assistance-crowd'];
+  const files = {};
+  const put = (file, value) => files[file] = value;
+  put('public-plan.json', plan);
+  put('selection.json', { model: plan.model, modelRehearsalPlan: plan });
+  const binding = { policy, model: plan.model, observedTarget: plan.observedTarget, providerClaim: plan.provider,
+    route: plan.route, requestSha256, verifierSha256: sha(Buffer.from('197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61', 'hex')), liveAuthority: false };
+  const receipt = { testPolicy: policy, bindings: { modelRehearsalPlan: plan, modelRehearsal: binding,
+    sourcesAndTools: [{ path: path.relative(process.cwd(), path.join(root, 'public-plan.json')), sha256: sha(JSON.stringify(plan)) }] },
+    preparations: {}, sessions: {}, operations: {}, counters: { model: 1 }, credentialLookups: 1 };
+  const requested = { evaluations: names.map(name => ({ name })) };
+  for (const name of names) {
+    const active = name === 'assistance-crowd';
+    const preparation = { plan: { events: active ? [{ kind: 'request', body }] : [] } };
+    put(`${name}/preparation/preparation.json`, preparation);
+    receipt.preparations[name] = { preparationSha256: sha(JSON.stringify(preparation)), requestSha256: active ? requestSha256 : null };
+    put(`${name}/service.json`, active ? { scriptedModel: { requestModel: plan.model, responseModel: plan.observedTarget,
+      provider: plan.provider, maxRequests: 1, bodySha256: requestSha256, payload: plan.input,
+      response: responseValue, usage: { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }, privacyCanaries: true } } : {});
+    for (const [stage, folder] of [['preparation', 'preparation'], ['execution', 'cold']]) {
+      const id = `${name}-${stage}`;
+      receipt.sessions[id] = { job: name, stage };
+      put(`${name}/${folder}/session.json`, { job: name, stage, model_rehearsal: plan });
+      put(`${name}/${folder}/inventory-final.json`, { modelRequests: active && stage === 'execution'
+        ? [{ status: 200, sha256: requestSha256, bytes: request.length, responseSha256: sha(response), responseBytes: Buffer.byteLength(response), mockCredentialPresented: true }] : [],
+      wireArrivals: active && stage === 'execution'
+        ? [{ operation: 'single-model', method: 'POST', route: '/model/chat/completions', status: 200, state: 'responded' }] : [] });
+    }
+    put(`${name}/scoring-contract.json`, { spec: { mode: 'mock' } });
+    put(`${name}/score.provisional.json`, { groundedAssistanceAccuracyCredit: 0, writableDelta: [], acceptedCertificate: false });
+    const assisted = active ? { model: plan.model, input_sha256: sha(canonical(plan.input)), value: responseValue.genre } : null;
+    put(`${name}/cold/records.json`, [{ native: { candidate: { assisted_genre: assisted, genre: active ? responseValue.genre : null } },
+      persistedEvidence: { assistedGenre: assisted }, fieldObservations: { tracks: [{ genre: active ? responseValue.genre : null }] } }]);
+    if (active) files[`${name}/independent-request.json`] = request;
+  }
+  receipt.operations['single-model'] = { session: 'assistance-crowd-execution', category: 'model',
+    dispatched: true, arrived: true, completed: true,
+    request_sha256: sha(JSON.stringify(['POST', '/model/chat/completions', requestSha256])),
+    response: { status: 200, bytes: Buffer.byteLength(response), sha256: sha(response),
+      identityClaimsVerified: false, pricingVerified: false, usageClaimsVerified: false } };
+  const check = (mutate = () => {}) => {
+    const current = structuredClone({ files, receipt, requested }); mutate(current);
+    for (const [file, value] of Object.entries(current.files)) {
+      const target = path.join(root, file); fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, value instanceof Uint8Array ? value : JSON.stringify(value));
+    }
+    fs.writeFileSync(path.join(root, 'context.json'), JSON.stringify(current));
+    return spawnSync('python3', ['-B', '-c', `import pathlib,sys,json,importlib
+sys.path.insert(0,'scripts/auto-tag-eval-replay')
+m=importlib.import_module('audit-supervised');r=pathlib.Path(sys.argv[1]);c=json.loads((r/'context.json').read_text())
+print(json.dumps(m.model_rehearsal_audit(r,c['receipt'],c['requested'])))`, root], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
+  };
+  try {
+    const valid = check(); assert.equal(valid.status, 0, valid.stderr);
+    assert.equal(JSON.parse(valid.stdout).liveAuthority, false);
+    const damage = [
+      c => delete c.receipt.bindings.modelRehearsalPlan,
+      c => c.receipt.bindings.modelRehearsalPlan.verifier = 'injected',
+      c => c.receipt.bindings.modelRehearsal.verifierSha256 = 'a'.repeat(64),
+      c => c.receipt.testPolicy = 'historical',
+      c => c.receipt.bindings.sourcesAndTools = [],
+      c => c.receipt.bindings.sourcesAndTools[0].sha256 = 'c'.repeat(64),
+      c => c.files['public-plan.json'] = { ...plan, route: 'other/route' },
+      c => c.files['selection.json'].model = plan.observedTarget,
+      c => delete c.files['disabled-enya/cold/session.json'].model_rehearsal,
+      c => {
+        const prepared = c.files['assistance-crowd/preparation/preparation.json'];
+        prepared.plan.events[0].body.provider.only = ['other'];
+        c.receipt.preparations['assistance-crowd'].preparationSha256 = sha(JSON.stringify(prepared));
+      },
+      c => c.receipt.preparations['disabled-billie'].requestSha256 = requestSha256,
+      c => c.files['assistance-crowd/service.json'].scriptedModel.responseModel = plan.model,
+      c => c.files['assistance-crowd/cold/inventory-final.json'].modelRequests[0].responseSha256 = 'b'.repeat(64),
+      c => c.receipt.operations['single-model'].response.identityClaimsVerified = true,
+      c => c.receipt.operations.extra = structuredClone(c.receipt.operations['single-model']),
+      c => c.files['disabled-billie/cold/inventory-final.json'].modelRequests.push({}),
+      c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.assisted_genre.model = plan.observedTarget,
+      c => c.files['assistance-crowd/cold/records.json'][0].fieldObservations.tracks[0].genre = 'wrong',
+      c => c.files['assistance-crowd/scoring-contract.json'].spec.mode = 'live',
+      c => c.files['assistance-crowd/score.provisional.json'].groundedAssistanceAccuracyCredit = 1,
+    ];
+    for (const [i, mutate] of damage.entries()) assert.notEqual(check(mutate).status, 0, `accepted semantic damage ${i}`);
+    const historical = check(c => {
+      c.receipt.bindings = {}; delete c.receipt.testPolicy;
+      c.files['selection.json'] = { model: 'scripted/genre-v1' };
+      for (const [file, value] of Object.entries(c.files)) if (file.endsWith('/session.json')) delete value.model_rehearsal;
+    });
+    assert.equal(historical.status, 0, historical.stderr);
+    assert.equal(JSON.parse(historical.stdout), null);
+  } finally { fs.rmSync(root, { recursive: true }); }
+});
+
 test('recovery records observed receiver success, never staged files or eventual supervisor exit', () => {
   const { validateOutcome } = require('./run-supervised.cjs');
   const config = { generation: 'fresh', receiverPid: 123, receiverGroup: 321 };

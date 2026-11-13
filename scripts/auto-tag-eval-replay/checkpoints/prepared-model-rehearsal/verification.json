@@ -1,0 +1,43 @@
+{
+  "sourceFiles": 1859,
+  "executable": {
+    "built": "src-tauri/target/debug/deps/soundrobe_lib-044fd9dc614a3617",
+    "retained": ".amp/in/artifacts/model-worker-rehearsal-20261113/native-test-executable",
+    "sha256": "5b5dd3edb42a4ec79d3171fef2641e28b5e4e39bb9bada1584f07dea23b2ab31"
+  },
+  "receiptBindingOccurrences": 1669,
+  "uniqueReceiptBindings": 1668,
+  "privacyBindings": 550,
+  "supervision": {
+    "preparationMs": 220130,
+    "executionThroughAcceptanceMs": 450400,
+    "supervisorExitObservedAt": 587928143,
+    "acceptedAt": 587928173,
+    "deadline": 588077773
+  },
+  "actorsAbsent": {
+    "receiver": 99594,
+    "supervisor": 99612,
+    "anchor": 99613,
+    "broker": 99614,
+    "driver": 99615
+  },
+  "groupsAbsent": {
+    "receiverGroup": 99590,
+    "supervisorGroup": 99612,
+    "executionGroup": 99613
+  },
+  "retainedJoinControls": {
+    "positive": 1,
+    "semanticRejections": 8
+  },
+  "sourceManifestSha256": "a8b09cb8029dafb1cac84a75ed05d35aa271299b9dcaee77854656b197b58a40",
+  "sourceArchiveSha256": "7454458e30556ff28122037aba030865a8cd2d7c9911c4bf616fb4f97b806d8c",
+  "privacyAuditorSha256": "550992b61d5cfc62131f3d0e3260365264ca0a60b4305b215bc95f7e4f0546b3",
+  "liveAuthority": false,
+  "realModelQualityMeasured": false,
+  "independentRuntimeReviewPerformed": false,
+  "freshFullDesktopGatePerformed": false,
+  "freshNativeFaultMatrixPerformed": false,
+  "limits": "trusted-host mock-only; no billing, hosted-identity, physical-I/O, power-loss, malicious-host or anchor-loss guarantee"
+}

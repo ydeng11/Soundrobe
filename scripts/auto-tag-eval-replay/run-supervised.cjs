@@ -25,13 +25,14 @@ function readSmall(file) {
   return fs.readFileSync(file);
 }
 
-function main(output, executable) {
-  if (!output || !executable || process.argv.length !== 4) throw Error('Usage: run-supervised.cjs NEW_OUTPUT TEST_EXECUTABLE');
+function main(output, executable, rehearsalPlan) {
+  if (!output || !executable || ![4, 5].includes(process.argv.length)) throw Error('Usage: run-supervised.cjs NEW_OUTPUT TEST_EXECUTABLE [PUBLIC_REHEARSAL_PLAN]');
   output = path.resolve(output);
   // No source/input/config reads precede native ownership and its clock.
   const status = spawnSync(path.resolve(executable), ['--exact',
     'infra::mock_run_authority::supervisor::ownership::native_supervision_process', '--ignored', '--nocapture'], {
-    cwd: process.cwd(), env: { PATH: process.env.PATH, SOUNDROBE_NATIVE_ROLE: 'receiver', SOUNDROBE_NATIVE_OUTPUT: output },
+    cwd: process.cwd(), env: { PATH: process.env.PATH, SOUNDROBE_NATIVE_ROLE: 'receiver', SOUNDROBE_NATIVE_OUTPUT: output,
+      ...(rehearsalPlan ? { SOUNDROBE_MODEL_REHEARSAL_PLAN: path.resolve(rehearsalPlan) } : {}) },
     // Descendants must not own a pipe whose EOF gates launcher completion.
     // Native exit and the receiver outcome, never captured output, decide it.
     stdio: 'ignore',

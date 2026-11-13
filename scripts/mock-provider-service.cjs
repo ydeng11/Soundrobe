@@ -161,12 +161,12 @@ function createService(manifestPath, authority) {
         const allowed = (!authority || request.headers.authorization === 'Bearer MOCK_ONLY_SECRET_CANARY')
           && modelRequests.length < scripted.maxRequests
           && (!scripted.bodySha256 || sha256(Buffer.from(bytes)) === scripted.bodySha256)
-          && body.model === 'scripted/genre-v1'
+          && body.model === (scripted.requestModel ?? 'scripted/genre-v1')
           && body.response_format?.json_schema?.name === schemaName
           && user?.length === 1 && isDeepStrictEqual(payload, scripted.payload);
         const status = allowed ? (scripted.status ?? 200) : 501;
         const result = status === 200 ? {
-          model: 'scripted/genre-v1', provider: 'scripted-loopback-v1',
+          model: scripted.responseModel ?? 'scripted/genre-v1', provider: scripted.provider ?? 'scripted-loopback-v1',
           choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(scripted.response) } }],
           ...(scripted.usage === undefined ? {} : { usage: scripted.usage }),
         } : { error: allowed ? 'scripted_service_failure' : 'offline_model_fixture_missing' };
