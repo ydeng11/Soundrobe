@@ -1,0 +1,44 @@
+{
+  "receiptBindingOccurrences": 1671,
+  "uniqueReceiptBindings": 1670,
+  "supervision": {
+    "preparationMs": 217622,
+    "executionThroughAcceptanceMs": 450651,
+    "supervisorExitObservedAt": 600835550,
+    "acceptedAt": 600835580,
+    "deadline": 600984929
+  },
+  "totalGrowthReserved": 322082943,
+  "totalWriteBytesReserved": 503640699,
+  "storageLedgerRecords": 2512,
+  "actorsAbsent": {
+    "receiver": 34704,
+    "supervisor": 34705,
+    "anchor": 34706,
+    "broker": 34707,
+    "driver": 34708
+  },
+  "groupsAbsent": {
+    "receiverGroup": 34697,
+    "supervisorGroup": 34705,
+    "executionGroup": 34706
+  },
+  "auditSha256": "fa47e9a1889b8e91062d3332417e767f6fa30631977c9e039481c72dbd1d21e4",
+  "verifierSha256": "ead57a6a7931b5c521aef0a38d90b446811d06ce084d6433b76dddd344bbefb8",
+  "liveAuthority": false,
+  "realModelQualityMeasured": false,
+  "independentRuntimeReviewPerformed": false,
+  "scope": "Offline hosted-policy bootstrap, worker, scoring and supervised six-job rehearsal",
+  "limits": "No real approval, billing, hosted identity, physical-I/O, power-loss, malicious-host or anchor-loss guarantee",
+  "acceptedRun": "run-02",
+  "verifierRelocation": {
+    "originalSha256": "ead57a6a7931b5c521aef0a38d90b446811d06ce084d6433b76dddd344bbefb8",
+    "adaptedSha256": "c0d01ccd16b63d41995857b25a0e77f3662d6c6127286ddb44e056ecd685b45d",
+    "countedFilenameRelocations": {
+      "run-01": 1,
+      "audit-01.json": 2
+    },
+    "wrapperSha256": "c2ac25c4891bf77c2914f588061de3e9d8a2c9a3bb7f53ac46c579bb77daaa24"
+  },
+  "adverseRun01": "incomplete; all216 unavailable; cause unestablished; no resume or promotion"
+}

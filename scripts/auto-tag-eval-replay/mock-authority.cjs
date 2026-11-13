@@ -17,14 +17,23 @@ function validateProvisionalReceipt(receipt, expected) {
 }
 
 function validateReceipt(receipt, expected, state) {
+  const hosted = receipt?.testPolicy === 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
+    && receipt.bindings?.modelRehearsal?.offlineFixture === true;
+  const operations = Object.values(receipt?.operations ?? {});
+  const native = hosted ? operations.filter(o => o.category === 'model' && o.arrived === false
+    && o.response?.observation === 'offline_injected_native_response' && o.response.remoteArrivalVerified === false) : [];
+  if (hosted && (native.length !== 1 || operations.filter(o => o.category === 'model').length !== 1
+      || operations.length !== receipt.counters?.reserved || receipt.counters?.model !== 1)) {
+    throw Error('offline native observation missing or ambiguous');
+  }
   if (!receipt || !expected || receipt.state !== state || receipt.consumptions !== 1
       || receipt.denied !== 0 || receipt.ownerLive !== false || receipt.liveAuthority !== false
       || !expected.checkpoint || !expected.runId
       || ['runId', 'checkpoint', 'membership', 'bindings', 'counters', 'sessions', 'preparations', 'operations']
         .some(key => !isDeepStrictEqual(receipt[key], expected[key]))
       || Object.keys(receipt.sessions).length !== 12
-      || receipt.counters.reserved !== receipt.counters.arrived || receipt.counters.reserved !== receipt.counters.completed
-      || Object.values(receipt.operations).some(o => !o.dispatched || !o.arrived || !o.completed)) {
+      || receipt.counters.reserved !== receipt.counters.arrived + native.length || receipt.counters.reserved !== receipt.counters.completed
+      || operations.some(o => !o.dispatched || (!o.arrived && !native.includes(o)) || !o.completed)) {
     throw Error('mock final receipt missing, terminal or mismatched; incomplete, never resume');
   }
   return receipt;
@@ -161,14 +170,15 @@ function testApproval(report) {
       : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
   const policy = report.testPolicy ?? 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair';
   const rehearsal = policy === 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair';
-  if (!rehearsal && policy !== 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair') throw Error('Unknown offline signing policy');
+  const hosted = policy === 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair';
+  if (!rehearsal && !hosted && policy !== 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair') throw Error('Unknown offline signing policy');
   const scope = { runId: report.runId, checkpoint: report.checkpoint, bindings: report.bindings,
     membership: report.membership, preparations: report.preparations, policy };
   const payload = { version: 1, runId: report.runId, checkpoint: report.checkpoint,
     scopeSha256: crypto.createHash('sha256').update(canonical(scope)).digest('hex'),
     nonce: crypto.randomUUID(), expiresUnixSeconds: Math.floor(Date.now() / 1000) + 1200 };
   const key = crypto.createPrivateKey({ format: 'der', type: 'pkcs8', key: Buffer.from(
-    '302e020100300506032b657004220420' + (rehearsal ? '2a'.repeat(32) : '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60'), 'hex') });
+    '302e020100300506032b657004220420' + (hosted ? '2b'.repeat(32) : rehearsal ? '2a'.repeat(32) : '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60'), 'hex') });
   return { payload, signature: [...crypto.sign(null, Buffer.from(canonical(payload)), key)] };
 }
 module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt, testApproval };

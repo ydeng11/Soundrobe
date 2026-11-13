@@ -1,4 +1,4 @@
-//! Broker-owned offline transport. No external endpoint or secret fallback.
+//! Broker-owned mock transport and disabled hosted boundary. No secret fallback.
 use super::{Command, Shared};
 use crate::infra::mock_run_authority::{policy::GenreInput, require, sha};
 use serde::Deserialize;
@@ -6,9 +6,15 @@ use serde_json::{json, Value};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 type Supplier = Box<dyn Fn() -> Result<String, &'static str> + Send + Sync>;
+// In-process response injection only, constructed by explicit native offline
+// bootstrap or native controls. IPC and environment cannot supply an executor.
+type OfflineExecutor =
+    Box<dyn Fn(reqwest::Request) -> Result<reqwest::Response, &'static str> + Send + Sync>;
 pub(super) struct Transport {
     credentials: Supplier,
     lookups: AtomicUsize,
+    offline_executor: Option<OfflineExecutor>,
+    source_settings_sha256: Option<String>,
 }
 impl Default for Transport {
     fn default() -> Self {
@@ -20,7 +26,52 @@ impl Transport {
         Self {
             credentials,
             lookups: AtomicUsize::new(0),
+            offline_executor: None,
+            source_settings_sha256: None,
         }
+    }
+    pub(super) fn offline_boundary(
+        source: super::super::policy::boundary::CredentialFile,
+        executor: OfflineExecutor,
+    ) -> Self {
+        Self {
+            offline_executor: Some(executor),
+            source_settings_sha256: Some(source.settings_sha()),
+            ..Self::new(Box::new(move || source.read()))
+        }
+    }
+    /// Explicit native offline bootstrap only; never sends the hosted URL.
+    pub(super) fn offline_rehearsal(
+        context: &super::super::policy::Rehearsal,
+        source: super::super::policy::boundary::CredentialFile,
+    ) -> Result<Self, String> {
+        require(context.disabled_hosted())?;
+        let bytes = serde_json::to_vec(&json!({"model":context.resolved_model,"provider":context.provider,
+            "choices":[{"finish_reason":"stop","message":{"content":
+                serde_json::to_string(&json!({"genre":"MOCK_ACCEPTED_GENRE_CANARY","confidence":0.8})).unwrap()}}],
+            "usage":{"prompt_tokens":7,"completion_tokens":3,"total_tokens":10},
+            "diagnostic":"MOCK_RAW_DIAGNOSTIC_CANARY"})).unwrap();
+        Ok(Self::offline_boundary(
+            source,
+            Box::new(move |request| {
+                if request.url().as_str() != super::super::policy::boundary::ENDPOINT
+                    || request
+                        .headers()
+                        .get("authorization")
+                        .and_then(|v| v.to_str().ok())
+                        != Some("Bearer MOCK_ONLY_SECRET_CANARY")
+                    || request.headers().contains_key("x-soundrobe-mock-operation")
+                {
+                    return Err("mock_offline_fixture_invalid");
+                }
+                Ok(reqwest::Response::from(
+                    axum::http::Response::builder()
+                        .status(200)
+                        .body(bytes.clone())
+                        .unwrap(),
+                ))
+            }),
+        ))
     }
     pub(super) fn lookups(&self) -> usize {
         self.lookups.load(Ordering::SeqCst)
@@ -38,6 +89,19 @@ impl Transport {
                 .await
                 .map_err(|_| "mock_transport_stopped")?;
             let rehearsal = state.journal.rehearsal.as_deref();
+            let hosted = rehearsal.is_some_and(|r| r.disabled_hosted());
+            // No enabled external executor exists. The only hosted seam is a
+            // native-constructed in-process offline control, never a URL/flag.
+            if hosted && self.offline_executor.is_none() {
+                return Err("live_dispatch_disabled".into());
+            }
+            require(hosted == self.offline_executor.is_some())?;
+            if let Some(context) = rehearsal.filter(|_| hosted) {
+                require(
+                    self.source_settings_sha256.as_deref()
+                        == context.binding()["boundary"]["settingsSha256"].as_str(),
+                )?;
+            }
             let body = match rehearsal {
                 Some(r) => r.request_body(&input)?,
                 None => serde_json::to_vec(&input.body()?).unwrap(),
@@ -84,17 +148,26 @@ impl Transport {
             self.lookups.fetch_add(1, Ordering::SeqCst);
             let key = (self.credentials)().map_err(|_| "mock_credential_unavailable")?;
             let mut request = match rehearsal {
-                Some(r) => r.request(&key, target)?,
+                Some(r) => r.request(
+                    &key,
+                    if hosted {
+                        super::super::policy::boundary::ENDPOINT.parse().unwrap()
+                    } else {
+                        target
+                    },
+                )?,
                 None => input.request(
                     &key,
                     &format!("http://127.0.0.1:{}/model", target.port().unwrap()),
                 )?,
             };
             require(request.body().and_then(reqwest::Body::as_bytes) == Some(body.as_slice()))?;
-            request.headers_mut().insert(
-                "x-soundrobe-mock-operation",
-                operation.parse().expect("journal operation is a UUID"),
-            );
+            if !hosted {
+                request.headers_mut().insert(
+                    "x-soundrobe-mock-operation",
+                    operation.parse().expect("journal operation is a UUID"),
+                );
+            }
             // Lookup and request preparation may take time. Admit only after
             // both return, with fresh expiry/revocation and native deadline checks.
             state.command(
@@ -103,11 +176,17 @@ impl Transport {
                     operation: operation.clone(),
                 },
             )?;
-            let mut response = state
-                .http
-                .execute(request)
-                .await
-                .map_err(|_| "mock_delivery_unknown")?;
+            let mut response = if let Some(execute) = &self.offline_executor {
+                execute(request).map_err(|_| "mock_delivery_unknown")?
+            } else {
+                // This arm is still restricted to the registered numeric
+                // loopback target above; hosted requests cannot reach it.
+                state
+                    .http
+                    .execute(request)
+                    .await
+                    .map_err(|_| "mock_delivery_unknown")?
+            };
             let mut bytes = Vec::new();
             while let Some(chunk) = response
                 .chunk()

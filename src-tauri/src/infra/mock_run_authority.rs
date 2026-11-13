@@ -214,6 +214,7 @@ impl Run {
             Some(r) => self.bindings.get("modelRehearsal") == Some(&r.binding()),
             None => self.bindings.get("modelRehearsal").is_none(),
         })?;
+        let native_response = rehearsal.is_some_and(|r| r.disabled_hosted());
         // Arrival/settlement can reconcile an already consumed operation after stop,
         // but never grant another operation or reopen an identity.
         require(
@@ -657,6 +658,7 @@ impl Run {
                 let s = self.sessions.get(&o.session).unwrap();
                 require(
                     handle == s.service
+                        && !(native_response && o.category == "model")
                         && s.fixture_live == Some(true)
                         && !s.closed
                         && o.dispatched
@@ -681,7 +683,11 @@ impl Run {
                     owner
                         && o.category == "model"
                         && o.dispatched
-                        && o.arrived
+                        && if native_response {
+                            !o.arrived && self.credential_lookups == 1
+                        } else {
+                            o.arrived
+                        }
                         && !o.completed
                         && o.response.is_none()
                         && digest_valid(&sha256)
@@ -690,6 +696,11 @@ impl Run {
                 )?;
                 o.response = Some(json!({"sha256":sha256,"bytes":bytes,"status":status,
                     "identityClaimsVerified":false,"pricingVerified":false,"usageClaimsVerified":false}));
+                if native_response {
+                    let response = o.response.as_mut().unwrap();
+                    response["observation"] = json!("offline_injected_native_response");
+                    response["remoteArrivalVerified"] = json!(false);
+                }
                 Ok(json!({"recorded":true}))
             }
             Command::Complete { operation } => {
@@ -697,7 +708,12 @@ impl Run {
                     .operations
                     .get_mut(&operation)
                     .ok_or("mock_authority_denied")?;
-                require(owner && o.arrived && !o.completed)?;
+                require(
+                    owner
+                        && !o.completed
+                        && (o.arrived
+                            || (native_response && o.category == "model" && o.response.is_some())),
+                )?;
                 o.completed = true;
                 Ok(json!({"completed":true}))
             }

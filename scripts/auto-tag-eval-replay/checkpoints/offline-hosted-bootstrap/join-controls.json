@@ -1,0 +1,84 @@
+{
+  "positiveCopies": 1,
+  "intendedSemanticRejections": 8,
+  "results": [
+    {
+      "case": "positive-copy",
+      "accepted": true,
+      "result": {
+        "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+        "requestSha256": "5923deaf5e154a6deb436d079edf3b17912c011e979690a46398852f2b7bb7b8",
+        "responseSha256": "237c5051fd27600b8ce3c243d750d946c9763b9ffd66b0f1cd61b37fb620ed5c",
+        "model": "~deepseek/deepseek-v4-flash-latest",
+        "observedTarget": "deepseek/deepseek-v4-flash-0731",
+        "providerClaim": "Wafer",
+        "verifierSha256": "26f3cfc4e47f703666721413ce07c50f3565672f4aecc104a59835e7fc70b52e",
+        "preparedJobs": 6,
+        "modelRequests": 1,
+        "identityClaimsVerified": false,
+        "groundedAssistanceAccuracyCredit": 0,
+        "liveAuthority": false
+      }
+    },
+    {
+      "case": "fake-arrival",
+      "rejected": true,
+      "expected": "operation['arrived'] is (not hosted)",
+      "assertion": "assert all(operation[k] is True for k in ['dispatched', 'completed']) and operation['arrived'] is (not hosted)",
+      "message": ""
+    },
+    {
+      "case": "remote-claim",
+      "rejected": true,
+      "expected": "canonical(operation['response'])",
+      "assertion": "assert canonical(operation['response']) == canonical(response)",
+      "message": ""
+    },
+    {
+      "case": "projection-mismatch",
+      "rejected": true,
+      "expected": "native model projection drift",
+      "assertion": "assert canonical(load(directory / 'native-model-observations.json')) == canonical(selected), f'{name}: native model projection drift'",
+      "message": "assistance-crowd: native model projection drift"
+    },
+    {
+      "case": "invented-model-wire",
+      "rejected": true,
+      "expected": "len(posts) == len(expected_request)",
+      "assertion": "assert len(posts) == len(expected_request)",
+      "message": ""
+    },
+    {
+      "case": "wrong-verifier",
+      "rejected": true,
+      "expected": "model rehearsal immutable binding drift",
+      "assertion": "assert canonical(bindings['modelRehearsal']) == canonical(binding), 'model rehearsal immutable binding drift'",
+      "message": "model rehearsal immutable binding drift"
+    },
+    {
+      "case": "false-quality-credit",
+      "rejected": true,
+      "expected": "score['groundedAssistanceAccuracyCredit']",
+      "assertion": "assert score['groundedAssistanceAccuracyCredit'] == 0 and score['writableDelta'] == [] and not score['acceptedCertificate']",
+      "message": ""
+    },
+    {
+      "case": "rehashed-wrong-route",
+      "rejected": true,
+      "expected": "prepared request drift",
+      "assertion": "assert requests == ([body] if active else []), f'{name}: prepared request drift'",
+      "message": "assistance-crowd: prepared request drift"
+    },
+    {
+      "case": "missing-observation-summary",
+      "rejected": true,
+      "expected": "native observation summary drift",
+      "assertion": "assert execution['modelRequests'] == len(selected), f'{name}: native observation summary drift'",
+      "message": "assistance-crowd: native observation summary drift"
+    }
+  ],
+  "auditSourceSha256": "4590f1289d23e996e57f08a42c8b6e4dc53d39bf8773edd4ce1e7cd2e19a528f",
+  "leverSha256": "bdb1264c6702306bc35fb8fc2e2bb50ec25bae8ea4943ee1b9e8a844fd850509",
+  "liveAuthority": false,
+  "scope": "Actual retained JSON model-join controls, not runtime faults or full completion re-audits"
+}

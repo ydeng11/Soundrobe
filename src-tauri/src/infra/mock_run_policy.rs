@@ -1,9 +1,12 @@
-//! Offline test policy only. RFC 8032's PUBLIC TEST key is NOT user approval.
-//! Never compiled into the desktop/server application or usable for live calls.
+//! Test-build-only fixture policy and disabled hosted-request preparation.
+//! Public fixture keys are NOT user approval; no live executor is enabled.
 use super::{require, sha};
 use ring::signature::{UnparsedPublicKey, ED25519};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+
+#[path = "mock_run_live_boundary.rs"]
+pub(super) mod boundary;
 
 pub(super) const POLICY: &str =
     "offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair";
@@ -23,6 +26,8 @@ pub(crate) struct RehearsalPlan {
     route: String,
     provider: String,
     input: GenreInput,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) offline_hosted: Option<boundary::TextPricing>,
 }
 impl RehearsalPlan {
     pub(crate) fn body(&self, input: &GenreInput) -> Result<Value, String> {
@@ -36,7 +41,20 @@ impl RehearsalPlan {
         use ring::signature::{Ed25519KeyPair, KeyPair};
         // Deliberately public fixture seed, independently selected natively.
         // Not read from the plan or approval and never real user trust.
-        let fixture = Ed25519KeyPair::from_seed_unchecked(&[42; 32]).unwrap();
+        let seed = if self.offline_hosted.is_some() {
+            43
+        } else {
+            42
+        };
+        let fixture = Ed25519KeyPair::from_seed_unchecked(&[seed; 32]).unwrap();
+        if let Some(pricing) = &self.offline_hosted {
+            let mut context = self.disabled_context(
+                fixture.public_key().as_ref().try_into().unwrap(),
+                pricing.clone(),
+            )?;
+            context.offline_fixture = true;
+            return Ok(context);
+        }
         Rehearsal::new(
             &self.input,
             &self.model,
@@ -49,7 +67,7 @@ impl RehearsalPlan {
 }
 
 /// Pinned by native construction, never read from an approval or child IPC.
-/// This context has no external executor or real-credential mode.
+/// Hosted preparation is distinct from fixture trust and has no live executor.
 pub(crate) struct Rehearsal {
     public_key: [u8; 32],
     body: Vec<u8>,
@@ -57,8 +75,13 @@ pub(crate) struct Rehearsal {
     pub(super) resolved_model: String,
     pub(super) provider: String,
     route: String,
+    boundary: Option<Value>,
+    offline_fixture: bool,
 }
 impl Rehearsal {
+    pub(super) fn disabled_hosted(&self) -> bool {
+        self.boundary.is_some()
+    }
     pub(crate) fn new(
         input: &GenreInput,
         model: &str,
@@ -86,6 +109,8 @@ impl Rehearsal {
             resolved_model: resolved_model.into(),
             provider: provider.into(),
             route: route.into(),
+            boundary: None,
+            offline_fixture: false,
         })
     }
     fn body(input: &GenreInput, model: &str, route: &str) -> Result<Vec<u8>, String> {
@@ -104,8 +129,16 @@ impl Rehearsal {
             .map_err(|_| "mock_rehearsal_plan_invalid".into())
     }
     pub(super) fn binding(&self) -> Value {
-        json!({"policy":REHEARSAL_POLICY,"model":self.model,"observedTarget":self.resolved_model,"providerClaim":self.provider,"route":self.route,
-            "requestSha256":sha(&self.body),"verifierSha256":sha(&self.public_key),"liveAuthority":false})
+        let mut binding = json!({"policy":REHEARSAL_POLICY,"model":self.model,"observedTarget":self.resolved_model,"providerClaim":self.provider,"route":self.route,
+            "requestSha256":sha(&self.body),"verifierSha256":sha(&self.public_key),"liveAuthority":false});
+        if let Some(boundary) = &self.boundary {
+            binding["policy"] = json!(boundary::DISABLED_POLICY);
+            binding["boundary"] = boundary.clone();
+        }
+        if self.offline_fixture {
+            binding["offlineFixture"] = json!(true);
+        }
+        binding
     }
     pub(super) fn request_body(&self, input: &GenreInput) -> Result<Vec<u8>, String> {
         let body = Self::body(input, &self.model, &self.route)?;
@@ -117,29 +150,31 @@ impl Rehearsal {
         key: &str,
         target: reqwest::Url,
     ) -> Result<reqwest::Request, String> {
-        require(
-            key.starts_with("MOCK_")
-                && key.len() <= 256
-                && target.scheme() == "http"
-                && target.host_str() == Some("127.0.0.1")
-                && target.port().is_some()
-                && target.path() == "/model/chat/completions"
-                && target.username().is_empty()
-                && target.password().is_none()
-                && target.query().is_none()
-                && target.fragment().is_none(),
-        )?;
+        if self.disabled_hosted() {
+            require(target.as_str() == boundary::ENDPOINT && !key.is_empty() && key.len() <= 4096)?;
+        } else {
+            require(
+                key.starts_with("MOCK_")
+                    && key.len() <= 256
+                    && target.scheme() == "http"
+                    && target.host_str() == Some("127.0.0.1")
+                    && target.port().is_some()
+                    && target.path() == "/model/chat/completions"
+                    && target.username().is_empty()
+                    && target.password().is_none()
+                    && target.query().is_none()
+                    && target.fragment().is_none(),
+            )?;
+        }
         let mut request = reqwest::Request::new(reqwest::Method::POST, target);
         request.headers_mut().insert(
             "content-type",
             reqwest::header::HeaderValue::from_static("application/json"),
         );
-        request.headers_mut().insert(
-            "authorization",
-            format!("Bearer {key}")
-                .parse()
-                .map_err(|_| "mock_credential_unavailable")?,
-        );
+        let mut authorization = reqwest::header::HeaderValue::from_str(&format!("Bearer {key}"))
+            .map_err(|_| "mock_credential_unavailable")?;
+        authorization.set_sensitive(true);
+        request.headers_mut().insert("authorization", authorization);
         *request.body_mut() = Some(self.body.clone().into());
         Ok(request)
     }
@@ -162,7 +197,9 @@ struct Claims {
     expires_unix_seconds: u64,
 }
 pub(super) fn name(run: &super::Run) -> &'static str {
-    if run.bindings.get("modelRehearsal").is_some() {
+    if run.bindings["modelRehearsal"]["policy"] == boundary::DISABLED_POLICY {
+        boundary::DISABLED_POLICY
+    } else if run.bindings.get("modelRehearsal").is_some() {
         REHEARSAL_POLICY
     } else {
         POLICY
@@ -225,6 +262,27 @@ fn prepared_rehearsal_plan_keeps_worker_body_and_native_pin_separate() {
     assert_ne!(context.binding()["verifierSha256"], sha(&TEST_PUBLIC_KEY));
     let changed = serde_json::from_value(json!({"artist":"Asymmetric Artist","album":"Wrong Album","tracks":["Track One","Other Two"]})).unwrap();
     assert!(plan.body(&changed).is_err());
+    let mut hosted = value.clone();
+    hosted["offlineHosted"] = json!({"promptPicoUsd":1000,"completionPicoUsd":2000,
+        "catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")});
+    let hosted_plan: RehearsalPlan = serde_json::from_value(hosted.clone()).unwrap();
+    let hosted_context = hosted_plan.context().unwrap();
+    assert_eq!(
+        hosted_context.binding()["policy"],
+        boundary::DISABLED_POLICY
+    );
+    assert_eq!(hosted_context.binding()["offlineFixture"], true);
+    assert_ne!(
+        hosted_context.binding()["verifierSha256"],
+        context.binding()["verifierSha256"]
+    );
+    assert_eq!(
+        hosted_context.binding()["requestSha256"],
+        context.binding()["requestSha256"]
+    );
+    assert_eq!(serde_json::to_value(hosted_plan).unwrap(), hosted);
+    hosted["offlineHosted"]["readyForExecution"] = json!(true);
+    assert!(serde_json::from_value::<RehearsalPlan>(hosted).is_err());
     let mut injected = value;
     injected["publicKey"] = json!(vec![42; 32]);
     assert!(serde_json::from_value::<RehearsalPlan>(injected).is_err());

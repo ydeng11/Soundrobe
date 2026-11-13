@@ -4,6 +4,7 @@ import json
 import pathlib
 import re
 import sqlite3
+import stat
 import subprocess
 import sys
 import uuid
@@ -22,6 +23,7 @@ def digest(file):
 def model_rehearsal_audit(run, receipt, requested):
     """Join rehearsal evidence only; never establish completion or live authority."""
     policy = 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair'
+    disabled_policy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
     canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
     compact = lambda value: json.dumps(value, ensure_ascii=False, separators=(',', ':')).encode()
     sha = lambda value: hashlib.sha256(value).hexdigest()
@@ -32,13 +34,17 @@ def model_rehearsal_audit(run, receipt, requested):
         for expected in requested['evaluations']
         for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]]
     contextual = ('modelRehearsalPlan' in bindings or 'modelRehearsal' in bindings
-        or 'modelRehearsalPlan' in selection or receipt.get('testPolicy') == policy
+        or 'modelRehearsalPlan' in selection or receipt.get('testPolicy') in (policy, disabled_policy)
         or any('model_rehearsal' in descriptor for _, _, _, descriptor in descriptors))
     if not contextual:
         return None
     assert 'modelRehearsalPlan' in bindings, 'model rehearsal context missing immutable plan'
     plan = bindings['modelRehearsalPlan']
-    assert set(plan) == {'model', 'observedTarget', 'route', 'provider', 'input'}, 'model rehearsal plan fields'
+    hosted = 'offlineHosted' in plan
+    assert set(plan) == {'model', 'observedTarget', 'route', 'provider', 'input'} | ({'offlineHosted'} if hosted else set()), 'model rehearsal plan fields'
+    if hosted:
+        policy = disabled_policy
+        assert bindings['modelRehearsal']['offlineFixture'] is True
     assert set(plan['input']) == {'artist', 'album', 'tracks'}, 'model rehearsal input fields'
     locked_plans = []
     for source in bindings['sourcesAndTools']:
@@ -48,6 +54,19 @@ def model_rehearsal_audit(run, receipt, requested):
             assert digest(file) == source['sha256'], 'model rehearsal public plan hash drift'
             locked_plans.append(source['path'])
     assert len(locked_plans) == 1, 'model rehearsal public plan must be source-locked exactly once'
+    if hosted:
+        # This deliberately public file is the sole credential input we read.
+        # Never inspect development .env.local or resolve an arbitrary source as a credential.
+        credential = ROOT / pathlib.Path(locked_plans[0]).parent / 'credential-fixture/.env.local'
+        assert credential.resolve().is_relative_to(ROOT) and not credential.resolve().is_relative_to(run.resolve())
+        assert not credential.is_symlink() and not credential.parent.is_symlink()
+        assert stat.S_ISREG(credential.stat().st_mode) and stat.S_IMODE(credential.stat().st_mode) == 0o600
+        credential_bytes = f"LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL={plan['model']}\n".encode()
+        assert credential.read_bytes() == credential_bytes, 'public fake credential bytes drift'
+        locked_credentials = [s for s in bindings['sourcesAndTools'] if (ROOT / s['path']).resolve() == credential.resolve()]
+        assert len(locked_credentials) == 1, 'public fake credential must be source-locked exactly once'
+        assert not pathlib.Path(locked_credentials[0]['path']).is_absolute()
+        assert locked_credentials[0]['sha256'] == sha(credential_bytes), 'public fake credential hash drift'
     for key in ['model', 'observedTarget']:
         assert isinstance(plan[key], str) and re.fullmatch(r'~?deepseek/[a-zA-Z0-9_.:/-]+', plan[key])
         assert len(plan[key].encode()) <= 160
@@ -74,11 +93,30 @@ def model_rehearsal_audit(run, receipt, requested):
     request_bytes = canonical(body)
     assert len(request_bytes) <= 32768
     request_sha = sha(request_bytes)
-    # Public seed42 verifier is independently fixed here, never supplied by JSON.
-    verifier = bytes.fromhex('197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61')
-    assert bindings['modelRehearsal'] == dict(policy=policy, model=plan['model'], observedTarget=plan['observedTarget'],
+    # Public seed43 hosted / seed42 fixture verifiers are independently fixed,
+    # never supplied by JSON; neither establishes real user approval.
+    verifier = bytes.fromhex('4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff' if hosted
+        else '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61')
+    binding = dict(policy=policy, model=plan['model'], observedTarget=plan['observedTarget'],
         providerClaim=plan['provider'], route=plan['route'], requestSha256=request_sha,
-        verifierSha256=sha(verifier), liveAuthority=False), 'model rehearsal immutable binding drift'
+        verifierSha256=sha(verifier), liveAuthority=False)
+    if hosted:
+        binding['offlineFixture'] = True
+        pricing = plan['offlineHosted']
+        assert isinstance(pricing, dict) and set(pricing) == {'promptPicoUsd', 'completionPicoUsd', 'catalogSha256', 'termsSha256'}
+        for key in ['promptPicoUsd', 'completionPicoUsd']:
+            assert type(pricing[key]) is int and 0 <= pricing[key] <= 2**64 - 1
+        for key in ['catalogSha256', 'termsSha256']:
+            assert isinstance(pricing[key], str) and re.fullmatch('[a-f0-9]{64}', pricing[key])
+        estimate = pricing['promptPicoUsd'] * 8192 + pricing['completionPicoUsd'] * 1024
+        assert estimate <= 5_000_000_000_000
+        settings = dict(model=plan['model'], endpoint='https://openrouter.ai/api/v1', provider='openrouter', source='env_local_only')
+        binding['boundary'] = dict(endpoint='https://openrouter.ai/api/v1/chat/completions',
+            settingsSha256=sha(compact(settings)), pricingEvidence=pricing, textEstimatePicoUsd=estimate,
+            allowanceUsdCents=500, inputTokenIllustration=8192, outputTokens=1024, hardBillingCap=False,
+            billingRiskAccepted=False, liveDispatchAvailable=False, readyForExecution=False,
+            retention=dict(remote='documented_provider_defaults_for_public_metadata', local='until_result_review'))
+    assert canonical(bindings['modelRehearsal']) == canonical(binding), 'model rehearsal immutable binding drift'
     assert bindings['modelRehearsal']['liveAuthority'] is False
     assert receipt['testPolicy'] == policy
     assert selection['modelRehearsalPlan'] == plan and selection['model'] == plan['model']
@@ -90,18 +128,24 @@ def model_rehearsal_audit(run, receipt, requested):
         assert descriptor['job'] == name and descriptor['stage'] == stage
     answer = dict(genre='MOCK_ACCEPTED_GENRE_CANARY', confidence=0.8)
     usage = dict(prompt_tokens=7, completion_tokens=3, total_tokens=10)
-    response_bytes = compact(dict(model=plan['observedTarget'], provider=plan['provider'],
-        choices=[dict(finish_reason='stop', message=dict(content=compact(answer).decode()))],
+    response_encoder = canonical if hosted else compact
+    response_bytes = response_encoder(dict(model=plan['observedTarget'], provider=plan['provider'],
+        choices=[dict(finish_reason='stop', message=dict(content=response_encoder(answer).decode()))],
         usage=usage, diagnostic='MOCK_RAW_DIAGNOSTIC_CANARY'))
     response_sha = sha(response_bytes)
     model_operations = {k: v for k, v in receipt['operations'].items() if v['category'] == 'model'}
     assert len(model_operations) == receipt['counters']['model'] == receipt['credentialLookups'] == 1
     operation_id, operation = next(iter(model_operations.items()))
-    assert all(operation[k] is True for k in ['dispatched', 'arrived', 'completed'])
+    assert all(operation[k] is True for k in ['dispatched', 'completed']) and operation['arrived'] is (not hosted)
     assert operation['request_sha256'] == sha(compact(['POST', '/model/chat/completions', request_sha]))
-    assert operation['response'] == dict(sha256=response_sha, bytes=len(response_bytes), status=200,
+    response = dict(sha256=response_sha, bytes=len(response_bytes), status=200,
         identityClaimsVerified=False, pricingVerified=False, usageClaimsVerified=False)
+    if hosted:
+        response.update(observation='offline_injected_native_response', remoteArrivalVerified=False)
+    assert canonical(operation['response']) == canonical(response)
     assert all(operation['response'][k] is False for k in ['identityClaimsVerified', 'pricingVerified', 'usageClaimsVerified'])
+    session = receipt['sessions'][operation['session']]
+    assert session['job'] == 'assistance-crowd' and session['stage'] == 'execution'
     for name in names:
         directory = run / name
         active = name == 'assistance-crowd'
@@ -114,6 +158,7 @@ def model_rehearsal_audit(run, receipt, requested):
         service = load(directory / 'service.json')
         if active:
             assert (directory / 'independent-request.json').read_bytes() == request_bytes
+        if active and not hosted:
             scripted = service['scriptedModel']
             assert {k: scripted[k] for k in ['requestModel', 'responseModel', 'provider', 'maxRequests',
                 'bodySha256', 'payload', 'response', 'usage', 'privacyCanaries']} == dict(
@@ -122,10 +167,17 @@ def model_rehearsal_audit(run, receipt, requested):
             assert scripted.get('status', 200) == 200
         else:
             assert 'scriptedModel' not in service, name
+        if hosted:
+            # Independently select from the Journal, then compare the driver's
+            # projection; the export is never accepted as operation authority.
+            selected = {k: v for k, v in model_operations.items()
+                if receipt['sessions'][v['session']]['job'] == name
+                and receipt['sessions'][v['session']]['stage'] == 'execution'}
+            assert canonical(load(directory / 'native-model-observations.json')) == canonical(selected), f'{name}: native model projection drift'
         for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]:
             inventory = load(directory / folder / 'inventory-final.json')
             expected_request = [dict(status=200, sha256=request_sha, bytes=len(request_bytes),
-                responseSha256=response_sha, responseBytes=len(response_bytes), mockCredentialPresented=True)] if active and stage == 'execution' else []
+                responseSha256=response_sha, responseBytes=len(response_bytes), mockCredentialPresented=True)] if active and not hosted and stage == 'execution' else []
             assert inventory['modelRequests'] == expected_request, f'{name}/{folder}: model inventory drift'
             posts = [w for w in inventory['wireArrivals'] if w['method'] == 'POST']
             assert len(posts) == len(expected_request)
@@ -133,6 +185,10 @@ def model_rehearsal_audit(run, receipt, requested):
                 assert posts[0] == dict(operation=operation_id, method='POST', route='/model/chat/completions', status=200, state='responded')
                 session = receipt['sessions'][operation['session']]
                 assert session['job'] == name and session['stage'] == stage
+        if hosted:
+            execution = load(directory / 'result.provisional.json')
+            assert execution['modelRequests'] == len(selected), f'{name}: native observation summary drift'
+            assert execution['wireArrivals'] == len(inventory['wireArrivals']), f'{name}: invented summary arrival'
         rows = load(directory / 'cold/records.json')
         assert len(rows) == 1
         row = rows[0]
@@ -231,6 +287,81 @@ def incomplete_audit(run):
         containment='not_inferred_from_files', groundedAssistanceAccuracyCredit=0, liveAuthority=False)
 
 
+def retained_auditor_source(hosted=False):
+    """Count every adaptation; never modify the sealed historical sources."""
+    original = ROOT / '.planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py'
+    source = original.read_text()
+    native_replacements = [
+        ("assert load(run / 'selection-status.json')['executionStatus'] == 'complete'",
+         "assert load(run / 'selection-staged.json')['executionStatus'] == 'provisional_complete'"),
+        ("assert row['persistedEvidence']['candidate']['assisted_genre'] == row['native']['candidate']['assisted_genre']",
+         "assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate']['assisted_genre']"),
+    ]
+    if hosted:
+        native_replacements += [
+            ("    assert len(requests) == len(inventory['modelRequests']) == (1 if name == 'assistance-crowd' else 0)",
+             "    native_observations = load(directory / 'native-model-observations.json')\n"
+             "    assert not inventory['modelRequests']\n"
+             "    assert len(requests) == len(native_observations) == (1 if name == 'assistance-crowd' else 0)"),
+            ("        assert hashlib.sha256(body_bytes).hexdigest() == inventory['modelRequests'][0]['sha256']\n"
+             "        assert inventory['modelRequests'][0]['bytes'] == len(body_bytes)",
+             "        operation = next(iter(native_observations.values()))\n"
+             "        assert operation['request_sha256'] == hashlib.sha256(json.dumps(['POST', '/model/chat/completions', "
+             "hashlib.sha256(body_bytes).hexdigest()], separators=(',', ':')).encode()).hexdigest()"),
+            ("providerRequests=len(inventory['requests']), modelRequests=len(inventory['modelRequests']),",
+             "providerRequests=len(inventory['requests']), modelRequests=len(native_observations),"),
+        ]
+    nested = 'source = original.read_text()'
+    for old, new in native_replacements:
+        nested += f'\nassert source.count({old!r}) == 1\nsource = source.replace({old!r}, {new!r})'
+    replacements = [
+        ('source = original.read_text()', nested),
+        ('assert receipt == stored',
+         "assert stored.pop('actualFakeLookups') == receipt['credentialLookups'] == receipt['counters']['model'] == 1\nassert receipt == stored"),
+        ("run / 'authority-receipt.json'", "run / 'authority/provisional.json'"),
+        ("run / 'authority/final.json'", "run / 'authority-provisional.json'"),
+        ("receipt['state'] == 'complete'", "receipt['state'] == 'provisional_complete'"),
+        ("digest(run / 'native-evaluator')", "digest(root / receipt['bindings']['sourcesAndTools'][0]['path'])"),
+        ("receipt='complete'", "receipt='provisional_complete'"),
+    ]
+    if hosted:
+        replacements += [
+            ('all_wires = []', 'all_wires = []\nnative_observations = {}'),
+            ("    for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]:",
+             "    selected = {k: v for k, v in receipt['operations'].items() if v['category'] == 'model'\n"
+             "        and receipt['sessions'][v['session']]['job'] == name\n"
+             "        and receipt['sessions'][v['session']]['stage'] == 'execution'}\n"
+             "    assert json.dumps(load(run / name / 'native-model-observations.json'), sort_keys=True) == json.dumps(selected, sort_keys=True)\n"
+             "    assert len(selected) == (1 if name == 'assistance-crowd' else 0)\n"
+             "    for operation in selected.values():\n"
+             "        assert operation['dispatched'] is True and operation['completed'] is True and operation['arrived'] is False\n"
+             "        assert operation['response']['observation'] == 'offline_injected_native_response'\n"
+             "        assert operation['response']['remoteArrivalVerified'] is False\n"
+             "    native_observations.update(selected)\n"
+             "    model += len(selected)\n"
+             "    for stage, folder in [('preparation', 'preparation'), ('execution', 'cold')]:"),
+            ("        model += len(inv['modelRequests'])",
+             "        assert inv['modelRequests'] == [] and all(w['method'] == 'GET' for w in inv['wireArrivals'])"),
+            ("assert len(all_wires) == len(set(all_wires)) == len(receipt['operations'])",
+             "assert len(all_wires) == len(set(all_wires)) == 496\n"
+             "assert not set(all_wires) & set(native_observations)\n"
+             "assert set(all_wires) | set(native_observations) == set(receipt['operations'])\n"
+             "assert len(receipt['operations']) == 497 and (provider, inventory, model) == (472, 24, 1)"),
+            ('reserved=len(all_wires), arrived=len(all_wires), completed=len(all_wires))',
+             'reserved=len(receipt[\'operations\']), arrived=len(all_wires), completed=len(receipt[\'operations\']))'),
+            ("assert load(run / 'wire-reconciliation.json')['counts'] == receipt['counters']",
+             "wire = load(run / 'wire-reconciliation.json')\n"
+             "assert wire['counts'] == receipt['counters']\n"
+             "assert wire['nativeModelObservations'] == len(native_observations) == 1\n"
+             "assert wire['actualWireArrivals'] == len(all_wires) == 496\n"
+             "assert wire['uniqueOperations'] == len(receipt['operations']) == 497"),
+        ]
+    for old, new in replacements:
+        assert source.count(old) == 1, old
+        source = source.replace(old, new)
+    return original, source
+
+
 def audit(run):
     run = run.resolve()
     assert run.is_relative_to(ROOT / '.amp/in/artifacts')
@@ -293,31 +424,10 @@ def audit(run):
         executions.append(execution)
     assert load(run / 'results.json')['executions'] == executions
 
-    # Preserve the sealed auditors and their field/version/credit/highlight and
-    # wire checks. Adapt lifecycle names, the executable's retained location,
-    # the typed worker projection and the live-only supplier counter. These
-    # substitutions do not establish authority; the gate above does.
-    original = ROOT / '.planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py'
-    source = original.read_text()
-    old_status = "assert load(run / 'selection-status.json')['executionStatus'] == 'complete'"
-    new_status = "assert load(run / 'selection-staged.json')['executionStatus'] == 'provisional_complete'"
-    old_worker = "assert row['persistedEvidence']['candidate']['assisted_genre'] == row['native']['candidate']['assisted_genre']"
-    new_worker = "assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate']['assisted_genre']"
-    replacements = [
-        ('source = original.read_text()',
-         f'source = original.read_text()\nassert source.count({old_status!r}) == 1\nsource = source.replace({old_status!r}, {new_status!r})'
-         f'\nassert source.count({old_worker!r}) == 1\nsource = source.replace({old_worker!r}, {new_worker!r})'),
-        ('assert receipt == stored',
-         "assert stored.pop('actualFakeLookups') == receipt['credentialLookups'] == receipt['counters']['model'] == 1\nassert receipt == stored"),
-        ("run / 'authority-receipt.json'", "run / 'authority/provisional.json'"),
-        ("run / 'authority/final.json'", "run / 'authority-provisional.json'"),
-        ("receipt['state'] == 'complete'", "receipt['state'] == 'provisional_complete'"),
-        ("digest(run / 'native-evaluator')", "digest(root / receipt['bindings']['sourcesAndTools'][0]['path'])"),
-        ("receipt='complete'", "receipt='provisional_complete'"),
-    ]
-    for old, new in replacements:
-        assert source.count(old) == 1, old
-        source = source.replace(old, new)
+    # All scoring/source/payload/worker checks remain; hosted mode distinguishes
+    # a Journal observation from fixture wires without manufacturing an arrival.
+    hosted = rehearsal is not None and 'offlineHosted' in load(run / 'authority/provisional.json')['bindings']['modelRehearsalPlan']
+    original, source = retained_auditor_source(hosted)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
     wire = load(run / 'wire-reconciliation.json')
     assert wire['actualFakeLookups'] == wire['durableLookupAdmissions'] == 1

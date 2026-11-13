@@ -1,0 +1,22 @@
+{
+  "scope": "Historical public-document research retained for offline rehearsal; not fresh provider terms or an authorization",
+  "researchDate": "2026-11-13",
+  "sourceRecord": "https://ampcode.com/artifacts/real-model-execution-decisions-67697af1-b2b4-481b-8824-c380df750c3e",
+  "sourceRevision": 16,
+  "remoteDecision": "documented_provider_defaults_for_public_metadata",
+  "localDecision": "until_result_review",
+  "references": [
+    "https://openrouter.ai/docs/guides/privacy/data-collection",
+    "https://www.wafer.ai/security",
+    "https://docs.wafer.ai/serverless/zero-data-retention",
+    "https://www.wafer.ai/privacy-policy"
+  ],
+  "limits": [
+    "No public pages or account settings were fetched during this offline integration.",
+    "Historical newer serverless ZDR statements conflict with an older conditional-ZDR privacy policy; no route-specific contractual guarantee is inferred.",
+    "Connection/account metadata, safety and legal retention exceptions remain possible.",
+    "Actual provider behavior, prices, fees and all-in billing bounds are unverified."
+  ],
+  "liveAuthority": false,
+  "readyForExecution": false
+}

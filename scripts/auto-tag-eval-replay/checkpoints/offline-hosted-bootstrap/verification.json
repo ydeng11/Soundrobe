@@ -1,0 +1,40 @@
+{
+  "sourceBindings": 1869,
+  "archiveBindings": 1869,
+  "executableSha256": "0dfb06087e990e9498a45002aa0ba8c3df5c9c00a26bbfa5dfd52b9daf33ecbf",
+  "server": {
+    "passed": 877,
+    "failed": 0,
+    "ignored": 31
+  },
+  "helpers": {
+    "passed": 21,
+    "failed": 0,
+    "skipped": 0
+  },
+  "requestedFieldSlots": 216,
+  "observedFieldSlots": 216,
+  "closedSessions": 12,
+  "settledOperations": 497,
+  "actualFixtureArrivals": 496,
+  "nativeModelObservations": 1,
+  "privacyBindings": 562,
+  "privateOrRejectedDisclosures": 0,
+  "scope": "Offline hosted-policy bootstrap, worker, scoring and supervised six-job rehearsal; no external executor",
+  "groundedAssistanceAccuracyCredit": 0,
+  "liveAuthority": false,
+  "realCredentialsRead": false,
+  "serverSourceNote": "Full server suite preceded a comment-only transport documentation correction; final focused native rebuild binds the frozen executable",
+  "acceptedRun": "run-02",
+  "verifierRelocation": {
+    "originalSha256": "be958bd4e25d7b6788cba25a27bf32c639e4dd396e90f482e4b8a9a8c9915e16",
+    "adaptedSha256": "1a323330bedd4b51fad59c62e919861e4da752d1b5323b40a7883ce89d31cfad",
+    "countedFilenameRelocations": {
+      "run-01": 4,
+      "audit-01.json": 1,
+      "privacy-01.json": 1
+    },
+    "wrapperSha256": "c2ac25c4891bf77c2914f588061de3e9d8a2c9a3bb7f53ac46c579bb77daaa24"
+  },
+  "adverseRun01": "incomplete; all216 unavailable; cause unestablished; no resume or promotion"
+}

@@ -1,0 +1,6 @@
+{
+  "sourcePath": ".amp/in/artifacts/mock-transport-20261113/audit-privacy62.py",
+  "retainedPath": ".amp/in/artifacts/offline-hosted-bootstrap-20261113/privacy-auditor-original.py",
+  "sha256": "550992b61d5cfc62131f3d0e3260365264ca0a60b4305b215bc95f7e4f0546b3",
+  "scope": "Additional read-only privacy-verifier dependency; not a runtime source change"
+}

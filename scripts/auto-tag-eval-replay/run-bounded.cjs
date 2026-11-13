@@ -91,6 +91,14 @@ async function main(output, executable, userLabelDirectory, mode) {
         || !fs.statSync(rehearsalFile).isFile() || fs.statSync(rehearsalFile).size > 65536) throw Error('Invalid public offline rehearsal plan');
     rehearsal = read(rehearsalFile);
   }
+  const hosted = rehearsal?.offlineHosted !== undefined;
+  const credentialFixture = hosted ? path.join(path.dirname(path.resolve(rehearsalFile)), 'credential-fixture/.env.local') : null;
+  if (hosted && (!rehearsal.offlineHosted || typeof rehearsal.offlineHosted !== 'object'
+      || path.dirname(path.resolve(rehearsalFile)) !== path.dirname(output)
+      || fs.realpathSync(credentialFixture) !== credentialFixture
+      || binding(credentialFixture).sha256 !== sha(Buffer.from(`LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL=${rehearsal.model}\n`)))) {
+    throw Error('Invalid public offline credential fixture');
+  }
   // Failure-only native controls retain the full membership but exercise Crowd
   // first and deliberately cannot publish a successful six-job completion.
   const privacyControl = supervised && /^privacy-(rejected|status|schema|cancel)$/.test(supervision.control)
@@ -115,7 +123,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
-  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), ...(credentialFixture ? [credentialFixture] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
     'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
     'scripts/auto-tag-eval-replay/audit-supervised.py',
     ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
@@ -177,7 +185,7 @@ async function main(output, executable, userLabelDirectory, mode) {
       disposableRunRoot: output, sinkPolicy: 'offline-retained-evidence-v1',
       ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
       sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring'],
-      transport: { endpoint: 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
+      transport: { endpoint: hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
         attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
         retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
@@ -253,7 +261,7 @@ async function main(output, executable, userLabelDirectory, mode) {
       response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {
         type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } } : null;
     if (paired && body) fs.writeFileSync(path.join(directory, 'independent-request.json'), canonical(body), { flag: 'wx' });
-    save(serviceManifest, { ...pool, records, ...(job.role ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
+    save(serviceManifest, { ...pool, records, ...(job.role && !hosted ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
       ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
       ...(rehearsal ? { requestModel: rehearsal.model, responseModel: rehearsal.observedTarget, provider: rehearsal.provider } : {}),
       privacyCanaries: true,
@@ -350,16 +358,25 @@ async function main(output, executable, userLabelDirectory, mode) {
         python([scorer, 'project-native', contract, binding(contract).sha256, path.join(final.target, 'records.json'), '-', scoreFile]);
         const plan = read(preparationFile).plan;
         const requestEvents = plan.events.filter(e => e.kind === 'request');
-        if (requestEvents.length > (job.role ? 1 : 0) || final.inventory.modelRequests.length !== requestEvents.length
+        let nativeModels = {};
+        if (hosted) {
+          const report = await authority.command({ op: 'report' });
+          nativeModels = Object.fromEntries(Object.entries(report.operations).filter(([,operation]) =>
+            operation.category === 'model' && report.sessions[operation.session]?.job === job.name
+              && report.sessions[operation.session]?.stage === 'execution'));
+          save(path.join(directory, 'native-model-observations.json'), nativeModels);
+        }
+        const modelRequests = final.inventory.modelRequests.length + Object.keys(nativeModels).length;
+        if (requestEvents.length > (job.role ? 1 : 0) || modelRequests !== requestEvents.length
             || requestEvents.some(e => canonical(e.body) !== canonical(body))
             || final.inventory.modelRequests.some(r => r.sha256 !== sha(Buffer.from(canonical(body))))) throw Error('Conditional request or serialized-body binding differs');
         executions.push({ name: job.name, arm: job.arm, caseId: job.caseId, profile: job.profile,
           exitCode: final.exitCode, signal: final.signal, requestedPhysicalOccurrences: item.tracks.length,
-          providerRequests: final.inventory.requests.length, modelRequests: final.inventory.modelRequests.length,
+          providerRequests: final.inventory.requests.length, modelRequests,
           wireArrivals: final.inventory.wireArrivals.length, misses: final.inventory.misses.length,
           planVariant: plan.variant, liveAuthority: false, score: read(scoreFile) });
         save(path.join(directory, 'result.provisional.json'), executions.at(-1));
-        console.log(JSON.stringify({ name: job.name, variant: plan.variant, modelRequests: final.inventory.modelRequests.length, score: read(scoreFile).outcomes }));
+        console.log(JSON.stringify({ name: job.name, variant: plan.variant, modelRequests, score: read(scoreFile).outcomes }));
         if (final.exitCode !== 0 || final.signal || final.inventory.misses.length || final.exported.length !== 1
             || executions.at(-1).score.observedFieldSlots !== executions.at(-1).score.requestedFieldSlots
             || executions.at(-1).score.serviceFailureSlots !== 0
@@ -524,14 +541,21 @@ async function main(output, executable, userLabelDirectory, mode) {
     }
     const inventories = [...preparations.map(p => p.inventory), ...jobs.map(j => read(path.join(output, j.name, 'cold', 'inventory-final.json')))];
     const wires = inventories.flatMap(i => i.wireArrivals), ids = wires.map(w => w.operation);
+    const nativeModels = hosted ? Object.entries(report.operations).filter(([,o]) => o.category === 'model') : [];
+    if (hosted && (nativeModels.length > 1 || nativeModels.some(([id,o]) => ids.includes(id)
+        || !o.dispatched || o.arrived || !o.completed || o.response?.observation !== 'offline_injected_native_response'
+        || o.response.remoteArrivalVerified !== false))) throw Error('Native offline observation reconciliation failed');
     if (new Set(ids).size !== ids.length || ids.some(id => !report.operations[id]?.arrived)
         || ids.length !== report.counters.arrived || report.counters.reserved !== report.counters.completed
         || report.counters.inventory !== wires.filter(w => w.route === '/__fixtures/compact').length
         || report.counters.model > 1 || report.counters.provider !== inventories.reduce((n,i) => n+i.requests.length,0)
-        || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0)
+        || report.counters.model !== inventories.reduce((n,i) => n+i.modelRequests.length,0) + nativeModels.length
+        || report.counters.reserved !== ids.length + nativeModels.length
         || report.credentialLookups !== report.counters.model || report.actualFakeLookups !== report.counters.model) throw Error('Durable wire reconciliation failed');
     save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length,
-      uniqueOperations: new Set(ids).size, actualFakeLookups: report.actualFakeLookups, durableLookupAdmissions: report.credentialLookups });
+      uniqueOperations: new Set([...ids,...nativeModels.map(([id])=>id)]).size,
+      ...(hosted ? { nativeModelObservations: nativeModels.length } : {}),
+      actualFakeLookups: report.actualFakeLookups, durableLookupAdmissions: report.credentialLookups });
     if (!supervised) {
       await authority.command({ op: 'publish' });
       save(path.join(output, 'authority-receipt.json'), await authority.settle(false, report));

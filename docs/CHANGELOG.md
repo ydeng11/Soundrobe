@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Disabled hosted-evaluation rehearsals can carry separate test approval trust, public settings and text-price evidence through native bootstrap, owner-only fake credential files, workers, readback and scoring. Offline audits distinguish injected native responses from fixture wire arrivals; the launcher still cannot activate live calls.
 - Offline broker rehearsals can bind a prepared DeepSeek request to separate test approval trust, reject changed input or response identity, and retain exact bounded response receipts. Reopening without the native verifier cannot restore authority; live calls remain disabled.
 - File-only model-evaluation preflight preserves the configured DeepSeek alias, checks supplied public hosting metadata and exports a credential-free native request plan. Reports distinguish estimated text costs from a billing ceiling and never authorize live calls.
 - Bounded offline assistance reuses the app's AI-provider request interface while explicitly disabling reasoning, streaming and provider fallback. Fake credentials, one-attempt dispatch and loopback-only routing remain enforced; live calls and development settings are unchanged.

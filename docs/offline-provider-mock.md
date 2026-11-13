@@ -570,6 +570,98 @@ unfinished work. All new evaluation entry points remain absent from non-test
 application builds. A successful rehearsal verifies wiring, not real-model
 quality, hosted identity, physical disk traffic or power-loss durability.
 
+### Disabled hosted boundary: offline component controls
+
+`mock_run_live_boundary.rs`, included only by the test-build policy module,
+prepares the exact existing model request for
+`https://openrouter.ai/api/v1/chat/completions`. The native constructor requires
+an independently pinned Ed25519 verifier and rejects both the historical RFC
+fixture key and the public seed42 rehearsal key. No actual signer is generated,
+provisioned or loaded. The component controls use another deliberately public
+fixture seed, not real user approval custody.
+
+Its distinct `disabled-hosted-boundary-v1` scope binds the existing alias, input,
+request digest, observed response target, route, verifier fingerprint, public
+settings fingerprint, catalog/terms evidence hashes and declared text prices.
+Price arithmetic is integer trillionths of a dollar and rejects an 8,192-input /
+1,024-output illustration over the existing US$5 allowance. Supplied hashes and
+prices do not verify catalog authenticity, freshness, applicable fees or provider
+billing. `hardBillingCap`, `billingRiskAccepted`, `liveDispatchAvailable` and
+`readyForExecution` all remain false. Retention decisions are unchanged.
+
+The native credential capability accepts only an absolute `.env.local` path,
+with its parent resolved at construction, and opens the leaf without following
+symlinks. It checks regular-file type, current ownership, no group/other access,
+a single hard link and a 64-KiB ceiling. It never sources the shell or falls back
+to inherited environment, application YAML, renderer configuration or IPC.
+Model/provider/base URL must match the prepared public settings before a request
+can be built. The transport also rejects a credential capability prepared for
+different settings before any lookup. The key is neither serialized nor hashed;
+request authorization headers are marked sensitive for debug formatting.
+
+The parser intentionally supports a strict single-line dotenv subset: plain or
+single/double-quoted values, optional `export ` and comments. Duplicate relevant
+settings, multiline/escaped/backtick values, unsafe key bytes and unsupported
+syntax fail with a static redacted error. Native compatibility and permissions
+of the real file have **not** been checked by these controls. No real credential
+was read. Ordinary development configuration and permissions are unchanged.
+This is bounded trusted-owner file access, not memory zeroization, OS-backed
+secret custody, a filesystem race proof or malicious-host isolation.
+
+The ordinary broker rejects this hosted context before reservation or lookup.
+An optional `offlineHosted` object in the public rehearsal plan selects an
+explicit offline bootstrap mode. Its only fields are `promptPicoUsd`,
+`completionPicoUsd`, `catalogSha256` and `termsSha256`; it cannot supply a verifier,
+credential path, arbitrary response or external executor. Native construction
+pins the deliberately public seed43 fixture verifier and marks the immutable
+model context `offlineFixture:true`. Historical loopback rehearsal uses seed42.
+Neither fixture key establishes real user approval.
+
+The native bootstrap reads only the public fake credential input at
+`credential-fixture/.env.local` beside the source-locked plan, outside the run
+output. Both must be under the ignored artifact tree. The plan and output share
+a parent directory. The input must be source-locked once with the exact fixture
+bytes `LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL=<configured alias>\n` and mode
+0600. Native credential lookup remains after durable admission; bootstrap checks
+the expected public-input digest without reading its key. This fixture is not
+the development `.env.local`, and its public hash is not a private-key hash.
+
+The native-constructed in-process executor exercises the same durable approval,
+reservation, credential lookup, fresh send admission, response limit and typed
+projection. It receives the prepared HTTPS request but does not perform DNS,
+TLS or external HTTP, and accepts only the fixed public fake credential. The
+response is constructed natively; the provider fixture service has no scripted
+model in this mode. The internal fixture operation header is not included.
+There is still no switch or supplied executor enabling an external send.
+
+A complete injected response has an exact digest/size/status receipt labelled
+`offline_injected_native_response` and `remoteArrivalVerified:false`. Its model
+operation can settle without setting `arrived`; fixtures cannot fabricate an
+arrival for it. Fully received status/schema/usage/identity failures retain the
+receipt without validating the answer. Unknown delivery and oversized bodies
+remain incomplete, with no refund, retry or denominator reduction. Existing
+loopback policy and service-observed arrival semantics are unchanged.
+
+For offline hosted mode, the driver exports each execution session's exact
+Journal model-operation projection to `native-model-observations.json`. The
+auditor independently selects the same operations and joins their immutable
+policy, independently reconstructed request/response, all twelve descriptors,
+six preparations, typed worker SQLite evidence, media readback and mock scoring.
+The positive six-job target is 497 settled operations: 496 actual local fixture
+arrivals (472 provider and 24 inventory) plus one distinct native model-response
+observation. The model operation remains `arrived:false`; the driver never adds
+a POST to fixture inventories. Existing native/durable auditors retain their
+scoring, source, payload and publication checks through counted adaptations
+whose source hashes are reported. Original historical auditors are unchanged.
+
+This is offline hosted-policy integration, not an enabled external executor or
+a real-model quality result. Live activation still needs real trust provisioning,
+the resolved billing-risk rule, final source/run-bound approval and separately
+authorized native activation with applicable live receipt validation. A mock
+signed approval does not substitute for any of those steps. Neither native
+response observation nor a supplier label independently verifies remote arrival,
+serving identity, usage or billing.
+
 ## Checks
 
 ```sh

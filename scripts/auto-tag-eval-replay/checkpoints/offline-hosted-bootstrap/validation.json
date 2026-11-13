@@ -1,0 +1,75 @@
+{
+  "freshDelivery": {
+    "typecheck": "passed",
+    "providerFixtureTests": {
+      "passed": 12
+    },
+    "reviewToolTests": {
+      "passed": 10
+    },
+    "nodeTests": {
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0
+    },
+    "rustfmt": "passed",
+    "cjsSyntax": {
+      "passed": 4
+    },
+    "pythonAst": "passed",
+    "whitespace": "passed",
+    "historicalPublicFixtureSignature": "scope/signature passed; altered signature rejected; not live approval",
+    "readOnlyReaudit": "audit and privacy byte-identical; not a workload",
+    "sourceArchiveBindings": 1869,
+    "receiptBindingOccurrences": 1671,
+    "uniqueReceiptBindings": 1670,
+    "privacyBindings": 562
+  },
+  "reusedSourceBound": {
+    "serverLibrary": {
+      "passed": 877,
+      "failed": 0,
+      "ignored": 31
+    },
+    "serverSourceNote": "Only a transport comment changed after full server gate; final focused native rebuild passed",
+    "finalNativeBoundaryTable": "passed",
+    "sixJobRun": ".amp/in/artifacts/offline-hosted-bootstrap-20261113/run-02",
+    "newDeliveryWorkload": false,
+    "newIndependentRuntimeReview": false
+  },
+  "result": {
+    "slots": 216,
+    "sessions": 12,
+    "settledOperations": 497,
+    "provider": 472,
+    "inventory": 24,
+    "model": 1,
+    "actualFixtureArrivals": 496,
+    "nativeInjectedResponses": 1,
+    "fakeLookups": 1,
+    "groundedCredit": 0,
+    "userAgreement": "0/22",
+    "preparationMs": 217622,
+    "executionThroughAcceptanceMs": 450651,
+    "growthReserved": 322082943,
+    "applicationVfsWriteReserved": 503640699,
+    "ledgerRecords": 2512
+  },
+  "controls": {
+    "retainedJsonCopyPositive": 1,
+    "intendedSemanticRejections": 8,
+    "scope": "actual retained JSON model-join checks, not runtime fault scheduling/full completion auditor"
+  },
+  "deliveryRecordCorrection": "Initial postcommit check rejected a hash of the generator summary captured before its write completed. Bind only completed inputs; retained red log, unchanged runtime and accepted evidence.",
+  "adverseRun01": "incomplete; receiver78/launcher1; 216 unavailable/effects unknown; cause unestablished; unchanged source run02 is not recovery",
+  "limits": [
+    "Trusted macOS offline only. No external HTTP, real credential read, trust provisioning, account/OS change, push or fetch.",
+    "No new full desktop/renderer gate, independent runtime review, native fault matrix, strict Clippy or credential/display/packaged smoke.",
+    "Historical non-green Clippy, ignored tests and adverse/incomplete runs remain retained, not relabelled green.",
+    "One attempt; original 300/600-second scopes, 512-MiB/1-GiB caps and 2-MiB/8-MiB terminal grants; no refunds.",
+    "Native witness plus actual timely successful supervisor exit; lost recording incomplete, no staging promotion or resume.",
+    "No real-model quality, every-attempt reliability, remote identity, billing/privacy safety, production custody, interrupted-write privacy, physical-I/O/power-loss, malicious-host or guaranteed anchor-loss containment claim.",
+    "Exact reanalysis requires retained ignored inputs, historical auditors and matching executable. No fresh-clone replay or executable attestation.",
+    "Enabled one-shot external transport/live receipt validation, actual credential-source compatibility, real trust provisioning, billing-risk decision and final run-specific approval remain unfinished."
+  ]
+}

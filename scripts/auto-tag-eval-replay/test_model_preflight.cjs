@@ -146,7 +146,32 @@ test('prepared-policy approval uses separate public fixture trust and rejects un
   const fixture = crypto.createPrivateKey({format:'der',type:'pkcs8',key:Buffer.from('302e020100300506032b657004220420'+'2a'.repeat(32),'hex')});
   assert.ok(crypto.verify(null, Buffer.from(canonical(approval.payload)), crypto.createPublicKey(fixture), Buffer.from(approval.signature)));
   assert.equal(approval.payload.scopeSha256, crypto.createHash('sha256').update(canonical({runId:report.runId,checkpoint:report.checkpoint,bindings:{},membership:{},preparations:{},policy})).digest('hex'));
+  const hosted = { ...report, testPolicy: 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair' };
+  const signed = testApproval(hosted);
+  const hostedFixture = crypto.createPrivateKey({format:'der',type:'pkcs8',key:Buffer.from('302e020100300506032b657004220420'+'2b'.repeat(32),'hex')});
+  assert.ok(crypto.verify(null, Buffer.from(canonical(signed.payload)), crypto.createPublicKey(hostedFixture), Buffer.from(signed.signature)));
+  assert.equal(crypto.verify(null, Buffer.from(canonical(signed.payload)), crypto.createPublicKey(fixture), Buffer.from(signed.signature)), false);
   assert.throws(() => testApproval({...report,testPolicy:'unapproved-live-policy'}));
+});
+
+test('hosted offline staging requires one classified native observation without inventing an arrival', () => {
+  const { validateProvisionalReceipt } = require('./mock-authority.cjs');
+  const model = { category:'model',dispatched:true,arrived:false,completed:true,
+    response:{observation:'offline_injected_native_response',remoteArrivalVerified:false} };
+  const report = {state:'provisional_complete',consumptions:1,denied:0,ownerLive:false,liveAuthority:false,
+    runId:'run',checkpoint:'frozen',membership:{requestedFieldSlots:216},
+    testPolicy:'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair',
+    bindings:{supervision:{generation:'generation'},modelRehearsal:{offlineFixture:true}},
+    resultSha256:'a'.repeat(64),counters:{reserved:1,arrived:0,completed:1,model:1},preparations:{},
+    sessions:Object.fromEntries(Array.from({length:12},(_,i)=>[i,{closed:true}])),operations:{model}};
+  assert.doesNotThrow(()=>validateProvisionalReceipt(report,structuredClone(report)));
+  for (const mutate of [r=>r.operations.model.response.observation='wire',
+    r=>r.operations.model.response.remoteArrivalVerified=true,r=>r.operations.model.arrived=true,
+    r=>r.counters.arrived=1,r=>r.operations.extra=structuredClone(model),
+    r=>r.testPolicy='unknown',r=>r.bindings.modelRehearsal.offlineFixture=false]) {
+    const changed=structuredClone(report); mutate(changed);
+    assert.throws(()=>validateProvisionalReceipt(changed,structuredClone(changed)));
+  }
 });
 
 test('loopback fixture preserves distinct prepared request alias and response target without retries', async () => {
