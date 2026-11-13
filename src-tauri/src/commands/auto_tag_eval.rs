@@ -9,6 +9,8 @@
 use super::*;
 use crate::commands::mutations::{write_track_queued, Patch, StringList, TrackPatch};
 use crate::commands::tracks::TrackData;
+#[cfg(unix)]
+use crate::infra::mock_run_authority::storage::files as fs;
 use crate::state::config::{load_from, ProcessEnv};
 use crate::state::sqlite::CacheState;
 use crate::state::write_queue::WriteQueue;
@@ -17,6 +19,7 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[cfg(not(unix))]
 use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::TcpListener;
@@ -374,7 +377,7 @@ fn load_expectations() -> ExpectationsFile {
 }
 
 fn overlay_reviewed_expectations(corpus: &mut EvalCorpus, path: &Path) {
-    if !path.exists() {
+    if fs::metadata(path).is_err() {
         return;
     }
     let file: ExpectationsFile =
@@ -766,7 +769,14 @@ fn native_classification(
     }
 }
 
-fn cache_counts(path: &Path) -> BTreeMap<String, u64> {
+pub(crate) fn cache_counts(path: &Path) -> BTreeMap<String, u64> {
+    #[cfg(unix)]
+    let connection = crate::infra::mock_run_authority::storage::open_sqlite(
+        path,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )
+    .expect("open evaluation cache");
+    #[cfg(not(unix))]
     let connection = rusqlite::Connection::open(path).expect("open evaluation cache");
     [
         "lookup_cache",
@@ -1151,32 +1161,117 @@ fn patch_from_track_data(track: &TrackData) -> TrackPatch {
     patch
 }
 
-fn generate_synthetic_flac(path: &Path, duration: f64) -> Result<f64, ApiError> {
+pub(crate) fn generate_synthetic_flac(path: &Path, duration: f64) -> Result<f64, ApiError> {
     let requested = if duration.is_finite() && duration > 0.0 {
         duration
     } else {
         0.0
     };
     let argument = format!("{requested:.6}");
-    let status = Command::new("ffmpeg")
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostdin",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=r=44100:cl=stereo",
-            "-t",
-            &argument,
-        ])
-        .arg(path)
-        .status()
-        .map_err(|error| {
+    let mut command = Command::new("ffmpeg");
+    command.args([
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-nostdin",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "anullsrc=r=44100:cl=stereo",
+        "-t",
+        &argument,
+    ]);
+    #[cfg(unix)]
+    let scoped = crate::infra::mock_run_authority::storage::is_scoped();
+    #[cfg(not(unix))]
+    let scoped = false;
+    let status = if scoped {
+        use std::process::Stdio;
+        // FFmpeg gets no writable path/descriptor. Its FLAC stream and bounded
+        // PCM digest/progress are captured before the native metered write.
+        let mut child = command
+            .args([
+                "-progress",
+                "pipe:2",
+                "-f",
+                "flac",
+                "pipe:1",
+                "-map",
+                "0:a",
+                "-t",
+                &argument,
+                "-c:a",
+                "pcm_s16le",
+                "-f",
+                "md5",
+                "pipe:2",
+            ])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let stderr = child.stderr.take().unwrap();
+        let evidence = std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            stderr.take(65537).read_to_end(&mut bytes).map(|_| bytes)
+        });
+        let mut bytes = Vec::new();
+        child
+            .stdout
+            .take()
+            .unwrap()
+            .take(2 * 1024 * 1024 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > 2 * 1024 * 1024 {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(ApiError::Message("synthetic FLAC byte ceiling".into()));
+        }
+        let status = child.wait()?;
+        let evidence = evidence
+            .join()
+            .map_err(|_| ApiError::Message("synthetic evidence unavailable".into()))??;
+        if !status.success() || evidence.len() > 65536 || bytes.get(..8) != Some(b"fLaC\0\0\0\x22")
+        {
+            return Err(ApiError::Message(
+                "synthetic FLAC stream unavailable".into(),
+            ));
+        }
+        let evidence = std::str::from_utf8(&evidence)
+            .map_err(|_| ApiError::Message("synthetic evidence encoding".into()))?;
+        let duration_us = evidence
+            .lines()
+            .filter_map(|line| line.strip_prefix("out_time_us="))
+            .last()
+            .and_then(|v| v.parse::<u64>().ok())
+            .ok_or_else(|| ApiError::Message("synthetic sample count missing".into()))?;
+        let samples = (duration_us * 44100 + 500000) / 1000000;
+        let md5 = evidence
+            .lines()
+            .filter_map(|line| line.strip_prefix("MD5="))
+            .collect::<Vec<_>>();
+        if samples >= 1 << 36
+            || md5.len() != 1
+            || md5[0].len() != 32
+            || !md5[0].bytes().all(|b| b.is_ascii_hexdigit())
+        {
+            return Err(ApiError::Message("synthetic digest unavailable".into()));
+        }
+        let header = u64::from_be_bytes(bytes[18..26].try_into().unwrap());
+        if header >> 44 != 44100 || (header >> 36) & 255 != 47 {
+            return Err(ApiError::Message("synthetic PCM format changed".into()));
+        }
+        bytes[18..26].copy_from_slice(&((header & !((1 << 36) - 1)) | samples).to_be_bytes());
+        for i in 0..16 {
+            bytes[26 + i] = u8::from_str_radix(&md5[0][i * 2..i * 2 + 2], 16).unwrap();
+        }
+        fs::write(path, &bytes)?;
+        status
+    } else {
+        command.arg(path).status().map_err(|error| {
             ApiError::Message(format!("ffmpeg unavailable for synthetic FLAC: {error}"))
-        })?;
+        })?
+    };
     if !status.success() {
         return Err(ApiError::Message(format!(
             "ffmpeg failed to generate synthetic FLAC {}",
@@ -3554,6 +3649,8 @@ async fn durable_cold_mock_auto_tag_eval() {
         .client
         .lease("native")
         .expect("native liveness admission denied");
+    crate::infra::mock_run_authority::storage::attach_from_env()
+        .expect("native storage admission denied");
     let attached = context
         .client
         .command(Command::Attach {

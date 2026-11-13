@@ -15,7 +15,7 @@ const ACCEPTED: u8 = 2;
 
 pub(crate) fn fault_barrier(root: &Path, control: &str) {
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok(control) {
-        std::fs::write(
+        crate::infra::mock_run_authority::storage::write_new_or_unscoped(
             root.join(format!("{control}.reached")),
             b"at selected native boundary",
         )
@@ -32,12 +32,18 @@ pub(crate) fn durable_json(root: &Path, name: &str, value: &Value) -> std::io::R
         return Err(std::io::ErrorKind::InvalidData.into());
     }
     let temp = root.join(format!("{name}.tmp"));
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
-    file.write_all(&bytes)?;
-    file.sync_all()?;
+    if !crate::infra::mock_run_authority::storage::write_new(
+        &temp,
+        &bytes,
+        name == "receiver-outcome.json",
+    )? {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp)?;
+        file.write_all(&bytes)?;
+        file.sync_all()?;
+    }
     std::fs::rename(temp, root.join(name))?;
     if name == "provisional.json" {
         fault_barrier(root.parent().unwrap(), "final-provisional-rename");
@@ -211,6 +217,7 @@ fn bootstrap_receiver(
     }
     std::fs::create_dir(&root)?;
     std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700))?;
+    crate::infra::mock_run_authority::storage::install_receiver(&root, generation)?;
     durable_json(
         &root,
         "requested-membership.json",
@@ -221,7 +228,8 @@ fn bootstrap_receiver(
         "native-supervision.json",
         &json!({"generation":generation.to_string(),"start":start,
         "preparationMs":preparation,"executionMs":number("SOUNDROBE_NATIVE_EXECUTION_MS",600000),
-        "receiverPid":std::process::id(),"receiverGroup":unsafe{libc::getpgrp()},"control":control}),
+        "receiverPid":std::process::id(),"receiverGroup":unsafe{libc::getpgrp()},"control":control,
+        "storage":crate::infra::mock_run_authority::storage::descriptor()}),
     )?;
     let (receiver, supervisor) = UnixStream::pair()?;
     let role = if control.starts_with("receiver-") {
@@ -237,6 +245,7 @@ fn bootstrap_receiver(
         &[("SOUNDROBE_NATIVE_RECEIVER", &supervisor)],
     )
     .env("SOUNDROBE_NATIVE_GENERATION", generation.to_string())
+    .env("SOUNDROBE_STORAGE_REQUIRED", "1")
     .env(
         "SOUNDROBE_NATIVE_MANAGED",
         if role == "supervisor" { "1" } else { "0" },
@@ -264,6 +273,7 @@ fn bootstrap_receiver(
         match task {
             Work::Verify(witness) => {
                 fault_barrier(&root, "receiver-verify-blocked");
+                crate::infra::mock_run_authority::storage::healthy()?;
                 let (evidence, hash) = read_json(&root.join("authority/provisional.json"))?;
                 let (result, result_hash) = read_json(&root.join("results.json"))?;
                 if hash != witness.evidence
@@ -311,6 +321,7 @@ fn bootstrap_receiver(
                         std::thread::park();
                     }
                 }
+                crate::infra::mock_run_authority::storage::healthy()?;
                 durable_json(&root, "receiver-outcome.json", &value)?;
                 replies
                     .send(Reply::Recorded)
@@ -500,7 +511,7 @@ pub(super) fn run(root: PathBuf, mut scope: Scope) -> ! {
                 // This post-CAS sample establishes that the winning transition
                 // itself occurred before the deadline, even across suspension.
                 if control == "receiver-post-cas-gap" {
-                    std::fs::write(
+                    crate::infra::mock_run_authority::storage::write_new_or_unscoped(
                         root.join("receiver-post-cas-gap.reached"),
                         b"accepted CAS before clock sample",
                     )
@@ -560,6 +571,7 @@ pub(super) fn run(root: PathBuf, mut scope: Scope) -> ! {
 }
 
 pub(super) fn sender_control(root: PathBuf, scope: Scope) -> ! {
+    crate::infra::mock_run_authority::storage::attach_from_env().unwrap();
     let mut link = SupervisorLink::inherited().unwrap();
     let control = std::env::var("SOUNDROBE_NATIVE_CONTROL").unwrap();
     let generation = uuid::Uuid::from_bytes(link.generation);
@@ -632,7 +644,7 @@ pub(super) fn sender_control(root: PathBuf, scope: Scope) -> ! {
         std::thread::sleep(Duration::from_millis(scope.execution_ms + 80));
     }
     if control == "receiver-suspended-after-witness" {
-        std::fs::write(
+        crate::infra::mock_run_authority::storage::write_new_or_unscoped(
             root.join("witness-sent-before-suspension"),
             b"full witness sent",
         )

@@ -405,6 +405,8 @@ def score(contract, observations):
 
 
 if __name__ == '__main__':
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+    from bounded_storage import write_text
     if sys.argv[1] == 'inspect-user-acceptance':
         label_path, label_digest, seal_path, seal_digest = sys.argv[2:]
         packet = checked_user_acceptance(pathlib.Path.cwd(), {
@@ -435,9 +437,7 @@ if __name__ == '__main__':
                 manifest_binding = {'path': str(pathlib.Path(manifest_path).resolve().relative_to(root)),
                                     'sha256': hashlib.sha256(manifest_raw).hexdigest()}
             result = project_native(root, contract, json.loads(pathlib.Path(records_path).read_text()), manifest_binding)
-        with pathlib.Path(output_path).open('x') as output:
-            json.dump(result, output, ensure_ascii=False, indent=2)
-            output.write('\n')
+        write_text(pathlib.Path(output_path), json.dumps(result, ensure_ascii=False, indent=2) + '\n', exclusive=True)
         sys.exit(0)
     # This digest is a caller's frozen binding, not an authenticated approval.
     contract_path, expected_sha256, observations_path, output_path = sys.argv[1:]
@@ -445,6 +445,4 @@ if __name__ == '__main__':
     if hashlib.sha256(raw).hexdigest() != expected_sha256:
         raise ValueError('changed scoring contract')
     result = score(json.loads(raw), json.loads(pathlib.Path(observations_path).read_text()))
-    with pathlib.Path(output_path).open('x') as output:
-        json.dump(result, output, ensure_ascii=False, indent=2)
-        output.write('\n')
+    write_text(pathlib.Path(output_path), json.dumps(result, ensure_ascii=False, indent=2) + '\n', exclusive=True)

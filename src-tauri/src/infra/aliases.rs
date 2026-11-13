@@ -1,5 +1,8 @@
 //! User-learned artist alias persistence shared by audit and auto-tag.
 
+#[cfg(all(test, unix))]
+use crate::infra::mock_run_authority::storage::files as fs;
+#[cfg(not(all(test, unix)))]
 use std::fs;
 use std::io;
 use std::path::Path;

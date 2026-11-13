@@ -1,0 +1,136 @@
+{
+  "supervision": {
+    "authority": "native_witness_and_timely_supervisor_exit",
+    "generation": "f2904fdc-57a0-4fad-bfd8-04fdf14a44cc",
+    "supervisorExitObservedAt": 527339512,
+    "acceptedAt": 527339542,
+    "deadline": 527493842,
+    "preparationMs": 215685,
+    "requestedFieldSlots": 216
+  },
+  "native": {
+    "run": ".amp/in/artifacts/bounded-storage-20261112/run171",
+    "checks": "passed",
+    "evaluations": [
+      {
+        "name": "disabled-crowd",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 15,
+        "modelRequests": 0,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 16,
+        "nativeElapsedMs": 8752
+      },
+      {
+        "name": "disabled-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26944
+      },
+      {
+        "name": "disabled-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 160048
+      },
+      {
+        "name": "assistance-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26960
+      },
+      {
+        "name": "assistance-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 160178
+      },
+      {
+        "name": "assistance-crowd",
+        "variant": "eligible_request",
+        "outcome": "needs_review",
+        "providerRequests": 15,
+        "modelRequests": 1,
+        "wireArrivals": 18,
+        "inventoryBytes": 969855,
+        "matchedEvents": 17,
+        "nativeElapsedMs": 9133
+      }
+    ],
+    "providerRequests": 236,
+    "modelRequests": 1,
+    "wireArrivals": 249,
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "labelableSlots": 30,
+    "userAcceptanceRequested": 22,
+    "userAcceptanceAgreeing": 0,
+    "groundedAssistanceAccuracyCredit": 0
+  },
+  "durable": {
+    "runId": "5edee437-8077-4424-b00d-155ed2367f8e",
+    "checkpoint": "23c555bdbf538cf1c1d00328d19199f6c1fe3e27ae0e129e81e4429293f1d36a",
+    "counts": {
+      "arrived": 497,
+      "completed": 497,
+      "inventory": 24,
+      "model": 1,
+      "provider": 472,
+      "reserved": 497
+    },
+    "inventoryBytesMin": 969410,
+    "inventoryBytesMax": 999453,
+    "sessions": 12,
+    "consumptions": 1,
+    "receipt": "provisional_complete",
+    "actualWireArrivals": 497
+  },
+  "auditBindings": {
+    "historicalDurableAuditor": "aeed0878de308d984d86b30b66636dc5ff35432c9a5c49080ace1366b4c90b5a",
+    "adaptedDurableAuditor": "f9dd8577763c6544ce9e1784aa50b7c5aae8b4e8b3f93d6243cdcb4df5c7c2b3",
+    "native": {
+      "historicalSourceSha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+      "adaptedSourceSha256": "b62c3483647cafde1f190b5b044920e09ac91c7f9ef155f4f2da8fed99bcb841",
+      "adaptation": "preparation/preparation.json instead of cold/preparation.json"
+    }
+  },
+  "liveAuthority": false,
+  "powerLossProved": false,
+  "groundedAssistanceAccuracyCredit": 0,
+  "storage": {
+    "ordinaryGrowthReserved": 319200051,
+    "ordinaryWriteBytesReserved": 493965920,
+    "terminalGrowthReserved": 2097152,
+    "terminalWriteBytesReserved": 8388608,
+    "totalGrowthReserved": 321297203,
+    "totalWriteBytesReserved": 502354528,
+    "records": 2505,
+    "owners": 204,
+    "stopped": false,
+    "selfBookkeepingWriteUpperBound": 1413633,
+    "ledgerSha256": "4221ee340307419f96983b86c2e2728a87ea724cb79ad9b6b3fdcb76e8af4472",
+    "accounting": "nonrefundable_prepaid_application_vfs_not_physical_io"
+  }
+}

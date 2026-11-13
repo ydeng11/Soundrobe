@@ -4,6 +4,7 @@ import json
 import pathlib
 import subprocess
 import sys
+import uuid
 
 ROOT = pathlib.Path.cwd()
 
@@ -14,6 +15,86 @@ def load(file):
 
 def digest(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
+
+
+def storage_audit(run, config, allow_stopped=False):
+    """Independent replay of grants, not an inference from final file sizes."""
+    mib = 1048576
+    with (run / '.storage-ledger').open('rb') as source:
+        ledger = source.read(2 * mib + 1)
+    assert len(ledger) == 2 * mib
+    anchor = ledger[:256]
+    number = lambda block, offset: int.from_bytes(block[offset:offset+8], 'little')
+    sequence = number(anchor, 81)
+    revocation_offset = 2 * mib - 65536
+    maximum_records = revocation_offset // 256 - 2
+    assert 0 < sequence <= maximum_records
+    ordinary = (2 * mib, 4 * mib)
+    terminal = False
+    owners = list(run.glob('.storage-owner-*'))
+    assert 1 <= len(owners) <= 255
+    for owner in owners:
+        slot = int(owner.name.removeprefix('.storage-owner-'))
+        assert owner.name == f'.storage-owner-{slot:03}' and 0 <= slot < 255
+        assert owner.is_file() and not owner.is_symlink() and owner.stat().st_size == 0
+    for index in range(1, sequence + 1):
+        block = ledger[index*256:(index+1)*256]
+        assert block[1:17] == uuid.UUID(config['generation']).bytes
+        assert block[17:49] == hashlib.sha256(str(run.resolve()).encode()).digest()
+        assert block[224:] == hashlib.sha256(block[1:224]).digest()
+        assert block[112:128] == b'mock-storage-v1\0'
+        assert number(block, 81) == index
+        assert (number(block,49), number(block,57)) == (512*mib,1024*mib)
+        assert (run / f'.storage-owner-{block[111]:03}').is_file()
+        assert int.from_bytes(block[107:111],'little') > 0
+        issued = (number(block,91), number(block,99))
+        if not terminal and block[89] == 1:
+            assert issued == (2*mib,8*mib), 'terminal grant changed'
+            terminal = True
+        else:
+            assert block[89] == int(terminal)
+            ordinary = tuple(a+b for a,b in zip(ordinary,issued))
+        assert (number(block,65),number(block,73)) == ordinary, 'grant/counter disagreement'
+        assert ordinary[0] <= 510*mib and ordinary[1] <= 1016*mib, 'ordinary cap exceeded'
+    assert terminal and anchor[1:] == ledger[sequence*256+1:(sequence+1)*256]
+    assert not any(ledger[(sequence+1)*256:revocation_offset]), 'ambiguous grant history'
+    assert not any(ledger[revocation_offset+1:]), 'unexpected revocation tail'
+    assert anchor[0] in (0,1) and ledger[revocation_offset] in (0,1)
+    stopped = bool(anchor[0] or ledger[revocation_offset])
+    assert allow_stopped or not stopped
+    # Two bytes cover initial latch touching and its once-only transition.
+    # Successful and worst-case failed writes still fit the original backing.
+    bookkeeping = 256 + sequence*512 + 255*513 + 2
+    assert bookkeeping <= 4*mib
+    return dict(ordinaryGrowthReserved=ordinary[0], ordinaryWriteBytesReserved=ordinary[1],
+        terminalGrowthReserved=2*mib, terminalWriteBytesReserved=8*mib,
+        totalGrowthReserved=ordinary[0]+2*mib, totalWriteBytesReserved=ordinary[1]+8*mib,
+        records=sequence, owners=len(owners), stopped=stopped,
+        selfBookkeepingWriteUpperBound=bookkeeping, ledgerSha256=hashlib.sha256(ledger).hexdigest(),
+        accounting='nonrefundable_prepaid_application_vfs_not_physical_io')
+
+
+def incomplete_audit(run):
+    # No partial result/JSONL parsing, preparation credit or staging promotion.
+    expected = ROOT / 'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json'
+    membership = load(expected)
+    try:
+        membership_evidence = 'matched' if load(run / 'requested-membership.json') == membership else 'mismatched'
+    except (OSError, ValueError, TypeError):
+        membership_evidence = 'unavailable'
+    try:
+        storage = storage_audit(run, load(run / 'native-supervision.json'), allow_stopped=True)
+    except (OSError, ValueError, KeyError, TypeError, AssertionError):
+        # Failure projection is not storage acceptance. Missing/torn evidence
+        # must not erase requested slots or invent a validated accounting state.
+        storage = dict(state='unknown', reason='recording_unavailable_or_invalid')
+    slots = [f"{e['arm']}/{e['caseId']}/{e['profile']}/{e['phase']}/{path}/{field}"
+             for e in membership['evaluations'] for path in e['physicalPaths'] for field in e['fields']]
+    assert len(slots) == len(set(slots)) == membership['requestedFieldSlots'] == 216
+    return dict(state='incomplete', requestedFieldSlots=216, validatedFieldSlots=0,
+        unavailableFieldSlots=216, slots=[dict(id=slot, observation='unavailable', effects='unknown') for slot in slots],
+        storage=storage, membershipEvidence=membership_evidence, requestedMembershipSha256=digest(expected),
+        containment='not_inferred_from_files', groundedAssistanceAccuracyCredit=0, liveAuthority=False)
 
 
 def audit(run):
@@ -82,14 +163,18 @@ def audit(run):
         assert source.count(old) == 1, old
         source = source.replace(old, new)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
-    return dict(supervision=dict(authority=outcome['authority'], generation=outcome['generation'],
+    result = dict(supervision=dict(authority=outcome['authority'], generation=outcome['generation'],
         supervisorExitObservedAt=outcome['supervisorExitObservedAt'], acceptedAt=outcome['acceptedAt'],
         deadline=outcome['deadline'], preparationMs=preparation_ms, requestedFieldSlots=216),
         native=checked['native'], durable=checked['durable'],
         auditBindings=dict(historicalDurableAuditor=digest(original),
             adaptedDurableAuditor=hashlib.sha256(source.encode()).hexdigest(), native=checked['auditor']),
         liveAuthority=False, powerLossProved=False, groundedAssistanceAccuracyCredit=0)
+    if config.get('storage'):
+        result['storage'] = storage_audit(run, config)
+    return result
 
 
 if __name__ == '__main__':
-    print(json.dumps(audit(pathlib.Path(sys.argv[1])), indent=2))
+    run = pathlib.Path(sys.argv[1]).resolve()
+    print(json.dumps(incomplete_audit(run) if sys.argv[2:] == ['--incomplete'] else audit(run), indent=2))

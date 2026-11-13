@@ -1,8 +1,11 @@
 //! Shared SQLite cache schemas and album-state ledger.
 
+#[cfg(all(test, unix))]
+use crate::infra::mock_run_authority::storage::files as fs;
 use rusqlite::{params, Connection, OpenFlags};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+#[cfg(not(all(test, unix)))]
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -516,6 +519,12 @@ impl CacheState {
 }
 
 fn open_cache(path: &Path) -> rusqlite::Result<Connection> {
+    #[cfg(all(test, unix))]
+    let connection = crate::infra::mock_run_authority::storage::open_sqlite(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+    )?;
+    #[cfg(not(all(test, unix)))]
     let connection = Connection::open_with_flags(
         path,
         OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,

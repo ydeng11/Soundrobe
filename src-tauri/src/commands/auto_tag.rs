@@ -88,7 +88,11 @@ impl RecordingSource {
     }
 
     pub(crate) fn copy_verified_to(&self, path: &Path, destination: &Path) -> Result<(), ApiError> {
-        let mut copy = std::fs::OpenOptions::new()
+        #[cfg(all(test, unix))]
+        use crate::infra::mock_run_authority::storage::files::OpenOptions;
+        #[cfg(not(all(test, unix)))]
+        use std::fs::OpenOptions;
+        let mut copy = OpenOptions::new()
             .write(true)
             .create_new(true)
             .open(destination)?;
@@ -108,7 +112,10 @@ impl RecordingSource {
         result
     }
 
-    fn capture_into(path: &Path, mut copy: Option<&mut std::fs::File>) -> Result<Self, ApiError> {
+    fn capture_into(
+        path: &Path,
+        mut copy: Option<&mut dyn std::io::Write>,
+    ) -> Result<Self, ApiError> {
         use std::io::{Read, Write};
         let path = path.canonicalize()?;
         let mut options = std::fs::OpenOptions::new();

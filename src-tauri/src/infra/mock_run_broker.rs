@@ -71,7 +71,7 @@ impl Shared {
             let root = std::path::PathBuf::from(
                 std::env::var_os("SOUNDROBE_NATIVE_OUTPUT").ok_or("mock_control_missing")?,
             );
-            std::fs::write(
+            super::storage::write_new_or_unscoped(
                 root.join("journal-entered"),
                 b"before actual SQLite transaction",
             )
@@ -935,7 +935,7 @@ pub(crate) async fn supervised_process(
     use super::supervisor::ownership::receiver;
     let directory = root.join("authority");
     let bootstrap = directory.join("bootstrap.json");
-    while !bootstrap.is_file() {
+    while !super::storage::files::metadata(&bootstrap).is_ok_and(|metadata| metadata.is_file()) {
         monitor.check()?;
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
@@ -957,17 +957,20 @@ pub(crate) async fn supervised_process(
         &directory.join("registry.sqlite"),
         input["membership"].clone(),
         input["bindings"].clone(),
+        None,
     )?;
     let broker = Broker::start(journal.clone(), owner).await?;
     receiver::durable_json(&directory, "ready.json", &broker.descriptor).map_err(io_error)?;
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("stalled-storage") {
         use std::io::Read;
-        while !root.join("storage-release").is_file() {
+        while !super::storage::files::metadata(root.join("storage-release"))
+            .is_ok_and(|metadata| metadata.is_file())
+        {
             monitor.check()?;
             tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         }
         let mut fifo = std::fs::File::open(root.join("storage-fifo")).map_err(io_error)?;
-        std::fs::write(
+        super::storage::write_new_or_unscoped(
             root.join("storage-read-started"),
             b"open FIFO, before blocking read",
         )
@@ -1056,14 +1059,15 @@ async fn mock_authority_process() {
     assert!(bytes.len() <= 1024 * 1024);
     let input: Value = serde_json::from_slice(&bytes).unwrap();
     let root = bootstrap.parent().unwrap();
-    let (mut journal, owner) = Journal::create(
+    let fault = serde_json::from_value(input.get("fault").cloned().unwrap_or(Value::Null))
+        .expect("invalid explicit mock crash selector");
+    let (journal, owner) = Journal::create(
         &root.join("registry.sqlite"),
         input["membership"].clone(),
         input["bindings"].clone(),
+        fault,
     )
     .unwrap();
-    journal.fault = serde_json::from_value(input.get("fault").cloned().unwrap_or(Value::Null))
-        .expect("invalid explicit mock crash selector");
     let broker = Broker::start(journal.clone(), owner).await.unwrap();
     let ready = root.join("ready.json");
     std::fs::write(

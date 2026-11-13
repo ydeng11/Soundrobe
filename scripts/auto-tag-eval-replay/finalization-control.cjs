@@ -1,7 +1,7 @@
 // Synthetic finalization producer, not a tagging/scoring run or accuracy evidence.
 // Only a native final-* control may select this fixture. All owner/session
 // transitions use the real broker; no registry rows or completion files are forged.
-const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const fs = require('./bounded-storage.cjs'), path = require('node:path'), crypto = require('node:crypto');
 const { start, rpc, lease } = require('./mock-authority.cjs');
 const read = file => JSON.parse(fs.readFileSync(file));
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');

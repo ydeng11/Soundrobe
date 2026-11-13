@@ -430,16 +430,15 @@ def main() -> int:
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     result = review(read_json(args.corpus), read_json(args.manifest), args.fixture_root)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    (args.output_dir / "review.json").write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    (args.output_dir / "expectations.json").write_text(
+    from bounded_storage import mkdir, write_text
+    mkdir(args.output_dir)
+    write_text(args.output_dir / "review.json", json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+    write_text(args.output_dir / "expectations.json",
         json.dumps(expectation_ledger(result), indent=2, ensure_ascii=False) + "\n",
-        encoding="utf-8",
     )
-    (args.output_dir / "review.md").write_text(render(result), encoding="utf-8")
-    (args.output_dir / "command.log").write_text(
+    write_text(args.output_dir / "review.md", render(result))
+    write_text(args.output_dir / "command.log",
         f"status=passed\ncase_count={result['caseCount']}\ntrack_count={result['trackCount']}\n",
-        encoding="utf-8",
     )
     print(json.dumps({k: result[k] for k in ["caseCount", "trackCount", "statusCounts", "providerSnapshotCount"]}, sort_keys=True))
     return 0

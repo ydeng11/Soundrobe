@@ -13,7 +13,20 @@ const body = Buffer.from('{"model":"scripted/genre-v1","control":true}');
 
 function recovered(directory) {
   return JSON.parse(execFileSync('python3', ['-B', '-c',
-    'import sqlite3,json,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True,timeout=.1); print(c.execute("SELECT state FROM authority WHERE id=1").fetchone()[0])',
+    `import sqlite3,json,sys,hashlib
+c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True,timeout=.1)
+c.execute("BEGIN")
+row=c.execute("SELECT state FROM authority WHERE id=1").fetchone()
+assert row is not None, "initialization incomplete"
+state=json.loads(row[0])
+if state["bindings"] is None:
+    binding=c.execute("SELECT value FROM authority_bindings WHERE id=1").fetchone()
+    assert binding is not None, "immutable bindings unavailable"
+    assert hashlib.sha256(binding[0].encode()).hexdigest()==state["bindings_sha256"], "immutable bindings corrupt"
+    state["bindings"]=json.loads(binding[0])
+else:
+    assert state.get("bindings_sha256") is None, "mixed binding representations"
+print(json.dumps(state))`,
     path.join(directory, 'authority/registry.sqlite')], { encoding: 'utf8', timeout: 3000 }));
 }
 async function child(input) {
@@ -313,5 +326,8 @@ async function main(output, binary, membershipFile, only) {
     powerLossOrPhysicalFlushProved: false, liveAuthority: false });
   console.log(JSON.stringify(results));
 }
-if (process.argv[2] === '--child') child(process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
-else main(...process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { recovered };
+if (require.main === module) {
+  if (process.argv[2] === '--child') child(process.argv[3]).catch(error => { console.error(error); process.exitCode = 1; });
+  else main(...process.argv.slice(2)).catch(error => { console.error(error); process.exitCode = 1; });
+}

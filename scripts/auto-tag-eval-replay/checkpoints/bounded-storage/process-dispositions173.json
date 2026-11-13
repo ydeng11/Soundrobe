@@ -1,0 +1,404 @@
+[
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/journal167-red/journal-lock",
+    "roles": {
+      "anchorPid": {
+        "id": 63911,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 63912,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 63911,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 63910,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 63909,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 63913,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/journal168-green/journal-lock",
+    "roles": {
+      "anchorPid": {
+        "id": 64083,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64084,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64083,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64082,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64081,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64085,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/blocked-node",
+    "roles": {
+      "anchorPid": {
+        "id": 64439,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64440,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64439,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64438,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64437,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64441,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/anchor-running-loss",
+    "roles": {
+      "anchorPid": {
+        "id": 64683,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64684,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64683,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64682,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64681,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64685,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/broker-loss",
+    "roles": {
+      "anchorPid": {
+        "id": 64320,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64321,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64320,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64319,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64318,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64322,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/journal-lock",
+    "roles": {
+      "anchorPid": {
+        "id": 64526,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64527,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64526,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64525,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64524,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64528,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/receiver-loss",
+    "roles": {
+      "anchorPid": {
+        "id": 64403,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64404,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64403,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64402,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64401,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64405,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/broker-suspend",
+    "roles": {
+      "anchorPid": {
+        "id": 64626,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64627,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64626,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64625,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64624,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64628,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/supervisor-loss",
+    "roles": {
+      "anchorPid": {
+        "id": 64367,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64368,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64367,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64366,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64365,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64369,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/supervisor-suspend",
+    "roles": {
+      "anchorPid": {
+        "id": 64568,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64569,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64568,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64567,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64566,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64570,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/anchor-loss",
+    "roles": {
+      "anchorPid": {
+        "id": 64677,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64678,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64677,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64676,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64675,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/stalled-storage",
+    "roles": {
+      "anchorPid": {
+        "id": 64487,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64488,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64487,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64486,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64485,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64489,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/faults170/storage-denial",
+    "roles": {
+      "anchorPid": {
+        "id": 64762,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64763,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64762,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64761,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64760,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64764,
+        "state": "absent_ESRCH"
+      }
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/bounded-storage-20261112/run171",
+    "roles": {
+      "anchorPid": {
+        "id": 64807,
+        "state": "absent_ESRCH"
+      },
+      "brokerPid": {
+        "id": 64808,
+        "state": "absent_ESRCH"
+      },
+      "group": {
+        "id": 64807,
+        "state": "absent_ESRCH"
+      },
+      "supervisorPid": {
+        "id": 64806,
+        "state": "absent_ESRCH"
+      },
+      "receiverPid": {
+        "id": 64805,
+        "state": "absent_ESRCH"
+      },
+      "driverPid": {
+        "id": 64809,
+        "state": "absent_ESRCH"
+      }
+    }
+  }
+]

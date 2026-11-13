@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Standalone test utility. No upstream requests or application settings changes.
-const fs = require('node:fs');
+const fs = require('./auto-tag-eval-replay/bounded-storage.cjs');
 const path = require('node:path');
 const http = require('node:http');
 const crypto = require('node:crypto');

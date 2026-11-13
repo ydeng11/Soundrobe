@@ -6,6 +6,8 @@ use crate::commands::tracks::{
     id3_user_text_values, read_track_metadata, strip_wav_padding, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
+#[cfg(all(test, unix))]
+use crate::infra::mock_run_authority::storage::files::{self as fs, File};
 use crate::state::events::{emit_event, EventSink};
 use crate::state::write_queue::WriteQueue;
 use lofty::ape::{ApeFile, ApeItem, ApeTag};
@@ -32,6 +34,7 @@ use memchr::memmem::Finder;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::borrow::Cow;
 use std::collections::HashMap;
+#[cfg(not(all(test, unix)))]
 use std::fs::{self, File};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 use std::ops::Range;
@@ -446,7 +449,7 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
 
     // 4c. Rename within the same directory (temp -> alt_temp)
     let rename_result = (|| -> std::io::Result<()> {
-        if alt_temp.exists() {
+        if fs::metadata(&alt_temp).is_ok() {
             fs::remove_file(&alt_temp)?;
         }
         fs::rename(&temp, &alt_temp)?;
@@ -468,10 +471,10 @@ pub async fn volume_probe_write(path: String) -> WriteProbeResult {
 
     // 4e. Remove temp
     let remove_result = (|| -> std::io::Result<()> {
-        if temp.exists() {
+        if fs::metadata(&temp).is_ok() {
             fs::remove_file(&temp)?;
         }
-        if alt_temp.exists() {
+        if fs::metadata(&alt_temp).is_ok() {
             fs::remove_file(&alt_temp)?;
         }
         Ok(())
@@ -612,7 +615,7 @@ pub async fn volume_probe_write_real(
 #[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn file_exists(file_path: String) -> bool {
-    Path::new(&file_path).exists()
+    fs::metadata(&file_path).is_ok()
 }
 
 #[cfg(feature = "desktop")]
@@ -739,6 +742,12 @@ fn validated_track_extension(path: &Path) -> Result<String, ApiError> {
         .extension()
         .and_then(|extension| extension.to_str())
         .map(str::to_ascii_lowercase);
+    #[cfg(all(test, unix))]
+    if crate::infra::mock_run_authority::storage::is_scoped()
+        && extension.as_deref() != Some("flac")
+    {
+        crate::infra::mock_run_authority::storage::stop_unsupported();
+    }
     if extension.as_deref() == Some("aiff") {
         return Err(ApiError::UnsupportedFormat(
             "AIFF metadata writing is not supported".to_string(),
@@ -810,6 +819,10 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     // the shared path so they can still run concurrently.
     let review = super::auto_tag_review::active_review();
     let journaled = review.is_some();
+    #[cfg(all(test, unix))]
+    if journaled && crate::infra::mock_run_authority::storage::is_scoped() {
+        crate::infra::mock_run_authority::storage::stop_unsupported();
+    }
 
     let operation = async move {
         tokio::task::spawn_blocking(move || {
@@ -1399,6 +1412,10 @@ fn write_extra_tags_dispatch(
     path: &Path,
     tags: &[ExtraTagUpdate],
 ) -> Result<ExtraTagWriteReport, ApiError> {
+    #[cfg(all(test, unix))]
+    if crate::infra::mock_run_authority::storage::is_scoped() {
+        crate::infra::mock_run_authority::storage::stop_unsupported();
+    }
     let outcome = match validate_extra_tag_extension(path)?.as_str() {
         "mp3" => write_id3_extra_tags_atomic(path, tags, false),
         "wav" => write_id3_extra_tags_atomic(path, tags, true),
@@ -2116,7 +2133,7 @@ fn write_id3_extra_tags_atomic(
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2165,7 +2182,7 @@ fn write_flac_extra_tags_atomic(
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result.map(ExtraTagWriteReport::from_full_rewrite)
@@ -2219,7 +2236,7 @@ fn write_ogg_extra_tags_atomic(
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2253,7 +2270,7 @@ fn write_ape_extra_tags_atomic(
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2311,7 +2328,7 @@ fn try_ape_inplace_update(
     use std::io::Seek;
     let tag_bytes = &candidate[candidate_core.len()..];
     let write_result = (|| -> Result<(), ApiError> {
-        let mut f = std::fs::OpenOptions::new()
+        let mut f = fs::OpenOptions::new()
             .write(true)
             .open(path)
             .map_err(|e| ApiError::WriteTask(format!("open for APE in-place: {e}")))?;
@@ -2338,7 +2355,7 @@ fn try_ape_inplace_update(
         Ok(()) => Ok(Some(TrackWriteOutcome::Replaced)),
         Err(e) => {
             // Restore original tag on any failure after mutation.
-            if let Ok(mut f) = std::fs::OpenOptions::new().write(true).open(path) {
+            if let Ok(mut f) = fs::OpenOptions::new().write(true).open(path) {
                 let _ = f.set_len(original_core.len() as u64);
                 let _ = f.seek(std::io::SeekFrom::End(0));
                 let _ = f.write_all(original_tag_bytes);
@@ -2404,7 +2421,7 @@ pub fn write_ape_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2436,7 +2453,7 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
             fs::write(&readable, &original_bytes)?;
             read_track_metadata(&readable)
         })();
-        if readable.exists() {
+        if fs::metadata(&readable).is_ok() {
             let _ = fs::remove_file(&readable);
         }
         result?
@@ -2492,7 +2509,7 @@ pub fn write_wav_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2537,7 +2554,7 @@ pub fn write_mp4_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2592,7 +2609,7 @@ pub fn write_ogg_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result
@@ -2630,7 +2647,13 @@ pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOu
         let flac = read_flac(&temporary)?;
         let mut comments = flac.vorbis_comments().cloned().unwrap_or_default();
         apply_vorbis_patch(&mut comments, patch);
-        comments.save_to_path(&temporary, WriteOptions::new())?;
+        comments.save_to(
+            &mut fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .open(&temporary)?,
+            WriteOptions::new(),
+        )?;
         let candidate_bytes = fs::read(&temporary)?;
         let candidate_payload = flac_audio_payload(&candidate_bytes).ok_or_else(|| {
             ApiError::MediaSafety("invalid written FLAC metadata boundary".to_string())
@@ -2654,7 +2677,7 @@ pub fn write_flac_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOu
         replace_file_atomic(&temporary, path)?;
         Ok(TrackWriteOutcome::Replaced)
     })();
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     if let Ok(outcome) = result.as_ref() {
@@ -2735,7 +2758,7 @@ fn try_id3v2_inplace_update(
     // In-place write: overwrite the ID3v2 tag at offset 0.
     let tag_bytes = &candidate[..new_tag_size];
     {
-        let mut f = std::fs::OpenOptions::new().write(true).open(path)?;
+        let mut f = fs::OpenOptions::new().write(true).open(path)?;
         f.write_all(tag_bytes)?;
         // Zero-fill any remaining space in the original tag region.
         if new_tag_size < payload_offset {
@@ -2803,7 +2826,7 @@ pub fn write_mp3_atomic(path: &Path, patch: &TrackPatch) -> Result<TrackWriteOut
         Ok(TrackWriteOutcome::Replaced)
     })();
 
-    if temporary.exists() {
+    if fs::metadata(&temporary).is_ok() {
         let _ = fs::remove_file(&temporary);
     }
     result

@@ -37,7 +37,8 @@ function main(output, executable) {
     stdio: 'ignore',
   });
   let outcome = { state: 'incomplete', requestedFieldSlots: 216, liveAuthority: false,
-    receiverExit: status.status, receiverSignal: status.signal, recovery: 'no_staging_promotion_no_resume' };
+    receiverExit: status.status, receiverSignal: status.signal, recovery: 'no_staging_promotion_no_resume',
+    validatedFieldSlots: 0, unavailableFieldSlots: 216, interruptedEffects: 'unknown' };
   try {
     if (status.error || status.status !== 0 || status.signal) throw Error('native receiver unsuccessful');
     const config = JSON.parse(readSmall(path.join(output, 'native-supervision.json')));
@@ -45,10 +46,19 @@ function main(output, executable) {
     const accepted = validateOutcome(status, config, JSON.parse(bytes));
     outcome = { ...outcome, state: 'complete', generation: accepted.generation, receiverPid: status.pid,
       receiverOutcomeSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
-      authority: accepted.authority, actualReceiverExitObserved: true };
+      authority: accepted.authority, actualReceiverExitObserved: true,
+      validatedFieldSlots: 216, unavailableFieldSlots: 0 };
   } catch { process.exitCode = 1; }
   if (fs.existsSync(output)) {
-    fs.writeFileSync(path.join(output, 'launcher-outcome.json'), JSON.stringify(outcome) + '\n', { flag: 'wx', mode: 0o600 });
+    try {
+      const config = JSON.parse(readSmall(path.join(output, 'native-supervision.json')));
+      require('./bounded-storage.cjs').writeLauncherOutcome(path.resolve(executable), output, config.generation, outcome);
+    } catch {
+      // No unmetered fallback. Lost recording remains incomplete, including
+      // when a receiver accepted but its archival acknowledgment cannot fit.
+      outcome = { ...outcome, state: 'incomplete', validatedFieldSlots: 0, unavailableFieldSlots: 216 };
+      process.exitCode = 1;
+    }
   }
   console.log(JSON.stringify(outcome));
 }

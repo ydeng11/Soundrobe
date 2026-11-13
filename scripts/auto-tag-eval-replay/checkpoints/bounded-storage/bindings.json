@@ -1,0 +1,518 @@
+{
+  "schemaVersion": 1,
+  "parent": "6894e38ffa2f2771e76f9f62137a10e4f4904993",
+  "branch": "artist-library-inventory",
+  "implementation": [
+    {
+      "path": "docs/offline-provider-mock.md",
+      "sha256": "ca26ca091649c0298d6df044e4672dedf05656521e431046256b52e6a71903c4",
+      "bytes": 24077
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit-supervised.py",
+      "sha256": "7f96d7bcb7099729bd898cea67a5c7fa7e275d7442daa1177dc4a56b31943e9f",
+      "bytes": 10434
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/bounded-storage.cjs",
+      "sha256": "7fbebbe58429f5883b9a16cf937489ce6f9bccbb61c8fe37868caafefc10a4df",
+      "bytes": 5735
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/check-mock-authority.cjs",
+      "sha256": "c8c045f2c5accde0fd6901df49b7601117baeb6942c7068f565cc17bd5da00ee",
+      "bytes": 21930
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/check-supervision.cjs",
+      "sha256": "66e9a791f4edc553668f1268aad3ea5111cf1dd33f1af4defcf38c5aaf2945ae",
+      "bytes": 12551
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/finalization-control.cjs",
+      "sha256": "bb3892f9e4f030f205a90a9b236edff688c5ea21f95b25759d659e0fb1857b5c",
+      "bytes": 3168
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/mock-authority.cjs",
+      "sha256": "829f8c665b5dde87d6627512dabf4fe5828b1c7bb208765d598d720511954551",
+      "bytes": 7687
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "a93e6d52998ee34a53c2f5d2c8519969321dccdb6e5eee935471fdf99c51ff45",
+      "bytes": 43761
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-supervised.cjs",
+      "sha256": "db912915a7ef7bbc2534c91da959deb822ee15f4107ca22ee389eea7c5e4c5d4",
+      "bytes": 4095
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/score-observations.py",
+      "sha256": "8c117a33084ee3df9caf9b4180be61d5865e21063014df13edb01dee37e6f4f2",
+      "bytes": 28345
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_supervision.cjs",
+      "sha256": "7a7efff991e8c9ce3799d51564d9e9a5179e8dcf5742b82e3f2156f3a6d9256a",
+      "bytes": 12969
+    },
+    {
+      "path": "scripts/bounded_storage.py",
+      "sha256": "fd9e11fc489be589cc13688d92a6238d8ef61afb842036577c0da18b97b83484",
+      "bytes": 1538
+    },
+    {
+      "path": "scripts/mock-provider-service.cjs",
+      "sha256": "4a81cb4ed82f6c87e73af53fb6259b09bbf6906b37eb0eadfe30ce0134d5e55e",
+      "bytes": 16517
+    },
+    {
+      "path": "scripts/review_auto_tag_subset.py",
+      "sha256": "6758a9acff8c062583020143ad3121848f0e848b14932128a4527fbb09fffb27",
+      "bytes": 20133
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "a0ab0fb2fc0ea481d607ab66715286f0597d7dc8afc799ba2491a5bf2439e36b",
+      "bytes": 465545
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_eval.rs",
+      "sha256": "3d6b09c9e448f5114304a46ca5084a994507247599be697e3c45c68c089638d6",
+      "bytes": 195045
+    },
+    {
+      "path": "src-tauri/src/commands/mutations.rs",
+      "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7",
+      "bytes": 294973
+    },
+    {
+      "path": "src-tauri/src/infra/aliases.rs",
+      "sha256": "f85bbc582e918fad72faa14c64dab3497e1e9cd5d014af9da7453b1cc59be6cb",
+      "bytes": 2409
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_authority.rs",
+      "sha256": "d29fc1d89765970634f471b65fe3eceaa6779b63c01bd65004b16b00518f8e84",
+      "bytes": 67495
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_broker.rs",
+      "sha256": "86dfc9b93a23cb2a3634b629c0784035b09cf76feb9871238d0553bae78e40dc",
+      "bytes": 42586
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_ownership.rs",
+      "sha256": "5ad9a9d5ec4dbc50e1ac59082b813f88e2909f048da8bcfeed27aa63636772d6",
+      "bytes": 66894
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_receiver.rs",
+      "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87",
+      "bytes": 25199
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_storage.rs",
+      "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a",
+      "bytes": 161000
+    },
+    {
+      "path": "src-tauri/src/state/sqlite.rs",
+      "sha256": "bc555639aed3ecfdc602f24266cb4f0db313ec714172389e5e2561ed66efeb25",
+      "bytes": 28095
+    },
+    {
+      "path": "src-tauri/src/state/worker.rs",
+      "sha256": "92d0932b0d13dbd61366dd7250ceffc7c2dc0e2ca8ec6ab6ba86c2da0e390cd4",
+      "bytes": 75605
+    }
+  ],
+  "nativeSnapshots155": [
+    {
+      "source": {
+        "path": "src-tauri/src/infra/mock_run_storage.rs",
+        "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a",
+        "bytes": 161000
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_storage155.rs",
+        "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a",
+        "bytes": 161000
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/infra/mock_run_authority.rs",
+        "sha256": "d29fc1d89765970634f471b65fe3eceaa6779b63c01bd65004b16b00518f8e84",
+        "bytes": 67495
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_authority155.rs",
+        "sha256": "d29fc1d89765970634f471b65fe3eceaa6779b63c01bd65004b16b00518f8e84",
+        "bytes": 67495
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/infra/mock_run_broker.rs",
+        "sha256": "86dfc9b93a23cb2a3634b629c0784035b09cf76feb9871238d0553bae78e40dc",
+        "bytes": 42586
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_broker155.rs",
+        "sha256": "86dfc9b93a23cb2a3634b629c0784035b09cf76feb9871238d0553bae78e40dc",
+        "bytes": 42586
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/infra/mock_run_receiver.rs",
+        "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87",
+        "bytes": 25199
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_receiver155.rs",
+        "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87",
+        "bytes": 25199
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/infra/mock_run_ownership.rs",
+        "sha256": "5ad9a9d5ec4dbc50e1ac59082b813f88e2909f048da8bcfeed27aa63636772d6",
+        "bytes": 66894
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_ownership155.rs",
+        "sha256": "5ad9a9d5ec4dbc50e1ac59082b813f88e2909f048da8bcfeed27aa63636772d6",
+        "bytes": 66894
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/commands/mutations.rs",
+        "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7",
+        "bytes": 294973
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/mutations155.rs",
+        "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7",
+        "bytes": 294973
+      }
+    },
+    {
+      "source": {
+        "path": "src-tauri/src/commands/auto_tag_eval.rs",
+        "sha256": "3d6b09c9e448f5114304a46ca5084a994507247599be697e3c45c68c089638d6",
+        "bytes": 195045
+      },
+      "retained": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/auto_tag_eval155.rs",
+        "sha256": "3d6b09c9e448f5114304a46ca5084a994507247599be697e3c45c68c089638d6",
+        "bytes": 195045
+      }
+    }
+  ],
+  "copies": [
+    {
+      "original": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/audit172.json",
+        "sha256": "3039e500fa33b83c71233fe0d46249ead20a5ac540a50d0443e1f393eddab427",
+        "bytes": 4179
+      },
+      "delivered": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/audit172.json",
+        "sha256": "3039e500fa33b83c71233fe0d46249ead20a5ac540a50d0443e1f393eddab427",
+        "bytes": 4179
+      },
+      "transformation": "none"
+    },
+    {
+      "original": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/process-dispositions173.json",
+        "sha256": "b883c62cf30e4a074f04a64db505e7a64e296189819785e467eca640f8e9ce63",
+        "bytes": 8478
+      },
+      "delivered": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/process-dispositions173.json",
+        "sha256": "b883c62cf30e4a074f04a64db505e7a64e296189819785e467eca640f8e9ce63",
+        "bytes": 8478
+      },
+      "transformation": "none"
+    },
+    {
+      "original": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/review134.md",
+        "sha256": "24963ebd2ee14d7d0fede028e8ade0438d98a01a3b125d6343ff56eaa2d3e564",
+        "bytes": 12313
+      },
+      "delivered": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/review.md",
+        "sha256": "24963ebd2ee14d7d0fede028e8ade0438d98a01a3b125d6343ff56eaa2d3e564",
+        "bytes": 12313
+      },
+      "transformation": "none"
+    },
+    {
+      "original": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/run171/receiver-outcome.json",
+        "sha256": "122c42324e0590f78a971db85945b475856398769a4215f4c536c272bed15a98",
+        "bytes": 588
+      },
+      "delivered": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/receiver-outcome.json",
+        "sha256": "122c42324e0590f78a971db85945b475856398769a4215f4c536c272bed15a98",
+        "bytes": 588
+      },
+      "transformation": "none"
+    },
+    {
+      "original": {
+        "path": ".amp/in/artifacts/bounded-storage-20261112/run171/launcher-outcome.json",
+        "sha256": "4a4e5fdd2f42c5f1509e17131b49fa7766b4163820f86118073750ac336de943",
+        "bytes": 488
+      },
+      "delivered": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/launcher-outcome.json",
+        "sha256": "4a4e5fdd2f42c5f1509e17131b49fa7766b4163820f86118073750ac336de943",
+        "bytes": 488
+      },
+      "transformation": "none"
+    }
+  ],
+  "retained": [
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/check157.log",
+      "sha256": "5db3541e1e5e9116ad8f51b01585a64af2dab632b0f7e08e57a50c7eb79d14a1",
+      "bytes": 274237
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/helper169.log",
+      "sha256": "d32419f6b12d4ee51787d06996f50049fd929eef5e7e4231edb9764a6400e3ae",
+      "bytes": 3659
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/faults170.log",
+      "sha256": "dd2b590276d7f6b655593845fa6db635a8591c4e9e4fa69187d57770713ec1f5",
+      "bytes": 109
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/faults170/results.json",
+      "sha256": "9d365fef660bc0afbf3ab589812bd9d57e9b17eedc319bf39cbc748aa9e8267a",
+      "bytes": 46975
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171.log",
+      "sha256": "4a4e5fdd2f42c5f1509e17131b49fa7766b4163820f86118073750ac336de943",
+      "bytes": 488
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/audit172.json",
+      "sha256": "3039e500fa33b83c71233fe0d46249ead20a5ac540a50d0443e1f393eddab427",
+      "bytes": 4179
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/audit172.err",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/final174.log",
+      "sha256": "6fc28156d02ccf0927592f7c3df60bbb2b261367f9bf8a15225eb5dbab5066a7",
+      "bytes": 1875
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/frozen169.sha256",
+      "sha256": "49ce1d349c77b8215b042c14b80b9ce9726034b8296b0407565a73bc4265a65a",
+      "bytes": 1047
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/frozen172-verified.log",
+      "sha256": "81a9225c4f8caf15368004398f2084562b9189cdce42888d8ff2d0647c827cb6",
+      "bytes": 489
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/process-dispositions173.json",
+      "sha256": "b883c62cf30e4a074f04a64db505e7a64e296189819785e467eca640f8e9ce63",
+      "bytes": 8478
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/review134.md",
+      "sha256": "24963ebd2ee14d7d0fede028e8ade0438d98a01a3b125d6343ff56eaa2d3e564",
+      "bytes": 12313
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/server-tests155",
+      "sha256": "256c558f04f3b6b78984ec0926414a6fa296702ad0d6f09dc549d065687f85ed",
+      "bytes": 125659200
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run-bounded169.cjs",
+      "sha256": "a93e6d52998ee34a53c2f5d2c8519969321dccdb6e5eee935471fdf99c51ff45",
+      "bytes": 43761
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/check-supervision169.cjs",
+      "sha256": "66e9a791f4edc553668f1268aad3ea5111cf1dd33f1af4defcf38c5aaf2945ae",
+      "bytes": 12551
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/check-mock-authority96.cjs",
+      "sha256": "c8c045f2c5accde0fd6901df49b7601117baeb6942c7068f565cc17bd5da00ee",
+      "bytes": 21930
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/source-and-tool-locks.json",
+      "sha256": "6c9142bb33961f505143dfe1d2f09dd778bde1acc8b3374d32a76f70d4c291a4",
+      "bytes": 19497
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/fixture-source-locks.json",
+      "sha256": "1b1b2198449f04371e948941c3bd777af65eb8d2b532766d9f5c179412cb1996",
+      "bytes": 338758
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/authority/provisional.json",
+      "sha256": "88d47cebc10943e7b4b26120399d76f65e9c3e4b30db3b30a8ed0b0cfa1fa2b2",
+      "bytes": 464312
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/authority/registry.sqlite",
+      "sha256": "a284a09b21649b024be3db5383eb47d0189b566b56ff30ef4e336e685aa28a97",
+      "bytes": 610304
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/.storage-ledger",
+      "sha256": "4221ee340307419f96983b86c2e2728a87ea724cb79ad9b6b3fdcb76e8af4472",
+      "bytes": 2097152
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/receiver-outcome.json",
+      "sha256": "122c42324e0590f78a971db85945b475856398769a4215f4c536c272bed15a98",
+      "bytes": 588
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/launcher-outcome.json",
+      "sha256": "4a4e5fdd2f42c5f1509e17131b49fa7766b4163820f86118073750ac336de943",
+      "bytes": 488
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/results.json",
+      "sha256": "52d85b6c2119e08168eae1d35e6f5080064f872bc664ecbd4829e5d1560c5b35",
+      "bytes": 91580
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/execution-scope.json",
+      "sha256": "fcd5bc8bccce57308de17293e7944fe44d4aa1d98a04163a2234b1a734604c54",
+      "bytes": 43
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/run171/native-supervision.json",
+      "sha256": "20d9f8d230ccbba7974eb6a6e6916fc32b50af1fcdcadb7e2826ac383842d57f",
+      "bytes": 576
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/journal167-red.log",
+      "sha256": "45642de0524291ac9400d929049ec9231bd6aa449adc553289b1625fd0a50086",
+      "bytes": 394
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/journal168-green.log",
+      "sha256": "8c41b232762c19854182bda4d0699916e613eb26145e4ce16ff1d6ac3038bce3",
+      "bytes": 115
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/faults158.log",
+      "sha256": "d8ddc13f201f4cc843f4cee4a4df6b9d92c5a1faa74e648fcb6de39a00b991bf",
+      "bytes": 394
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/faults163.log",
+      "sha256": "ae41f7c8497e38543dc20bf84d1a828f317454c3aaf1c54bd5462d613178e07e",
+      "bytes": 393
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_storage155.rs",
+      "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a",
+      "bytes": 161000
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_authority155.rs",
+      "sha256": "d29fc1d89765970634f471b65fe3eceaa6779b63c01bd65004b16b00518f8e84",
+      "bytes": 67495
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_broker155.rs",
+      "sha256": "86dfc9b93a23cb2a3634b629c0784035b09cf76feb9871238d0553bae78e40dc",
+      "bytes": 42586
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_receiver155.rs",
+      "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87",
+      "bytes": 25199
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mock_run_ownership155.rs",
+      "sha256": "5ad9a9d5ec4dbc50e1ac59082b813f88e2909f048da8bcfeed27aa63636772d6",
+      "bytes": 66894
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/mutations155.rs",
+      "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7",
+      "bytes": 294973
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/auto_tag_eval155.rs",
+      "sha256": "3d6b09c9e448f5114304a46ca5084a994507247599be697e3c45c68c089638d6",
+      "bytes": 195045
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/delivery175/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/delivery175/helpers.log",
+      "sha256": "05ae9c3c8115356a8ef78bcdea9e417591bcb0fab0bb6576a47cedfadb0df5c8",
+      "bytes": 3661
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/delivery175/mock-unit.log",
+      "sha256": "c311e83545cf4d28337fd35c8c65091ab2f8d5a8509a94bba392a2fa6e0105ff",
+      "bytes": 585
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/delivery175/review-unit.log",
+      "sha256": "a78428638f89de783e9928825d64f1504dfb5e45b95d4850b243993d814d7178",
+      "bytes": 860
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-storage-20261112/delivery175/typecheck.log",
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2",
+      "bytes": 46
+    },
+    {
+      "path": ".planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py",
+      "sha256": "aeed0878de308d984d86b30b66636dc5ff35432c9a5c49080ace1366b4c90b5a",
+      "bytes": 5301
+    },
+    {
+      "path": ".planning/plans/cold-paired-mock-delivery-20261111/audit-run.py",
+      "sha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+      "bytes": 6706
+    }
+  ],
+  "receiptBindingCount": 1666,
+  "manifestCount": 132,
+  "fixtureCount": 1532,
+  "exactStoredBindingJsonBytes": 329299,
+  "exactStoredBindingJsonSha256": "4bfca070dbe84028d6b78a04b5afd7ecbbfcca0093c6042a38a66dca38fc73ca",
+  "deliveryOnlyChanges": [
+    "docs/CHANGELOG.md",
+    "docs/offline-provider-mock.md",
+    ".planning/plans/bounded-storage-admission-20261112.md"
+  ],
+  "checks": "All receipt/fault/frozen entries and implementation except operator docs matched accepted bytes; SQLite/ledger read-only reconciliation matched audit172."
+}

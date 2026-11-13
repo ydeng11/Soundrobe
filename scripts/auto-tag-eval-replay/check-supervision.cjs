@@ -22,17 +22,19 @@ async function main(output, binary, only) {
   const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
   const locks = [binary, __filename, require.resolve('./run-bounded.cjs'), require.resolve('./mock-authority.cjs'),
     require.resolve('./run-supervised.cjs'), require.resolve('./finalization-control.cjs'),
+    require.resolve('./bounded-storage.cjs'), require.resolve('./audit-supervised.py'),
+    'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json',
     ...execFileSync('rg', ['--files', 'src-tauri/src'], { encoding: 'utf8' }).trim().split('\n')]
     .map(file => ({ path: path.relative(process.cwd(), file), sha256: digest(file) }));
   save(path.join(output, 'source-and-tool-locks.json'), locks);
   const checkLocks = () => { for (const lock of locks) assert.equal(digest(lock.path), lock.sha256, lock.path); };
   const results = [];
   for (const control of ['broker-loss', 'supervisor-loss', 'receiver-loss', 'blocked-node',
-    'stalled-storage', 'journal-lock', 'supervisor-suspend', 'broker-suspend', 'anchor-loss', 'anchor-running-loss']) {
+    'stalled-storage', 'journal-lock', 'supervisor-suspend', 'broker-suspend', 'anchor-loss', 'anchor-running-loss', 'storage-denial']) {
     if (only && only !== control) continue;
     checkLocks();
     const root = path.join(output, control), log = fs.openSync(root + '.log', 'wx');
-    const preparation = ['blocked-node', 'supervisor-suspend'].includes(control) ? 3000 : 8000;
+    const preparation = control === 'storage-denial' ? 300000 : ['blocked-node', 'supervisor-suspend'].includes(control) ? 3000 : 8000;
     let executable = binary, args = ['--exact',
       'infra::mock_run_authority::supervisor::ownership::native_supervision_process', '--ignored', '--nocapture'];
     if (control === 'anchor-running-loss') {
@@ -51,9 +53,46 @@ async function main(output, binary, only) {
     const exited = once(child, 'exit').then(value => status = value);
     let pipe, locker;
     try {
-      const readiness = control === 'anchor-loss' ? 'anchor-preexec-blocked' : 'authority/ready.json';
+      if (control === 'storage-denial') {
+        await until(() => status, 5000, 'native storage-denial termination');
+        await exited;
+        const identity = read(path.join(root, 'group-identity.json'));
+        await until(() => absent(identity.group), 1500, 'storage-denied execution group quiescence');
+        assert.equal(status[0],78);
+        assert.ok(!fs.existsSync(path.join(root,'must-not-create')));
+        assert.ok(!fs.existsSync(path.join(root,'receiver-outcome.json')));
+        const audit = JSON.parse(execFileSync('python3', ['-B', require.resolve('./audit-supervised.py'), root, '--incomplete'],
+          {env:{PATH:process.env.PATH},encoding:'utf8'}));
+        assert.equal(audit.unavailableFieldSlots,216);
+        assert.equal(audit.validatedFieldSlots,0);
+        assert.equal(audit.slots.length,216);
+        const events = fs.readFileSync(root + '.log', 'utf8').split('\n')
+          .filter(line => line.startsWith('SOUNDROBE_STORAGE_DENIAL '))
+          .map(line => JSON.parse(line.slice('SOUNDROBE_STORAGE_DENIAL '.length)));
+        assert.equal(events.length, 1, 'process loss alone is not quota-denial evidence');
+        const configuration = read(path.join(root, 'native-supervision.json'));
+        const denial = events[0];
+        assert.equal(denial.generation, configuration.generation);
+        assert.equal(denial.target, path.join(root, 'must-not-create'));
+        assert.equal(denial.requestedGrowth, 0);
+        assert.equal(denial.requestedWrites, 1024 * 1048576);
+        assert.equal(denial.ordinaryWriteLimit, 1016 * 1048576);
+        assert.ok(denial.requestedWrites + denial.ordinaryWritesReserved > denial.ordinaryWriteLimit);
+        assert.equal(audit.storage.accounting, 'nonrefundable_prepaid_application_vfs_not_physical_io');
+        assert.equal(new Set(audit.slots.map(slot => slot.id)).size, 216);
+        assert.ok(audit.slots.every(slot => slot.observation === 'unavailable' && slot.effects === 'unknown'));
+        assert.equal(configuration.preparationMs,300000);
+        checkLocks();
+        results.push({control,status,actualGroupAbsent:true,...audit});
+        save(path.join(root,'control-result.json'),results.at(-1));
+        continue;
+      }
+      const readiness = control === 'anchor-loss' ? 'anchor-preexec-blocked'
+        : control === 'journal-lock' ? 'journal-driver-idle.json' : 'authority/ready.json';
+      // Readiness must fit the existing preparation budget. Only the fault's
+      // observed boundary starts the separate, unchanged containment bound.
       await until(() => fs.existsSync(path.join(root, readiness)) || status,
-        control === 'anchor-running-loss' ? 30000 : 2500, 'native readiness boundary');
+        control === 'anchor-running-loss' ? 30000 : preparation, 'native readiness boundary');
       assert.ok(control === 'anchor-running-loss' || !status, `early native exit: ${control}`);
       assert.ok(fs.existsSync(path.join(root, readiness)), 'required native boundary');
       const identity = read(path.join(root, 'group-identity.json'));
@@ -75,11 +114,17 @@ async function main(output, binary, only) {
         await delay(100);
         assert.ok((control === 'anchor-running-loss' || !status) && !absent(identity.group));
       } else if (control === 'journal-lock') {
-        const script = 'import sqlite3,sys,time; c=sqlite3.connect(sys.argv[1]); c.execute("BEGIN EXCLUSIVE"); open(sys.argv[2],"w").write("locked"); time.sleep(20)';
+        const authority = read(path.join(root, 'authority/ready.json'));
+        const before = await rpc(authority.socket, authority.owner, { op: 'report' });
+        assert.equal(before.ownerLive, true, 'owner lease committed before external lock');
+        assert.deepEqual(before.sessions, {}, 'driver has not started preparation writers');
+        save(path.join(root, 'journal-before-lock.json'), before);
+        // A reserved writer lock blocks the real write transaction while
+        // allowing the broker's independent report reader to remain healthy.
+        const script = 'import sqlite3,sys,time; c=sqlite3.connect(sys.argv[1]); c.execute("BEGIN IMMEDIATE"); open(sys.argv[2],"w").write("locked"); time.sleep(20)';
         locker = spawn('python3', ['-B', '-c', script, path.join(root, 'authority/registry.sqlite'), path.join(root, 'journal-held')],
           { env: { PATH: process.env.PATH }, stdio: 'ignore' });
-        await until(() => fs.existsSync(path.join(root, 'journal-held')), 1000, 'SQLite exclusive lock');
-        const authority = read(path.join(root, 'authority/ready.json'));
+        await until(() => fs.existsSync(path.join(root, 'journal-held')), 1000, 'SQLite reserved writer lock');
         // The actual write transaction contends with the externally held lock.
         void rpc(authority.socket, authority.owner, { op: 'freeze' }).catch(() => {});
         await until(() => fs.existsSync(path.join(root, 'journal-entered')), 1000, 'contended journal entry');

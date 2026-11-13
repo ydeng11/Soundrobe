@@ -1,5 +1,8 @@
+#[cfg(all(test, unix))]
+use crate::infra::mock_run_authority::storage::files as fs;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+#[cfg(not(all(test, unix)))]
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -72,6 +75,13 @@ impl WorkerStore {
         if !path.try_exists().map_err(|error| error.to_string())? {
             return Ok(Vec::new());
         }
+        #[cfg(all(test, unix))]
+        let connection = crate::infra::mock_run_authority::storage::open_sqlite(
+            &path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )
+        .map_err(|error| error.to_string())?;
+        #[cfg(not(all(test, unix)))]
         let connection =
             Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .map_err(|error| error.to_string())?;
@@ -128,7 +138,14 @@ impl WorkerStore {
                 return false;
             }
         }
-        let Ok(connection) = Connection::open(&self.path) else {
+        #[cfg(all(test, unix))]
+        let opened = crate::infra::mock_run_authority::storage::open_sqlite(
+            &self.path,
+            rusqlite::OpenFlags::default(),
+        );
+        #[cfg(not(all(test, unix)))]
+        let opened = Connection::open(&self.path);
+        let Ok(connection) = opened else {
             return false;
         };
         if connection.execute_batch(WORKER_SCHEMA).is_err() {

@@ -1,6 +1,6 @@
 // Mock-only integration of the maintained native evaluator and frozen scorer.
 // Usage: node scripts/auto-tag-eval-replay/run-bounded.cjs NEW_OUTPUT TEST_EXECUTABLE [FROZEN_USER_LABEL_DIRECTORY]
-const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+const fs = require('./bounded-storage.cjs'), path = require('node:path'), crypto = require('node:crypto');
 const { spawn, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const { createService, importPools } = require('../mock-provider-service.cjs');
@@ -105,6 +105,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
   const lockedFiles = [binary, __filename, scorer, 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+    'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
+    'scripts/auto-tag-eval-replay/audit-supervised.py',
     ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
       'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json', path.join(output, 'native-supervision.json')] : []),
     ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
@@ -162,6 +164,17 @@ async function main(output, executable, userLabelDirectory, mode) {
     read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
   const authority = durable ? activeAuthority : null;
+  if (supervised && supervision.control === 'journal-lock') {
+    // The owner lease is committed. Keep preparation writers out of the
+    // fault fixture so its Freeze is the transaction contending on the lock.
+    save(path.join(output, 'journal-driver-idle.json'), { requestedFieldSlots: 216, controlOnly: true });
+    await new Promise(() => {});
+  }
+  if (supervised && supervision.control === 'storage-denial') {
+    save(path.join(output, 'storage-denial-ready.json'), { requestedFieldSlots: 216, controlOnly: true });
+    fs.quotaControl(path.join(output, 'must-not-create'));
+    throw Error('storage denial control unexpectedly returned');
+  }
   if (supervised && ['blocked-node', 'anchor-running-loss'].includes(supervision.control)) {
     const report = await authority.command({ op: 'report' });
     save(path.join(output, 'blocked-node.json'), { brokerResponded: true,
@@ -237,7 +250,9 @@ async function main(output, executable, userLabelDirectory, mode) {
     }
     if (authority) await register('preparation');
     const inventoryFile = path.join(directory, 'approved-fixtures.json');
-    const env = Object.fromEntries(['PATH', 'HOME', 'TMPDIR'].filter(k => process.env[k]).map(k => [k, process.env[k]]));
+    const envKeys = supervised ? ['PATH', 'SOUNDROBE_STORAGE_REQUIRED', 'SOUNDROBE_STORAGE_EXECUTABLE',
+      'SOUNDROBE_NATIVE_OUTPUT', 'SOUNDROBE_NATIVE_GENERATION'] : ['PATH', 'HOME', 'TMPDIR'];
+    const env = Object.fromEntries(envKeys.filter(k => process.env[k]).map(k => [k, process.env[k]]));
     Object.assign(env, { SOUNDROBE_AUTO_TAG_EVAL_CORPUS: corpus, SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT: sourceRoot,
       SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS: expectations, SOUNDROBE_AUTO_TAG_EVAL_PROFILE: job.profile,
       SOUNDROBE_AUTO_TAG_EVAL_CASES: job.caseId, SOUNDROBE_AUTO_TAG_EVAL_ARTISTS: '',
@@ -258,16 +273,22 @@ async function main(output, executable, userLabelDirectory, mode) {
           preparation: name === 'preparation' ? null : path.join(directory, 'preparation', 'preparation.json') });
         env.SOUNDROBE_MOCK_EVALUATION = descriptor;
       }
-      const log = fs.openSync(path.join(target, 'native.log'), 'wx');
+      const log = supervised ? fs.logSink(path.join(target, 'native.log')) : fs.openSync(path.join(target, 'native.log'), 'wx');
       try {
         const child = spawn(binary, ['--exact', `commands::auto_tag::eval_tests::${authority ? 'durable_cold_mock_auto_tag_eval' : paired ? 'paired_cold_mock_auto_tag_eval' : bounded ? 'bounded_mock_auto_tag_eval' : 'live_auto_tag_eval'}`,
           '--ignored', '--nocapture'], { cwd: root, env: { ...env, SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: target,
-            SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: !supervised, stdio: ['ignore', log, log] });
+            SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${job.name}-${name}` }, detached: !supervised,
+            stdio: supervised ? ['ignore', 'pipe', 'pipe'] : ['ignore', log, log] });
+        if (supervised) { log.attach(child.stdout); log.attach(child.stderr); }
         let watchdogExpired = false;
         const timer = supervised ? null : setTimeout(() => { watchdogExpired = true;
           try { process.kill(-child.pid, 'SIGKILL'); } catch (error) { if (error.code !== 'ESRCH') console.error(error); }
         }, orchestration.childTimeoutMs);
-        const [exitCode, signal] = await once(child, 'exit').finally(() => clearTimeout(timer));
+        const [exitCode, signal] = await once(child, 'close').finally(() => clearTimeout(timer));
+        if (supervised) {
+          if (exitCode !== 0 || signal) process.exit(78);
+          await log.finish();
+        }
         checkLocks();
         const exported = phases.flatMap(phase => {
           const file = path.join(target, phase + '.jsonl');
@@ -280,7 +301,7 @@ async function main(output, executable, userLabelDirectory, mode) {
           providerRequests: observed.requests.length, modelRequests: observed.modelRequests.length,
           wireArrivals: observed.wireArrivals.length, misses: observed.misses.length });
         return { target, exitCode, signal, exported, inventory: observed };
-      } finally { fs.closeSync(log); }
+      } finally { if (supervised) await log.finish(); else fs.closeSync(log); }
     }
     try {
       if (paired) {
@@ -511,6 +532,7 @@ async function main(output, executable, userLabelDirectory, mode) {
 }
 let activeAuthority;
 if (require.main === module) main(...process.argv.slice(2)).catch(async error => {
+  if (process.env.SOUNDROBE_STORAGE_REQUIRED === '1') process.exit(78);
   console.error(error);
   if (admittedOutput) save(path.join(admittedOutput, 'driver-error.json'), { error: String(error), stack: error.stack });
   if (activeAuthority) {

@@ -293,7 +293,7 @@ The executable is the path printed by Cargo, not the desktop application:
 
 ```sh
 CARGO_NET_OFFLINE=true cargo test --manifest-path src-tauri/Cargo.toml \
-  --no-default-features --features server --lib mock_run_authority -- --nocapture
+  --no-default-features --features server --lib mock_run_authority -- --nocapture --test-threads=1
 node --test scripts/auto-tag-eval-replay/test_supervision.cjs
 node scripts/auto-tag-eval-replay/run-supervised.cjs NEW_OUTPUT RETAINED_TEST_EXECUTABLE
 python3 -B scripts/auto-tag-eval-replay/audit-supervised.py NEW_OUTPUT
@@ -338,13 +338,82 @@ pass. These are scheduling controls, not proofs of bounded kernel filesystem
 calls or power-loss durability. The separate six-job run and read-only audit
 remain required for tagging integration evidence.
 
-Unexpected anchor loss or suspension, both-owner/host loss and uninterruptible
+The journal-lock fixture waits for the acknowledged owner lease and parks the
+driver before preparation writes. A separate report verifies that state before
+an external `BEGIN IMMEDIATE` lock is acquired. Its required `journal-entered`
+marker proves Freeze dispatch reached the pre-transaction boundary under the
+held writer lock, not that SQLite had already encountered contention. This is a
+transaction-admission fault control, not a completed-preparation Freeze or a
+workload-completion test. Readiness uses the declared preparation budget;
+post-fault containment bounds remain separate and unchanged.
+
+### Storage admission and incomplete outcomes
+
+The receiver installs one generation before bootstrap content writes. That
+generation admits at most 512 MiB of logical file growth and 1 GiB of cumulative
+application/VFS write bytes. Both caps include the original terminal reserve of
+2 MiB growth and 8 MiB writes, plus issuer bookkeeping. Overwrites and SQLite
+journal writes consume allowance. Admitted operations retain their debits after
+partial writes and failures. Shrinking, deleting, replacing, or abandoning files
+never refunds tickets.
+
+The maintained path meters Journal, cache, and worker SQLite connections; FLAC
+writes through WriteQueue; staging, alias, halt, and evidence files; Node and
+Python helper output; and captured FFmpeg and log output. Unsupported scoped
+writers stop instead of falling back to an ordinary writer. Ordinary desktop
+connections remain unchanged. These are application-level byte limits, not
+physical-device I/O limits. Directory/inode allocation and flush traffic are not
+application content-write bytes.
+
+Unexpected read, stat, and deletion errors stop the scoped process even when a
+caller ignores the returned error. Read-only handles also classify failed
+truncate, write, flush, and sync operations. Maintained temporary-file and ownership
+preflight probes use the same classified metadata boundary instead of masking
+metadata failures as missing paths. Expected absence and interrupted operations
+remain retryable at those facade boundaries. Writable handles use the stricter
+stop-on-any-error policy. Directory creation also stops on any delegated error.
+Unscoped filesystem behavior is unchanged.
+
+A shared pinned revocation byte closes admission without waiting for ledger I/O.
+The final shared-byte check is the admission point. Already-admitted I/O may
+finish during native containment. Issuance that detects revocation after its
+durable commit retains the debit and rejects delivery. Owner claims are finite
+and never recycled within a generation. Scoped writers cannot replace the
+ledger, occupy owner or launcher claim names, or recursively remove the account
+root through a path alias. This does not protect against arbitrary host
+truncation, replacement, or corruption of the backing file.
+
+Immutable source bindings and initial mutable Journal state commit in one
+transaction. For split bindings, native reports and the read-only recovery
+exporter check the SHA256 of the exact stored JSON before reconstruction.
+Missing, corrupt, mixed, or incomplete split state cannot authorize execution.
+Historical inline bindings remain readable without migration. Existing
+evaluation journals cannot restart execution.
+
+After actual receiver exit, the launcher may consume its one-shot 64-KiB partition
+of the original terminal grant. It cannot issue ordinary tickets or renew the
+reserve. A failure receipt is diagnostic, not a group-quiescence certificate.
+Missing or damaged recording remains incomplete. The read-only failure audit
+retains all 216 unique slots as unavailable with unknown effects, even when the
+ledger, configuration, or membership recording is missing:
+
+```sh
+python3 -B scripts/auto-tag-eval-replay/audit-supervised.py NEW_OUTPUT --incomplete
+```
+
+The storage audit validates nonrefundable grant history and the original caps.
+It does not measure physical writes or establish writer coverage by itself.
+A successful frozen six-job run, current-source boundary controls, and source
+review supply separate evidence. Preserve cap-denied runs as denial evidence;
+neither a component calibration nor an incomplete run establishes workload fit.
+
+Unexpected anchor loss or suspension, both-owner/host loss, and uninterruptible
 kernel operations remain conditional containment limits. An incomplete return
 must not be read as proof of group absence. The runner is trusted mock code, not
 a malicious same-user sandbox. Physical flush/power-loss proof, authenticated live
-approval, credentials, VFS/storage tickets, billing and privacy guarantees remain
-outside this mode. Historical scheduling counterexamples and the superseded
-stronger standalone durable-publication requirement remain retained as evidence.
+approval, credentials, billing, and privacy guarantees remain outside this mode.
+Historical scheduling counterexamples and the superseded stronger standalone
+durable-publication requirement remain retained as evidence.
 
 ## Checks
 

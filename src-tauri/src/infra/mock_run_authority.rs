@@ -2,6 +2,9 @@
 #[cfg(all(feature = "server", unix))]
 #[path = "mock_run_broker.rs"]
 pub(crate) mod broker;
+#[cfg(unix)]
+#[path = "mock_run_storage.rs"]
+pub(crate) mod storage;
 #[cfg(all(feature = "server", target_os = "macos"))]
 #[path = "mock_run_supervisor.rs"]
 pub(crate) mod supervisor;
@@ -113,6 +116,8 @@ struct Run {
     state: String,
     membership: Value,
     bindings: Value,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bindings_sha256: Option<String>,
     sessions: BTreeMap<String, Session>,
     preparations: BTreeMap<String, Value>,
     operations: BTreeMap<String, Operation>,
@@ -670,6 +675,8 @@ pub(crate) struct Journal {
 #[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum CrashPoint {
+    BeforeInitializationCommit,
+    AfterInitializationCommit,
     BeforeReservationCommit,
     AfterReservationCommit,
     AfterDispatchAdmission,
@@ -863,12 +870,41 @@ impl Evaluation {
 }
 
 impl Journal {
+    fn read_run(connection: &Connection) -> Result<(Run, bool), String> {
+        let bytes: String = connection
+            .query_row("SELECT state FROM authority WHERE id=1", [], |r| r.get(0))
+            .map_err(|_| "mock_registry_unavailable")?;
+        let mut run: Run = serde_json::from_str(&bytes).map_err(|_| "mock_registry_invalid")?;
+        let separated_bindings = run.bindings.is_null();
+        if separated_bindings {
+            let bindings: String = connection
+                .query_row("SELECT value FROM authority_bindings WHERE id=1", [], |r| {
+                    r.get(0)
+                })
+                .map_err(|_| "mock_registry_invalid")?;
+            if run.bindings_sha256.as_deref() != Some(sha(bindings.as_bytes()).as_str()) {
+                return Err("mock_registry_invalid".into());
+            }
+            run.bindings = serde_json::from_str(&bindings).map_err(|_| "mock_registry_invalid")?;
+        } else if run.bindings_sha256.is_some() {
+            return Err("mock_registry_invalid".into());
+        }
+        // Historical inline registries have no split reference and remain
+        // readable without migration. A mixed representation is corruption.
+        Ok((run, separated_bindings))
+    }
+
     pub(crate) fn create(
         path: &Path,
         membership: Value,
         bindings: Value,
+        fault: Option<CrashPoint>,
     ) -> Result<(Self, String), String> {
-        require(!path.exists())?;
+        #[cfg(unix)]
+        let exists = storage::files::metadata(path).is_ok();
+        #[cfg(not(unix))]
+        let exists = path.exists();
+        require(!exists)?;
         let rows = membership["evaluations"]
             .as_array()
             .ok_or("invalid mock membership")?;
@@ -912,12 +948,13 @@ impl Journal {
             )?;
         }
         let owner = token();
-        let run = Run {
+        let mut run = Run {
             run_id: token(),
             owner: owner.clone(),
             state: "preparing".into(),
             membership,
             bindings,
+            bindings_sha256: None,
             sessions: BTreeMap::new(),
             preparations: BTreeMap::new(),
             operations: BTreeMap::new(),
@@ -930,18 +967,41 @@ impl Journal {
             ingress_denials: Vec::new(),
             result_sha256: None,
         };
+        #[cfg(unix)]
+        let c = storage::open_sqlite(path, OpenFlags::default())
+            .map_err(|_| "mock_registry_unavailable")?;
+        #[cfg(not(unix))]
         let c = Connection::open(path).map_err(|_| "mock_registry_unavailable")?;
-        c.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; CREATE TABLE IF NOT EXISTS authority (id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL);")
-            .map_err(|_|"mock_registry_unavailable")?;
-        c.execute(
+        c.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;
+            CREATE TABLE authority (id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL);
+            CREATE TABLE authority_bindings (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);")
+            .map_err(|_| "mock_registry_unavailable")?;
+        let tx = c
+            .unchecked_transaction()
+            .map_err(|_| "mock_registry_unavailable")?;
+        // Source bindings never change. Keep them out of the mutable row so
+        // growing operation history does not rewrite their overflow pages.
+        let bindings = serde_json::to_string(&run.bindings).unwrap();
+        run.bindings_sha256 = Some(sha(bindings.as_bytes()));
+        tx.execute("INSERT INTO authority_bindings VALUES (1,?1)", [bindings])
+            .map_err(|_| "mock_registry_unavailable")?;
+        run.bindings = Value::Null;
+        tx.execute(
             "INSERT INTO authority VALUES (1,?1)",
             [serde_json::to_string(&run).unwrap()],
         )
         .map_err(|_| "mock_registry_exists")?;
+        if fault == Some(CrashPoint::BeforeInitializationCommit) {
+            std::process::exit(86);
+        }
+        tx.commit().map_err(|_| "mock_registry_commit_unknown")?;
+        if fault == Some(CrashPoint::AfterInitializationCommit) {
+            std::process::exit(86);
+        }
         Ok((
             Self {
                 path: path.into(),
-                fault: None,
+                fault,
             },
             owner,
         ))
@@ -949,6 +1009,10 @@ impl Journal {
     pub(crate) fn command(&self, handle: &str, command: Command) -> Result<Value, String> {
         let reservation = matches!(&command, Command::Reserve { .. });
         let dispatch = matches!(&command, Command::Dispatch { .. });
+        #[cfg(unix)]
+        let mut c = storage::open_sqlite(&self.path, OpenFlags::SQLITE_OPEN_READ_WRITE)
+            .map_err(|_| "mock_registry_unavailable")?;
+        #[cfg(not(unix))]
         let mut c = Connection::open_with_flags(&self.path, OpenFlags::SQLITE_OPEN_READ_WRITE)
             .map_err(|_| "mock_registry_unavailable")?;
         c.busy_timeout(Duration::from_millis(100))
@@ -958,14 +1022,14 @@ impl Journal {
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)
             .map_err(|_| "mock_registry_unavailable")?;
-        let bytes: String = tx
-            .query_row("SELECT state FROM authority WHERE id=1", [], |r| r.get(0))
-            .map_err(|_| "mock_registry_unavailable")?;
-        let mut run: Run = serde_json::from_str(&bytes).map_err(|_| "mock_registry_invalid")?;
+        let (mut run, separated_bindings) = Self::read_run(&tx)?;
         let result = run.apply(handle, command);
         if result.is_err() {
             run.denied += 1;
             run.state = "terminal".into();
+        }
+        if separated_bindings {
+            run.bindings = Value::Null;
         }
         tx.execute(
             "UPDATE authority SET state=?1 WHERE id=1",
@@ -988,14 +1052,15 @@ impl Journal {
         result
     }
     pub(crate) fn report(&self) -> Result<Value, String> {
+        #[cfg(unix)]
+        let c = storage::open_sqlite(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|_| "mock_registry_unavailable")?;
+        #[cfg(not(unix))]
         let c = Connection::open_with_flags(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(|_| "mock_registry_unavailable")?;
         c.busy_timeout(Duration::from_millis(100))
             .map_err(|_| "mock_registry_unavailable")?;
-        let bytes: String = c
-            .query_row("SELECT state FROM authority WHERE id=1", [], |r| r.get(0))
-            .map_err(|_| "mock_registry_unavailable")?;
-        let run: Run = serde_json::from_str(&bytes).map_err(|_| "mock_registry_invalid")?;
+        let (run, _) = Self::read_run(&c)?;
         Ok(
             json!({"runId":run.run_id,"state":run.state,"membership":run.membership,"bindings":run.bindings,
             "checkpoint":run.checkpoint,"preparations":run.preparations,"sessions":run.sessions,"counters":run.counters(),"operations":run.operations,
@@ -1039,6 +1104,179 @@ pub(super) mod tests {
     fn digest(s: &str) -> String {
         format!("{:x}", Sha256::digest(s.as_bytes()))
     }
+
+    #[test]
+    fn mock_authority_missing_or_corrupt_immutable_bindings_never_admit_commands() {
+        for damage in [
+            "missing",
+            "table",
+            "malformed",
+            "malformed_hashed",
+            "changed",
+            "reference",
+            "inline",
+        ] {
+            let (_root, journal, owner) = setup_unleased();
+            let connection = Connection::open(&journal.path).unwrap();
+            match damage {
+                "missing" => {
+                    connection
+                        .execute("DELETE FROM authority_bindings", [])
+                        .unwrap();
+                }
+                "table" => {
+                    connection
+                        .execute_batch("DROP TABLE authority_bindings")
+                        .unwrap();
+                }
+                "malformed" | "malformed_hashed" => {
+                    connection
+                        .execute("UPDATE authority_bindings SET value='{'", [])
+                        .unwrap();
+                    if damage == "malformed_hashed" {
+                        let bytes: String = connection
+                            .query_row("SELECT state FROM authority", [], |r| r.get(0))
+                            .unwrap();
+                        let mut state: Value = serde_json::from_str(&bytes).unwrap();
+                        state["bindings_sha256"] = json!(digest("{"));
+                        connection
+                            .execute("UPDATE authority SET state=?1", [state.to_string()])
+                            .unwrap();
+                    }
+                }
+                "changed" => {
+                    connection
+                        .execute("UPDATE authority_bindings SET value='{}'", [])
+                        .unwrap();
+                }
+                _ => {
+                    let bytes: String = connection
+                        .query_row("SELECT state FROM authority", [], |r| r.get(0))
+                        .unwrap();
+                    let mut state: Value = serde_json::from_str(&bytes).unwrap();
+                    if damage == "inline" {
+                        state["bindings"] = json!({});
+                    } else {
+                        state.as_object_mut().unwrap().remove("bindings_sha256");
+                    }
+                    connection
+                        .execute("UPDATE authority SET state=?1", [state.to_string()])
+                        .unwrap();
+                }
+            }
+            drop(connection);
+            let before = std::fs::read(&journal.path).unwrap();
+            assert!(journal.report().is_err(), "accepted {damage} bindings");
+            assert!(journal
+                .command(
+                    &owner,
+                    Command::Lease {
+                        role: "owner".into()
+                    }
+                )
+                .is_err());
+            assert_eq!(
+                std::fs::read(&journal.path).unwrap(),
+                before,
+                "invalid evidence was modified"
+            );
+        }
+    }
+
+    #[test]
+    fn mock_authority_historical_inline_bindings_remain_readable_without_migration() {
+        let (_root, journal, _) = setup_unleased();
+        let expected = journal.report().unwrap();
+        let connection = Connection::open(&journal.path).unwrap();
+        let bytes: String = connection
+            .query_row("SELECT state FROM authority", [], |r| r.get(0))
+            .unwrap();
+        let mut inline: Value = serde_json::from_str(&bytes).unwrap();
+        inline["bindings"] = expected["bindings"].clone();
+        inline.as_object_mut().unwrap().remove("bindings_sha256");
+        connection
+            .execute("UPDATE authority SET state=?1", [inline.to_string()])
+            .unwrap();
+        connection
+            .execute_batch("DROP TABLE authority_bindings")
+            .unwrap();
+        drop(connection);
+        let before = std::fs::read(&journal.path).unwrap();
+        assert_eq!(journal.report().unwrap(), expected);
+        assert_eq!(std::fs::read(&journal.path).unwrap(), before);
+    }
+
+    #[test]
+    fn mock_authority_initialization_crash_is_atomic_and_never_resumable() {
+        for fault in [
+            "before_initialization_commit",
+            "after_initialization_commit",
+        ] {
+            let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../.amp/in/artifacts/durable-mock-authority-20261112")
+                .join(uuid::Uuid::new_v4().to_string());
+            std::fs::create_dir_all(&root).unwrap();
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "infra::mock_run_authority::tests::mock_authority_initialization_crash_process",
+                    "--ignored",
+                    "--nocapture",
+                ])
+                .env_clear()
+                .env("SOUNDROBE_MOCK_INIT_ROOT", &root)
+                .env("SOUNDROBE_MOCK_INIT_FAULT", fault)
+                .status()
+                .unwrap();
+            assert_eq!(status.code(), Some(86));
+            let journal = Journal {
+                path: root.join("registry.sqlite"),
+                fault: None,
+            };
+            let before = std::fs::read(&journal.path).unwrap();
+            if fault == "before_initialization_commit" {
+                assert!(
+                    journal.report().is_err(),
+                    "partial initialization became authority"
+                );
+            } else {
+                assert_eq!(
+                    journal.report().unwrap()["bindings"],
+                    json!({"initialization":"split-binding-crash-control"})
+                );
+            }
+            assert!(Journal::create(&journal.path, json!({}), json!({}), None).is_err());
+            assert_eq!(
+                std::fs::read(&journal.path).unwrap(),
+                before,
+                "recovery modified the registry"
+            );
+        }
+    }
+
+    #[test]
+    #[ignore = "isolated initialization crash control; generated stores only"]
+    fn mock_authority_initialization_crash_process() {
+        let root = PathBuf::from(std::env::var_os("SOUNDROBE_MOCK_INIT_ROOT").unwrap());
+        #[cfg(unix)]
+        storage::install_receiver(&root, uuid::Uuid::new_v4()).unwrap();
+        let fault =
+            serde_json::from_value(json!(std::env::var("SOUNDROBE_MOCK_INIT_FAULT").unwrap()))
+                .unwrap();
+        let membership = serde_json::from_str(include_str!(
+            "../../../test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json"
+        ))
+        .unwrap();
+        let _ = Journal::create(
+            &root.join("registry.sqlite"),
+            membership,
+            json!({"initialization":"split-binding-crash-control"}),
+            Some(fault),
+        )
+        .unwrap();
+        panic!("initialization fault resumed");
+    }
+
     pub(super) fn setup() -> (PathBuf, Journal, String) {
         let (root, journal, owner) = setup_unleased();
         journal
@@ -1062,6 +1300,7 @@ pub(super) mod tests {
             &root.join("registry.sqlite"),
             json!({"evaluations":evaluations,"requestedFieldSlots":216}),
             json!({"executable":digest("test executable")}),
+            None,
         )
         .unwrap();
         (root, journal, owner)
@@ -1231,6 +1470,7 @@ pub(super) mod tests {
             &root.join("supervised.sqlite"),
             original.report().unwrap()["membership"].clone(),
             json!({"executable":digest("test executable"), "supervision":{"generation":"test"}}),
+            None,
         )
         .unwrap();
         j.command(
@@ -1427,7 +1667,9 @@ pub(super) mod tests {
         )
         .unwrap();
         assert!(j.command(&owner, Command::Freeze).is_err());
-        assert!(Journal::create(&root.join("registry.sqlite"), json!({}), json!({})).is_err());
+        assert!(
+            Journal::create(&root.join("registry.sqlite"), json!({}), json!({}), None).is_err()
+        );
         let recovered = Journal {
             path: root.join("registry.sqlite"),
             fault: None,
@@ -1463,7 +1705,7 @@ pub(super) mod tests {
         let mut membership = j.report().unwrap()["membership"].clone();
         membership["evaluations"][0]["physicalPaths"][1] = json!("0.flac");
         let path = j.path.parent().unwrap().join("bad.sqlite");
-        assert!(Journal::create(&path, membership, json!({})).is_err());
+        assert!(Journal::create(&path, membership, json!({}), None).is_err());
     }
     #[test]
     fn mock_authority_denies_unattached_or_unsealed_preparation() {

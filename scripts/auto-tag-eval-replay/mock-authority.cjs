@@ -1,5 +1,5 @@
 // Explicit native test-broker IPC. No credentials, endpoint discovery or resume.
-const fs = require('node:fs');
+const fs = require('./bounded-storage.cjs');
 const path = require('node:path');
 const net = require('node:net');
 const { spawn } = require('node:child_process');

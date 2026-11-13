@@ -159,7 +159,11 @@ fn child(
             std::env::var("SOUNDROBE_NATIVE_CONTROL").unwrap_or_default(),
         )
         .stdin(Stdio::null());
-    for key in ["SOUNDROBE_NATIVE_MANAGED", "SOUNDROBE_NATIVE_GENERATION"] {
+    for key in [
+        "SOUNDROBE_NATIVE_MANAGED",
+        "SOUNDROBE_NATIVE_GENERATION",
+        "SOUNDROBE_STORAGE_REQUIRED",
+    ] {
         if let Some(value) = std::env::var_os(key) {
             command.env(key, value);
         }
@@ -212,7 +216,11 @@ fn bootstrap(
 ) -> std::io::Result<Owned> {
     // All potentially blocking bootstrap I/O and process creation belongs to
     // this worker. The calling native thread has already started its clock.
-    std::fs::write(root.join("bootstrap-entered"), b"native preparation scope")?;
+    crate::infra::mock_run_authority::storage::attach_from_env()?;
+    crate::infra::mock_run_authority::storage::write_new_or_unscoped(
+        root.join("bootstrap-entered"),
+        b"native preparation scope",
+    )?;
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("blocked-bootstrap") {
         loop {
             std::thread::park();
@@ -261,7 +269,12 @@ fn bootstrap(
         let mut requested = false;
         let mut phase_written = false;
         while !monitor.stopped.load(Ordering::SeqCst) {
-            if !requested && watched.join("fault.request").exists() {
+            if !requested
+                && crate::infra::mock_run_authority::storage::files::metadata(
+                    watched.join("fault.request"),
+                )
+                .is_ok()
+            {
                 requested = true;
                 fault.store(true, Ordering::SeqCst);
             }
@@ -269,7 +282,7 @@ fn bootstrap(
                 phase_written = true;
                 let phase = serde_json::json!({"deadline":monitor.deadline.load(Ordering::SeqCst),
                     "executionMs":number("SOUNDROBE_NATIVE_EXECUTION_MS",600_000)});
-                if std::fs::write(
+                if crate::infra::mock_run_authority::storage::write_new_or_unscoped(
                     watched.join("execution-scope.tmp"),
                     serde_json::to_vec(&phase).unwrap(),
                 )
@@ -807,6 +820,7 @@ fn native_supervision_process() {
                 )
             });
             if managed {
+                crate::infra::mock_run_authority::storage::attach_from_env().unwrap();
                 let runtime = tokio::runtime::Builder::new_multi_thread()
                     .worker_threads(4)
                     .enable_all()
@@ -825,6 +839,7 @@ fn native_supervision_process() {
             }
         }
         "anchor" => {
+            crate::infra::mock_run_authority::storage::attach_from_env().unwrap();
             let owners = [
                 inherited("SOUNDROBE_NATIVE_ANCHOR_S"),
                 inherited("SOUNDROBE_NATIVE_ANCHOR_B"),
@@ -861,7 +876,11 @@ fn native_supervision_process() {
             if monitor.control == "anchor-running-loss" {
                 let watched = root.clone();
                 std::thread::spawn(move || {
-                    while !watched.join("blocked-node.json").exists() {
+                    while crate::infra::mock_run_authority::storage::files::metadata(
+                        watched.join("blocked-node.json"),
+                    )
+                    .is_err()
+                    {
                         std::thread::sleep(Duration::from_millis(5));
                     }
                     // Observed payload execution, then anchor-only loss. The
@@ -889,7 +908,7 @@ fn native_supervision_process() {
                 std::thread::spawn(move || {
                     let mut byte = [0];
                     owner.read_exact(&mut byte).unwrap();
-                    std::fs::write(
+                    crate::infra::mock_run_authority::storage::write_new_or_unscoped(
                         watched.join("anchor-preexec-blocked"),
                         b"native child gated before exec",
                     )
@@ -903,6 +922,18 @@ fn native_supervision_process() {
                 .env_clear()
                 .env("PATH", std::env::var_os("PATH").unwrap_or_default())
                 .env("SOUNDROBE_NATIVE_OUTPUT", root)
+                .env(
+                    "SOUNDROBE_STORAGE_EXECUTABLE",
+                    std::env::current_exe().unwrap(),
+                )
+                .env(
+                    "SOUNDROBE_NATIVE_GENERATION",
+                    std::env::var("SOUNDROBE_NATIVE_GENERATION").unwrap_or_default(),
+                )
+                .env(
+                    "SOUNDROBE_STORAGE_REQUIRED",
+                    std::env::var("SOUNDROBE_STORAGE_REQUIRED").unwrap_or_default(),
+                )
                 .env("SOUNDROBE_NATIVE_GROUP", std::process::id().to_string())
                 .env("SOUNDROBE_NATIVE_CONTROL", &monitor.control)
                 .env(
@@ -1003,11 +1034,6 @@ const server=net.createServer(socket=>{
         if(process.env.SOUNDROBE_NATIVE_CONTROL.startsWith('retirement')) {
           const wait=setInterval(()=>{if(fs.existsSync(root+'/execution-scope.json')) {
             clearInterval(wait);
-            if(process.env.SOUNDROBE_NATIVE_CONTROL==='retirement-descendant') {
-              require('node:child_process').spawn(process.execPath,['-e',
-                "require('node:fs').writeFileSync(process.env.SOUNDROBE_NATIVE_OUTPUT+'/descendant-ready.json',JSON.stringify({pid:process.pid}));setInterval(()=>{},1000)"],
-                {env:{SOUNDROBE_NATIVE_OUTPUT:root},stdio:'ignore',detached:false});
-            }
             process.exit(0);
           }},5);
           return;
@@ -1017,12 +1043,22 @@ const server=net.createServer(socket=>{
     });
   });
 });
-server.listen(0,'127.0.0.1',()=>{
+const listen=()=>server.listen(0,'127.0.0.1',()=>{
   fs.writeFileSync(root+'/wire-ready.tmp',JSON.stringify({
     pid:process.pid,group:Number(process.env.SOUNDROBE_NATIVE_GROUP),port:server.address().port
   }),{flag:'wx'});
   fs.renameSync(root+'/wire-ready.tmp',root+'/wire-ready.json');
 });
+if(process.env.SOUNDROBE_NATIVE_CONTROL==='retirement-descendant') {
+  // Prepare a deliberately slow descendant before the execution clock starts.
+  // Its survival after payload exit, not Node startup speed, is under test.
+  require('node:child_process').spawn(process.execPath,['-e',
+    "setTimeout(()=>{require('node:fs').writeFileSync(process.env.SOUNDROBE_NATIVE_OUTPUT+'/descendant-ready.json',JSON.stringify({pid:process.pid}));setInterval(()=>{},1000)},200)"],
+    {env:{SOUNDROBE_NATIVE_OUTPUT:root},stdio:'ignore',detached:false});
+  const prepared=setInterval(()=>{if(fs.existsSync(root+'/descendant-ready.json')) {
+    clearInterval(prepared);listen();
+  }},5);
+} else listen();
 "#;
 
 #[cfg(test)]
@@ -1030,6 +1066,49 @@ mod tests {
     use std::os::unix::process::CommandExt;
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn receiver_installs_storage_before_bootstrap_and_retains_generation() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.amp/in/artifacts/bounded-storage-20261112")
+            .join(format!("native-bootstrap-{}", uuid::Uuid::new_v4()));
+        let status = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", super::ENTRY, "--ignored", "--nocapture"])
+            .env_clear()
+            .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+            .env("SOUNDROBE_NATIVE_ROLE", "receiver")
+            .env("SOUNDROBE_NATIVE_OUTPUT", &root)
+            .env("SOUNDROBE_NATIVE_PREPARATION_MS", "2000")
+            .env("SOUNDROBE_NATIVE_EXECUTION_MS", "1000")
+            .env("SOUNDROBE_NATIVE_CONTROL", "receiver-positive")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "compositional native receiver control failed"
+        );
+        assert_eq!(
+            std::fs::metadata(root.join(".storage-ledger"))
+                .unwrap()
+                .len(),
+            2 * 1024 * 1024
+        );
+        let configuration: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(root.join("native-supervision.json")).unwrap())
+                .unwrap();
+        assert_eq!(configuration["storage"]["logicalLimit"], 512 * 1024 * 1024);
+        assert_eq!(
+            configuration["storage"]["applicationWriteLimit"],
+            1024 * 1024 * 1024
+        );
+        assert_eq!(
+            configuration["storage"]["generation"],
+            configuration["generation"]
+        );
+    }
 
     #[test]
     fn maintained_driver_bootstraps_the_real_broker_under_native_ownership() {
@@ -1367,9 +1446,20 @@ mod tests {
             let identity: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(root.join("group-identity.json")).unwrap())
                     .unwrap();
-            assert!(super::super::group_absent(
-                identity["group"].as_i64().unwrap() as i32
-            ));
+            let group = identity["group"].as_i64().unwrap() as i32;
+            // Failed receiver exit is not a quiescence certificate. Observe
+            // surviving owners within the same original total fixture bound.
+            // Successful acceptance must already have observed group absence.
+            if control != "positive" {
+                while !super::super::group_absent(group) {
+                    assert!(
+                        started.elapsed() < Duration::from_secs(8),
+                        "bounded failed-finalization containment: {control}"
+                    );
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+            }
+            assert!(super::super::group_absent(group));
             let membership: serde_json::Value = serde_json::from_slice(
                 &std::fs::read(root.join("requested-membership.json")).unwrap(),
             )
@@ -1463,11 +1553,12 @@ mod tests {
         std::fs::write(root.join("fault.request"), control).unwrap();
         let stopped = Instant::now();
         if control == "retirement-descendant" {
-            while !root.join("descendant-ready.json").exists() {
+            while !root.join("descendant-ready.json").exists()
+                || unsafe { libc::getpgid(ready["pid"].as_u64().unwrap() as i32) } != -1
+            {
                 assert!(stopped.elapsed() < Duration::from_millis(150));
                 std::thread::sleep(Duration::from_millis(2));
             }
-            std::thread::sleep(Duration::from_millis(70));
             let descendant: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(root.join("descendant-ready.json")).unwrap())
                     .unwrap();

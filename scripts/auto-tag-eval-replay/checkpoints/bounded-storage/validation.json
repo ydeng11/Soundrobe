@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 1,
+  "freshDelivery": {
+    "nativeOrTaggingMatrices": 0,
+    "nativeBuilds": 0,
+    "mockServiceMatrices": 0,
+    "tests": [
+      {
+        "command": "node --test scripts/auto-tag-eval-replay/test_supervision.cjs",
+        "passed": 7,
+        "skipped": 0
+      },
+      {
+        "command": "npm run test:mock-provider",
+        "passed": 12
+      },
+      {
+        "command": "npm run test:review-eval",
+        "passed": 10
+      }
+    ],
+    "static": [
+      "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
+      "npm run typecheck",
+      "git diff --check"
+    ],
+    "forensic": [
+      "all1666 receipt bindings",
+      "all frozen169/fault170 source/tool hashes",
+      "seven native snapshots155 and tools169",
+      "exact split-binding JSON hash/reconstruction",
+      "all2505 storage records through read-only auditor",
+      "publication links"
+    ],
+    "source": "Author-executed delivery checks; raw logs retained under delivery175, never committed"
+  },
+  "reused": {
+    "check157": {
+      "command": "RUST_TEST_THREADS=1 CARGO_NET_OFFLINE=true just --no-dotenv check",
+      "renderer": 858,
+      "desktop": {
+        "passed": 1361,
+        "ignored": 38
+      },
+      "server": {
+        "passed": 861,
+        "ignored": 29
+      },
+      "audio": {
+        "passed": 14,
+        "ignored": 12
+      },
+      "recovery": 5,
+      "mockProvider": 12,
+      "reviewTools": 10
+    },
+    "helper169": {
+      "passed": 7,
+      "skipped": 0
+    },
+    "faults170": [
+      {
+        "control": "broker-loss",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 30.928125000000136,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "supervisor-loss",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 18.893750000000182,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "receiver-loss",
+        "status": [
+          null,
+          "SIGKILL"
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 19.651084000000083,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "blocked-node",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 1977.260792,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "stalled-storage",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 24.37945899999977,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "journal-lock",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 22.647125000001324,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "supervisor-suspend",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 935.5519590000004,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "broker-suspend",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 998.9361669999998,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "anchor-loss",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "quiescentMs": 119.82937499999935,
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "anchor-running-loss",
+        "status": [
+          1,
+          null
+        ],
+        "launcherReturnMs": 6949.024791999998,
+        "containmentAtReturn": "unknown",
+        "requestedFieldSlots": 216,
+        "liveAuthority": false
+      },
+      {
+        "control": "storage-denial",
+        "status": [
+          78,
+          null
+        ],
+        "actualGroupAbsent": true,
+        "requestedFieldSlots": 216,
+        "validatedFieldSlots": 0,
+        "unavailableFieldSlots": 216,
+        "liveAuthority": false
+      }
+    ],
+    "originalSequentialHandle64170": 0,
+    "run171": "Author-executed trusted mock-only six-job workload; not rerun for delivery",
+    "audit172": "Independent maintained read-only auditor; original result copied unchanged"
+  },
+  "independentReview": {
+    "kind": "same-model independent read-only agent review, not model diversity or a workload",
+    "reviewer": "TU-034wKmT8OSeJL9uae4hDB3",
+    "receiptBindings": 1666,
+    "ledgerRecords": 2505,
+    "result": "Trusted mock-only integration acceptance supported; no unresolved blocker in that scope",
+    "record": "review.md",
+    "artifact": "https://ampcode.com/artifacts/assistance-sample-contract-623cef5e-4985-4829-84d3-6e24e912971c",
+    "artifactRevisionAtReview": 36
+  },
+  "limits": {
+    "growthBytes": 536870912,
+    "cumulativeWriteBytes": 1073741824,
+    "terminalGrowthBytes": 2097152,
+    "terminalWriteBytes": 8388608,
+    "preparationMs": 300000,
+    "executionMs": 600000,
+    "nonrefundable": true,
+    "accounting": "application/VFS reservations, not physical-device I/O"
+  },
+  "results": {
+    "requestedSlots": 216,
+    "observedSlots": 216,
+    "sessions": 12,
+    "settledOperations": 497,
+    "growthReservedBytes": 321297203,
+    "writeReservedBytes": 502354528,
+    "groundedAiCredit": 0,
+    "userAgreement": {
+      "agreeing": 0,
+      "requested": 22
+    }
+  }
+}
