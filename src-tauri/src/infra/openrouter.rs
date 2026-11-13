@@ -804,6 +804,71 @@ impl OpenRouterClient {
         }
     }
 
+    fn openai_json_body(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+        max_tokens: u32,
+    ) -> Value {
+        json!({
+            "model": self.model,
+            "messages": messages,
+            "temperature": self.temperature,
+            "max_tokens": max_tokens,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": { "name": schema_name, "schema": schema }
+            }
+        })
+    }
+
+    /// Prepare an offline evaluation request, not a completion/retry loop.
+    /// The broker owns admission, the strict HTTP executor and raw receipts.
+    #[cfg(test)]
+    pub(crate) fn bounded_json_request(
+        &self,
+        messages: &[ChatMessage],
+        schema_name: &str,
+        schema: &Value,
+    ) -> Result<reqwest::Request, OpenRouterError> {
+        let denied = || OpenRouterError::Network("bounded_offline_request_denied".into());
+        let base = reqwest::Url::parse(&self.base_url).map_err(|_| denied())?;
+        if self.provider != ProviderKind::OpenAi
+            || base.scheme() != "http"
+            || base.host_str() != Some("127.0.0.1")
+            || base.port().is_none()
+            || base.path() != "/model"
+            || !base.username().is_empty()
+            || base.password().is_some()
+            || base.query().is_some()
+            || base.fragment().is_some()
+            || !(1..=1024).contains(&self.max_tokens)
+            || !self.temperature.is_finite()
+            || !(0.0..=2.0).contains(&self.temperature)
+            || self.model.is_empty()
+            || self.model.len() > 160
+            || self.model.chars().any(char::is_control)
+        {
+            return Err(denied());
+        }
+        let mut body = self.openai_json_body(messages, schema_name, schema, self.max_tokens);
+        body["reasoning"] = json!({"enabled":false});
+        body["provider"] = json!({"allow_fallbacks":false,"require_parameters":true});
+        body["stream"] = json!(false);
+        let bytes = serde_json::to_vec(&body).map_err(|_| denied())?;
+        if bytes.len() > 32768 {
+            return Err(denied());
+        }
+        self.http
+            .post(format!("{}/chat/completions", self.base_url))
+            .bearer_auth(&self.api_key)
+            .header("content-type", "application/json")
+            .body(bytes)
+            .build()
+            .map_err(|_| denied())
+    }
+
     async fn post_openai(
         &self,
         messages: &[ChatMessage],
@@ -816,16 +881,7 @@ impl OpenRouterClient {
         if cancelled.load(Ordering::Acquire) {
             return Err(OpenRouterError::Cancelled);
         }
-        let mut body = json!({
-            "model": self.model,
-            "messages": messages,
-            "temperature": self.temperature,
-            "max_tokens": max_tokens,
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": { "name": schema_name, "schema": schema }
-            }
-        });
+        let mut body = self.openai_json_body(messages, schema_name, schema, max_tokens);
         let policy = self.tag_policy(schema_name);
         if disable_reasoning || policy.disable_reasoning {
             body["reasoning"] = json!({ "enabled": false });
@@ -1100,6 +1156,124 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex};
     use std::thread;
+
+    #[test]
+    fn bounded_provider_request_preserves_deepseek_and_enforces_one_shot_policy() {
+        let mut client = OpenRouterClient::at(
+            "FAKE_BOUNDED_KEY",
+            "deepseek/deepseek-v4-flash-0731",
+            "http://127.0.0.1:43210/model",
+        )
+        .with_generation(0.2, 1024);
+        client.test_policy = Some(TagCorrectionPolicy {
+            performance_routing: true,
+            router_metadata: true,
+            disable_reasoning: false,
+        });
+        let messages = vec![ChatMessage::user("Asymmetric album and eleven titles")];
+        let schema = json!({"type":"object","properties":{"genre":{"type":"string"}}});
+        let request = client
+            .bounded_json_request(&messages, "GenreFillResponse", &schema)
+            .unwrap();
+        assert_eq!(
+            request.url().as_str(),
+            "http://127.0.0.1:43210/model/chat/completions"
+        );
+        assert_eq!(
+            request.headers()["authorization"],
+            "Bearer FAKE_BOUNDED_KEY"
+        );
+        assert!(request.headers().get("X-OpenRouter-Metadata").is_none());
+        let body: Value =
+            serde_json::from_slice(request.body().unwrap().as_bytes().unwrap()).unwrap();
+        assert_eq!(
+            body,
+            json!({
+                "model":"deepseek/deepseek-v4-flash-0731", "temperature":0.2, "max_tokens":1024,
+                "messages":[{"role":"user","content":"Asymmetric album and eleven titles"}],
+                "response_format":{"type":"json_schema","json_schema":{"name":"GenreFillResponse","schema":schema}},
+                "provider":{"allow_fallbacks":false,"require_parameters":true},
+                "reasoning":{"enabled":false}, "stream":false
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn bounded_provider_request_sends_deepseek_unchanged_to_local_fixture() {
+        let expected = json!({"choices":[{"finish_reason":"stop","message":{"content":"{\"genre\":\"FixtureGenre\",\"confidence\":0.73}"}}]});
+        let server = TestServer::start(vec![TestResponse::json(expected.clone())]);
+        let client = OpenRouterClient::at(
+            "FAKE_BOUNDED_KEY",
+            "deepseek/deepseek-v4-flash-0731",
+            format!("{}/model", server.base_url()),
+        )
+        .with_generation(0.2, 1024);
+        let request = client
+            .bounded_json_request(
+                &[ChatMessage::user("Fixture album, not scoring answers")],
+                "GenreFillResponse",
+                &json!({"type":"object"}),
+            )
+            .unwrap();
+        let http = Client::builder()
+            .no_proxy()
+            .retry(reqwest::retry::never())
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let response = http.execute(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.json::<Value>().await.unwrap(), expected);
+        assert_eq!(server.request_count(), 1);
+        assert_eq!(
+            server.request(0).body["model"],
+            "deepseek/deepseek-v4-flash-0731"
+        );
+        assert_eq!(server.request(0).body["provider"]["allow_fallbacks"], false);
+    }
+
+    #[test]
+    fn bounded_provider_request_rejects_live_routes_and_invalid_bounds() {
+        for endpoint in [
+            "https://openrouter.ai/api/v1",
+            "http://localhost:43210/model",
+            "http://127.0.0.2:43210/model",
+            "http://127.0.0.1:43210/other",
+            "http://user@127.0.0.1:43210/model",
+            "http://127.0.0.1:43210/model?route=live",
+            "http://127.0.0.1:43210/model#fragment",
+        ] {
+            let client = OpenRouterClient::at("fake", "deepseek/test", endpoint);
+            assert!(
+                client
+                    .bounded_json_request(&[], "GenreFillResponse", &json!({}))
+                    .is_err(),
+                "{endpoint}"
+            );
+        }
+        for (temperature, tokens) in [(0.2, 0), (0.2, 1025), (f64::NAN, 1024), (-0.1, 1024)] {
+            let client =
+                OpenRouterClient::at("fake", "deepseek/test", "http://127.0.0.1:43210/model")
+                    .with_generation(temperature, tokens);
+            assert!(client
+                .bounded_json_request(&[], "GenreFillResponse", &json!({}))
+                .is_err());
+        }
+        let client = OpenRouterClient::at("fake", "deepseek/test", "http://127.0.0.1:43210/model");
+        assert!(client
+            .clone()
+            .with_provider(ProviderKind::Anthropic)
+            .bounded_json_request(&[], "GenreFillResponse", &json!({}))
+            .is_err());
+        assert!(client
+            .bounded_json_request(
+                &[ChatMessage::user("X".repeat(32768))],
+                "GenreFillResponse",
+                &json!({})
+            )
+            .is_err());
+    }
 
     #[test]
     fn tag_policy_requires_exact_endpoint_model_and_schema() {

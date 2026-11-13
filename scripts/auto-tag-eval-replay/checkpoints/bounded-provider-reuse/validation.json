@@ -1,0 +1,61 @@
+{
+  "freshDelivery": {
+    "typecheck": "passed",
+    "mockProviderTests": {
+      "passed": 12
+    },
+    "reviewToolTests": {
+      "passed": 10
+    },
+    "nodeHelpers": {
+      "passed": 7,
+      "skipped": 0
+    },
+    "rustfmt": "passed",
+    "changedCjsSyntax": "passed",
+    "whitespace": "passed",
+    "readOnlyReaudit": "byte-identical to audit.json; no workload",
+    "implementationHashes": 8,
+    "runtimeLockHashes": 134,
+    "receiptBindingHashes": 1668,
+    "sourcePatch": "exact eight-path diff",
+    "publicationHashLinks": "passed",
+    "copiedRecords": 5
+  },
+  "reusedSourceBoundImplementation": {
+    "serverLibrary": {
+      "passed": 871,
+      "ignored": 30
+    },
+    "desktopClient": {
+      "passed": 16,
+      "ignored": 1
+    },
+    "renderer": {
+      "passed": 858
+    },
+    "brokerCases": 20,
+    "sixJobRun": ".amp/in/artifacts/bounded-provider-reuse-20261113/run",
+    "audit": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/audit.json",
+    "processControl": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/process-controls.json",
+    "newDeliveryWorkload": false
+  },
+  "results": {
+    "slots": 216,
+    "sessions": 12,
+    "operations": 497,
+    "fakeLookups": 1,
+    "growthReserved": 320503200,
+    "writeReserved": 502190739,
+    "groundedCredit": 0,
+    "userAgreement": "0/22"
+  },
+  "limits": [
+    "No push, fetch, live calls, credentials or private configuration access.",
+    "No full desktop suite, new independent review, complete adversarial matrix or new broker slow-body injection.",
+    "Historical strict Clippy remains non-green. Credentialed, display and packaged smokes unselected.",
+    "No live hosting, billing, privacy, credential-custody or AI-quality assurance.",
+    "No physical-I/O, power-loss, malicious-host or guaranteed anchor-loss-containment claim.",
+    "Native workloads reused for delivery, not rerun. Exact replay depends on ignored local inputs and matching executable."
+  ]
+}

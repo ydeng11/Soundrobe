@@ -236,6 +236,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     const source = job.role ? read(path.join(fixtures, 'provider-snapshots/review-expansion-2-20261108/musicbrainz-release-7935e252-463d-4207-bce9-594d0a84e63a.json')) : null;
     const payload = source ? { artist: '盧廣仲', album: source.title, tracks: source.media.flatMap(m => m.tracks.map(t => t.title)) } : null;
     const body = job.role ? { model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
+      ...(durable ? { reasoning: { enabled: false }, provider: { allow_fallbacks: false, require_parameters: true }, stream: false } : {}),
       messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
         { role: 'user', content: canonical(payload) }],
       response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {

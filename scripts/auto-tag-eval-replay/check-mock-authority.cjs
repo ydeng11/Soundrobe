@@ -14,6 +14,7 @@ const canonical = value => value === null || typeof value !== 'object' ? JSON.st
   : Array.isArray(value) ? '[' + value.map(canonical).join(',') + ']'
     : '{' + Object.keys(value).sort().map(k => JSON.stringify(k) + ':' + canonical(value[k])).join(',') + '}';
 const body = Buffer.from(canonical({ model: 'scripted/genre-v1', temperature: 0.2, max_tokens: 1024,
+  reasoning: { enabled: false }, provider: { allow_fallbacks: false, require_parameters: true }, stream: false,
   messages: [{ role: 'system', content: 'Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient.' },
     { role: 'user', content: canonical(genreInput) }], response_format: { type: 'json_schema', json_schema: {
       name: 'GenreFillResponse', schema: { type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } }));

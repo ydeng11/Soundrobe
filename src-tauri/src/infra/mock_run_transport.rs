@@ -79,8 +79,17 @@ impl Transport {
             )?;
             self.lookups.fetch_add(1, Ordering::SeqCst);
             let key = (self.credentials)().map_err(|_| "mock_credential_unavailable")?;
-            // Lookup may take time: recheck expiry/revocation and the native
-            // deadline after it returns, before admitting the actual send.
+            let mut request = input.request(
+                &key,
+                &format!("http://127.0.0.1:{}/model", target.port().unwrap()),
+            )?;
+            require(request.body().and_then(reqwest::Body::as_bytes) == Some(body.as_slice()))?;
+            request.headers_mut().insert(
+                "x-soundrobe-mock-operation",
+                operation.parse().expect("journal operation is a UUID"),
+            );
+            // Lookup and request preparation may take time. Admit only after
+            // both return, with fresh expiry/revocation and native deadline checks.
             state.command(
                 &state.owner,
                 Command::ModelSendAdmission {
@@ -89,12 +98,7 @@ impl Transport {
             )?;
             let mut response = state
                 .http
-                .post(target)
-                .bearer_auth(key)
-                .header("x-soundrobe-mock-operation", &operation)
-                .header("content-type", "application/json")
-                .body(body)
-                .send()
+                .execute(request)
                 .await
                 .map_err(|_| "mock_delivery_unknown")?;
             let mut bytes = Vec::new();

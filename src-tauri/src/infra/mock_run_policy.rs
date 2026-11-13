@@ -40,6 +40,12 @@ pub(crate) struct GenreInput {
 }
 impl GenreInput {
     pub(crate) fn body(&self) -> Result<Value, String> {
+        // Preparation hashes the same bytes as dispatch, without credentials or I/O.
+        let request = self.request("", "http://127.0.0.1:1/model")?;
+        serde_json::from_slice(request.body().unwrap().as_bytes().unwrap())
+            .map_err(|_| "mock_input_invalid".into())
+    }
+    pub(crate) fn request(&self, key: &str, base_url: &str) -> Result<reqwest::Request, String> {
         require(
             self.tracks.len() <= 100
                 && self
@@ -51,11 +57,10 @@ impl GenreInput {
         )?;
         let (messages, schema) =
             crate::commands::auto_tag::genre_request_parts(&serde_json::to_value(self).unwrap());
-        let body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
-            "messages":messages,
-            "response_format":{"type":"json_schema","json_schema":{"name":"GenreFillResponse","schema":schema}}});
-        require(serde_json::to_vec(&body).unwrap().len() <= 32768)?;
-        Ok(body)
+        crate::infra::openrouter::OpenRouterClient::at(key, "scripted/genre-v1", base_url)
+            .with_generation(0.2, 1024)
+            .bounded_json_request(&messages, "GenreFillResponse", &schema)
+            .map_err(|_| "mock_input_invalid".into())
     }
 }
 

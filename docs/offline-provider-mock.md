@@ -415,6 +415,32 @@ approval, credentials, billing, and privacy guarantees remain outside this mode.
 Historical scheduling counterexamples and the superseded stronger standalone
 durable-publication requirement remain retained as evidence.
 
+### Bounded reuse of the existing AI-provider interface
+
+The durable mock broker now prepares its request through the existing native
+`OpenRouterClient` and the same JSON encoder used by ordinary application calls.
+It does not invoke the ordinary completion loop, whose retry and schema-repair
+behavior is inappropriate for this evaluation. Admission and fake-credential
+lookup remain broker-owned, followed by a fresh send-admission check and one
+HTTP execution. Exact response bytes are receipted before output interpretation.
+
+The bounded request entry point exists only in test builds. It accepts only
+explicit-port `http://127.0.0.1/...` fixture endpoints with the `/model` base path;
+it rejects live URLs, alternate API formats, oversized requests and invalid
+output bounds. The request explicitly disables reasoning, streaming and provider
+fallback, and requires supported parameters. These flags are fixture-tested,
+not evidence that a real hosting endpoint enforces them. Redirects, proxy use
+and HTTP-library retries remain disabled by the broker's executor. Preparation
+and dispatch must still agree byte-for-byte with the independent request digest.
+
+The broker retains `scripted/genre-v1` as its deliberately fake model identity.
+Offline client contracts also exercise a DeepSeek identifier against a local
+HTTP fixture, preserving the identifier, messages and schema. This neither
+queries DeepSeek nor establishes its response quality or hosted identity. No
+private development configuration is read or changed. Ordinary application
+provider behavior is unchanged; this does not create a live evaluation mode or
+provision real approval, credentials, billing controls or retention guarantees.
+
 ## Checks
 
 ```sh

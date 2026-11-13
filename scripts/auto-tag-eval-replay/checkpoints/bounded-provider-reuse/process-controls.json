@@ -1,0 +1,18 @@
+{
+  "executableSha256": "8d628973fde0425ee512c99178082a62b12b0a36f7856d964eeffc6093532f59",
+  "results": [
+    {
+      "name": "competing-model-children",
+      "wires": 1,
+      "operations": 1,
+      "modelReservations": 1,
+      "storedState": "terminal",
+      "requestedFieldSlots": 216,
+      "failureSlots": 216,
+      "recovery": "read_only_incomplete_no_resume",
+      "remainingAllowance": 0
+    }
+  ],
+  "powerLossOrPhysicalFlushProved": false,
+  "liveAuthority": false
+}

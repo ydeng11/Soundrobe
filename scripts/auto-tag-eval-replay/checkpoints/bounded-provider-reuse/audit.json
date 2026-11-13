@@ -1,0 +1,139 @@
+{
+  "actualFakeLookups": 1,
+  "durableLookupAdmissions": 1,
+  "workerProjection": "exact_declared_fields_and_actual_worker_rows",
+  "supervision": {
+    "authority": "native_witness_and_timely_supervisor_exit",
+    "generation": "a09bf3e0-17f2-4c9b-99ee-9c057841d146",
+    "supervisorExitObservedAt": 578650368,
+    "acceptedAt": 578650402,
+    "deadline": 578796328,
+    "preparationMs": 221507,
+    "requestedFieldSlots": 216
+  },
+  "native": {
+    "run": ".amp/in/artifacts/bounded-provider-reuse-20261113/run",
+    "checks": "passed",
+    "evaluations": [
+      {
+        "name": "disabled-crowd",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 15,
+        "modelRequests": 0,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 16,
+        "nativeElapsedMs": 8814
+      },
+      {
+        "name": "disabled-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 27456
+      },
+      {
+        "name": "disabled-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 161206
+      },
+      {
+        "name": "assistance-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 27627
+      },
+      {
+        "name": "assistance-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 161154
+      },
+      {
+        "name": "assistance-crowd",
+        "variant": "eligible_request",
+        "outcome": "needs_review",
+        "providerRequests": 15,
+        "modelRequests": 1,
+        "wireArrivals": 18,
+        "inventoryBytes": 969894,
+        "matchedEvents": 17,
+        "nativeElapsedMs": 9247
+      }
+    ],
+    "providerRequests": 236,
+    "modelRequests": 1,
+    "wireArrivals": 249,
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "labelableSlots": 30,
+    "userAcceptanceRequested": 22,
+    "userAcceptanceAgreeing": 0,
+    "groundedAssistanceAccuracyCredit": 0
+  },
+  "durable": {
+    "runId": "827f48cd-4838-4deb-93fd-696aae13e281",
+    "checkpoint": "87ee960fb750e658876f490ea0f92f51ac0ad651c8ec918bad02cd5357ae7b33",
+    "counts": {
+      "arrived": 497,
+      "completed": 497,
+      "inventory": 24,
+      "model": 1,
+      "provider": 472,
+      "reserved": 497
+    },
+    "inventoryBytesMin": 969410,
+    "inventoryBytesMax": 999453,
+    "sessions": 12,
+    "consumptions": 1,
+    "receipt": "provisional_complete",
+    "actualWireArrivals": 497
+  },
+  "auditBindings": {
+    "historicalDurableAuditor": "aeed0878de308d984d86b30b66636dc5ff35432c9a5c49080ace1366b4c90b5a",
+    "adaptedDurableAuditor": "540699a2153af67f86f845eebecaed879164908fdc35644284be6043aee3a0f1",
+    "native": {
+      "historicalSourceSha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+      "adaptedSourceSha256": "dbfb9ff4618f5596be78a30ec5b4ec17b01812bb468b1181a63622fab8bbd9b6",
+      "adaptation": "preparation/preparation.json instead of cold/preparation.json"
+    }
+  },
+  "liveAuthority": false,
+  "powerLossProved": false,
+  "groundedAssistanceAccuracyCredit": 0,
+  "storage": {
+    "ordinaryGrowthReserved": 318406048,
+    "ordinaryWriteBytesReserved": 493802131,
+    "terminalGrowthReserved": 2097152,
+    "terminalWriteBytesReserved": 8388608,
+    "totalGrowthReserved": 320503200,
+    "totalWriteBytesReserved": 502190739,
+    "records": 2509,
+    "owners": 205,
+    "stopped": false,
+    "selfBookkeepingWriteUpperBound": 1415681,
+    "ledgerSha256": "fdc139d7597f1b502eb36ad299d5a5d7b40c959df905db8107ae450a48323be9",
+    "accounting": "nonrefundable_prepaid_application_vfs_not_physical_io"
+  }
+}

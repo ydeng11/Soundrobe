@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "expectedParent": "68df20ea7a6f82772df8214342f3034e7225f8cb",
+  "branch": "artist-library-inventory",
+  "deliveryIdentity": "containing commit",
+  "liveAuthority": false,
+  "implementation": [
+    {
+      "path": "docs/CHANGELOG.md",
+      "sha256": "b484fb64d04f7080d4bc62580e6fd0eb73b9c8028f0c6b4c2ccc1afab095f959",
+      "bytes": 64206
+    },
+    {
+      "path": "docs/offline-provider-mock.md",
+      "sha256": "66d91422fad12da12b645016bbeb23946d1f3dd91fbdadaaab329abdc87191f9",
+      "bytes": 25784
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/check-mock-authority.cjs",
+      "sha256": "da8ac3059eeedf72870af2849ee12ee78c9c6f3df813d44f350a95e5c4776a18",
+      "bytes": 23096
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "8b00ecc1d2daa0bd4195bdebc3df05e70befd0adb725558e7c6b064ed5560288",
+      "bytes": 45644
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_broker.rs",
+      "sha256": "75498459bff6cb172294848c1bab66f132addc47d63fcbaf0a3dac922583f48c",
+      "bytes": 65069
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_policy.rs",
+      "sha256": "7a73d83d400a2f8a0e0d61c5bf7cb002e73878b5d2181d355589c3a9e25ff150",
+      "bytes": 3939
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_transport.rs",
+      "sha256": "e5a622e510d4cb09ecbd46773c4675dd97f6dcfa9e34d19765d138bfb76b7068",
+      "bytes": 6887
+    },
+    {
+      "path": "src-tauri/src/infra/openrouter.rs",
+      "sha256": "3d75d08e2ccd0314febfeb5bb76a2e16a339ea0719fafe8758beb19d0704fba3",
+      "bytes": 74365
+    }
+  ],
+  "copies": [
+    {
+      "copy": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/audit.json",
+        "sha256": "8e4ad8faf3251098b29e0adef73c91dd1ea111919a8dc8e46370eaf8c3c06672",
+        "bytes": 4311
+      },
+      "original": {
+        "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/audit.json",
+        "sha256": "8e4ad8faf3251098b29e0adef73c91dd1ea111919a8dc8e46370eaf8c3c06672",
+        "bytes": 4311
+      }
+    },
+    {
+      "copy": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/source-and-tool-locks.json",
+        "sha256": "f9342726705a2d6b40876977050bb3be664e2bd9064f995049f128463c8a9529",
+        "bytes": 19800
+      },
+      "original": {
+        "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/source-and-tool-locks.json",
+        "sha256": "f9342726705a2d6b40876977050bb3be664e2bd9064f995049f128463c8a9529",
+        "bytes": 19800
+      }
+    },
+    {
+      "copy": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/receiver-outcome.json",
+        "sha256": "fa74862c368f98319e1c129b9abae1bab5b33a90c5f11ef21a41150487b4bcb5",
+        "bytes": 588
+      },
+      "original": {
+        "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/receiver-outcome.json",
+        "sha256": "fa74862c368f98319e1c129b9abae1bab5b33a90c5f11ef21a41150487b4bcb5",
+        "bytes": 588
+      }
+    },
+    {
+      "copy": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/launcher-outcome.json",
+        "sha256": "77b6580f0efe7e490c2b0cd371bb9f0a67cce36b1ec7a4f5aec8f4db202cc28f",
+        "bytes": 488
+      },
+      "original": {
+        "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/launcher-outcome.json",
+        "sha256": "77b6580f0efe7e490c2b0cd371bb9f0a67cce36b1ec7a4f5aec8f4db202cc28f",
+        "bytes": 488
+      }
+    },
+    {
+      "copy": {
+        "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/process-controls.json",
+        "sha256": "01b1f5e880f6bc471cf273665f0caa35b5933afeb1cd448b3d6ba94614658c47",
+        "bytes": 483
+      },
+      "original": {
+        "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/process-controls/results.json",
+        "sha256": "01b1f5e880f6bc471cf273665f0caa35b5933afeb1cd448b3d6ba94614658c47",
+        "bytes": 483
+      }
+    }
+  ],
+  "retained": [
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/audit-summary.txt",
+      "sha256": "cbb5d9d207b7b8610a0cd78f50f659536c7f6b5faddb29b7e9b0687c7551cc94",
+      "bytes": 2927
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/audit.json",
+      "sha256": "8e4ad8faf3251098b29e0adef73c91dd1ea111919a8dc8e46370eaf8c3c06672",
+      "bytes": 4311
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/broker-before-projection.log",
+      "sha256": "474813e546c8632af16079c26ff7248ded3356712eaa98c1fce2d416073a52ee",
+      "bytes": 283
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/broker-green.log",
+      "sha256": "8a6a8df96caa3ddc3c411ca71443d32da8b0175caf7c2f11dd918fcabaec483a",
+      "bytes": 482
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/broker-red.log",
+      "sha256": "eb89c95088267796198281080d6464392ed235c6876b2796cdaecfe137059f34",
+      "bytes": 1108
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/client-regression.log",
+      "sha256": "ca90952d2e70c5fb6c274beb0e2c32147aa0ea3e4edcb1f012fbaf07c73a91c2",
+      "bytes": 1819
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/fixture-tests.log",
+      "sha256": "dc887f8b704744ee80c15f9d9083e43d85eb5de504943dc27d19b21bc193be15",
+      "bytes": 585
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/helpers.log",
+      "sha256": "4de18bcdf15ebc62323a11cfafeea5c5d02085c7940e55ed7d2d3abecdf385bf",
+      "bytes": 3662
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/re-audit.json",
+      "sha256": "8e4ad8faf3251098b29e0adef73c91dd1ea111919a8dc8e46370eaf8c3c06672",
+      "bytes": 4311
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/review-tool-tests.log",
+      "sha256": "4dd6050c785ce96bbff9b96cea9b311ddba5e73d032984b33e9b7ccb04cce693",
+      "bytes": 860
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/rustfmt.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/typecheck.log",
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2",
+      "bytes": 46
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/delivery/verify-records.py",
+      "sha256": "544bac9caf96c7733d815492af9c6d854c4c34db1eb2c1b1356da13e0008a347",
+      "bytes": 6624
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/desktop-client.log",
+      "sha256": "a282a4259b99361fa70c3f9cb22263b8519e462e4b97e72553e5e675f63e7b12",
+      "bytes": 2743
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/helpers.log",
+      "sha256": "3f257a33a0e70888ee1778eec38cd4b11ff6e92f7530c1686e22f8d55cc3d298",
+      "bytes": 3664
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/native-evaluator",
+      "sha256": "8d628973fde0425ee512c99178082a62b12b0a36f7856d964eeffc6093532f59",
+      "bytes": 128795824
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/policy-regression.log",
+      "sha256": "8e05ea847f375e7436473ae0643ec21c900db28aded776b89afe803320d0d29e",
+      "bytes": 616
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/process-controls.log",
+      "sha256": "3b34298514ad12e71dbab4430195ad3fd5af104a73605e8b9f54d25bcd0a8ea7",
+      "bytes": 222
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/request-green.log",
+      "sha256": "3befb8686814c37bf6cee630d9d95983f245782e1f06059a20f6eb951a6e6348",
+      "bytes": 571
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/request-red.log",
+      "sha256": "7f79faba78b86d676040dd6c41398f443f910443c807bed3bf1920e8f1972145",
+      "bytes": 2962
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/authority/provisional.json",
+      "sha256": "52b6977116820fb2667938f9e8fc9d0247c8b5345bcd5ce5c1fceaaa3c45fa20",
+      "bytes": 465600
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/results.json",
+      "sha256": "567b54316d49d17abf9035b8174b85bf5baf2097d18efebda927ea12d4272adf",
+      "bytes": 91584
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run.log",
+      "sha256": "77b6580f0efe7e490c2b0cd371bb9f0a67cce36b1ec7a4f5aec8f4db202cc28f",
+      "bytes": 488
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/runtime-sha256.txt",
+      "sha256": "04511502547f586ca4a8bc7540aaf6d5bb7da80fdb321758c3c7a1cdfd2aa3dd",
+      "bytes": 262
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/server.log",
+      "sha256": "f2db8c968d0daa2c2c5761078560c949959da6fce8cc7c0a9166e1e5d47361a2",
+      "bytes": 94406
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/source-sha256.txt",
+      "sha256": "82454707c1e3d37e0df404711980ca9ea496da5dbeacf59c130a2503effde74f",
+      "bytes": 829
+    },
+    {
+      "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/source.patch",
+      "sha256": "bc3c9681a1bd7ddbace36cac9a45237551c62fa9bd99bed2598b38b5bc4ef146",
+      "bytes": 21319
+    }
+  ],
+  "runtimeLocks": {
+    "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/source-and-tool-locks.json",
+    "entriesVerified": 134
+  },
+  "receiptBindings": {
+    "path": ".amp/in/artifacts/bounded-provider-reuse-20261113/run/authority/provisional.json",
+    "entriesVerified": 1668
+  },
+  "scope": "trusted-host loopback mocks; no live activation or tagging-quality claim",
+  "replayDependencies": "Ignored generated media, matching executable, receipts, ledger, worker databases, labels and historical auditor sources remain local. No fresh-clone replay or executable attestation."
+}

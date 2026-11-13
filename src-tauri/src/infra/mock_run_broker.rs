@@ -641,6 +641,8 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
         "low-confidence",
         "status",
         "schema",
+        "empty",
+        "truncated",
         "usage",
         "identity",
         "oversize",
@@ -686,6 +688,7 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 .unwrap();
         let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]});
         let body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
+            "reasoning":{"enabled":false},"provider":{"allow_fallbacks":false,"require_parameters":true},"stream":false,
             "messages":[{"role":"system","content":"Infer a conservative music genre from the supplied artist, album, and track titles. Return a concise Discogs-style comma-separated genre and confidence. Use low confidence when the evidence is insufficient."},
                 {"role":"user","content":input.to_string()}],
             "response_format":{"type":"json_schema","json_schema":{"name":"GenreFillResponse","schema":{
@@ -753,12 +756,14 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 match mode {
                     "low-confidence" => response["choices"][0]["message"]["content"]=json!("{\"genre\":\"REJECTED_CANARY\",\"confidence\":0.59}"),
                     "schema" => response["choices"][0]["message"]["content"]=json!("RAW_SCHEMA_SECRET_CANARY"),
+                    "empty" => response["choices"][0]["message"]["content"]=json!(""),
+                    "truncated" => response["choices"][0]["finish_reason"]=json!("length"),
                     "usage" => {response.as_object_mut().unwrap().remove("usage");}
                     "identity" => response["model"]=json!("REMOTE_IDENTITY_CANARY"),
                     _=>{}
                 }
                 Response::builder().status(if mode=="status" {429} else if mode=="redirect" {307} else {200})
-                    .header("x-private-canary","HEADER_SECRET_CANARY").header("location","https://invalid.example/never")
+                    .header("x-private-canary","HEADER_SECRET_CANARY").header("location","http://127.0.0.1:1/never")
                     .body(Body::from(if mode=="oversize" {"X".repeat(65537)} else if mode=="status" {"RAW_BODY_SECRET_CANARY".into()} else {response.to_string()})).unwrap()
             }
         })).into_future());

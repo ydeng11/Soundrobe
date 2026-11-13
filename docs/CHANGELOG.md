@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Bounded offline assistance reuses the app's AI-provider request interface while explicitly disabling reasoning, streaming and provider fallback. Fake credentials, one-attempt dispatch and loopback-only routing remain enforced; live calls and development settings are unchanged.
 - Offline mock assistance now requires a single-use signed test approval, keeps fake credentials inside the broker, and excludes raw model replies from general diagnostics and fixture inventories. It does not enable live inference or provision real user trust.
 - Supervised offline mock replay now stops at fixed logical-growth and cumulative-write limits, retains every requested slot when recording fails, and cannot resume incomplete runs. These limits do not enable live calls or bound physical disk traffic.
 - Offline six-job mock replay can use independent native supervision with fixed preparation/execution deadlines, retained incomplete membership, and witnessed completion after actual payload and supervisor exit. Lost completion recording remains incomplete; this does not enable live calls.
