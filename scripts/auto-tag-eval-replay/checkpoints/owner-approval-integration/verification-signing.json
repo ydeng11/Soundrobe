@@ -1,0 +1,222 @@
+{
+  "source": {
+    "verifiedSourceBindings": 323,
+    "trackedChanged": 12,
+    "head": "8b4087b1ebb63b60450a8128b04e31ab44f8371a",
+    "retainedExecutableSha256": "dfbc8f0b19455cc63708a7827a269ce155cb60023ab51488c063e47cc862e748",
+    "liveCalls": false,
+    "realRunSigned": false,
+    "freshSixJobRun": false
+  },
+  "crossLanguage": {
+    "witnessLogSha256": "4c659f7dd109550d4f8b37e84dcaff789c105cd4c5954646e9b958e9e234fbb5",
+    "results": [
+      {
+        "keyFormat": "ring_pkcs8_v2",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "208fd24e2fbcb0846d8f792df0f5b5e1ae5442b54ea9a43bd7f83fc3b9638f48",
+          "approvalSha256": "943d8e50c1660170926228ae55d3a5b3135cafdff945425cb5626051890f501a",
+          "checkpoint": "441527a64cad05c6bad738ddab0aba8e2961153b708ad164d455373ab26321b2",
+          "scopeSha256": "13eb830691ea969860fe4108125ee4de91f575b129f34ed04595fe0182cd4ca7",
+          "expiresUnixSeconds": 1794677638,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      },
+      {
+        "keyFormat": "openssl_pkcs8_v1",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "baf4e12da539b33f372614cf408223caaceb0aa19d8955d1d8e54d92efae9112",
+          "approvalSha256": "0a27bd839413f1e187288687067dd182830215ba69a85cf468caa00ffe9514f9",
+          "checkpoint": "e15b77e0c53d9d0d1b2de8ff966145ac85037821daadb33d983131acab5ae3ef",
+          "scopeSha256": "8f8b3d60ad00f7badbc0d5bd89df9108e4d2aab4c68ce3d020a473925505bfc6",
+          "expiresUnixSeconds": 1794677638,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      }
+    ],
+    "liveCalls": false,
+    "realRunSigned": false,
+    "freshSixJobRun": false,
+    "qualityCredit": 0
+  },
+  "evidence": [
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/README.md",
+      "sha256": "d4ee2c2d706f32defd41599dc4c7b1d85605510bfbd860fecb07bb732c35e6b3"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-final-green.log",
+      "sha256": "613e144ea76bc769f4e2ee3a417e7b9d0d3a2a24c6630a5b73a323d86e490f06"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-green.log",
+      "sha256": "80960af35db6c3f4e8caa841bc63f0112b817c95983464f312a713bbfa85c613"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-input-red.log",
+      "sha256": "a911b0dda42902677b24ed1a38a03e9f548e68e72a7ae383c0b799e0dc2ba0ef"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-latest-green.log",
+      "sha256": "b7b844bfa035dc1b8a274ddc022105fb69c81d514eda62be6057d94458c68291"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-latest-suite-green.log",
+      "sha256": "26f5fdd67688d2783841a62cd28cd456846caa3ba635123aa3bf091eb522212c"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-red.log",
+      "sha256": "7508eecbd4bc256317285d4426dce7aeb0b6dfc0db68bc77de9b951c0ba474cf"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-suite-green.log",
+      "sha256": "3400390daabfe630ec572243a5cd55afe00b82b4c0c2324e1bb26314015e82c7"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/auditor-types-red.log",
+      "sha256": "48c4ae62684a378d92ac70fe0ac1fcffee8caac63549a527b2bc720b4715bc9f"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/authority-after-own-cleanup.log",
+      "sha256": "b93e55ff073297f11de47378bf8e689fc591492fe47f3d68d041138f60c143dd"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/authority.log",
+      "sha256": "827b3ab3faeeb676efce9b5ec70327ca7feccadb11cb92384625ef9bdf135709"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/check-native-signatures.py",
+      "sha256": "2499914c3408bbdb6643263942912aea376fdcd4dc99d8baac0fdb96fd9aee03"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/disk-after-own-build-cleanup.txt",
+      "sha256": "551e92f0c3f90630cd8b19299561bef7225160207c0758e0ea26c4427c29ef65"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/final-check.py",
+      "sha256": "da0cc8629ddc99cc6bd9bbc1ca5fdd8396383dcf60edcb22bfd6f7205440bf7b"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/incremental.diff",
+      "sha256": "8fb035fbb3b39a24a85ac933e9374d1d1b55dacc55ac7749ad94ed65ecb25dc7"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/issuer-combined.log",
+      "sha256": "d98c1264c8dd31246ed6fd46cc40a3ede97923054c495b87570a0d5e806afc8a"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/issuer-green.log",
+      "sha256": "362365edf5dbfb3cce81f180b70c97d6e59741b7ce2606b9343fdb7061db3855"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/issuer-green2.log",
+      "sha256": "3d9d40bafdce71c6549dbf64f2f0949630f9f75654723a6d0476f27bb5a686a9"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/issuer-no-incremental.log",
+      "sha256": "4c659f7dd109550d4f8b37e84dcaff789c105cd4c5954646e9b958e9e234fbb5"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/issuer-red.log",
+      "sha256": "41373aafe54ea7e764bb169c82d54227fbd49aa4b5d6d3670c2269408dfe2187"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/native-signature-audit.json",
+      "sha256": "84a32068d24f700f1a2ec372faad6b2fe3a0cd6a3c01bf862d2ba819fec85aa2"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/native-test-executable",
+      "sha256": "dfbc8f0b19455cc63708a7827a269ce155cb60023ab51488c063e47cc862e748"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/node-combined.log",
+      "sha256": "849bf2d6512e52055360dbac46fa03efafc57c003779fa98fc59c78880d66a8f"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/owner-lease-red.log",
+      "sha256": "ecb47d8c752be64af267e83c81623d69b4dfd69bc10752dd5c9839b602f15690"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/prior-slice.patch",
+      "sha256": "290ef6d296feb979382d180987354134f9044607c6472bebddddc8003bc8a37d"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/recheck-source.json",
+      "sha256": "a0923362c4feb3fdcaa139445d7c1cb1fe398ca2047865d1602c1f75b1503b79"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/source-manifest.json",
+      "sha256": "3a04c29d8a5ee3394e966ead052bf2dde356088d0594b252fca7937ae459f8e3"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/source-verification.json",
+      "sha256": "a0923362c4feb3fdcaa139445d7c1cb1fe398ca2047865d1602c1f75b1503b79"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/start-status.txt",
+      "sha256": "0f072c39c24748a9f60764c1f22e5781cc44fb7a2cd977ce46d4c770ee2a29ea"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/syntax.log",
+      "sha256": "34326faf6f084c4f20a37a9814f1acc36b19b4edbec9f53d78a5f0daa3493e9d"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/toolchain.json",
+      "sha256": "772f420eff486c2745d32baf6f8c2a95e7c712759294c20e642077ae5325775b"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/typecheck.log",
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/verify-checkpoint.py",
+      "sha256": "f44acf8adbce737c5d8452dc87d9a7b8afc16999c647e7c987226d9cc1ab3906"
+    },
+    {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/whitespace.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "authority": {
+    "passed": 111,
+    "failed": 0,
+    "ignored": 10
+  },
+  "node": {
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0
+  },
+  "signatureControls": {
+    "accepted": 5,
+    "rejected": 160
+  },
+  "fullServerGateRerun": false,
+  "freshSixJobRun": false,
+  "realRunSigned": false,
+  "liveCalls": false,
+  "committed": false,
+  "knownLimits": "Trusted-host component checks only; first ENOSPC gates retained; no automatic signer, owner-file publication, completed hosted audit, live quality or remote billing assurance"
+}

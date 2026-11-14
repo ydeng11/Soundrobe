@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "parent": "8b4087b1ebb63b60450a8128b04e31ab44f8371a",
+  "branch": "artist-library-inventory",
+  "implementation": [
+    {
+      "path": "docs/CHANGELOG.md",
+      "sha256": "a1b498c5ae6b11e99cfcfe3ad5510e23c1b312b84a1c650a7143997313f3e23d"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/README.md",
+      "sha256": "5ab7aeb54626c43ceb77d68911618bdac9d2faad4d2ce9576ac2214167469efd"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit-supervised.py",
+      "sha256": "d4759663a3cb250d9ac00c11230942bfc843854921bab61234551fdb764c4be1"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/mock-authority.cjs",
+      "sha256": "d7e78c0e77a083e7d65c613f6c49e2a1d86b4ef33aa061e325bb29435af548b0"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "a05601bd19fd11e4eb457eb12ae87387e27a40dbe1e82b129a3708490b7201ed"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_model_preflight.cjs",
+      "sha256": "13fa7a10107e7ed1a31e1ebb41a02115c53f9574a308cb0248c107a8711fc448"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_supervision.cjs",
+      "sha256": "0d83243468b1b2d2bae4d047c635a0d087b51856eeffceff8c0abe720da10064"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_authority.rs",
+      "sha256": "cd17caa12ba18a2370d45c9b0d01e79f9d29fd9308194ba928c826122224760b"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_broker.rs",
+      "sha256": "de48e68a5987c2d2092f54020340b2f659403406dffac27feaf40e8842e4d86f"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_live_boundary.rs",
+      "sha256": "17335f9d984665b62e8acabe0e39239a63871ae7d9d0f7c9b1ebcfdd5050a803"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_policy.rs",
+      "sha256": "7ae5170138d9901c6ad015f17b488176397723240012aeea10cd5a33955d9fd4"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_transport.rs",
+      "sha256": "3aa56ddc372cd8b63940903af0ba44e43abcfc7a321db10e60c051333ab33b6e"
+    }
+  ],
+  "plans": [
+    {
+      "path": ".planning/plans/prepared-hosted-integration-20261114.md",
+      "sha256": "2c4927a85932757a46efa1a1f3a074c3c7702aa4388d62466582b2dcac37b9ce"
+    },
+    {
+      "path": ".planning/plans/native-prepared-bootstrap-20261114.md",
+      "sha256": "084fa651fede20a0d11f864f4b6d454e7585398da5515695cbc377128b20627e"
+    },
+    {
+      "path": ".planning/plans/offline-owner-signing-20261114.md",
+      "sha256": "0838661538291c005be586ae951d1e8b1638dba89ba138f33cc548355a3643de"
+    },
+    {
+      "path": ".planning/plans/owner-publication-20261114.md",
+      "sha256": "d4e427f555e9a3eab66c1dfb1f131d635a3e11d8432cf2e33235ffc443e675be"
+    }
+  ],
+  "copiedRecords": {
+    "sources-rehearsal.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/source-manifest.json",
+      "sha256": "75d612bafb4bd31e7dfbe628deafd07435e21fd617ae84cfb56fb68821aee01f"
+    },
+    "notes-rehearsal.md": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/README.md",
+      "sha256": "83cef9234b8acf5de3e9197d265ff081ce11eee97bb903d479f7bd6ae68e4baf"
+    },
+    "verification-rehearsal.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/verification.json",
+      "sha256": "7395a95030491baa3347e6ea611af5c7e40787f23a6cff26e0a31804ac1cdd4a"
+    },
+    "sources-bootstrap.json": {
+      "path": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source-manifest.json",
+      "sha256": "36ef41b16c9705fde2b8ac1270be4f0d51e00fe6e1b892387366a751aead1c91"
+    },
+    "notes-bootstrap.md": {
+      "path": ".amp/in/artifacts/native-prepared-bootstrap-20261114/README.md",
+      "sha256": "afcb2b2c5c69a40dacba8c83972fb7b1a60a11588f9d30cbc9de37175e045ed6"
+    },
+    "verification-bootstrap.json": {
+      "path": ".amp/in/artifacts/native-prepared-bootstrap-20261114/final-verification.json",
+      "sha256": "a4951e6cfb9c4dc178be9ec2ccd4492731a04a7be9cef8db1664048d12af65f1"
+    },
+    "sources-signing.json": {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/source-manifest.json",
+      "sha256": "3a04c29d8a5ee3394e966ead052bf2dde356088d0594b252fca7937ae459f8e3"
+    },
+    "notes-signing.md": {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/README.md",
+      "sha256": "d4ee2c2d706f32defd41599dc4c7b1d85605510bfbd860fecb07bb732c35e6b3"
+    },
+    "verification-signing.json": {
+      "path": ".amp/in/artifacts/offline-owner-signing-20261114/final-verification.json",
+      "sha256": "36c94eff44a9f19c17e36ed6b4f4ec5c20b0acfb2b5aafc3e059ceb43f3be8ba"
+    },
+    "sources-publication.json": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/source-manifest.json",
+      "sha256": "c0c666fdadc9e8404df6518bafb513c7e69c8e9932b79e1ca43d993645528765"
+    },
+    "notes-publication.md": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/README.md",
+      "sha256": "3c194ff75c27c557ea623462e4011dbb97a3ea72d5a21cb4ba904e723860e423"
+    },
+    "verification-publication.json": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/final-verification.json",
+      "sha256": "1e967bd8479d26e96adf83602a65d63597475e5e5c9974de586682a24b93c82d"
+    },
+    "audit-rehearsal.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/audit-01.json",
+      "sha256": "a9549a5d6eb66a01c089aa017b1d1a6524beb2b82e35b9b3c728faeb87a01ce6"
+    },
+    "privacy-rehearsal.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/privacy-01.json",
+      "sha256": "07c230ad0701d27ebefe0e988aaf8f582459fa0d9c9577bf546a571228db9d72"
+    },
+    "joins-rehearsal.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/retained-joins.json",
+      "sha256": "1701544baeaa59faf007f0c78bf4f4421d48d5536e610037cc637c465e63e415"
+    },
+    "public-plan.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/public-plan.json",
+      "sha256": "cbd9a5fde7d4699e2aabb26387d0d5a0d1430740021798a6952338ec8881aaad"
+    },
+    "response-fixture.json": {
+      "path": ".amp/in/artifacts/prepared-hosted-integration-20261114/response-fixture.json",
+      "sha256": "d8ce82ce75ebd94d85eb06e09eaa58c713fc8a928ec95f43ab381d3fb37d7926"
+    },
+    "signature-audit.json": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-signature-audit.json",
+      "sha256": "878e21eaad1245824a418ee387d854c9abbcf05dfb25ba4020e7335b028b8ac5"
+    },
+    "review-publication.md": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/review.md",
+      "sha256": "57da64bac09c31925dc28c5f754e2624866a3600b2574e971bc40df9687998b9"
+    },
+    "launcher-source-review.json": {
+      "path": ".amp/in/artifacts/owner-publication-20261114/launcher-source-review.json",
+      "sha256": "2893679d45efd5818d28e08cc25b8a84743347dd7b80517682c008c5ccbbebfe"
+    }
+  },
+  "retainedWitnessLog": {
+    "path": ".amp/in/artifacts/owner-publication-20261114/native-authority.log",
+    "sha256": "2ba8134a03930f121c0172ec1affa884881568d8687ae8c3449b6f0a450a7e82"
+  },
+  "deliveryVerifier": ".amp/in/artifacts/owner-publication-20261114/delivery/verify-delivery.py",
+  "liveCalls": false,
+  "realCredentialReads": false,
+  "realRunSigned": false,
+  "limits": "Public test data and compact records only. Raw media, logs, executables, private configuration and signing keys remain outside this packet. Historical source locks and ignored dependencies are required for exact replay."
+}

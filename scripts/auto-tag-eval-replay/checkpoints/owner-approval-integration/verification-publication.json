@@ -1,0 +1,259 @@
+{
+  "source": {
+    "verifiedSourceBindings": 323,
+    "trackedChanged": 12,
+    "head": "8b4087b1ebb63b60450a8128b04e31ab44f8371a",
+    "retainedExecutableSha256": "c38bce5320d534b69df1e6dba87b7e18e8eb2a9c5cc1285eaecd1f4763a16be5",
+    "liveCalls": false,
+    "realRunSigned": false,
+    "freshSixJobRun": false
+  },
+  "crossLanguage": {
+    "witnessLogSha256": "2ba8134a03930f121c0172ec1affa884881568d8687ae8c3449b6f0a450a7e82",
+    "results": [
+      {
+        "keyFormat": "ring_pkcs8_v2",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0",
+          "approvalSha256": "cbe1676b8453da346badc4c5628602360906bb7b0b5d4cbaf9663cdecf060d14",
+          "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+          "scopeSha256": "4077f9814ae77b7357171add5dfa52c85536c3615db6886f06edd903abdefe61",
+          "expiresUnixSeconds": 1794680260,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      },
+      {
+        "keyFormat": "ring_pkcs8_v2",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79",
+          "approvalSha256": "bb1986d8e81a0c45e93587b4d0c237512879da531fa901e064433186417737b6",
+          "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+          "scopeSha256": "83d3fd1115bf9412748bdd4960531e5f6905acf8d04c0d9960b63c476bf35f82",
+          "expiresUnixSeconds": 1794680260,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      },
+      {
+        "keyFormat": "openssl_pkcs8_v1",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "e362a2d00c6580d92544a376acaed1a76fcd574d213aeace5a565302d349210d",
+          "approvalSha256": "30886e1d762500166423d03dfa40e2b22e94ab848a9d14c7d68400357e728d6e",
+          "checkpoint": "8780e3b24dac3efdf64c78d3d0e58a24636552091ca76f6180fde7a815e21255",
+          "scopeSha256": "bf12727b2a2b351b9e817ecd3b5d346e2675b9c38304d9fecfc4c67699978ed3",
+          "expiresUnixSeconds": 1794680261,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      },
+      {
+        "keyFormat": "openssl_pkcs8_v1",
+        "audit": {
+          "version": 1,
+          "signatureVerified": true,
+          "verifierSha256": "d4b6dcac56538003ea4495267aa5bff134685a2268ff0fac3fba5762daf2c8d4",
+          "approvalSha256": "1b1e02d82bca72f65d665ba4da2fc7bfdbe3fc7df38ebbbd6412bbf19314bd92",
+          "checkpoint": "d762ecf8b041299d8ae9d7d812848bc5475f2a09a6a9b37668bfaee32dc1b75b",
+          "scopeSha256": "03e4e27b2ddd6e78b56072a1a54df31d844edea7770e323c318689a4c5b19773",
+          "expiresUnixSeconds": 1794680261,
+          "liveAuthority": false,
+          "userPresenceVerified": false,
+          "qualityCredit": 0
+        },
+        "terminal": "terminal",
+        "consumptions": 1,
+        "credentialLookups": 0,
+        "modelReservations": 0,
+        "requestedSlots": 216
+      }
+    ],
+    "actualNodeNativeJoins": 2,
+    "liveCalls": false,
+    "realRunSigned": false,
+    "nativeDeadlineProof": false,
+    "freshSixJobRun": false,
+    "qualityCredit": 0
+  },
+  "evidence": [
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/README.md",
+      "sha256": "3c194ff75c27c557ea623462e4011dbb97a3ea72d5a21cb4ba904e723860e423"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/check-launcher-order.cjs",
+      "sha256": "8adb6cb334a44516a7fbcca7fc3affe54e52b590f872831f46e2234861fa46d4"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/check-native-signatures.py",
+      "sha256": "0640fe866bef612e25b99a7d168bc0d9ec16b941a774c4e02a988d354cd96d64"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/final-check.py",
+      "sha256": "52ac11ae6956982ac14bb05c4c52e47518db17e34349018ef55518380d8138c5"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/incremental.diff",
+      "sha256": "621d0c5b154746d657816de3fa618f4bc92ddeef095a57e88cf0506b17f9ee4f"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/js-coordinator-green.log",
+      "sha256": "fa653060fcb8c1818d31db606cf5a77a57f38b3355b51fc6518dce92daa49203"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/js-green.log",
+      "sha256": "ebf749ba585f29642f9feca42e455ef42ddead74b48405a25754df96c1c6e45d"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/js-launcher-red.log",
+      "sha256": "14ea2cad81554f52b2f22f1d9e176335c458faae3e6e908a3b6ebefe251f6276"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/js-red.log",
+      "sha256": "0b81406b56e7591d427c5d716d02a54dc2d6360a898e9369ea938efb4973d70b"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/launcher-source-review.json",
+      "sha256": "2893679d45efd5818d28e08cc25b8a84743347dd7b80517682c008c5ccbbebfe"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-authority-before-scope.log",
+      "sha256": "2dc0fb3dcca172061696f9f8f40bada03666a843a0b144fdc70c91ed7052d6b3"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-authority.log",
+      "sha256": "2ba8134a03930f121c0172ec1affa884881568d8687ae8c3449b6f0a450a7e82"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-component-attempt.log",
+      "sha256": "68828f14f7f6997e4aed45690f6edaf3e2d9af833e0008eb5df5348da427a536"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-component-green.log",
+      "sha256": "1d7ec77646ef3a39d1c3d85a92e394b36a720d194f9537af06040000bd64e697"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-green-attempt.log",
+      "sha256": "39a53d36e8d4a19e0919502567f04ac7b12e1dd10cefe07ef70dab54d5482817"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-red.log",
+      "sha256": "141612305621c42652ee35e0cb992702a554b418af6bb5c5f19cfb51716a1a33"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-signature-audit-before-scope.json",
+      "sha256": "97539b43d317a817cd57f6ed6c4e2bda516082f90bb66e64065bdf4f72eee3a3"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-signature-audit.json",
+      "sha256": "878e21eaad1245824a418ee387d854c9abbcf05dfb25ba4020e7335b028b8ac5"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/native-test-executable",
+      "sha256": "c38bce5320d534b69df1e6dba87b7e18e8eb2a9c5cc1285eaecd1f4763a16be5"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/node-combined.log",
+      "sha256": "f9d7088de39df99d8fad89b3fde0cf91752d2ad7eab5d2c569b419ed477e373a"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/node-final.log",
+      "sha256": "99dd9e4d9d2554a345791811ee7c1250fac85dba9554f1ce43c3e138cb0f1716"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/prior-slice.patch",
+      "sha256": "f63d7ad7746d61fe61217fad471e03da6f5c4482b444e7235a5cebb5d27bb09b"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/review-incremental.diff",
+      "sha256": "79a1df4f621b3a05dd72fc0565bfa3668b99a16771de742d65b8e0452b69a97c"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/review.md",
+      "sha256": "57da64bac09c31925dc28c5f754e2624866a3600b2574e971bc40df9687998b9"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/source-manifest.json",
+      "sha256": "c0c666fdadc9e8404df6518bafb513c7e69c8e9932b79e1ca43d993645528765"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/source-verification.json",
+      "sha256": "ba6952e15900b93906843174fb5d2256f4c84613dd7321d194bcf229aec4e26f"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/start-status.txt",
+      "sha256": "28617415809657d5f77c05132a366d1cd8d3fb1a789c3aa689ed80e364251cb5"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/static-checks.log",
+      "sha256": "78602d2d30793e9d84898b640f508167e2405a9b0bec4e93e51ed0bc822fd546"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/static-final.log",
+      "sha256": "275f000ea6a6da2cb7d2527915d84cbb5d52452f7e2445fb8ff46035365e409c"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/storage-boundary-fixture-compile.log",
+      "sha256": "4758d669e3acd3be63cf76b82cadecd5f46421729afc65d7a0b86d66a400259a"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/storage-boundary-red.log",
+      "sha256": "ad7f1228974dd0a777d9a37484b4e9b671a838b8588798c646c3a4bcfa746301"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/typecheck.log",
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/verify-checkpoint.py",
+      "sha256": "b9ef8765f3f5380c737883dd3228127f42ae75aa9d6b175551292e6e3a6f3f48"
+    }
+  ],
+  "authority": {
+    "passed": 112,
+    "failed": 0,
+    "ignored": 10
+  },
+  "node": {
+    "passed": 46,
+    "failed": 0,
+    "skipped": 0
+  },
+  "signatureControls": {
+    "accepted": 5,
+    "rejected": 160
+  },
+  "actualNodeNativeJoins": 2,
+  "fullServerGateRerun": false,
+  "freshSixJobRun": false,
+  "runtimeLauncherProof": false,
+  "realRunSigned": false,
+  "realCredentialReads": false,
+  "liveCalls": false,
+  "committed": false,
+  "knownLimits": "Trusted-host author-run component checks; macOS-only owner publication outside evaluation ledger, scoped writers denied; publication after rename can be unknown; no native-clock component proof, completed hosted quality audit, power-loss, human-presence, live quality or remote billing assurance"
+}

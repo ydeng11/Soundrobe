@@ -1,0 +1,58 @@
+{
+  "sourceBindings": 1913,
+  "receiptBindings": 1672,
+  "uniqueReceiptBindings": 1671,
+  "privacyBindings": 563,
+  "actorsAbsent": {
+    "receiver": 71519,
+    "supervisor": 71520,
+    "anchor": 71521,
+    "broker": 71522,
+    "driver": 71523
+  },
+  "groupsAbsent": {
+    "receiver": 71473,
+    "supervisor": 71520,
+    "execution": 71521
+  },
+  "preparationMs": 219028,
+  "executionThroughAcceptanceMs": 456479,
+  "growthReserved": 457476559,
+  "writeBytesReserved": 774170785,
+  "storageLedgerRecords": 4058,
+  "slots": 216,
+  "sessions": 12,
+  "settledOperations": 497,
+  "responseProjection": {
+    "model": "deepseek/deepseek-v4-flash-0731",
+    "provider": "Wafer",
+    "genre": "OFFLINE_PUBLIC_RESPONSE_GENRE",
+    "confidence": 0.9,
+    "usage": {
+      "promptTokens": 17,
+      "completionTokens": 6,
+      "totalTokens": 23,
+      "reasoningTokens": 0
+    }
+  },
+  "groundedAssistanceCredit": 0,
+  "liveCalls": false,
+  "realModelQualityMeasured": false,
+  "fullNativeGateRerun": true,
+  "productionTrustProvisioned": false,
+  "completeHostedBootstrap": false,
+  "limits": "Trusted-host public-fixture proof only; no TLS, billing, physical-I/O, power-loss or malicious-host guarantee",
+  "fullNativeGate": {
+    "passed": 882,
+    "failed": 0,
+    "ignored": 31,
+    "logSha256": "ecbdcc9ccb587dfb8a3ea8e6d4bee05e0e2e2c32d7f39d83851fd87aab9f6c01"
+  },
+  "verifierCorrection": {
+    "count": 1,
+    "reason": "Absent reasoning usage normalizes to zero, not null",
+    "originalSha256": "c70bb8b16f1be79d57db1fd7bcd6dbb346cf1eed5043a326d3db58439395e3d2",
+    "correctedSourceSha256": "66188dd61b7ca71a4067fdcf4c286737c3318016db390c852db82d16850bc1c3",
+    "wrapperSha256": "2399dcd0531c461f637ad194ea5fe95c18da6f61edee21b2cdd454a52ee3418e"
+  }
+}

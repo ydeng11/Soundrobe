@@ -1,0 +1,91 @@
+{
+  "witnessLogSha256": "2ba8134a03930f121c0172ec1affa884881568d8687ae8c3449b6f0a450a7e82",
+  "results": [
+    {
+      "keyFormat": "ring_pkcs8_v2",
+      "audit": {
+        "version": 1,
+        "signatureVerified": true,
+        "verifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0",
+        "approvalSha256": "cbe1676b8453da346badc4c5628602360906bb7b0b5d4cbaf9663cdecf060d14",
+        "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+        "scopeSha256": "4077f9814ae77b7357171add5dfa52c85536c3615db6886f06edd903abdefe61",
+        "expiresUnixSeconds": 1794680260,
+        "liveAuthority": false,
+        "userPresenceVerified": false,
+        "qualityCredit": 0
+      },
+      "terminal": "terminal",
+      "consumptions": 1,
+      "credentialLookups": 0,
+      "modelReservations": 0,
+      "requestedSlots": 216
+    },
+    {
+      "keyFormat": "ring_pkcs8_v2",
+      "audit": {
+        "version": 1,
+        "signatureVerified": true,
+        "verifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79",
+        "approvalSha256": "bb1986d8e81a0c45e93587b4d0c237512879da531fa901e064433186417737b6",
+        "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+        "scopeSha256": "83d3fd1115bf9412748bdd4960531e5f6905acf8d04c0d9960b63c476bf35f82",
+        "expiresUnixSeconds": 1794680260,
+        "liveAuthority": false,
+        "userPresenceVerified": false,
+        "qualityCredit": 0
+      },
+      "terminal": "terminal",
+      "consumptions": 1,
+      "credentialLookups": 0,
+      "modelReservations": 0,
+      "requestedSlots": 216
+    },
+    {
+      "keyFormat": "openssl_pkcs8_v1",
+      "audit": {
+        "version": 1,
+        "signatureVerified": true,
+        "verifierSha256": "e362a2d00c6580d92544a376acaed1a76fcd574d213aeace5a565302d349210d",
+        "approvalSha256": "30886e1d762500166423d03dfa40e2b22e94ab848a9d14c7d68400357e728d6e",
+        "checkpoint": "8780e3b24dac3efdf64c78d3d0e58a24636552091ca76f6180fde7a815e21255",
+        "scopeSha256": "bf12727b2a2b351b9e817ecd3b5d346e2675b9c38304d9fecfc4c67699978ed3",
+        "expiresUnixSeconds": 1794680261,
+        "liveAuthority": false,
+        "userPresenceVerified": false,
+        "qualityCredit": 0
+      },
+      "terminal": "terminal",
+      "consumptions": 1,
+      "credentialLookups": 0,
+      "modelReservations": 0,
+      "requestedSlots": 216
+    },
+    {
+      "keyFormat": "openssl_pkcs8_v1",
+      "audit": {
+        "version": 1,
+        "signatureVerified": true,
+        "verifierSha256": "d4b6dcac56538003ea4495267aa5bff134685a2268ff0fac3fba5762daf2c8d4",
+        "approvalSha256": "1b1e02d82bca72f65d665ba4da2fc7bfdbe3fc7df38ebbbd6412bbf19314bd92",
+        "checkpoint": "d762ecf8b041299d8ae9d7d812848bc5475f2a09a6a9b37668bfaee32dc1b75b",
+        "scopeSha256": "03e4e27b2ddd6e78b56072a1a54df31d844edea7770e323c318689a4c5b19773",
+        "expiresUnixSeconds": 1794680261,
+        "liveAuthority": false,
+        "userPresenceVerified": false,
+        "qualityCredit": 0
+      },
+      "terminal": "terminal",
+      "consumptions": 1,
+      "credentialLookups": 0,
+      "modelReservations": 0,
+      "requestedSlots": 216
+    }
+  ],
+  "actualNodeNativeJoins": 2,
+  "liveCalls": false,
+  "realRunSigned": false,
+  "nativeDeadlineProof": false,
+  "freshSixJobRun": false,
+  "qualityCredit": 0
+}

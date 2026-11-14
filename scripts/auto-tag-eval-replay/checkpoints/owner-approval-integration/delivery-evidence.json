@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "nativeWorkloadRerun": false,
+  "liveCalls": false,
+  "entries": [
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/node.log",
+      "sha256": "14703d8493731a3e48135c82faa3062dfc8d8580bdf3d62bf6935dfaf75c7160"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/static.log",
+      "sha256": "6de551c0d0dbc5c180717f1d8eb7b668348f590bd51f06823e4ac92807cc15b2"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/audit-replay.log",
+      "sha256": "cb1c0507ee2475afd68d8f4681b724ff326dcae9eacad934abf1c57d0874b0dd"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/privacy-replay.json",
+      "sha256": "fb317b0febc43223c02e88643ccd8dd29a177412e1eb09921e9af160478633e3"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/verify-delivery.py",
+      "sha256": "73bf1e1a0a4f217ddde75739715954ef5986e6d69a6a715d12563c1870a1c9c9"
+    },
+    {
+      "path": ".amp/in/artifacts/owner-publication-20261114/delivery/build-records.py",
+      "sha256": "97a80c621ba6fc47b01d7155cf4174104eb36b6db962859e5272cb1f604495ef"
+    }
+  ]
+}

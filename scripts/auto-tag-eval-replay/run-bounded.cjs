@@ -48,7 +48,25 @@ function failureEnvelope(output) {
     serviceFailureSlots: evaluations.reduce((n, e) => n + e.serviceFailureSlots, 0),
     groundedAssistanceAccuracyCredit: 0, acceptedCertificate: false, writableDelta: [] };
 }
-module.exports = { pairedColdJobs, failureEnvelope };
+function offlineResponseFixture(plan, planFile) {
+  if (Object.hasOwn(plan, 'nativePrepared') && (plan.nativePrepared !== true
+      || ['offlineHosted', 'offlineHttp', 'offlineResponse'].some(key => Object.hasOwn(plan, key)))) {
+    throw Error('Invalid native prepared mode; offline fixtures are incompatible');
+  }
+  if (!Object.hasOwn(plan, 'offlineResponse')) return null;
+  const metadata = plan.offlineResponse;
+  if (!plan.offlineHosted || plan.offlineHttp !== true || !metadata || Array.isArray(metadata)
+      || Object.keys(metadata).sort().join(',') !== 'sha256,status'
+      || !/^[a-f0-9]{64}$/.test(metadata.sha256 ?? '')
+      || !Number.isInteger(metadata.status) || metadata.status < 100 || metadata.status > 599) {
+    throw Error('Invalid public offline response metadata');
+  }
+  const file = path.join(path.dirname(path.resolve(planFile)), 'response-fixture.json');
+  if (fs.realpathSync(file) !== file || !fs.lstatSync(file).isFile() || fs.statSync(file).size > 65536
+      || binding(file).sha256 !== metadata.sha256) throw Error('Invalid public offline response fixture');
+  return binding(file);
+}
+module.exports = { pairedColdJobs, failureEnvelope, offlineResponseFixture };
 async function inventoryAt(base, compact = false, session) {
   const response = await fetch(`${base}/__fixtures${compact ? '/compact' : ''}`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error',
     headers: session ? { 'x-soundrobe-mock-session': session } : {} });
@@ -91,7 +109,9 @@ async function main(output, executable, userLabelDirectory, mode) {
         || !fs.statSync(rehearsalFile).isFile() || fs.statSync(rehearsalFile).size > 65536) throw Error('Invalid public offline rehearsal plan');
     rehearsal = read(rehearsalFile);
   }
-  const hosted = rehearsal?.offlineHosted !== undefined;
+  const responseFixture = rehearsal ? offlineResponseFixture(rehearsal, rehearsalFile) : null;
+  const nativePrepared = rehearsal?.nativePrepared === true;
+  const hosted = !nativePrepared && rehearsal?.offlineHosted !== undefined;
   const offlineHttp = Object.hasOwn(rehearsal ?? {}, 'offlineHttp');
   if (offlineHttp && (!hosted || rehearsal.offlineHttp !== true)) throw Error('Invalid offline HTTP fixture mode');
   const credentialFixture = hosted ? path.join(path.dirname(path.resolve(rehearsalFile)), 'credential-fixture/.env.local') : null;
@@ -125,7 +145,7 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
-  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), ...(credentialFixture ? [credentialFixture] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), ...(responseFixture ? [responseFixture.path] : []), ...(credentialFixture ? [credentialFixture] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
     'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
     'scripts/auto-tag-eval-replay/audit-supervised.py',
     ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
@@ -188,7 +208,7 @@ async function main(output, executable, userLabelDirectory, mode) {
       ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
       sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring',
         ...(offlineHttp ? ['typed-native-http-response'] : [])],
-      transport: { endpoint: offlineHttp ? 'native-owned-loopback-http/api/v1/chat/completions' : hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
+      transport: { endpoint: nativePrepared ? 'disabled-native-prepared/no-network' : offlineHttp ? 'native-owned-loopback-http/api/v1/chat/completions' : hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
         attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
         retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
@@ -264,7 +284,7 @@ async function main(output, executable, userLabelDirectory, mode) {
       response_format: { type: 'json_schema', json_schema: { name: job.role, schema: {
         type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } } : null;
     if (paired && body) fs.writeFileSync(path.join(directory, 'independent-request.json'), canonical(body), { flag: 'wx' });
-    save(serviceManifest, { ...pool, records, ...(job.role && !hosted ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
+    save(serviceManifest, { ...pool, records, ...(job.role && !hosted && !nativePrepared ? { scriptedModel: { maxRequests: paired ? 1 : 2, payload,
       ...(paired ? { bodySha256: sha(Buffer.from(canonical(body))) } : {}),
       ...(rehearsal ? { requestModel: rehearsal.model, responseModel: rehearsal.observedTarget, provider: rehearsal.provider } : {}),
       privacyCanaries: true,
@@ -525,11 +545,12 @@ async function main(output, executable, userLabelDirectory, mode) {
     for (const subject of ['crowd', 'billie', 'enya']) {
       if (preparations.find(p => p.job === `disabled-${subject}`).input !== preparations.find(p => p.job === `assistance-${subject}`).input) throw Error('Paired pre-freeze baseline mismatch');
     }
-    const frozen = await authority.command({ op: 'freeze' });
-    save(path.join(output, 'frozen-checkpoint.json'), await authority.command({ op: 'report' }));
-    const approval = require('./mock-authority.cjs').testApproval(await authority.command({ op: 'report' }));
-    save(path.join(output, 'test-fixture-approval.json'), approval);
-    await authority.command({ op: 'approve', approval });
+    await authority.command({ op: 'freeze' });
+    const frozenReport = await authority.command({ op: 'report' });
+    save(path.join(output, 'frozen-checkpoint.json'), frozenReport);
+    await require('./mock-authority.cjs').approveFrozen(authority, frozenReport,
+      (filename, value) => save(path.join(output, filename), value));
+    if (nativePrepared) throw Error('native_prepared_execution_disabled');
     if (privacyControl) {
       await pending[jobs.findIndex(job => job.name === 'assistance-crowd')]();
       throw Error('privacy_control_intentionally_incomplete');

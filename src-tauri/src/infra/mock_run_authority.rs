@@ -1236,6 +1236,87 @@ impl Journal {
         }
         result
     }
+    /// Explicit owner-side issuance, not consumption or live-call authorization.
+    /// No IPC operation or launcher invokes this signer.
+    #[cfg(unix)]
+    pub(crate) fn owner_approval(
+        &self,
+        owner: &str,
+        directory: &Path,
+        expected_checkpoint: &str,
+        nonce: &str,
+        expires: u64,
+    ) -> Result<policy::Approval, String> {
+        let (run, context) = self.frozen_owner_run(owner)?;
+        require(run.checkpoint.as_deref() == Some(expected_checkpoint))?;
+        let payload = json!({"version":1,"runId":run.run_id,"checkpoint":run.checkpoint,
+            "scopeSha256":sha(&serde_json::to_vec(&policy::scope(&run)).unwrap()),
+            "nonce":nonce,"expiresUnixSeconds":expires});
+        policy::validate_claims(&payload, &run)?;
+        let approval = context.sign_owner_payload(directory, payload)?;
+        approval.verify(&run, Some(context))?;
+        Ok(approval)
+    }
+
+    #[cfg(unix)]
+    fn frozen_owner_run(&self, owner: &str) -> Result<(Run, &policy::Rehearsal), String> {
+        let context = self
+            .rehearsal
+            .as_ref()
+            .ok_or("approval_context_unavailable")?;
+        let c = storage::open_sqlite(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .map_err(|_| "mock_registry_unavailable")?;
+        c.busy_timeout(Duration::from_millis(100))
+            .map_err(|_| "mock_registry_unavailable")?;
+        let (run, _) = Self::read_run(&c)?;
+        let binding = context.binding();
+        require(
+            owner == run.owner
+                && run.owner_live == Some(true)
+                && run.state == "frozen"
+                && run.consumptions == 0
+                && context.disabled_hosted()
+                && binding.get("offlineFixture").is_none()
+                && binding.get("offlineHttp").is_none()
+                && binding.get("offlineResponse").is_none()
+                && run.bindings["modelRehearsal"] == binding,
+        )?;
+        Ok((run, context))
+    }
+
+    /// Publishes an already issued approval; neither signs nor consumes it.
+    #[cfg(unix)]
+    pub(crate) fn publish_owner_approval(
+        &self,
+        owner: &str,
+        directory: &Path,
+        expected_checkpoint: &str,
+        approval: &policy::Approval,
+    ) -> Result<(), String> {
+        let (run, context) = self.frozen_owner_run(owner)?;
+        require(run.checkpoint.as_deref() == Some(expected_checkpoint))?;
+        approval.verify(&run, Some(context))?;
+        policy::boundary::publish_owner_approval(directory, approval)
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn owner_approval_status(&self, owner: &str, path: &Path) -> Result<Value, String> {
+        let (run, context) = self.frozen_owner_run(owner)?;
+        let approval = match policy::boundary::read_owner_approval(path) {
+            Ok(approval) => approval,
+            Err(code) if code == "approval_file_missing" => {
+                return Ok(json!({
+                "state":"pending","checkpoint":run.checkpoint,"liveAuthority":false}))
+            }
+            Err(code) => return Err(code),
+        };
+        approval.verify(&run, Some(context))?;
+        Ok(
+            json!({"state":"ready","checkpoint":run.checkpoint,"liveAuthority":false,
+            "approvalSha256":sha(&serde_json::to_vec(&approval).map_err(|_| "approval_file_invalid")?)}),
+        )
+    }
+
     pub(crate) fn report(&self) -> Result<Value, String> {
         #[cfg(unix)]
         let c = storage::open_sqlite(&self.path, OpenFlags::SQLITE_OPEN_READ_ONLY)

@@ -163,12 +163,25 @@ impl Transport {
         context: &super::super::policy::Rehearsal,
         source: super::super::policy::boundary::CredentialFile,
         observation: std::path::PathBuf,
+        response_bytes: Option<Vec<u8>>,
     ) -> Result<Self, String> {
         require(
             context.disabled_hosted()
                 && context.offline_http
                 && context.binding()["offlineFixture"] == true,
         )?;
+        let (response, status) = match (&context.offline_response, response_bytes) {
+            (None, None) => (fixture_response(context), 200),
+            (Some(metadata), Some(bytes)) => {
+                require(
+                    bytes.len() <= 65536
+                        && sha(&bytes) == metadata.sha256
+                        && (100..=599).contains(&metadata.status),
+                )?;
+                (bytes, metadata.status)
+            }
+            _ => return Err("mock_response_fixture_invalid".into()),
+        };
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|_| "mock_fixture_unavailable")?;
@@ -190,7 +203,8 @@ impl Transport {
                 .as_bytes()
                 .unwrap()
                 .to_vec(),
-            response: fixture_response(context),
+            response,
+            status,
             observation,
             served: std::sync::atomic::AtomicBool::new(false),
             shutdown: std::sync::Arc::new(tokio::sync::Notify::new()),
@@ -392,6 +406,7 @@ fn fixture_response(context: &super::super::policy::Rehearsal) -> Vec<u8> {
 struct OfflineHttpFixture {
     request: Vec<u8>,
     response: Vec<u8>,
+    status: u16,
     observation: std::path::PathBuf,
     served: std::sync::atomic::AtomicBool,
     shutdown: std::sync::Arc<tokio::sync::Notify>,
@@ -412,7 +427,7 @@ async fn offline_fixture_request(
         require(bytes.as_ref() == fixture.request)?;
         let observed = json!({"version":1,"transport":"offline_local_http","requests":1,
             "requestSha256":sha(&bytes),"requestBytes":bytes.len(),
-            "responseSha256":sha(&fixture.response),"responseBytes":fixture.response.len(),"status":200,
+            "responseSha256":sha(&fixture.response),"responseBytes":fixture.response.len(),"status":fixture.status,
             "exactRequest":true,"fakeCredentialPresented":true,"liveAuthority":false});
         super::super::storage::write_new_or_unscoped(&fixture.observation, serde_json::to_vec(&observed).unwrap())
             .map_err(|_| "mock_fixture_storage")?;
@@ -422,7 +437,7 @@ async fn offline_fixture_request(
     }.await;
     fixture.shutdown.notify_one();
     axum::response::Response::builder()
-        .status(if result.is_ok() { 200 } else { 403 })
+        .status(if result.is_ok() { fixture.status } else { 403 })
         .header("connection", "close")
         .body(axum::body::Body::from(if result.is_ok() {
             fixture.response.clone()
@@ -441,7 +456,6 @@ async fn offline_http_bootstrap_fixture_is_exact_single_request_and_not_external
         "route":"wafer/us","provider":"Wafer","input":{"artist":"Offline Artist","album":"Asymmetric Album","tracks":["One","Different Two"]},
         "offlineHosted":{"promptPicoUsd":1,"completionPicoUsd":2,"catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")},
         "offlineHttp":true})).unwrap();
-    let context = plan.context().unwrap();
     let root = std::env::temp_dir().join(format!("sr-offline-http-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&root).unwrap();
     let credential = root.join(".env.local");
@@ -454,13 +468,43 @@ async fn offline_http_bootstrap_fixture_is_exact_single_request_and_not_external
     )
     .unwrap();
     std::fs::set_permissions(&credential, std::fs::Permissions::from_mode(0o600)).unwrap();
-    for mode in ["success", "wrong-body", "wrong-key", "wrong-method"] {
+    for mode in [
+        "success",
+        "wrong-body",
+        "wrong-key",
+        "wrong-method",
+        "custom-accepted",
+        "custom-withheld",
+        "custom-status",
+    ] {
+        let mut context = plan.context().unwrap();
+        let custom = mode.starts_with("custom-");
+        let expected_status = if mode == "custom-status" { 429 } else { 200 };
+        let expected_genre = if mode == "custom-withheld" {
+            ""
+        } else if custom {
+            "OTHER_PUBLIC_GENRE"
+        } else {
+            "MOCK_ACCEPTED_GENRE_CANARY"
+        };
+        let response_bytes = custom.then(|| {
+            let bytes = serde_json::to_vec(&json!({"model":context.resolved_model,"provider":context.provider,
+                "choices":[{"finish_reason":"stop","message":{"content":serde_json::to_string(&json!({
+                    "genre":"OTHER_PUBLIC_GENRE","confidence":if mode == "custom-withheld" { 0.4 } else { 0.9 }})).unwrap()}}],
+                "usage":{"prompt_tokens":17,"completion_tokens":6,"total_tokens":23}})).unwrap();
+            context.offline_response = Some(super::super::policy::OfflineResponse { sha256:sha(&bytes), status:expected_status });
+            bytes
+        });
         let observation = root.join(format!("{mode}.json"));
         let source = CredentialFile::new(credential.clone(), plan.model.clone()).unwrap();
-        let mut transport =
-            Transport::offline_http_rehearsal(&context, source, observation.clone())
-                .await
-                .unwrap();
+        let mut transport = Transport::offline_http_rehearsal(
+            &context,
+            source,
+            observation.clone(),
+            response_bytes.clone(),
+        )
+        .await
+        .unwrap();
         let endpoint = match transport.hosted_executor.as_ref().unwrap() {
             HostedExecutor::Http(sender) => sender.endpoint.clone(),
             _ => panic!("offline HTTP selected injection"),
@@ -505,22 +549,25 @@ async fn offline_http_bootstrap_fixture_is_exact_single_request_and_not_external
                 .is_err(),
             "fixture accepted another connection"
         );
-        if mode == "success" {
-            assert_eq!(status, 200);
+        if mode == "success" || custom {
+            assert_eq!(status, expected_status);
+            if let Some(expected) = &response_bytes {
+                assert_eq!(bytes.as_ref(), expected);
+            }
             let observed: Value =
                 serde_json::from_slice(&std::fs::read(&observation).unwrap()).unwrap();
             assert_eq!(
                 observed,
                 json!({"version":1,"transport":"offline_local_http","requests":1,
                 "requestSha256":sha(&request_bytes),"requestBytes":request_bytes.len(),
-                "responseSha256":sha(&bytes),"responseBytes":bytes.len(),"status":200,
+                "responseSha256":sha(&bytes),"responseBytes":bytes.len(),"status":expected_status,
                 "exactRequest":true,"fakeCredentialPresented":true,"liveAuthority":false})
             );
             assert_eq!(
                 parse(&bytes, &context.resolved_model, &context.provider)
                     .unwrap()
                     .genre,
-                "MOCK_ACCEPTED_GENRE_CANARY"
+                expected_genre
             );
         } else {
             assert_eq!(status, 403);

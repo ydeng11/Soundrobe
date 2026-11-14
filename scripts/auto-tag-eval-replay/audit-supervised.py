@@ -2,12 +2,14 @@
 import hashlib
 import json
 import math
+import os
 import pathlib
 import re
 import sqlite3
 import stat
 import subprocess
 import sys
+import tempfile
 import uuid
 
 ROOT = pathlib.Path.cwd()
@@ -19,6 +21,206 @@ def load(file):
 
 def digest(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
+
+
+def owner_approval_audit(report, approval, public_key, expected_verifier_sha256, verified_at):
+    """Verify a frozen native snapshot, not execution, user presence or quality.
+
+    Trust/time must be supplied independently: raw 32-byte Ed25519 public key,
+    its expected lowercase SHA-256, and integer Unix seconds. Inputs are parsed
+    JSON objects (duplicate keys must already have been rejected by the caller).
+    Only bounded, integer-only serde_json-compatible scope values are accepted.
+    Invalid evidence or unavailable local OpenSSL raises AssertionError. No
+    report paths, private keys, credentials, network or historical auditors are
+    consulted; temporary files contain public verification material only.
+    """
+    if not __debug__:
+        raise AssertionError('owner approval audit requires enabled assertions')
+    policy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
+    sha = lambda data: hashlib.sha256(data).hexdigest()
+    is_digest = lambda value: type(value) is str and re.fullmatch('[a-f0-9]{64}', value) is not None
+    is_u64 = lambda value: type(value) is int and 0 <= value < 2**64
+
+    def canonical(value, limit=2 * 1048576):
+        remaining = 100000
+
+        def validate(item, depth=0):
+            nonlocal remaining
+            remaining -= 1
+            assert remaining >= 0 and depth <= 64, 'scope complexity'
+            if item is None or type(item) is bool:
+                return
+            if type(item) is int:
+                assert -2**63 <= item < 2**64, 'scope integer range'
+            elif type(item) is str:
+                assert len(item) <= limit, 'scope string bound'
+            elif type(item) is list:
+                assert len(item) <= remaining, 'scope list bound'
+                for child in item:
+                    validate(child, depth + 1)
+            elif type(item) is dict:
+                assert len(item) <= remaining, 'scope object bound'
+                for key, child in item.items():
+                    assert type(key) is str, 'scope object key'
+                    validate(key, depth + 1)
+                    validate(child, depth + 1)
+            else:
+                raise AssertionError('scope JSON type; floats unsupported')
+
+        validate(value)
+        try:
+            encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
+        except (ValueError, UnicodeError, RecursionError):
+            raise AssertionError('scope JSON encoding') from None
+        assert len(encoded) <= limit, 'scope byte bound'
+        return encoded
+
+    assert type(public_key) is bytes and len(public_key) == 32, 'public key'
+    assert public_key.hex() not in (
+        'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a',
+        '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61',
+        '4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff'), 'fixture verifier'
+    assert is_digest(expected_verifier_sha256) and sha(public_key) == expected_verifier_sha256, 'independent verifier digest'
+    assert is_u64(verified_at), 'verification time'
+    required = {'runId', 'state', 'membership', 'bindings', 'checkpoint', 'preparations', 'sessions', 'counters',
+        'operations', 'approvalSha256', 'approvalExpires', 'credentialLookups', 'testPolicy', 'consumptions',
+        'mutationAdmissions', 'resultSha256', 'liveAuthority'}
+    assert type(report) is dict and required <= set(report), 'report fields'
+    assert report['state'] == 'frozen' and report['testPolicy'] == policy, 'frozen disabled snapshot'
+    assert type(report['runId']) is str and 0 < len(report['runId']) <= 128, 'run identifier'
+    assert report['liveAuthority'] is False, 'report live authority'
+    assert report.get('ownerLive') is True, 'live owner lease'
+    for key in ('consumptions', 'credentialLookups', 'mutationAdmissions'):
+        assert type(report[key]) is int and report[key] == 0, 'unconsumed preparation'
+    for key in ('approvalSha256', 'approvalExpires', 'resultSha256'):
+        assert report[key] is None, 'already approved or published'
+    if 'actualFakeLookups' in report:
+        assert type(report['actualFakeLookups']) is int and report['actualFakeLookups'] == 0, 'credential lookup'
+    for key in ('membership', 'bindings', 'preparations', 'sessions', 'counters', 'operations'):
+        assert type(report[key]) is dict, 'report object'
+    checkpoint_bytes = canonical(dict(runId=report['runId'], membership=report['membership'], bindings=report['bindings'],
+        preparations=report['preparations'], services=report['sessions'], counters=report['counters']))
+    checkpoint = sha(checkpoint_bytes)
+    assert is_digest(report['checkpoint']) and report['checkpoint'] == checkpoint, 'checkpoint reconstruction'
+
+    bindings = report['bindings']
+    binding = bindings.get('modelRehearsal')
+    binding_fields = {'policy', 'model', 'observedTarget', 'providerClaim', 'route', 'requestSha256',
+        'verifierSha256', 'liveAuthority', 'boundary'}
+    assert type(binding) is dict and set(binding) == binding_fields, 'native nonfixture binding fields'
+    assert binding['policy'] == policy and binding['liveAuthority'] is False, 'disabled binding'
+    assert binding['verifierSha256'] == expected_verifier_sha256, 'binding verifier'
+    assert is_digest(binding['requestSha256']), 'prepared request digest'
+    for key in ('model', 'observedTarget'):
+        assert type(binding[key]) is str and len(binding[key].encode()) <= 160 \
+            and re.fullmatch(r'~?deepseek/[a-zA-Z0-9_.:/-]+', binding[key]), 'model binding'
+    assert binding['model'] != binding['observedTarget'], 'alias and target separation'
+    assert type(binding['route']) is str and re.fullmatch(r'[a-z0-9_/-]{1,100}', binding['route']) \
+        and all(binding['route'].split('/')), 'route binding'
+    assert type(binding['providerClaim']) is str and re.fullmatch(r'[a-zA-Z0-9 _/-]{1,100}', binding['providerClaim']), 'provider claim'
+    if 'modelRehearsalPlan' in bindings:
+        plan = bindings['modelRehearsalPlan']
+        assert type(plan) is dict and set(plan) == {'nativePrepared', 'model', 'observedTarget', 'route', 'provider', 'input'}, 'native plan fields'
+        assert plan['nativePrepared'] is True, 'native plan marker'
+        assert all(plan[key] == binding[key] for key in ('model', 'observedTarget', 'route')) \
+            and plan['provider'] == binding['providerClaim'], 'native plan binding'
+        source = plan['input']
+        assert type(source) is dict and set(source) == {'artist', 'album', 'tracks'}, 'native input fields'
+        assert type(source['tracks']) is list and len(source['tracks']) <= 100 \
+            and all(type(track) is str for track in source['tracks']), 'native input tracks'
+        assert all(source[key] is None or type(source[key]) is str for key in ('artist', 'album')), 'native input credits'
+        for text in (source['artist'], source['album'], *source['tracks']):
+            assert text is None or (len(text.encode()) <= 2048 \
+                and not any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in text)), 'native input text'
+    boundary = binding['boundary']
+    assert type(boundary) is dict, 'disabled boundary'
+    pricing = boundary.get('pricingEvidence')
+    assert type(pricing) is dict and set(pricing) == {'promptPicoUsd', 'completionPicoUsd', 'catalogSha256', 'termsSha256'}, 'pricing fields'
+    assert all(is_u64(pricing[key]) for key in ('promptPicoUsd', 'completionPicoUsd')), 'pricing integers'
+    assert all(is_digest(pricing[key]) for key in ('catalogSha256', 'termsSha256')), 'pricing evidence digests'
+    estimate = pricing['promptPicoUsd'] * 8192 + pricing['completionPicoUsd'] * 1024
+    assert estimate <= 5_000_000_000_000, 'five dollar text allowance'
+    # This native Settings struct has declared order; it is not a Value map.
+    settings = dict(model=binding['model'], endpoint='https://openrouter.ai/api/v1', provider='openrouter', source='env_local_only')
+    expected_boundary = dict(endpoint='https://openrouter.ai/api/v1/chat/completions',
+        settingsSha256=sha(json.dumps(settings, ensure_ascii=False, separators=(',', ':')).encode()),
+        pricingEvidence=pricing, textEstimatePicoUsd=estimate, allowanceUsdCents=500, inputTokenIllustration=8192,
+        outputTokens=1024, hardBillingCap=False, billingRiskAccepted=False, liveDispatchAvailable=False, readyForExecution=False,
+        retention=dict(remote='documented_provider_defaults_for_public_metadata', local='until_result_review'))
+    assert canonical(boundary) == canonical(expected_boundary), 'disabled boundary drift'
+
+    names = {'disabled-crowd', 'disabled-billie', 'disabled-enya', 'assistance-billie', 'assistance-enya', 'assistance-crowd'}
+    assert set(report['preparations']) == names and len(report['sessions']) == 6, 'six preparations'
+    jobs = []
+    for session_id, session in report['sessions'].items():
+        fields = {'job', 'stage', 'endpoint', 'manifest_sha256', 'client', 'service', 'closed', 'finished',
+            'attached', 'sealed', 'native_live', 'fixture_live', 'observation_sha256'}
+        assert type(session) is dict and set(session) == fields, 'preparation session fields'
+        assert type(session['job']) is str and session['job'] in names and session['stage'] == 'preparation', 'preparation session'
+        assert session['client'] == session_id and is_digest(session['manifest_sha256']), 'session binding'
+        for key in ('endpoint', 'service'):
+            assert type(session[key]) is str and 0 < len(session[key]) <= 2048, 'session string'
+        assert all(session[key] is True for key in ('closed', 'finished', 'attached', 'sealed')), 'finished preparation'
+        assert session['native_live'] is False and session['fixture_live'] is False \
+            and session['observation_sha256'] is None, 'closed preparation leases'
+        jobs.append(session['job'])
+    assert set(jobs) == names, 'unique preparation jobs'
+    for name, prepared in report['preparations'].items():
+        assert type(prepared) is dict and set(prepared) == {'preparationSha256', 'requestSha256'}, 'preparation fields'
+        assert is_digest(prepared['preparationSha256']), 'preparation digest'
+        assert prepared['requestSha256'] == (binding['requestSha256'] if name == 'assistance-crowd' else None), 'prepared request binding'
+    counters = dict(provider=0, inventory=0, model=0, reserved=0, arrived=0, completed=0)
+    assert len(report['operations']) <= 100000, 'operation bound'
+    for operation in report['operations'].values():
+        fields = {'session', 'category', 'request_sha256', 'dispatched', 'arrived', 'completed'}
+        assert type(operation) is dict and set(operation) == fields, 'preparation operation fields'
+        assert type(operation['session']) is str and operation['session'] in report['sessions'], 'operation session'
+        assert type(operation['category']) is str and operation['category'] in ('provider', 'inventory'), 'no model operation'
+        assert is_digest(operation['request_sha256']), 'operation digest'
+        assert all(operation[key] is True for key in ('dispatched', 'arrived', 'completed')), 'settled preparation operation'
+        counters[operation['category']] += 1
+        for key in ('reserved', 'arrived', 'completed'):
+            counters[key] += 1
+    assert canonical(report['counters']) == canonical(counters), 'reconstructed preparation counters'
+    scope = dict(runId=report['runId'], checkpoint=checkpoint, bindings=bindings, membership=report['membership'],
+        preparations=report['preparations'], policy=policy)
+    scope_sha256 = sha(canonical(scope))
+    assert type(approval) is dict and set(approval) == {'payload', 'signature'}, 'approval fields'
+    payload, signature = approval['payload'], approval['signature']
+    fields = {'version', 'runId', 'checkpoint', 'scopeSha256', 'nonce', 'expiresUnixSeconds'}
+    assert type(payload) is dict and set(payload) == fields, 'payload fields'
+    assert type(payload['version']) is int and payload['version'] == 1, 'payload version'
+    assert payload['runId'] == report['runId'] and payload['checkpoint'] == checkpoint \
+        and payload['scopeSha256'] == scope_sha256, 'signed snapshot binding'
+    assert type(payload['nonce']) is str and len(payload['nonce']) <= 64, 'nonce type'
+    try:
+        uuid.UUID(payload['nonce'])
+    except ValueError:
+        raise AssertionError('nonce UUID') from None
+    expiry = payload['expiresUnixSeconds']
+    assert is_u64(expiry) and verified_at < expiry <= verified_at + 1800, 'approval expiry'
+    assert type(signature) is list and len(signature) == 64 \
+        and all(type(byte) is int and 0 <= byte <= 255 for byte in signature), 'signature byte array'
+    payload_bytes = canonical(payload, 4096)
+    approval_sha256 = sha(canonical(approval, 8192))
+    try:
+        with tempfile.TemporaryDirectory(prefix='soundrobe-owner-verification-') as directory:
+            directory = pathlib.Path(directory)
+            # RFC 8410 SubjectPublicKeyInfo prefix followed by the raw public key.
+            (directory / 'public.der').write_bytes(bytes.fromhex('302a300506032b6570032100') + public_key)
+            (directory / 'payload').write_bytes(payload_bytes)
+            (directory / 'signature').write_bytes(bytes(signature))
+            verified = subprocess.run(['openssl', 'pkeyutl', '-verify', '-pubin', '-keyform', 'DER',
+                '-inkey', str(directory / 'public.der'), '-rawin', '-in', str(directory / 'payload'),
+                '-sigfile', str(directory / 'signature')], timeout=5, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env=dict(PATH=os.environ.get('PATH', os.defpath), OPENSSL_CONF=os.devnull))
+            assert verified.returncode == 0, 'owner approval signature'
+    except (OSError, subprocess.SubprocessError):
+        raise AssertionError('local Ed25519 verification unavailable') from None
+    return dict(version=1, signatureVerified=True, verifierSha256=expected_verifier_sha256,
+        approvalSha256=approval_sha256, checkpoint=checkpoint, scopeSha256=scope_sha256, expiresUnixSeconds=expiry,
+        liveAuthority=False, userPresenceVerified=False, qualityCredit=0)
 
 
 def http_response_audit(request_bytes, response_bytes, receipt, expected_model, expected_provider, transport):
@@ -148,8 +350,16 @@ def model_rehearsal_audit(run, receipt, requested):
     plan = bindings['modelRehearsalPlan']
     hosted = 'offlineHosted' in plan
     offline_http = 'offlineHttp' in plan
+    offline_response = 'offlineResponse' in plan
     assert set(plan) == ({'model', 'observedTarget', 'route', 'provider', 'input'}
-        | ({'offlineHosted'} if hosted else set()) | ({'offlineHttp'} if offline_http else set())), 'model rehearsal plan fields'
+        | ({'offlineHosted'} if hosted else set()) | ({'offlineHttp'} if offline_http else set())
+        | ({'offlineResponse'} if offline_response else set())), 'model rehearsal plan fields'
+    if offline_response:
+        assert hosted and plan.get('offlineHttp') is True, 'offline response requires offline HTTP hosted mode'
+        metadata = plan['offlineResponse']
+        assert type(metadata) is dict and set(metadata) == {'sha256', 'status'}, 'offline response fields'
+        assert type(metadata['sha256']) is str and re.fullmatch('[a-f0-9]{64}', metadata['sha256']), 'offline response digest'
+        assert type(metadata['status']) is int and 100 <= metadata['status'] <= 599, 'offline response status'
     if offline_http:
         assert hosted and plan['offlineHttp'] is True, 'offline HTTP requires explicit hosted fixture plan'
         assert bindings['modelRehearsal']['offlineHttp'] is True, 'offline HTTP immutable mode binding'
@@ -161,12 +371,33 @@ def model_rehearsal_audit(run, receipt, requested):
     locked_plans = []
     for source in bindings['sourcesAndTools']:
         file = ROOT / source['path']
-        if file.suffix == '.json' and load(file) == plan:
+        # Raw response JSON may be malformed; validate its file before reading.
+        if file.suffix != '.json' or (offline_response and file.name == 'response-fixture.json'):
+            continue
+        public = load(file)
+        if public == plan:
+            assert not offline_response or canonical(public) == canonical(plan), 'offline response public plan types'
             assert file.resolve().is_relative_to(ROOT) and not pathlib.Path(source['path']).is_absolute()
-            assert not offline_http or load(file).get('offlineHttp') is True, 'offline HTTP public plan marker'
+            assert not offline_http or public.get('offlineHttp') is True, 'offline HTTP public plan marker'
             assert digest(file) == source['sha256'], 'model rehearsal public plan hash drift'
             locked_plans.append(source['path'])
     assert len(locked_plans) == 1, 'model rehearsal public plan must be source-locked exactly once'
+    if offline_response:
+        public_plan = ROOT / locked_plans[0]
+        assert not public_plan.is_symlink() and stat.S_ISREG(public_plan.stat().st_mode), 'public plan regular file'
+        assert not public_plan.resolve().is_relative_to(run.resolve()), 'public plan inside run root'
+        fixture = public_plan.with_name('response-fixture.json')
+        assert fixture.resolve().is_relative_to(ROOT) and not fixture.resolve().is_relative_to(run.resolve()), 'offline response location'
+        relative = fixture.relative_to(ROOT)
+        assert '..' not in relative.parts and not any((ROOT / pathlib.Path(*relative.parts[:i])).is_symlink()
+            for i in range(1, len(relative.parts) + 1)), 'offline response symlink'
+        assert stat.S_ISREG(fixture.stat().st_mode) and fixture.stat().st_size <= 65536, 'offline response regular bounded file'
+        locked_responses = [s for s in bindings['sourcesAndTools'] if (ROOT / s['path']).resolve() == fixture.resolve()]
+        assert len(locked_responses) == 1, 'offline response must be source-locked exactly once'
+        assert locked_responses[0]['path'] == relative.as_posix(), 'offline response checkout-relative source lock'
+        with fixture.open('rb') as source:
+            fixture_bytes = source.read(65537)
+        assert len(fixture_bytes) <= 65536 and sha(fixture_bytes) == metadata['sha256'] == locked_responses[0]['sha256'], 'offline response hash drift'
     if hosted:
         # This deliberately public file is the sole credential input we read.
         # Never inspect development .env.local or resolve an arbitrary source as a credential.
@@ -215,6 +446,8 @@ def model_rehearsal_audit(run, receipt, requested):
         verifierSha256=sha(verifier), liveAuthority=False)
     if offline_http:
         binding['offlineHttp'] = True
+    if offline_response:
+        binding['offlineResponse'] = metadata
     if hosted:
         binding['offlineFixture'] = True
         pricing = plan['offlineHosted']
@@ -235,12 +468,16 @@ def model_rehearsal_audit(run, receipt, requested):
     assert bindings['modelRehearsal']['liveAuthority'] is False
     assert receipt['testPolicy'] == policy
     assert selection['modelRehearsalPlan'] == plan and selection['model'] == plan['model']
+    if offline_response:
+        assert canonical(selection['modelRehearsalPlan']) == canonical(plan), 'offline response selection drift'
     assert not offline_http or selection['modelRehearsalPlan'].get('offlineHttp') is True, 'offline HTTP selection marker'
     names = [e['name'] for e in requested['evaluations']]
     assert len(names) == len(set(names)) == 6 and 'assistance-crowd' in names
     assert set(receipt['preparations']) == set(names)
     for name, stage, folder, descriptor in descriptors:
         assert descriptor['model_rehearsal'] == plan, f'{name}/{folder}: rehearsal descriptor drift'
+        if offline_response:
+            assert canonical(descriptor['model_rehearsal']) == canonical(plan), f'{name}/{folder}: offline response descriptor drift'
         assert not offline_http or descriptor['model_rehearsal'].get('offlineHttp') is True, f'{name}/{folder}: offline HTTP descriptor marker'
         assert descriptor['job'] == name and descriptor['stage'] == stage
     answer = dict(genre='MOCK_ACCEPTED_GENRE_CANARY', confidence=0.8)
@@ -249,27 +486,33 @@ def model_rehearsal_audit(run, receipt, requested):
     response_bytes = response_encoder(dict(model=plan['observedTarget'], provider=plan['provider'],
         choices=[dict(finish_reason='stop', message=dict(content=response_encoder(answer).decode()))],
         usage=usage, diagnostic='MOCK_RAW_DIAGNOSTIC_CANARY'))
+    response_status = 200
+    if offline_response:
+        response_bytes, response_status = fixture_bytes, metadata['status']
     response_sha = sha(response_bytes)
     model_operations = {k: v for k, v in receipt['operations'].items() if v['category'] == 'model'}
     assert len(model_operations) == receipt['counters']['model'] == receipt['credentialLookups'] == 1
+    if offline_response:
+        assert type(receipt['counters']['model']) is int and type(receipt['credentialLookups']) is int, 'model count types'
     operation_id, operation = next(iter(model_operations.items()))
     assert all(operation[k] is True for k in ['dispatched', 'completed']) and operation['arrived'] is (not hosted)
     assert operation['request_sha256'] == sha(compact(['POST', '/model/chat/completions', request_sha]))
-    response = dict(sha256=response_sha, bytes=len(response_bytes), status=200,
+    response = dict(sha256=response_sha, bytes=len(response_bytes), status=response_status,
         identityClaimsVerified=False, pricingVerified=False, usageClaimsVerified=False)
     if hosted:
         response.update(observation='offline_injected_native_response', remoteArrivalVerified=False)
     if offline_http:
-        # Derive from the fixed public bytes and actual Journal receipt, not the
+        # Derive from public bytes and the actual Journal receipt, not the
         # fixture's prepared-response claims or the driver's selected export.
         http = http_response_audit(request_bytes, response_bytes, operation['response'],
             plan['observedTarget'], plan['provider'], 'offline_local_http')
         response.update(observation='native_http_response', http=http)
         observation = dict(version=1, transport='offline_local_http', requests=1,
             requestSha256=request_sha, requestBytes=len(request_bytes),
-            responseSha256=response_sha, responseBytes=len(response_bytes), status=200,
+            responseSha256=response_sha, responseBytes=len(response_bytes), status=response_status,
             exactRequest=True, fakeCredentialPresented=True, liveAuthority=False)
         assert canonical(load(run / 'offline-http-observation.json')) == canonical(observation), 'offline HTTP fixture observation drift'
+        assert http['validation'] != 'rejected', 'rejected response cannot validate a completed rehearsal'
     assert canonical(operation['response']) == canonical(response)
     assert all(operation['response'][k] is False for k in ['identityClaimsVerified', 'pricingVerified', 'usageClaimsVerified'])
     session = receipt['sessions'][operation['session']]
@@ -317,22 +560,38 @@ def model_rehearsal_audit(run, receipt, requested):
             execution = load(directory / 'result.provisional.json')
             assert execution['modelRequests'] == len(selected), f'{name}: native observation summary drift'
             assert execution['wireArrivals'] == len(inventory['wireArrivals']), f'{name}: invented summary arrival'
+            if offline_response:
+                assert type(execution['modelRequests']) is int and type(execution['wireArrivals']) is int, 'summary count types'
         rows = load(directory / 'cold/records.json')
         assert len(rows) == 1
         row = rows[0]
         candidate = row['native'].get('candidate') or {}
-        assisted = dict(model=plan['model'], input_sha256=sha(canonical(payload)), value=answer['genre']) if active else None
+        genre = http['projection']['genre'] if offline_response else answer['genre']
+        assisted = dict(model=plan['model'], input_sha256=sha(canonical(payload)), value=genre) if active and genre else None
         assert candidate.get('assisted_genre') == row['persistedEvidence']['assistedGenre'] == assisted, name
         if active:
-            assert candidate['genre'] == answer['genre']
-            assert row['fieldObservations']['tracks'] and all(t['genre'] == answer['genre'] for t in row['fieldObservations']['tracks'])
+            if genre:
+                assert candidate['genre'] == genre
+                assert row['fieldObservations']['tracks'] and all(t['genre'] == genre for t in row['fieldObservations']['tracks'])
+            else:
+                assert candidate.get('genre') in (None, ''), 'withheld response invented candidate genre'
+                assert row['fieldObservations']['tracks'] and all(t['genre'] in (None, '') for t in row['fieldObservations']['tracks']), 'withheld response invented readback genre'
+            if offline_response:
+                assert row['serviceFailureObserved'] is False, 'completed rehearsal service failure'
+                assert [d for d in row['native']['diagnostics'] if d.get('stage') == 'genre'] == [
+                    dict(stage='genre', code='genre_assisted' if genre else 'genre_rejected')], 'genre diagnostic drift'
         assert load(directory / 'scoring-contract.json')['spec']['mode'] == 'mock', name
         score = load(directory / 'score.provisional.json')
         assert score['groundedAssistanceAccuracyCredit'] == 0 and score['writableDelta'] == [] and not score['acceptedCertificate']
-    return dict(policy=policy, requestSha256=request_sha, responseSha256=response_sha,
+        if offline_response:
+            assert type(score['groundedAssistanceAccuracyCredit']) is int and score['acceptedCertificate'] is False, 'mock credit types'
+    result = dict(policy=policy, requestSha256=request_sha, responseSha256=response_sha,
         model=plan['model'], observedTarget=plan['observedTarget'], providerClaim=plan['provider'],
         verifierSha256=sha(verifier), preparedJobs=6, modelRequests=1,
         identityClaimsVerified=False, groundedAssistanceAccuracyCredit=0, liveAuthority=False)
+    if offline_response:
+        result['http'] = http
+    return result
 
 
 def storage_audit(run, config, allow_stopped=False):
@@ -415,9 +674,10 @@ def incomplete_audit(run):
         containment='not_inferred_from_files', groundedAssistanceAccuracyCredit=0, liveAuthority=False)
 
 
-def retained_auditor_source(hosted=False, offline_http=False):
+def retained_auditor_source(hosted=False, offline_http=False, offline_response=False):
     """Count every adaptation; never modify the sealed historical sources."""
     assert not offline_http or hosted, 'offline HTTP requires hosted fixture adaptations'
+    assert not offline_response or (hosted and offline_http), 'offline response requires HTTP adaptations'
     original = ROOT / '.planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py'
     source = original.read_text()
     native_replacements = [
@@ -439,6 +699,19 @@ def retained_auditor_source(hosted=False, offline_http=False):
              "hashlib.sha256(body_bytes).hexdigest()], separators=(',', ':')).encode()).hexdigest()"),
             ("providerRequests=len(inventory['requests']), modelRequests=len(inventory['modelRequests']),",
              "providerRequests=len(inventory['requests']), modelRequests=len(native_observations),"),
+        ]
+    if offline_response:
+        # No canary/usage constants occur in the sealed auditors themselves.
+        # Their implicit fixed-response assumptions are present provenance and
+        # zero accepted readbacks. Preserve independent scorer recomputation.
+        native_replacements += [
+            ("assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate']['assisted_genre']",
+             "assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate'].get('assisted_genre')"),
+            ("assert score['userAcceptance']['agreeingFieldSlots'] == 0",
+             "assert score['userAcceptance']['agreeingFieldSlots'] == sum(f['userAcceptanceAgreement'] is True for f in score['fields'])"),
+            ("userAcceptanceRequested=22, userAcceptanceAgreeing=0, groundedAssistanceAccuracyCredit=0",
+             "userAcceptanceRequested=22, userAcceptanceAgreeing=sum(load(run / e['name'] / 'score.provisional.json')"
+             "['userAcceptance']['agreeingFieldSlots'] for e in requested['evaluations']), groundedAssistanceAccuracyCredit=0"),
         ]
     nested = 'source = original.read_text()'
     for old, new in native_replacements:
@@ -563,7 +836,8 @@ def audit(run):
     plan = load(run / 'authority/provisional.json')['bindings'].get('modelRehearsalPlan', {})
     hosted = rehearsal is not None and 'offlineHosted' in plan
     offline_http = rehearsal is not None and plan.get('offlineHttp') is True
-    original, source = retained_auditor_source(hosted, offline_http)
+    offline_response = rehearsal is not None and 'offlineResponse' in plan
+    original, source = retained_auditor_source(hosted, offline_http, offline_response)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
     wire = load(run / 'wire-reconciliation.json')
     assert wire['actualFakeLookups'] == wire['durableLookupAdmissions'] == 1
@@ -577,6 +851,8 @@ def audit(run):
         liveAuthority=False, powerLossProved=False, groundedAssistanceAccuracyCredit=0)
     if rehearsal is not None:
         result['modelRehearsal'] = rehearsal
+    if offline_response:
+        result['auditBindings']['offlineResponseNativeAdaptations'] = 3
     if config.get('storage'):
         result['storage'] = storage_audit(run, config)
     return result

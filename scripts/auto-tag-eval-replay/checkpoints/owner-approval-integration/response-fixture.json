@@ -1,0 +1,1 @@
+{"choices":[{"finish_reason":"stop","message":{"content":"{\"confidence\":0.9,\"genre\":\"OFFLINE_PUBLIC_RESPONSE_GENRE\"}"}}],"diagnostic":"MOCK_RAW_DIAGNOSTIC_CANARY","model":"deepseek/deepseek-v4-flash-0731","provider":"Wafer","usage":{"completion_tokens":6,"prompt_tokens":17,"total_tokens":23}}

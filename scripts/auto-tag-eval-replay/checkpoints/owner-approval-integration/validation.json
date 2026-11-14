@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "scope": "Offline delivery. No new native matrix, build, supervised workload or external request.",
+  "freshDelivery": {
+    "node": {"passed": 46, "failed": 0, "skipped": 0, "log": ".amp/in/artifacts/owner-publication-20261114/delivery/node.log"},
+    "vitest": {"passed": 22, "failed": 0, "files": 3},
+    "typecheck": true,
+    "rustFormatting": true,
+    "scriptSyntax": true,
+    "whitespace": true,
+    "staticLog": ".amp/in/artifacts/owner-publication-20261114/delivery/static.log",
+    "frozenPreStagingVerifier": {"passed": true, "currentSources": 323, "outerEvidence": 33, "signatures": 4, "actualNodeNativeJoins": 2},
+    "historicalFullAuditOnCurrentTree": {
+      "exitCode": 1,
+      "result": "Rejected changed source binding. All six old scoring contracts pin the earlier launcher.",
+      "log": ".amp/in/artifacts/owner-publication-20261114/delivery/audit-replay.log",
+      "promotedToSuccess": false,
+      "historicalContractsOrAuditorsChanged": false
+    },
+    "historicalPrivacyReplay": {
+      "exitCode": 0,
+      "result": "563 retained file bindings. Results identical except modelAuditorSha256 provenance identifies today's auditor.",
+      "output": ".amp/in/artifacts/owner-publication-20261114/delivery/privacy-replay.json",
+      "originalChanged": false
+    }
+  },
+  "reusedSourceBoundEvidence": {
+    "latestNativeAuthority": {"passed": 112, "failed": 0, "ignored": 10, "brokerScenarios": 30},
+    "latestNode": {"passed": 46, "failed": 0, "skipped": 0},
+    "signatureControls": {"acceptedSnapshots": 5, "rejectedCorruptions": 160},
+    "actualNativeSignatures": 4,
+    "actualNodeNativeJoins": 2,
+    "componentScopeSeam": "component-only-not-native-deadline",
+    "runtimeLauncherProof": false,
+    "publicationScopeRegression": "Retained failure demonstrated an uncharged write; final gate rejects before file creation and preserves ledger.",
+    "postRenameFaultInjection": false,
+    "differentResponseRehearsal": {
+      "slots": 216, "sessions": 12, "settledOperations": 497,
+      "fixtureArrivals": 496, "nativeHttpObservations": 1,
+      "preparationMs": 219028, "executionThroughAcceptanceMs": 456479,
+      "growthReserved": 457476559, "applicationVfsWriteBytesReserved": 774170785,
+      "ledgerRecords": 4058, "groundedAssistanceCredit": 0,
+      "userAcceptanceAgreeing": 0, "userAcceptanceRequested": 22
+    },
+    "earlierFullServerGates": [{"passed": 882, "failed": 0, "ignored": 31}, {"passed": 884, "failed": 0, "ignored": 31}],
+    "latestSourceFullServerGate": false,
+    "latestSourceSixJobWorkload": false,
+    "independentRuntimeReview": false
+  },
+  "unchangedLimits": {
+    "growthBytes": 536870912, "applicationVfsWriteBytes": 1073741824,
+    "terminalGrowthReserveBytes": 2097152, "terminalWriteReserveBytes": 8388608,
+    "preparationMs": 300000, "executionMs": 600000,
+    "estimateAllowanceUsdCents": 500, "refunds": false,
+    "ownerApprovalBytes": 8192
+  },
+  "authority": {
+    "liveCalls": false, "realCredentialReads": false, "provisionedSignerReads": false,
+    "realRunSigned": false, "originalMediaAccess": false, "push": false, "fetch": false
+  },
+  "knownLimits": [
+    "Trusted-host public/disposable-fixture component evidence, not real-model quality or production trust.",
+    "No current-source full server gate or six-job workload. Earlier broad gates and ignored/adverse histories remain historical.",
+    "No power-loss, physical-I/O, interrupted-write privacy, malicious-host, human-presence, live billing/retention, attestation or fresh-clone exact-replay assurance.",
+    "Publisher is macOS-only and separately bounded outside whole-run accounting. Scoped writers are denied.",
+    "Post-rename failures can leave publication unknown. Targets are retained, not overwritten or automatically retried.",
+    "Historical strict Clippy remains non-green. Credential, display and packaged smokes are unselected.",
+    "Trusted owner invocation, nonfixture final publication/full quality audit, credential compatibility, fresh supervised integration and price/risk proposal remain before separate execution approval."
+  ]
+}

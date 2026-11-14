@@ -1,0 +1,84 @@
+{
+  "positiveActualRun": true,
+  "controls": 15,
+  "results": [
+    {
+      "control": "wrong-verifier",
+      "rejected": true,
+      "assertion": "model rehearsal immutable binding drift"
+    },
+    {
+      "control": "response-binding",
+      "rejected": true,
+      "assertion": "model rehearsal immutable binding drift"
+    },
+    {
+      "control": "invented-arrival",
+      "rejected": true,
+      "assertion": ""
+    },
+    {
+      "control": "request-drift",
+      "rejected": true,
+      "assertion": ""
+    },
+    {
+      "control": "projection-drift",
+      "rejected": true,
+      "assertion": "http receipt"
+    },
+    {
+      "control": "usage-drift",
+      "rejected": true,
+      "assertion": "http receipt"
+    },
+    {
+      "control": "remote-arrival-promotion",
+      "rejected": true,
+      "assertion": "verification flags"
+    },
+    {
+      "control": "boolean-model-counter",
+      "rejected": true,
+      "assertion": "model count types"
+    },
+    {
+      "control": "boolean-credential-counter",
+      "rejected": true,
+      "assertion": "model count types"
+    },
+    {
+      "control": "invented-readback-genre",
+      "rejected": true,
+      "assertion": ""
+    },
+    {
+      "control": "persisted-provenance-drift",
+      "rejected": true,
+      "assertion": "assistance-crowd"
+    },
+    {
+      "control": "hidden-service-failure",
+      "rejected": true,
+      "assertion": "completed rehearsal service failure"
+    },
+    {
+      "control": "false-grounded-credit",
+      "rejected": true,
+      "assertion": ""
+    },
+    {
+      "control": "false-certificate",
+      "rejected": true,
+      "assertion": ""
+    },
+    {
+      "control": "invented-wire-arrival-summary",
+      "rejected": true,
+      "assertion": "assistance-crowd: invented summary arrival"
+    }
+  ],
+  "nativeFaultScheduling": false,
+  "completeRecoveryMatrix": false,
+  "runEvidenceModified": false
+}

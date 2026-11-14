@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "server": {
+    "passed": 884,
+    "failed": 0,
+    "ignored": 31
+  },
+  "authority": {
+    "passed": 111,
+    "failed": 0,
+    "ignored": 10
+  },
+  "node": {
+    "passed": 35,
+    "failed": 0,
+    "skipped": 0
+  },
+  "typecheck": true,
+  "formatting": true,
+  "whitespace": true,
+  "scriptSyntax": true,
+  "evidence": [
+    {
+      "path": "README.md",
+      "sha256": "afcb2b2c5c69a40dacba8c83972fb7b1a60a11588f9d30cbc9de37175e045ed6"
+    },
+    {
+      "path": "approval-green.log",
+      "sha256": "479784cce1d5bfb75c5df3a5be949e4a384a7d16cd2f68f3e969d098a2e05751"
+    },
+    {
+      "path": "approval-red.log",
+      "sha256": "29ffabef4f42c2a9bc796bfb738742559cf33da5017a3ce3a1ebbd7b3d5a422e"
+    },
+    {
+      "path": "approval-runtime-red.log",
+      "sha256": "d2312a1e54ab6ee0ecd910a0a4c268e418e44ec2a1666e83dc4aeb90324b9795"
+    },
+    {
+      "path": "approval-runtime-red2.log",
+      "sha256": "3d4b4f44fccbc470c92cdeb5e9995996e362d06faa5f797e03b89675defa5668"
+    },
+    {
+      "path": "authority.log",
+      "sha256": "aa54664ac4db04de8fbdbc9485a969ab59b889c2ee3bd6e363cdd1653c440f7f"
+    },
+    {
+      "path": "bootstrap-green.log",
+      "sha256": "6e17034767c8a2e714fd978748945e49fd2a40b324a6a35a5cda970f1caa68e4"
+    },
+    {
+      "path": "bootstrap-green2.log",
+      "sha256": "40f81de67727072640d78a08919e25db00a69272f7eeb16ed5fd0e0cf06ff532"
+    },
+    {
+      "path": "bootstrap-red.log",
+      "sha256": "8b651f0ed2a8348e47020ce9a7b13636ce34800e83ad90b6ac417ce726a611e7"
+    },
+    {
+      "path": "final-source-verification.json",
+      "sha256": "7af4d6b1b231f822b0057fabb9595cc6a5935efbab491bb6288603dced753406"
+    },
+    {
+      "path": "format.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "incremental.diff",
+      "sha256": "55b4e6037440603f707ff4e26e997c177535e66805e52468dfd2338dc6ce88d2"
+    },
+    {
+      "path": "node.log",
+      "sha256": "463e2ab90e8c206880c9c7ec71bf9de4e2688bec6f4957b465ace8ec6832a62f"
+    },
+    {
+      "path": "prior-slice.patch",
+      "sha256": "838f2abe503ace4ac7f28a399008e20575c12afcc8868e1aa65d588712fd339f"
+    },
+    {
+      "path": "receipt-red.log",
+      "sha256": "8c554d1bb8af8aaea536a3b31d82daeb4820e413752093a86c4a584ed62d4414"
+    },
+    {
+      "path": "recheck-source.json",
+      "sha256": "7af4d6b1b231f822b0057fabb9595cc6a5935efbab491bb6288603dced753406"
+    },
+    {
+      "path": "server.log",
+      "sha256": "5023d4454988e86c9d56c032c7933997bb88fd2262e4a3b5e9cb99174c45ca9a"
+    },
+    {
+      "path": "signer-red.log",
+      "sha256": "ceaf15971de5867fc7a67d96dd0c56cdb61ca607115a10e2e2646ac2252ac9b6"
+    },
+    {
+      "path": "source-manifest.json",
+      "sha256": "36ef41b16c9705fde2b8ac1270be4f0d51e00fe6e1b892387366a751aead1c91"
+    },
+    {
+      "path": "source-verification.json",
+      "sha256": "7af4d6b1b231f822b0057fabb9595cc6a5935efbab491bb6288603dced753406"
+    },
+    {
+      "path": "source-verification.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "start-status.txt",
+      "sha256": "b0d622f3fd53bb4cef618db156eecc21a46efb24227ee28d09b238f22ca78523"
+    },
+    {
+      "path": "syntax.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "toolchain.json",
+      "sha256": "6620c08c749380d12294edfb104573f31708fd963cc9438a1d963debe18ddc82"
+    },
+    {
+      "path": "typecheck.log",
+      "sha256": "8f1a93fd50929b0da9c4cfb9ba05419e9382b7db218e5bb5f57d2afe175565c2"
+    },
+    {
+      "path": "verify-checkpoint.py",
+      "sha256": "450d30b6d3b0edea5af33c79cd1d23bdbabaaa391f11ed83a6c090bbbf8b3b48"
+    },
+    {
+      "path": "whitespace.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "liveCalls": false,
+  "realCredentialReads": false,
+  "realRunSigned": false,
+  "committed": false,
+  "pushed": false,
+  "freshSixJobRun": false,
+  "sourceVerified": {
+    "verifiedSourceBindings": 323,
+    "trackedChanged": 11,
+    "head": "8b4087b1ebb63b60450a8128b04e31ab44f8371a",
+    "retainedExecutableSha256": "a3ea92bc9f27e02b8254fc84c9288f15bbf7b71f3f1e2a94eade43765da1ad5a",
+    "liveCalls": false,
+    "realRunSigned": false,
+    "freshSixJobRun": false
+  }
+}

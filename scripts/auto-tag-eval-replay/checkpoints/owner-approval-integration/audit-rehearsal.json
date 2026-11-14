@@ -1,0 +1,172 @@
+{
+  "actualFakeLookups": 1,
+  "durableLookupAdmissions": 1,
+  "workerProjection": "exact_declared_fields_and_actual_worker_rows",
+  "supervision": {
+    "authority": "native_witness_and_timely_supervisor_exit",
+    "generation": "c563cd9a-f4a4-431d-9335-ca9d4868bf52",
+    "supervisorExitObservedAt": 654842437,
+    "acceptedAt": 654842480,
+    "deadline": 654986001,
+    "preparationMs": 219028,
+    "requestedFieldSlots": 216
+  },
+  "native": {
+    "run": ".amp/in/artifacts/prepared-hosted-integration-20261114/run-01",
+    "checks": "passed",
+    "evaluations": [
+      {
+        "name": "disabled-crowd",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 15,
+        "modelRequests": 0,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 16,
+        "nativeElapsedMs": 9096
+      },
+      {
+        "name": "disabled-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 26904
+      },
+      {
+        "name": "disabled-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 161284
+      },
+      {
+        "name": "assistance-billie",
+        "variant": "provider_only",
+        "outcome": "applied",
+        "providerRequests": 18,
+        "modelRequests": 0,
+        "wireArrivals": 20,
+        "inventoryBytes": 972478,
+        "matchedEvents": 14,
+        "nativeElapsedMs": 27644
+      },
+      {
+        "name": "assistance-enya",
+        "variant": "hold",
+        "outcome": "needs_review",
+        "providerRequests": 85,
+        "modelRequests": 0,
+        "wireArrivals": 87,
+        "inventoryBytes": 999453,
+        "matchedEvents": 1,
+        "nativeElapsedMs": 161750
+      },
+      {
+        "name": "assistance-crowd",
+        "variant": "eligible_request",
+        "outcome": "needs_review",
+        "providerRequests": 15,
+        "modelRequests": 1,
+        "wireArrivals": 17,
+        "inventoryBytes": 969410,
+        "matchedEvents": 17,
+        "nativeElapsedMs": 10171
+      }
+    ],
+    "providerRequests": 236,
+    "modelRequests": 1,
+    "wireArrivals": 248,
+    "requestedFieldSlots": 216,
+    "observedFieldSlots": 216,
+    "labelableSlots": 30,
+    "userAcceptanceRequested": 22,
+    "userAcceptanceAgreeing": 0,
+    "groundedAssistanceAccuracyCredit": 0
+  },
+  "durable": {
+    "runId": "f0fbde5e-25eb-4c47-893e-40c87a2f8abe",
+    "checkpoint": "af017705325d3df80b37f5fdcbcac2d65913e4b7ee4424add540dbb44716a65f",
+    "counts": {
+      "arrived": 496,
+      "completed": 497,
+      "inventory": 24,
+      "model": 1,
+      "provider": 472,
+      "reserved": 497
+    },
+    "inventoryBytesMin": 969410,
+    "inventoryBytesMax": 999453,
+    "sessions": 12,
+    "consumptions": 1,
+    "receipt": "provisional_complete",
+    "actualWireArrivals": 496
+  },
+  "auditBindings": {
+    "historicalDurableAuditor": "aeed0878de308d984d86b30b66636dc5ff35432c9a5c49080ace1366b4c90b5a",
+    "adaptedDurableAuditor": "df1d1061165776c682cb689c5a9aca97a79d4262a6fd26710bcd67bdef82c979",
+    "native": {
+      "historicalSourceSha256": "cb5f0ee728f2dbfa96b9f90760bfc68935398c4c4109b2f8a083ab5672e97bce",
+      "adaptedSourceSha256": "35ec43b2bc11e6aa0dd4bb036d4a3e907ad8c951a05d86251ea36affb5e47532",
+      "adaptation": "preparation/preparation.json instead of cold/preparation.json"
+    },
+    "offlineResponseNativeAdaptations": 3
+  },
+  "liveAuthority": false,
+  "powerLossProved": false,
+  "groundedAssistanceAccuracyCredit": 0,
+  "modelRehearsal": {
+    "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+    "requestSha256": "5923deaf5e154a6deb436d079edf3b17912c011e979690a46398852f2b7bb7b8",
+    "responseSha256": "d8ce82ce75ebd94d85eb06e09eaa58c713fc8a928ec95f43ab381d3fb37d7926",
+    "model": "~deepseek/deepseek-v4-flash-latest",
+    "observedTarget": "deepseek/deepseek-v4-flash-0731",
+    "providerClaim": "Wafer",
+    "verifierSha256": "26f3cfc4e47f703666721413ce07c50f3565672f4aecc104a59835e7fc70b52e",
+    "preparedJobs": 6,
+    "modelRequests": 1,
+    "identityClaimsVerified": false,
+    "groundedAssistanceAccuracyCredit": 0,
+    "liveAuthority": false,
+    "http": {
+      "version": 1,
+      "transport": "offline_local_http",
+      "requestSha256": "5923deaf5e154a6deb436d079edf3b17912c011e979690a46398852f2b7bb7b8",
+      "validation": "accepted",
+      "projection": {
+        "model": "deepseek/deepseek-v4-flash-0731",
+        "provider": "Wafer",
+        "genre": "OFFLINE_PUBLIC_RESPONSE_GENRE",
+        "confidence": 0.9,
+        "usage": {
+          "promptTokens": 17,
+          "completionTokens": 6,
+          "totalTokens": 23,
+          "reasoningTokens": 0
+        }
+      }
+    }
+  },
+  "storage": {
+    "ordinaryGrowthReserved": 455379407,
+    "ordinaryWriteBytesReserved": 765782177,
+    "terminalGrowthReserved": 2097152,
+    "terminalWriteBytesReserved": 8388608,
+    "totalGrowthReserved": 457476559,
+    "totalWriteBytesReserved": 774170785,
+    "records": 4058,
+    "owners": 211,
+    "stopped": false,
+    "selfBookkeepingWriteUpperBound": 2208769,
+    "ledgerSha256": "0c23efc484830e4fc9243dbc52a9f2db86c229b266917d9b8cb54caed3654a89",
+    "accounting": "nonrefundable_prepaid_application_vfs_not_physical_io"
+  }
+}

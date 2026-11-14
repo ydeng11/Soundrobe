@@ -1,0 +1,4426 @@
+{
+  "version": 1,
+  "originalLogSha256": "2ba8134a03930f121c0172ec1affa884881568d8687ae8c3449b6f0a450a7e82",
+  "disposableTestDataOnly": true,
+  "realRunSigned": false,
+  "signatures": [
+    {
+      "approval": {
+        "payload": {
+          "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+          "expiresUnixSeconds": 1794680260,
+          "nonce": "97cce805-d8a0-4ab2-a2ff-640e2aced902",
+          "runId": "51a6738a-44b4-437d-ab35-8aff07f040c6",
+          "scopeSha256": "4077f9814ae77b7357171add5dfa52c85536c3615db6886f06edd903abdefe61",
+          "version": 1
+        },
+        "signature": [
+          15,
+          229,
+          209,
+          160,
+          48,
+          62,
+          210,
+          128,
+          130,
+          1,
+          183,
+          154,
+          80,
+          215,
+          221,
+          24,
+          39,
+          228,
+          113,
+          116,
+          217,
+          144,
+          246,
+          202,
+          229,
+          174,
+          234,
+          1,
+          150,
+          187,
+          42,
+          86,
+          155,
+          15,
+          105,
+          127,
+          191,
+          101,
+          235,
+          86,
+          15,
+          4,
+          14,
+          133,
+          50,
+          165,
+          7,
+          24,
+          62,
+          62,
+          47,
+          115,
+          81,
+          165,
+          242,
+          59,
+          167,
+          148,
+          229,
+          42,
+          103,
+          199,
+          85,
+          8
+        ]
+      },
+      "expectedVerifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0",
+      "frozen": {
+        "approvalExpires": null,
+        "approvalSha256": null,
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+        "consumptions": 0,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "51a6738a-44b4-437d-ab35-8aff07f040c6",
+        "sessions": {
+          "8b2878a0-13b5-49c2-874c-026e86fa451b": {
+            "attached": true,
+            "client": "8b2878a0-13b5-49c2-874c-026e86fa451b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "fa84a444-5f83-4736-a448-1378ea99770f",
+            "stage": "preparation"
+          },
+          "a50a10b8-96dd-4298-ba39-52a59e39b9db": {
+            "attached": true,
+            "client": "a50a10b8-96dd-4298-ba39-52a59e39b9db",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b4542845-4d7a-4c79-b0a9-50cfa44f13f7",
+            "stage": "preparation"
+          },
+          "c0eba634-91cc-4a7e-b2db-2c583f6f61ed": {
+            "attached": true,
+            "client": "c0eba634-91cc-4a7e-b2db-2c583f6f61ed",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "a0f596af-543a-43ba-9b21-f76be2ec0885",
+            "stage": "preparation"
+          },
+          "cc0de047-c888-4749-b02d-2d0b08c88063": {
+            "attached": true,
+            "client": "cc0de047-c888-4749-b02d-2d0b08c88063",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "2c66f51a-d978-4dd0-b755-d7dc94a47f4f",
+            "stage": "preparation"
+          },
+          "f9fc5d60-48bb-4690-aed0-c658650b6d9c": {
+            "attached": true,
+            "client": "f9fc5d60-48bb-4690-aed0-c658650b6d9c",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "d75ccf4e-6f5e-4833-adcd-3371274aaf0b",
+            "stage": "preparation"
+          },
+          "fd949af4-0dd5-43e8-9d11-f812b4935454": {
+            "attached": true,
+            "client": "fd949af4-0dd5-43e8-9d11-f812b4935454",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "cdf9ba7b-c938-4225-87b6-78869371a97d",
+            "stage": "preparation"
+          }
+        },
+        "state": "frozen",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "keyFormat": "ring_pkcs8_v2",
+      "publicKey": [
+        135,
+        111,
+        202,
+        202,
+        33,
+        189,
+        210,
+        41,
+        150,
+        2,
+        172,
+        135,
+        76,
+        236,
+        17,
+        226,
+        69,
+        221,
+        153,
+        64,
+        71,
+        87,
+        71,
+        84,
+        17,
+        146,
+        174,
+        116,
+        213,
+        15,
+        231,
+        27
+      ],
+      "terminal": {
+        "approvalExpires": 1794680260,
+        "approvalSha256": "cbe1676b8453da346badc4c5628602360906bb7b0b5d4cbaf9663cdecf060d14",
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+        "consumptions": 1,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "51a6738a-44b4-437d-ab35-8aff07f040c6",
+        "sessions": {
+          "8b2878a0-13b5-49c2-874c-026e86fa451b": {
+            "attached": true,
+            "client": "8b2878a0-13b5-49c2-874c-026e86fa451b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "fa84a444-5f83-4736-a448-1378ea99770f",
+            "stage": "preparation"
+          },
+          "a50a10b8-96dd-4298-ba39-52a59e39b9db": {
+            "attached": true,
+            "client": "a50a10b8-96dd-4298-ba39-52a59e39b9db",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b4542845-4d7a-4c79-b0a9-50cfa44f13f7",
+            "stage": "preparation"
+          },
+          "c0eba634-91cc-4a7e-b2db-2c583f6f61ed": {
+            "attached": true,
+            "client": "c0eba634-91cc-4a7e-b2db-2c583f6f61ed",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "a0f596af-543a-43ba-9b21-f76be2ec0885",
+            "stage": "preparation"
+          },
+          "cc0de047-c888-4749-b02d-2d0b08c88063": {
+            "attached": true,
+            "client": "cc0de047-c888-4749-b02d-2d0b08c88063",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "2c66f51a-d978-4dd0-b755-d7dc94a47f4f",
+            "stage": "preparation"
+          },
+          "f9fc5d60-48bb-4690-aed0-c658650b6d9c": {
+            "attached": true,
+            "client": "f9fc5d60-48bb-4690-aed0-c658650b6d9c",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "d75ccf4e-6f5e-4833-adcd-3371274aaf0b",
+            "stage": "preparation"
+          },
+          "fd0cd934-41b1-42db-ba65-bb35e4d39154": {
+            "attached": true,
+            "client": "fd0cd934-41b1-42db-ba65-bb35e4d39154",
+            "closed": false,
+            "endpoint": "http://127.0.0.1:1",
+            "finished": false,
+            "fixture_live": true,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": true,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "83547bdc-78cc-43b0-ab44-7e17d2cfeddb",
+            "stage": "execution"
+          },
+          "fd949af4-0dd5-43e8-9d11-f812b4935454": {
+            "attached": true,
+            "client": "fd949af4-0dd5-43e8-9d11-f812b4935454",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "cdf9ba7b-c938-4225-87b6-78869371a97d",
+            "stage": "preparation"
+          }
+        },
+        "state": "terminal",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "verifiedAt": 1794679060
+    },
+    {
+      "approval": {
+        "payload": {
+          "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+          "expiresUnixSeconds": 1794680260,
+          "nonce": "90f151bd-52b1-461e-87a3-df17a9e59af4",
+          "runId": "0371b802-6921-4206-acdd-982ed42e6db0",
+          "scopeSha256": "83d3fd1115bf9412748bdd4960531e5f6905acf8d04c0d9960b63c476bf35f82",
+          "version": 1
+        },
+        "signature": [
+          89,
+          182,
+          153,
+          250,
+          101,
+          20,
+          24,
+          232,
+          181,
+          38,
+          61,
+          191,
+          224,
+          119,
+          130,
+          234,
+          96,
+          195,
+          215,
+          172,
+          107,
+          238,
+          236,
+          149,
+          211,
+          224,
+          161,
+          1,
+          105,
+          249,
+          58,
+          38,
+          198,
+          254,
+          129,
+          221,
+          38,
+          56,
+          114,
+          84,
+          207,
+          125,
+          139,
+          70,
+          252,
+          176,
+          180,
+          193,
+          76,
+          96,
+          243,
+          243,
+          9,
+          207,
+          35,
+          129,
+          140,
+          170,
+          153,
+          20,
+          49,
+          176,
+          165,
+          9
+        ]
+      },
+      "expectedVerifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79",
+      "frozen": {
+        "approvalExpires": null,
+        "approvalSha256": null,
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+        "consumptions": 0,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "0371b802-6921-4206-acdd-982ed42e6db0",
+        "sessions": {
+          "0f439200-c622-44b7-9f64-62fcc72c524b": {
+            "attached": true,
+            "client": "0f439200-c622-44b7-9f64-62fcc72c524b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "e820e49d-0fbe-4ad3-80d6-7fe0aabb4cc8",
+            "stage": "preparation"
+          },
+          "557862a1-f87b-456d-94dc-89dcfe276b1a": {
+            "attached": true,
+            "client": "557862a1-f87b-456d-94dc-89dcfe276b1a",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b89f65c9-f3cf-4d94-a6d5-dea6c792ab63",
+            "stage": "preparation"
+          },
+          "682ace59-c733-43eb-a7c3-ad095cea7e9d": {
+            "attached": true,
+            "client": "682ace59-c733-43eb-a7c3-ad095cea7e9d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "8a3b2f10-9149-44c9-88c4-87fc201d3519",
+            "stage": "preparation"
+          },
+          "862e5c44-49eb-4472-a1e5-b8c8d672ca6f": {
+            "attached": true,
+            "client": "862e5c44-49eb-4472-a1e5-b8c8d672ca6f",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "03271a3e-bd98-49bd-89db-839ddd56800b",
+            "stage": "preparation"
+          },
+          "8969f718-77c9-4c3d-9f7c-1854debf3fde": {
+            "attached": true,
+            "client": "8969f718-77c9-4c3d-9f7c-1854debf3fde",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b407ffe6-7fa7-4ca0-a9f4-f0d006635d2c",
+            "stage": "preparation"
+          },
+          "a1355826-45f2-4100-a2d6-811ac552b809": {
+            "attached": true,
+            "client": "a1355826-45f2-4100-a2d6-811ac552b809",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "a95dedee-0866-4d93-82e5-e3555b377c9b",
+            "stage": "preparation"
+          }
+        },
+        "state": "frozen",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "keyFormat": "ring_pkcs8_v2",
+      "publicKey": [
+        130,
+        249,
+        67,
+        69,
+        237,
+        30,
+        48,
+        166,
+        3,
+        242,
+        232,
+        83,
+        154,
+        88,
+        207,
+        175,
+        135,
+        28,
+        51,
+        143,
+        228,
+        85,
+        208,
+        197,
+        49,
+        26,
+        98,
+        11,
+        6,
+        161,
+        36,
+        35
+      ],
+      "terminal": {
+        "approvalExpires": 1794680260,
+        "approvalSha256": "bb1986d8e81a0c45e93587b4d0c237512879da531fa901e064433186417737b6",
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+        "consumptions": 1,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "0371b802-6921-4206-acdd-982ed42e6db0",
+        "sessions": {
+          "0f439200-c622-44b7-9f64-62fcc72c524b": {
+            "attached": true,
+            "client": "0f439200-c622-44b7-9f64-62fcc72c524b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "e820e49d-0fbe-4ad3-80d6-7fe0aabb4cc8",
+            "stage": "preparation"
+          },
+          "3406b089-ad1f-453a-bfba-cbe8b06cf722": {
+            "attached": true,
+            "client": "3406b089-ad1f-453a-bfba-cbe8b06cf722",
+            "closed": false,
+            "endpoint": "http://127.0.0.1:1",
+            "finished": false,
+            "fixture_live": true,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": true,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "2fc65e8e-fc05-4555-80dc-83f417fe1493",
+            "stage": "execution"
+          },
+          "557862a1-f87b-456d-94dc-89dcfe276b1a": {
+            "attached": true,
+            "client": "557862a1-f87b-456d-94dc-89dcfe276b1a",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b89f65c9-f3cf-4d94-a6d5-dea6c792ab63",
+            "stage": "preparation"
+          },
+          "682ace59-c733-43eb-a7c3-ad095cea7e9d": {
+            "attached": true,
+            "client": "682ace59-c733-43eb-a7c3-ad095cea7e9d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "8a3b2f10-9149-44c9-88c4-87fc201d3519",
+            "stage": "preparation"
+          },
+          "862e5c44-49eb-4472-a1e5-b8c8d672ca6f": {
+            "attached": true,
+            "client": "862e5c44-49eb-4472-a1e5-b8c8d672ca6f",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "03271a3e-bd98-49bd-89db-839ddd56800b",
+            "stage": "preparation"
+          },
+          "8969f718-77c9-4c3d-9f7c-1854debf3fde": {
+            "attached": true,
+            "client": "8969f718-77c9-4c3d-9f7c-1854debf3fde",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "b407ffe6-7fa7-4ca0-a9f4-f0d006635d2c",
+            "stage": "preparation"
+          },
+          "a1355826-45f2-4100-a2d6-811ac552b809": {
+            "attached": true,
+            "client": "a1355826-45f2-4100-a2d6-811ac552b809",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "a95dedee-0866-4d93-82e5-e3555b377c9b",
+            "stage": "preparation"
+          }
+        },
+        "state": "terminal",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "verifiedAt": 1794679060
+    },
+    {
+      "approval": {
+        "payload": {
+          "checkpoint": "8780e3b24dac3efdf64c78d3d0e58a24636552091ca76f6180fde7a815e21255",
+          "expiresUnixSeconds": 1794680261,
+          "nonce": "f4dd192d-57d3-4638-9c28-010fff1be9c5",
+          "runId": "0f8230c8-3f86-4b10-a3ec-caa3674bf50c",
+          "scopeSha256": "bf12727b2a2b351b9e817ecd3b5d346e2675b9c38304d9fecfc4c67699978ed3",
+          "version": 1
+        },
+        "signature": [
+          97,
+          229,
+          7,
+          188,
+          59,
+          84,
+          19,
+          77,
+          81,
+          138,
+          157,
+          13,
+          182,
+          0,
+          250,
+          36,
+          187,
+          170,
+          191,
+          212,
+          231,
+          84,
+          78,
+          131,
+          239,
+          106,
+          207,
+          218,
+          146,
+          36,
+          201,
+          191,
+          221,
+          244,
+          224,
+          132,
+          128,
+          253,
+          227,
+          33,
+          79,
+          190,
+          218,
+          225,
+          118,
+          206,
+          194,
+          21,
+          177,
+          32,
+          230,
+          236,
+          184,
+          52,
+          91,
+          7,
+          63,
+          230,
+          207,
+          210,
+          172,
+          218,
+          82,
+          14
+        ]
+      },
+      "expectedVerifierSha256": "e362a2d00c6580d92544a376acaed1a76fcd574d213aeace5a565302d349210d",
+      "frozen": {
+        "approvalExpires": null,
+        "approvalSha256": null,
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "e362a2d00c6580d92544a376acaed1a76fcd574d213aeace5a565302d349210d"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "8780e3b24dac3efdf64c78d3d0e58a24636552091ca76f6180fde7a815e21255",
+        "consumptions": 0,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "0f8230c8-3f86-4b10-a3ec-caa3674bf50c",
+        "sessions": {
+          "0924a9e9-607f-4813-82bc-e833093ca6c8": {
+            "attached": true,
+            "client": "0924a9e9-607f-4813-82bc-e833093ca6c8",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "ed6500ae-3b93-41ac-9733-60d6105f1e27",
+            "stage": "preparation"
+          },
+          "61f4d510-dc80-4961-997b-ac006146cc5b": {
+            "attached": true,
+            "client": "61f4d510-dc80-4961-997b-ac006146cc5b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "0621bb45-5d28-4608-86d8-c8b5d705e248",
+            "stage": "preparation"
+          },
+          "916c0ab9-90e6-49a1-bbdd-e3426187956a": {
+            "attached": true,
+            "client": "916c0ab9-90e6-49a1-bbdd-e3426187956a",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "5ce62f39-27e5-458e-823d-e3afda58a6df",
+            "stage": "preparation"
+          },
+          "a77c245d-cd95-40de-8487-a17ec57e6226": {
+            "attached": true,
+            "client": "a77c245d-cd95-40de-8487-a17ec57e6226",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "6b893327-7eda-4965-a3af-e8297462f7f1",
+            "stage": "preparation"
+          },
+          "ad60149d-0e2f-4a1d-b079-34fa6bdea40d": {
+            "attached": true,
+            "client": "ad60149d-0e2f-4a1d-b079-34fa6bdea40d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "93a4e016-4e09-45a5-aaef-734c76f5d0db",
+            "stage": "preparation"
+          },
+          "ef1317ed-90a4-41f9-9de0-b35f515fe5ad": {
+            "attached": true,
+            "client": "ef1317ed-90a4-41f9-9de0-b35f515fe5ad",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "f6ca5222-fa09-437b-860b-46128e1659ef",
+            "stage": "preparation"
+          }
+        },
+        "state": "frozen",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "keyFormat": "openssl_pkcs8_v1",
+      "publicKey": [
+        47,
+        49,
+        170,
+        225,
+        247,
+        126,
+        34,
+        8,
+        40,
+        58,
+        16,
+        151,
+        44,
+        239,
+        119,
+        195,
+        25,
+        162,
+        229,
+        234,
+        24,
+        215,
+        7,
+        252,
+        154,
+        95,
+        148,
+        123,
+        195,
+        239,
+        208,
+        74
+      ],
+      "terminal": {
+        "approvalExpires": 1794680261,
+        "approvalSha256": "30886e1d762500166423d03dfa40e2b22e94ab848a9d14c7d68400357e728d6e",
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "e362a2d00c6580d92544a376acaed1a76fcd574d213aeace5a565302d349210d"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "8780e3b24dac3efdf64c78d3d0e58a24636552091ca76f6180fde7a815e21255",
+        "consumptions": 1,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "0f8230c8-3f86-4b10-a3ec-caa3674bf50c",
+        "sessions": {
+          "0924a9e9-607f-4813-82bc-e833093ca6c8": {
+            "attached": true,
+            "client": "0924a9e9-607f-4813-82bc-e833093ca6c8",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "ed6500ae-3b93-41ac-9733-60d6105f1e27",
+            "stage": "preparation"
+          },
+          "61f4d510-dc80-4961-997b-ac006146cc5b": {
+            "attached": true,
+            "client": "61f4d510-dc80-4961-997b-ac006146cc5b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "0621bb45-5d28-4608-86d8-c8b5d705e248",
+            "stage": "preparation"
+          },
+          "90676885-1d94-439e-aeb9-ac42f41421a7": {
+            "attached": true,
+            "client": "90676885-1d94-439e-aeb9-ac42f41421a7",
+            "closed": false,
+            "endpoint": "http://127.0.0.1:1",
+            "finished": false,
+            "fixture_live": true,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": true,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "721cf05a-5b45-4f4c-82de-f933aa58f41c",
+            "stage": "execution"
+          },
+          "916c0ab9-90e6-49a1-bbdd-e3426187956a": {
+            "attached": true,
+            "client": "916c0ab9-90e6-49a1-bbdd-e3426187956a",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "5ce62f39-27e5-458e-823d-e3afda58a6df",
+            "stage": "preparation"
+          },
+          "a77c245d-cd95-40de-8487-a17ec57e6226": {
+            "attached": true,
+            "client": "a77c245d-cd95-40de-8487-a17ec57e6226",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "6b893327-7eda-4965-a3af-e8297462f7f1",
+            "stage": "preparation"
+          },
+          "ad60149d-0e2f-4a1d-b079-34fa6bdea40d": {
+            "attached": true,
+            "client": "ad60149d-0e2f-4a1d-b079-34fa6bdea40d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "93a4e016-4e09-45a5-aaef-734c76f5d0db",
+            "stage": "preparation"
+          },
+          "ef1317ed-90a4-41f9-9de0-b35f515fe5ad": {
+            "attached": true,
+            "client": "ef1317ed-90a4-41f9-9de0-b35f515fe5ad",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "f6ca5222-fa09-437b-860b-46128e1659ef",
+            "stage": "preparation"
+          }
+        },
+        "state": "terminal",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "verifiedAt": 1794679061
+    },
+    {
+      "approval": {
+        "payload": {
+          "checkpoint": "d762ecf8b041299d8ae9d7d812848bc5475f2a09a6a9b37668bfaee32dc1b75b",
+          "expiresUnixSeconds": 1794680261,
+          "nonce": "d33ef497-e0ff-4c1f-b2c7-1ad05056657f",
+          "runId": "7bdd1f60-abfd-4e8e-b17e-8c3be559aae1",
+          "scopeSha256": "03e4e27b2ddd6e78b56072a1a54df31d844edea7770e323c318689a4c5b19773",
+          "version": 1
+        },
+        "signature": [
+          190,
+          29,
+          180,
+          231,
+          127,
+          105,
+          190,
+          214,
+          111,
+          18,
+          104,
+          38,
+          219,
+          52,
+          99,
+          196,
+          16,
+          100,
+          109,
+          154,
+          84,
+          247,
+          108,
+          59,
+          199,
+          109,
+          141,
+          53,
+          239,
+          44,
+          166,
+          170,
+          27,
+          70,
+          166,
+          124,
+          71,
+          35,
+          130,
+          82,
+          81,
+          77,
+          95,
+          126,
+          27,
+          89,
+          68,
+          189,
+          233,
+          212,
+          45,
+          18,
+          59,
+          217,
+          118,
+          112,
+          149,
+          108,
+          97,
+          237,
+          209,
+          103,
+          106,
+          12
+        ]
+      },
+      "expectedVerifierSha256": "d4b6dcac56538003ea4495267aa5bff134685a2268ff0fac3fba5762daf2c8d4",
+      "frozen": {
+        "approvalExpires": null,
+        "approvalSha256": null,
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "d4b6dcac56538003ea4495267aa5bff134685a2268ff0fac3fba5762daf2c8d4"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "d762ecf8b041299d8ae9d7d812848bc5475f2a09a6a9b37668bfaee32dc1b75b",
+        "consumptions": 0,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "7bdd1f60-abfd-4e8e-b17e-8c3be559aae1",
+        "sessions": {
+          "0d2faba5-7394-451b-8b32-424b59eb5b6e": {
+            "attached": true,
+            "client": "0d2faba5-7394-451b-8b32-424b59eb5b6e",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "e07e55c4-a841-4aab-b3a2-7c03fd541494",
+            "stage": "preparation"
+          },
+          "2ade79c0-4aa5-4429-985c-b02497a0686f": {
+            "attached": true,
+            "client": "2ade79c0-4aa5-4429-985c-b02497a0686f",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "984c41a6-fd21-48e9-b795-8bcff4c3461b",
+            "stage": "preparation"
+          },
+          "95f7544a-00fe-4850-8b2c-bb8cdefa170d": {
+            "attached": true,
+            "client": "95f7544a-00fe-4850-8b2c-bb8cdefa170d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "9c03bb0c-af33-4631-9dc0-97f5c85471f9",
+            "stage": "preparation"
+          },
+          "ce140fc3-8b64-463d-86f2-5a0b7ab5136b": {
+            "attached": true,
+            "client": "ce140fc3-8b64-463d-86f2-5a0b7ab5136b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "8c12d1bf-2a4e-4dd7-b747-2dc3c66d5cec",
+            "stage": "preparation"
+          },
+          "d25483e3-1679-4f63-8332-3d52ca686f39": {
+            "attached": true,
+            "client": "d25483e3-1679-4f63-8332-3d52ca686f39",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "5e6e483c-67d6-4331-b928-db061add05dd",
+            "stage": "preparation"
+          },
+          "d2eb6b94-20e1-489b-89bc-e96980d71c39": {
+            "attached": true,
+            "client": "d2eb6b94-20e1-489b-89bc-e96980d71c39",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "4093c0c2-0507-4969-a6a7-de53849db9d4",
+            "stage": "preparation"
+          }
+        },
+        "state": "frozen",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "keyFormat": "openssl_pkcs8_v1",
+      "publicKey": [
+        133,
+        1,
+        177,
+        111,
+        203,
+        220,
+        132,
+        134,
+        45,
+        41,
+        21,
+        61,
+        218,
+        135,
+        232,
+        225,
+        134,
+        62,
+        28,
+        199,
+        193,
+        189,
+        163,
+        245,
+        211,
+        32,
+        12,
+        66,
+        131,
+        65,
+        58,
+        139
+      ],
+      "terminal": {
+        "approvalExpires": 1794680261,
+        "approvalSha256": "1b1e02d82bca72f65d665ba4da2fc7bfdbe3fc7df38ebbbd6412bbf19314bd92",
+        "bindings": {
+          "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+          "modelRehearsal": {
+            "boundary": {
+              "allowanceUsdCents": 500,
+              "billingRiskAccepted": false,
+              "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+              "hardBillingCap": false,
+              "inputTokenIllustration": 8192,
+              "liveDispatchAvailable": false,
+              "outputTokens": 1024,
+              "pricingEvidence": {
+                "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                "completionPicoUsd": 2,
+                "promptPicoUsd": 1,
+                "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+              },
+              "readyForExecution": false,
+              "retention": {
+                "local": "until_result_review",
+                "remote": "documented_provider_defaults_for_public_metadata"
+              },
+              "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+              "textEstimatePicoUsd": 10240
+            },
+            "liveAuthority": false,
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+            "providerClaim": "Wafer",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+            "route": "wafer/us",
+            "verifierSha256": "d4b6dcac56538003ea4495267aa5bff134685a2268ff0fac3fba5762daf2c8d4"
+          },
+          "modelRehearsalPlan": {
+            "input": {
+              "album": "Different Album",
+              "artist": "Asymmetric Artist",
+              "tracks": [
+                "One",
+                "Other"
+              ]
+            },
+            "model": "~deepseek/deepseek-v4-flash-latest",
+            "nativePrepared": true,
+            "observedTarget": "deepseek/deepseek-v4-flash-0731",
+            "provider": "Wafer",
+            "route": "wafer/us"
+          }
+        },
+        "checkpoint": "d762ecf8b041299d8ae9d7d812848bc5475f2a09a6a9b37668bfaee32dc1b75b",
+        "consumptions": 1,
+        "counters": {
+          "arrived": 0,
+          "completed": 0,
+          "inventory": 0,
+          "model": 0,
+          "provider": 0,
+          "reserved": 0
+        },
+        "credentialLookups": 0,
+        "denied": 0,
+        "ingressDenials": [],
+        "liveAuthority": false,
+        "membership": {
+          "evaluations": [
+            {
+              "arm": "disabled",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "disabled-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            },
+            {
+              "arm": "disabled",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "disabled-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "disabled",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "disabled-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "54e7923a3000",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "54e7923a3000/I//cases/98/tracks/8/title",
+                "54e7923a3000/I//cases/98/tracks/8/artists"
+              ],
+              "name": "assistance-billie",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Billie Eilish - COPYCAT.flac",
+                "02. Billie Eilish - idontwannabeyouanymore.flac",
+                "03. Billie Eilish - my boy.flac",
+                "04. Billie Eilish - watch.flac",
+                "05. Billie Eilish - party favor.flac",
+                "06. Billie Eilish - bellyache.flac",
+                "07. Billie Eilish - ocean eyes.flac",
+                "08. Billie Eilish - hostage.flac",
+                "09. Billie Eilish - &burn.flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "f7756354af37",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [],
+              "name": "assistance-enya",
+              "phase": "cold",
+              "physicalPaths": [
+                "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                "03. Enya - Book Of Days (Remastered 1997).flac",
+                "04. Enya - Anywhere Is (Remastered 1997).flac",
+                "05. Enya - Only If....flac",
+                "06. Enya - The Celts (Remastered 1997).flac",
+                "07. Enya - China Roses (Remastered 1997).flac",
+                "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                "09. Enya - Ebudae (Remastered 1997).flac",
+                "10. Enya - Storms In Africa (Remastered 1997).flac",
+                "11. Enya - Watermark (Remastered 1997).flac",
+                "12. Enya - Paint The Sky With Stars.flac",
+                "13. Enya - Marble Halls (Remastered 1997).flac",
+                "14. Enya - On My Way Home (Remastered 1997).flac",
+                "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                "16. Enya - Boadicea (Remastered 1997).flac"
+              ],
+              "profile": "folder_filename",
+              "userLabelSelectors": []
+            },
+            {
+              "arm": "assistance",
+              "caseId": "036e0a00e45b",
+              "fields": [
+                "title",
+                "artists",
+                "genre"
+              ],
+              "labelSelectors": [
+                "036e0a00e45b/C//cases/0/tracks/10/title",
+                "036e0a00e45b/C//cases/0/tracks/10/artists"
+              ],
+              "name": "assistance-crowd",
+              "phase": "cold",
+              "physicalPaths": [
+                "01 Intro.flac",
+                "02 勵志論.flac",
+                "03 自我的介紹.flac",
+                "04 雨時多雲偶陣晴.flac",
+                "05 狂迪.flac",
+                "06 像你.flac",
+                "07 肌肉的記憶.flac",
+                "08 輕輕.flac",
+                "09 冒煙的燈泡.flac",
+                "10 明年.flac",
+                "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+              ],
+              "profile": "tagged_recovery",
+              "userLabelSelectors": [
+                "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+              ]
+            }
+          ],
+          "predeclaredLabelableSlots": 30,
+          "requestedFieldSlots": 216,
+          "requestedPhysicalOccurrences": 72,
+          "uniqueSelectedOccurrenceFieldLabels": 15,
+          "uniqueUserAcceptanceLabels": 11
+        },
+        "mutationAdmissions": 0,
+        "operations": {},
+        "ownerLive": true,
+        "preparations": {
+          "assistance-billie": {
+            "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+            "requestSha256": null
+          },
+          "assistance-crowd": {
+            "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+            "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+          },
+          "assistance-enya": {
+            "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+            "requestSha256": null
+          },
+          "disabled-billie": {
+            "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+            "requestSha256": null
+          },
+          "disabled-crowd": {
+            "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+            "requestSha256": null
+          },
+          "disabled-enya": {
+            "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+            "requestSha256": null
+          }
+        },
+        "recovery": "read_only_incomplete_no_resume",
+        "resultSha256": null,
+        "runId": "7bdd1f60-abfd-4e8e-b17e-8c3be559aae1",
+        "sessions": {
+          "0d2faba5-7394-451b-8b32-424b59eb5b6e": {
+            "attached": true,
+            "client": "0d2faba5-7394-451b-8b32-424b59eb5b6e",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "e07e55c4-a841-4aab-b3a2-7c03fd541494",
+            "stage": "preparation"
+          },
+          "2ade79c0-4aa5-4429-985c-b02497a0686f": {
+            "attached": true,
+            "client": "2ade79c0-4aa5-4429-985c-b02497a0686f",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "984c41a6-fd21-48e9-b795-8bcff4c3461b",
+            "stage": "preparation"
+          },
+          "95f7544a-00fe-4850-8b2c-bb8cdefa170d": {
+            "attached": true,
+            "client": "95f7544a-00fe-4850-8b2c-bb8cdefa170d",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "9c03bb0c-af33-4631-9dc0-97f5c85471f9",
+            "stage": "preparation"
+          },
+          "997f6dfe-0e2d-47a7-bad1-f7bad58ee2da": {
+            "attached": true,
+            "client": "997f6dfe-0e2d-47a7-bad1-f7bad58ee2da",
+            "closed": false,
+            "endpoint": "http://127.0.0.1:1",
+            "finished": false,
+            "fixture_live": true,
+            "job": "assistance-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": true,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "95b04369-412c-47f1-aa2d-2ed48becc424",
+            "stage": "execution"
+          },
+          "ce140fc3-8b64-463d-86f2-5a0b7ab5136b": {
+            "attached": true,
+            "client": "ce140fc3-8b64-463d-86f2-5a0b7ab5136b",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-billie",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "8c12d1bf-2a4e-4dd7-b747-2dc3c66d5cec",
+            "stage": "preparation"
+          },
+          "d25483e3-1679-4f63-8332-3d52ca686f39": {
+            "attached": true,
+            "client": "d25483e3-1679-4f63-8332-3d52ca686f39",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "assistance-enya",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "5e6e483c-67d6-4331-b928-db061add05dd",
+            "stage": "preparation"
+          },
+          "d2eb6b94-20e1-489b-89bc-e96980d71c39": {
+            "attached": true,
+            "client": "d2eb6b94-20e1-489b-89bc-e96980d71c39",
+            "closed": true,
+            "endpoint": "http://127.0.0.1:1234",
+            "finished": true,
+            "fixture_live": false,
+            "job": "disabled-crowd",
+            "manifest_sha256": "f16d05ec6b29248d2c61adb1e9263f78e4f7bace1b955014a2d17872cfe4064d",
+            "native_live": false,
+            "observation_sha256": null,
+            "sealed": true,
+            "service": "4093c0c2-0507-4969-a6a7-de53849db9d4",
+            "stage": "preparation"
+          }
+        },
+        "state": "terminal",
+        "testPolicy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair"
+      },
+      "verifiedAt": 1794679061
+    }
+  ],
+  "coordination": [
+    {
+      "retained": [
+        {
+          "name": "owner-approval-coordination.json",
+          "value": {
+            "actualFakeLookups": 0,
+            "approvalExpires": 1794680260,
+            "approvalSha256": "cbe1676b8453da346badc4c5628602360906bb7b0b5d4cbaf9663cdecf060d14",
+            "bindings": {
+              "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+              "modelRehearsal": {
+                "boundary": {
+                  "allowanceUsdCents": 500,
+                  "billingRiskAccepted": false,
+                  "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+                  "hardBillingCap": false,
+                  "inputTokenIllustration": 8192,
+                  "liveDispatchAvailable": false,
+                  "outputTokens": 1024,
+                  "pricingEvidence": {
+                    "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                    "completionPicoUsd": 2,
+                    "promptPicoUsd": 1,
+                    "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+                  },
+                  "readyForExecution": false,
+                  "retention": {
+                    "local": "until_result_review",
+                    "remote": "documented_provider_defaults_for_public_metadata"
+                  },
+                  "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+                  "textEstimatePicoUsd": 10240
+                },
+                "liveAuthority": false,
+                "model": "~deepseek/deepseek-v4-flash-latest",
+                "observedTarget": "deepseek/deepseek-v4-flash-0731",
+                "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+                "providerClaim": "Wafer",
+                "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+                "route": "wafer/us",
+                "verifierSha256": "96b03c2fa9071388b16222b0f6b9605f6b3c56e3a372a1a8205537f788ff54e0"
+              },
+              "modelRehearsalPlan": {
+                "input": {
+                  "album": "Different Album",
+                  "artist": "Asymmetric Artist",
+                  "tracks": [
+                    "One",
+                    "Other"
+                  ]
+                },
+                "model": "~deepseek/deepseek-v4-flash-latest",
+                "nativePrepared": true,
+                "observedTarget": "deepseek/deepseek-v4-flash-0731",
+                "provider": "Wafer",
+                "route": "wafer/us"
+              }
+            },
+            "checkpoint": "b348e542d512c8127074c095d72a4f570e780a46e18ca6f1b248f0148b67cf16",
+            "componentCoordinationOnly": true,
+            "consumptions": 1,
+            "counters": {
+              "arrived": 0,
+              "completed": 0,
+              "inventory": 0,
+              "model": 0,
+              "provider": 0,
+              "reserved": 0
+            },
+            "credentialLookups": 0,
+            "humanPresenceVerified": false,
+            "liveAuthority": false,
+            "membership": {
+              "evaluations": [
+                {
+                  "arm": "disabled",
+                  "caseId": "036e0a00e45b",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "036e0a00e45b/C//cases/0/tracks/10/title",
+                    "036e0a00e45b/C//cases/0/tracks/10/artists"
+                  ],
+                  "name": "disabled-crowd",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01 Intro.flac",
+                    "02 勵志論.flac",
+                    "03 自我的介紹.flac",
+                    "04 雨時多雲偶陣晴.flac",
+                    "05 狂迪.flac",
+                    "06 像你.flac",
+                    "07 肌肉的記憶.flac",
+                    "08 輕輕.flac",
+                    "09 冒煙的燈泡.flac",
+                    "10 明年.flac",
+                    "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": [
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+                  ]
+                },
+                {
+                  "arm": "disabled",
+                  "caseId": "54e7923a3000",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "54e7923a3000/I//cases/98/tracks/8/title",
+                    "54e7923a3000/I//cases/98/tracks/8/artists"
+                  ],
+                  "name": "disabled-billie",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Billie Eilish - COPYCAT.flac",
+                    "02. Billie Eilish - idontwannabeyouanymore.flac",
+                    "03. Billie Eilish - my boy.flac",
+                    "04. Billie Eilish - watch.flac",
+                    "05. Billie Eilish - party favor.flac",
+                    "06. Billie Eilish - bellyache.flac",
+                    "07. Billie Eilish - ocean eyes.flac",
+                    "08. Billie Eilish - hostage.flac",
+                    "09. Billie Eilish - &burn.flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "disabled",
+                  "caseId": "f7756354af37",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [],
+                  "name": "disabled-enya",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                    "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                    "03. Enya - Book Of Days (Remastered 1997).flac",
+                    "04. Enya - Anywhere Is (Remastered 1997).flac",
+                    "05. Enya - Only If....flac",
+                    "06. Enya - The Celts (Remastered 1997).flac",
+                    "07. Enya - China Roses (Remastered 1997).flac",
+                    "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                    "09. Enya - Ebudae (Remastered 1997).flac",
+                    "10. Enya - Storms In Africa (Remastered 1997).flac",
+                    "11. Enya - Watermark (Remastered 1997).flac",
+                    "12. Enya - Paint The Sky With Stars.flac",
+                    "13. Enya - Marble Halls (Remastered 1997).flac",
+                    "14. Enya - On My Way Home (Remastered 1997).flac",
+                    "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                    "16. Enya - Boadicea (Remastered 1997).flac"
+                  ],
+                  "profile": "folder_filename",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "54e7923a3000",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "54e7923a3000/I//cases/98/tracks/8/title",
+                    "54e7923a3000/I//cases/98/tracks/8/artists"
+                  ],
+                  "name": "assistance-billie",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Billie Eilish - COPYCAT.flac",
+                    "02. Billie Eilish - idontwannabeyouanymore.flac",
+                    "03. Billie Eilish - my boy.flac",
+                    "04. Billie Eilish - watch.flac",
+                    "05. Billie Eilish - party favor.flac",
+                    "06. Billie Eilish - bellyache.flac",
+                    "07. Billie Eilish - ocean eyes.flac",
+                    "08. Billie Eilish - hostage.flac",
+                    "09. Billie Eilish - &burn.flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "f7756354af37",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [],
+                  "name": "assistance-enya",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                    "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                    "03. Enya - Book Of Days (Remastered 1997).flac",
+                    "04. Enya - Anywhere Is (Remastered 1997).flac",
+                    "05. Enya - Only If....flac",
+                    "06. Enya - The Celts (Remastered 1997).flac",
+                    "07. Enya - China Roses (Remastered 1997).flac",
+                    "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                    "09. Enya - Ebudae (Remastered 1997).flac",
+                    "10. Enya - Storms In Africa (Remastered 1997).flac",
+                    "11. Enya - Watermark (Remastered 1997).flac",
+                    "12. Enya - Paint The Sky With Stars.flac",
+                    "13. Enya - Marble Halls (Remastered 1997).flac",
+                    "14. Enya - On My Way Home (Remastered 1997).flac",
+                    "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                    "16. Enya - Boadicea (Remastered 1997).flac"
+                  ],
+                  "profile": "folder_filename",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "036e0a00e45b",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "036e0a00e45b/C//cases/0/tracks/10/title",
+                    "036e0a00e45b/C//cases/0/tracks/10/artists"
+                  ],
+                  "name": "assistance-crowd",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01 Intro.flac",
+                    "02 勵志論.flac",
+                    "03 自我的介紹.flac",
+                    "04 雨時多雲偶陣晴.flac",
+                    "05 狂迪.flac",
+                    "06 像你.flac",
+                    "07 肌肉的記憶.flac",
+                    "08 輕輕.flac",
+                    "09 冒煙的燈泡.flac",
+                    "10 明年.flac",
+                    "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": [
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+                  ]
+                }
+              ],
+              "predeclaredLabelableSlots": 30,
+              "requestedFieldSlots": 216,
+              "requestedPhysicalOccurrences": 72,
+              "uniqueSelectedOccurrenceFieldLabels": 15,
+              "uniqueUserAcceptanceLabels": 11
+            },
+            "preparations": {
+              "assistance-billie": {
+                "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+                "requestSha256": null
+              },
+              "assistance-crowd": {
+                "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+                "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+              },
+              "assistance-enya": {
+                "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+                "requestSha256": null
+              },
+              "disabled-billie": {
+                "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+                "requestSha256": null
+              },
+              "disabled-crowd": {
+                "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+                "requestSha256": null
+              },
+              "disabled-enya": {
+                "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+                "requestSha256": null
+              }
+            },
+            "qualityCertificate": false,
+            "runId": "51a6738a-44b4-437d-ab35-8aff07f040c6",
+            "state": "executing",
+            "successCertificate": false
+          }
+        }
+      ],
+      "scopeSeam": "component-only-not-native-deadline"
+    },
+    {
+      "retained": [
+        {
+          "name": "owner-approval-coordination.json",
+          "value": {
+            "actualFakeLookups": 0,
+            "approvalExpires": 1794680260,
+            "approvalSha256": "bb1986d8e81a0c45e93587b4d0c237512879da531fa901e064433186417737b6",
+            "bindings": {
+              "executable": "ff8715f0270731bbdb0bb3586a77d032f5e883b8909dcafbf3e8909cb8c71201",
+              "modelRehearsal": {
+                "boundary": {
+                  "allowanceUsdCents": 500,
+                  "billingRiskAccepted": false,
+                  "endpoint": "https://openrouter.ai/api/v1/chat/completions",
+                  "hardBillingCap": false,
+                  "inputTokenIllustration": 8192,
+                  "liveDispatchAvailable": false,
+                  "outputTokens": 1024,
+                  "pricingEvidence": {
+                    "catalogSha256": "652f55016243bf1b9f1bbea46d5749ef892dbe394e46de9d66ab1aacf0b4af57",
+                    "completionPicoUsd": 2,
+                    "promptPicoUsd": 1,
+                    "termsSha256": "51d2361f4faea3bc8f9facdbc7d99abb555596a2e51f7b25fd3b41c93587e616"
+                  },
+                  "readyForExecution": false,
+                  "retention": {
+                    "local": "until_result_review",
+                    "remote": "documented_provider_defaults_for_public_metadata"
+                  },
+                  "settingsSha256": "7437607f1b77652a74190279783d214c20b907a6dd3d7d84278850752b06a4c3",
+                  "textEstimatePicoUsd": 10240
+                },
+                "liveAuthority": false,
+                "model": "~deepseek/deepseek-v4-flash-latest",
+                "observedTarget": "deepseek/deepseek-v4-flash-0731",
+                "policy": "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair",
+                "providerClaim": "Wafer",
+                "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce",
+                "route": "wafer/us",
+                "verifierSha256": "3012715e4bb7cf9296d6e0924ba66e5d4af2757a0a1ee32f6d6cac335ff3db79"
+              },
+              "modelRehearsalPlan": {
+                "input": {
+                  "album": "Different Album",
+                  "artist": "Asymmetric Artist",
+                  "tracks": [
+                    "One",
+                    "Other"
+                  ]
+                },
+                "model": "~deepseek/deepseek-v4-flash-latest",
+                "nativePrepared": true,
+                "observedTarget": "deepseek/deepseek-v4-flash-0731",
+                "provider": "Wafer",
+                "route": "wafer/us"
+              }
+            },
+            "checkpoint": "da9990880ce21a46a401748bd299eee17aaecd6050ae75c75663ff87d1d9fa46",
+            "componentCoordinationOnly": true,
+            "consumptions": 1,
+            "counters": {
+              "arrived": 0,
+              "completed": 0,
+              "inventory": 0,
+              "model": 0,
+              "provider": 0,
+              "reserved": 0
+            },
+            "credentialLookups": 0,
+            "humanPresenceVerified": false,
+            "liveAuthority": false,
+            "membership": {
+              "evaluations": [
+                {
+                  "arm": "disabled",
+                  "caseId": "036e0a00e45b",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "036e0a00e45b/C//cases/0/tracks/10/title",
+                    "036e0a00e45b/C//cases/0/tracks/10/artists"
+                  ],
+                  "name": "disabled-crowd",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01 Intro.flac",
+                    "02 勵志論.flac",
+                    "03 自我的介紹.flac",
+                    "04 雨時多雲偶陣晴.flac",
+                    "05 狂迪.flac",
+                    "06 像你.flac",
+                    "07 肌肉的記憶.flac",
+                    "08 輕輕.flac",
+                    "09 冒煙的燈泡.flac",
+                    "10 明年.flac",
+                    "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": [
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+                  ]
+                },
+                {
+                  "arm": "disabled",
+                  "caseId": "54e7923a3000",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "54e7923a3000/I//cases/98/tracks/8/title",
+                    "54e7923a3000/I//cases/98/tracks/8/artists"
+                  ],
+                  "name": "disabled-billie",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Billie Eilish - COPYCAT.flac",
+                    "02. Billie Eilish - idontwannabeyouanymore.flac",
+                    "03. Billie Eilish - my boy.flac",
+                    "04. Billie Eilish - watch.flac",
+                    "05. Billie Eilish - party favor.flac",
+                    "06. Billie Eilish - bellyache.flac",
+                    "07. Billie Eilish - ocean eyes.flac",
+                    "08. Billie Eilish - hostage.flac",
+                    "09. Billie Eilish - &burn.flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "disabled",
+                  "caseId": "f7756354af37",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [],
+                  "name": "disabled-enya",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                    "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                    "03. Enya - Book Of Days (Remastered 1997).flac",
+                    "04. Enya - Anywhere Is (Remastered 1997).flac",
+                    "05. Enya - Only If....flac",
+                    "06. Enya - The Celts (Remastered 1997).flac",
+                    "07. Enya - China Roses (Remastered 1997).flac",
+                    "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                    "09. Enya - Ebudae (Remastered 1997).flac",
+                    "10. Enya - Storms In Africa (Remastered 1997).flac",
+                    "11. Enya - Watermark (Remastered 1997).flac",
+                    "12. Enya - Paint The Sky With Stars.flac",
+                    "13. Enya - Marble Halls (Remastered 1997).flac",
+                    "14. Enya - On My Way Home (Remastered 1997).flac",
+                    "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                    "16. Enya - Boadicea (Remastered 1997).flac"
+                  ],
+                  "profile": "folder_filename",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "54e7923a3000",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "54e7923a3000/I//cases/98/tracks/8/title",
+                    "54e7923a3000/I//cases/98/tracks/8/artists"
+                  ],
+                  "name": "assistance-billie",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Billie Eilish - COPYCAT.flac",
+                    "02. Billie Eilish - idontwannabeyouanymore.flac",
+                    "03. Billie Eilish - my boy.flac",
+                    "04. Billie Eilish - watch.flac",
+                    "05. Billie Eilish - party favor.flac",
+                    "06. Billie Eilish - bellyache.flac",
+                    "07. Billie Eilish - ocean eyes.flac",
+                    "08. Billie Eilish - hostage.flac",
+                    "09. Billie Eilish - &burn.flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "f7756354af37",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [],
+                  "name": "assistance-enya",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01. Enya - Orinoco Flow (Remastered 1997).flac",
+                    "02. Enya - Caribbean Blue (Remastered 1997).flac",
+                    "03. Enya - Book Of Days (Remastered 1997).flac",
+                    "04. Enya - Anywhere Is (Remastered 1997).flac",
+                    "05. Enya - Only If....flac",
+                    "06. Enya - The Celts (Remastered 1997).flac",
+                    "07. Enya - China Roses (Remastered 1997).flac",
+                    "08. Enya - Shepherd Moons (Remastered 1997).flac",
+                    "09. Enya - Ebudae (Remastered 1997).flac",
+                    "10. Enya - Storms In Africa (Remastered 1997).flac",
+                    "11. Enya - Watermark (Remastered 1997).flac",
+                    "12. Enya - Paint The Sky With Stars.flac",
+                    "13. Enya - Marble Halls (Remastered 1997).flac",
+                    "14. Enya - On My Way Home (Remastered 1997).flac",
+                    "15. Enya - The Memory Of Trees (Remastered 1997).flac",
+                    "16. Enya - Boadicea (Remastered 1997).flac"
+                  ],
+                  "profile": "folder_filename",
+                  "userLabelSelectors": []
+                },
+                {
+                  "arm": "assistance",
+                  "caseId": "036e0a00e45b",
+                  "fields": [
+                    "title",
+                    "artists",
+                    "genre"
+                  ],
+                  "labelSelectors": [
+                    "036e0a00e45b/C//cases/0/tracks/10/title",
+                    "036e0a00e45b/C//cases/0/tracks/10/artists"
+                  ],
+                  "name": "assistance-crowd",
+                  "phase": "cold",
+                  "physicalPaths": [
+                    "01 Intro.flac",
+                    "02 勵志論.flac",
+                    "03 自我的介紹.flac",
+                    "04 雨時多雲偶陣晴.flac",
+                    "05 狂迪.flac",
+                    "06 像你.flac",
+                    "07 肌肉的記憶.flac",
+                    "08 輕輕.flac",
+                    "09 冒煙的燈泡.flac",
+                    "10 明年.flac",
+                    "11 英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.].flac"
+                  ],
+                  "profile": "tagged_recovery",
+                  "userLabelSelectors": [
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/0/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/1/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/2/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/3/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/4/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/5/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/6/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/7/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/8/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/9/genre",
+                    "036e0a00e45b/user_acceptance//cases/0/tracks/10/genre"
+                  ]
+                }
+              ],
+              "predeclaredLabelableSlots": 30,
+              "requestedFieldSlots": 216,
+              "requestedPhysicalOccurrences": 72,
+              "uniqueSelectedOccurrenceFieldLabels": 15,
+              "uniqueUserAcceptanceLabels": 11
+            },
+            "preparations": {
+              "assistance-billie": {
+                "preparationSha256": "9959056aea6b5d29ea5e0209dfa986f838fe8d5a2a629d16a13670b5ffc19e40",
+                "requestSha256": null
+              },
+              "assistance-crowd": {
+                "preparationSha256": "c41a0ce8680d8196b708c5ea9f0074a5fdc668e11666b47f00b9a059af5a6676",
+                "requestSha256": "2ecd56856eda586e08ed6f2c4918e62c2130c282a721db1c5afeb8e0d168c2ce"
+              },
+              "assistance-enya": {
+                "preparationSha256": "97c5470002ccebcb572808d214a36770a3fb8bc05d01514ee81164f053af320e",
+                "requestSha256": null
+              },
+              "disabled-billie": {
+                "preparationSha256": "134a52bd4100bcf93702547c8284e00b94e6a6a4992c3c673351bfb6623a9127",
+                "requestSha256": null
+              },
+              "disabled-crowd": {
+                "preparationSha256": "baee468de09245b364feb8a6f43ca6eafd2ffe43bbf45601e07382c085b98eaf",
+                "requestSha256": null
+              },
+              "disabled-enya": {
+                "preparationSha256": "c4dbed31de02937a0ff6f20edc47f2a7bb109bab68444bcedd08d61d746191b7",
+                "requestSha256": null
+              }
+            },
+            "qualityCertificate": false,
+            "runId": "0371b802-6921-4206-acdd-982ed42e6db0",
+            "state": "executing",
+            "successCertificate": false
+          }
+        }
+      ],
+      "scopeSeam": "component-only-not-native-deadline"
+    }
+  ]
+}

@@ -22,6 +22,8 @@ pub(super) const REHEARSAL_POLICY: &str =
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct RehearsalPlan {
     pub(crate) model: String,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(crate) native_prepared: bool,
     observed_target: String,
     route: String,
     provider: String,
@@ -34,7 +36,150 @@ pub(crate) struct RehearsalPlan {
         deserialize_with = "offline_http_fixture"
     )]
     pub(crate) offline_http: bool,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "offline_response_fixture"
+    )]
+    pub(crate) offline_response: Option<OfflineResponse>,
 }
+
+#[derive(Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct OfflineResponse {
+    pub(crate) sha256: String,
+    pub(crate) status: u16,
+}
+impl OfflineResponse {
+    pub(crate) fn read(
+        &self,
+        plan_file: &std::path::Path,
+        sources: &Value,
+        source_root: &std::path::Path,
+    ) -> Result<Vec<u8>, String> {
+        use std::io::Read;
+        use std::os::unix::fs::OpenOptionsExt;
+        require(super::digest_valid(&self.sha256) && (100..=599).contains(&self.status))?;
+        let file = plan_file
+            .parent()
+            .ok_or("mock_response_fixture_invalid")?
+            .join("response-fixture.json");
+        require(
+            file.canonicalize()
+                .map_err(|_| "mock_response_fixture_invalid")?
+                == file,
+        )?;
+        let relative = file
+            .strip_prefix(source_root)
+            .map_err(|_| "mock_response_fixture_invalid")?
+            .to_string_lossy();
+        let locks: Vec<_> = sources
+            .as_array()
+            .ok_or("mock_response_fixture_invalid")?
+            .iter()
+            .filter(|s| s["path"].as_str() == Some(relative.as_ref()))
+            .collect();
+        require(locks.len() == 1 && locks[0]["sha256"] == self.sha256)?;
+        let source = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+            .open(file)
+            .map_err(|_| "mock_response_fixture_invalid")?;
+        let metadata = source
+            .metadata()
+            .map_err(|_| "mock_response_fixture_invalid")?;
+        require(metadata.is_file() && metadata.len() <= 65536)?;
+        let mut bytes = Vec::new();
+        source
+            .take(65537)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "mock_response_fixture_invalid")?;
+        require(bytes.len() <= 65536 && sha(&bytes) == self.sha256)?;
+        Ok(bytes)
+    }
+}
+fn offline_response_fixture<'de, D: serde::Deserializer<'de>>(
+    input: D,
+) -> Result<Option<OfflineResponse>, D::Error> {
+    OfflineResponse::deserialize(input).map(Some)
+}
+#[test]
+fn offline_response_plan_requires_exact_public_sibling_bytes_and_http_mode() {
+    let raw = b"{\"public\":\"different response\"}\n";
+    let mut value = json!({"model":"~deepseek/deepseek-v4-flash-latest","observedTarget":"deepseek/deepseek-v4-flash-0731",
+        "route":"wafer/us","provider":"Wafer","input":{"artist":"A","album":"B","tracks":["One"]},
+        "offlineHosted":{"promptPicoUsd":1,"completionPicoUsd":2,"catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")},
+        "offlineHttp":true,"offlineResponse":{"sha256":sha(raw),"status":429}});
+    let plan: RehearsalPlan = serde_json::from_value(value.clone()).unwrap();
+    let context = plan.context().unwrap();
+    assert_eq!(
+        context.binding()["offlineResponse"],
+        value["offlineResponse"]
+    );
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/response-fixtures")
+        .join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    let file = root.join("response-fixture.json");
+    std::fs::write(&file, raw).unwrap();
+    let source_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .canonicalize()
+        .unwrap();
+    let relative = file
+        .strip_prefix(&source_root)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let locks = json!([{"path":relative,"sha256":sha(raw)}]);
+    let fixture = plan.offline_response.as_ref().unwrap();
+    assert_eq!(
+        fixture
+            .read(&root.join("public-plan.json"), &locks, &source_root)
+            .unwrap(),
+        raw
+    );
+    assert!(fixture
+        .read(&root.join("public-plan.json"), &json!([]), &source_root)
+        .is_err());
+    let mut bad = locks.clone();
+    bad[0]["sha256"] = json!(sha(b"other"));
+    assert!(fixture
+        .read(&root.join("public-plan.json"), &bad, &source_root)
+        .is_err());
+    std::fs::write(&file, b"changed").unwrap();
+    assert!(fixture
+        .read(&root.join("public-plan.json"), &locks, &source_root)
+        .is_err());
+    std::fs::remove_file(&file).unwrap();
+    std::os::unix::fs::symlink(root.join("missing"), &file).unwrap();
+    assert!(fixture
+        .read(&root.join("public-plan.json"), &locks, &source_root)
+        .is_err());
+    std::fs::remove_file(&file).unwrap();
+    for (key, wrong) in [
+        ("status", json!(99)),
+        ("status", json!(600)),
+        ("status", json!(true)),
+        ("sha256", json!("bad")),
+        ("path", json!(".env.local")),
+    ] {
+        let mut changed = value.clone();
+        changed["offlineResponse"][key] = wrong;
+        assert!(serde_json::from_value::<RehearsalPlan>(changed)
+            .and_then(|p| p.context().map_err(serde::de::Error::custom))
+            .is_err());
+    }
+    value.as_object_mut().unwrap().remove("offlineHttp");
+    assert!(serde_json::from_value::<RehearsalPlan>(value)
+        .unwrap()
+        .context()
+        .is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 fn offline_http_fixture<'de, D: serde::Deserializer<'de>>(input: D) -> Result<bool, D::Error> {
     if bool::deserialize(input)? {
         Ok(true)
@@ -54,7 +199,15 @@ impl RehearsalPlan {
     }
     pub(crate) fn context(&self) -> Result<Rehearsal, String> {
         use ring::signature::{Ed25519KeyPair, KeyPair};
-        require(!self.offline_http || self.offline_hosted.is_some())?;
+        require(!self.native_prepared && (!self.offline_http || self.offline_hosted.is_some()))?;
+        if let Some(response) = &self.offline_response {
+            require(
+                self.offline_http
+                    && self.offline_hosted.is_some()
+                    && super::digest_valid(&response.sha256)
+                    && (100..=599).contains(&response.status),
+            )?;
+        }
         // Deliberately public fixture seed, independently selected natively.
         // Not read from the plan or approval and never real user trust.
         let seed = if self.offline_hosted.is_some() {
@@ -70,6 +223,7 @@ impl RehearsalPlan {
             )?;
             context.offline_fixture = true;
             context.offline_http = self.offline_http;
+            context.offline_response = self.offline_response.clone();
             return Ok(context);
         }
         Rehearsal::new(
@@ -95,6 +249,7 @@ pub(crate) struct Rehearsal {
     boundary: Option<Value>,
     offline_fixture: bool,
     pub(super) offline_http: bool,
+    pub(super) offline_response: Option<OfflineResponse>,
 }
 impl Rehearsal {
     pub(super) fn disabled_hosted(&self) -> bool {
@@ -130,6 +285,7 @@ impl Rehearsal {
             boundary: None,
             offline_fixture: false,
             offline_http: false,
+            offline_response: None,
         })
     }
     fn body(input: &GenreInput, model: &str, route: &str) -> Result<Vec<u8>, String> {
@@ -159,6 +315,9 @@ impl Rehearsal {
         }
         if self.offline_http {
             binding["offlineHttp"] = json!(true);
+        }
+        if let Some(response) = &self.offline_response {
+            binding["offlineResponse"] = serde_json::to_value(response).unwrap();
         }
         binding
     }
@@ -355,18 +514,22 @@ impl Approval {
         UnparsedPublicKey::new(&ED25519, key)
             .verify(&bytes, &self.signature)
             .map_err(|_| "mock_approval_signature_invalid")?;
-        let claims: Claims =
-            serde_json::from_value(self.payload.clone()).map_err(|_| "mock_approval_invalid")?;
-        let now = now()?;
-        require(
-            claims.version == 1
-                && claims.run_id == run.run_id
-                && Some(&claims.checkpoint) == run.checkpoint.as_ref()
-                && claims.scope_sha256 == sha(&serde_json::to_vec(&scope(run)).unwrap())
-                && uuid::Uuid::parse_str(&claims.nonce).is_ok()
-                && claims.expires_unix_seconds > now
-                && claims.expires_unix_seconds <= now.saturating_add(1800),
-        )?;
-        Ok(claims.expires_unix_seconds)
+        validate_claims(&self.payload, run)
     }
+}
+
+pub(super) fn validate_claims(payload: &Value, run: &super::Run) -> Result<u64, String> {
+    let claims: Claims =
+        serde_json::from_value(payload.clone()).map_err(|_| "mock_approval_invalid")?;
+    let now = now()?;
+    require(
+        claims.version == 1
+            && claims.run_id == run.run_id
+            && Some(&claims.checkpoint) == run.checkpoint.as_ref()
+            && claims.scope_sha256 == sha(&serde_json::to_vec(&scope(run)).unwrap())
+            && uuid::Uuid::parse_str(&claims.nonce).is_ok()
+            && claims.expires_unix_seconds > now
+            && claims.expires_unix_seconds <= now.saturating_add(1800),
+    )?;
+    Ok(claims.expires_unix_seconds)
 }

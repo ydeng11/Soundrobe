@@ -70,6 +70,123 @@ not response receipt or staging. TLS handshakes, external connectivity, real
 credential compatibility, production approval custody and provider billing
 remain untested. Component checks do not replace a fresh six-job rehearsal.
 
+## Rehearse a different public response
+
+An offline hosted HTTP plan can add `"offlineResponse": {"sha256": "<lowercase SHA-256>", "status": 200}`.
+The exact public bytes must be in `response-fixture.json` beside the plan,
+outside the new run directory. The driver adds this fixed sibling to the
+immutable source locks. Native bootstrap rejects missing, changed, oversized or
+symlinked input. The response remains bounded to 64 KiB. The option requires
+both `offlineHosted` and `offlineHttp: true`; it cannot select an external URL.
+
+The supervised auditor independently derives response validation, genre,
+confidence and usage from those bytes. Accepted genre must match worker
+provenance and media readback. Withheld results cannot invent assisted genre.
+Rejected or incomplete responses cannot pass the completed-rehearsal audit.
+Mock scores still grant zero grounded assistance credit. Historical fixed
+response modes retain their existing audit rules.
+
+A native-only `ApprovalVerifier` loader also checks an independently pinned,
+owner-only, single-link 32-byte public-key file and rejects known public fixture
+keys. A disposable random signer exercises Journal approval and replay denial.
+The loader does not provision a signer or activate requests. Hosted dispatch
+remains unconditionally disabled even after approval.
+
+## Native prepared bootstrap and owner approval — still disabled
+
+The test-build native broker recognizes a public `nativePrepared: true` selector.
+It cannot carry a verifier, signing key, trust-directory override or activation.
+It is incompatible with the public offline fixture options. Native bootstrap
+reads the current account owner's home from the account database, not `HOME`,
+then uses the fixed `.soundrobe/evaluation-approval/` directory. That canonical,
+same-owner directory must be owner-only. Tests use a disposable directory and
+random signing key; they do not access the provisioned private key.
+
+The fixed `prepared-bootstrap.json` file contains exactly `version: 1`,
+`planSha256`, `verifierSha256`, `credentialPath` and `pricing`. The plan digest
+is SHA-256 of the native `serde_json::to_vec(RehearsalPlan)` serialization,
+not a hash of arbitrary pretty-printed JSON. The verifier digest pins the fixed
+`approval-verifier.ed25519`; known public fixture keys are rejected. `pricing`
+uses the existing text-price evidence contract and the unchanged $5 allowance.
+The canonical `.env.local` parent must exist, but bootstrap does not open the
+credential file. No real bootstrap configuration or run approval is provisioned
+by these tests. This file is configuration, not user execution approval.
+
+Only a natively prepared broker can accept the exact owner command
+`{"op":"approve_owner_file"}`. It reads the fixed `prepared-approval.json`,
+then uses the maintained signature, scope, expiry, single-use and durable
+approval checks. The command accepts no path or key; it never signs. Native
+configuration, verifier and approval files are bounded, no-follow, same-owner,
+single-link regular files with no group/other permissions. Invalid ingress
+retains the existing terminal stop behavior. Custody assumes a trusted host;
+it does not isolate malicious same-user workers or prove power-loss durability.
+
+The public `testApproval` signer refuses native-prepared plans and disabled-hosted
+contexts without explicit fixture trust. Mock receipt validation also refuses
+native-prepared results. The independent mock auditor already rejects their
+additional plan field; it cannot certify them as a completed mock rehearsal.
+There is no automatic real-run signing path. A real owner signature can consume
+approval, but pinned HTTPS still returns `live_dispatch_disabled` before a
+reservation or credential read. Source bindings still record
+`liveDispatchAvailable: false` and `readyForExecution: false`.
+
+An explicit native owner-side `Journal::owner_approval` call now constructs the
+payload from the current frozen Journal, not caller-supplied JSON. It checks the
+owner handle, independently supplied expected checkpoint, native context, nonce
+and bounded expiry before loading fixed `approval-signing-key.pk8`. Its derived
+public key must match the separately pinned owner verifier. Bounded owner-only
+custody applies to the signer too; OpenSSL PKCS8 v1 and ring PKCS8 v2 are covered.
+Issuance returns a signature without changing the Journal or consuming approval.
+No broker IPC or launcher invokes this signer, and it publishes no owner file.
+
+The separate `owner_approval_audit` Python helper takes a frozen report, approval,
+raw public verifier, independently supplied verifier digest and verification
+time. It reconstructs the checkpoint and scope and verifies Ed25519 with local
+OpenSSL. It is not part of mock-success acceptance and does not establish human
+presence, execution, remote delivery or quality credit. Signature verification
+must not be treated as permission to enable dispatch.
+
+A separate explicit `Journal::publish_owner_approval` verifies the current frozen
+owner/context, checkpoint and already issued signature without opening a signer.
+On macOS it writes a unique owner-only temporary sibling, syncs it, uses native
+no-replace rename to fixed `prepared-approval.json`, syncs the directory and checks
+exact readback. Existing targets remain untouched, even with racing publishers.
+Pre-rename failure removes only its own temporary file. Post-rename failure is
+publication-unknown: the target remains and must not be automatically retried.
+Other platforms explicitly reject publication in this slice. Scoped evaluation
+processes also reject this owner-side writer before file creation; it cannot
+bypass their existing storage ledger. Owner-process publication is separately
+bounded to 8 KiB per approval, not a new whole-run fit measurement. A visible
+valid file is not proof that the publisher returned or that directory syncing
+completed; power-loss durability is not established.
+
+The exact owner-only `{"op":"owner_approval_status"}` operation checks the native
+monitor, admission stop latch, frozen context, custody and signature. Only an
+absent fixed file returns pending. Ready returns the current checkpoint and
+canonical approval hash, never a signature or authority to execute. Errors stop
+the run; consumed/stopped runs cannot remain ready. Status never signs or consumes.
+
+`approveFrozen` keeps public fixture signing separate. Native-prepared coordination
+checks the native remaining scope before each status observation and consumption,
+waits only for pending, consumes the fixed file once, then joins the durable report
+to the observed hash and unchanged frozen bindings/membership/preparations. It
+requires zero credential/model activity and retains only
+`owner-approval-coordination.json`, explicitly without success, quality, presence
+or live authority. RPC failures and ambiguous consumption are never retried.
+The launcher then deliberately stops at `native_prepared_execution_disabled`
+before pending executions. It omits the scripted-model fallback for native mode;
+public fixture behavior and historical mock-success rejection remain unchanged.
+
+The offline proof includes disposable keys, atomic publication/no-overwrite,
+actual broker pending/readiness/consumption and a Node-to-native coordinator
+component control. The component uses an explicitly labelled local remaining-scope
+seam, not a supervised native-clock or launcher-workload proof. No provisioned key,
+real credential or real-run signature is used. Trusted owner invocation,
+non-fixture final-response publication/complete auditing, credential compatibility,
+a fresh source-bound supervised rehearsal, pricing estimate and separately
+authorized activation remain unfinished. No prompt-preview requirement is
+reinstated by this work.
+
 ## Restore the expected directory layout
 
 The archived scripts deliberately retain their original relative paths. Do not

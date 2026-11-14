@@ -1,0 +1,1647 @@
+{
+  "version": 1,
+  "head": "8b4087b1ebb63b60450a8128b04e31ab44f8371a",
+  "branch": "artist-library-inventory",
+  "trackedChanged": [
+    "docs/CHANGELOG.md",
+    "scripts/auto-tag-eval-replay/README.md",
+    "scripts/auto-tag-eval-replay/audit-supervised.py",
+    "scripts/auto-tag-eval-replay/mock-authority.cjs",
+    "scripts/auto-tag-eval-replay/run-bounded.cjs",
+    "scripts/auto-tag-eval-replay/test_model_preflight.cjs",
+    "scripts/auto-tag-eval-replay/test_supervision.cjs",
+    "src-tauri/src/infra/mock_run_broker.rs",
+    "src-tauri/src/infra/mock_run_live_boundary.rs",
+    "src-tauri/src/infra/mock_run_policy.rs",
+    "src-tauri/src/infra/mock_run_transport.rs"
+  ],
+  "sources": [
+    {
+      "path": ".planning/plans/native-prepared-bootstrap-20261114.md",
+      "sha256": "084fa651fede20a0d11f864f4b6d454e7585398da5515695cbc377128b20627e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/.planning/plans/native-prepared-bootstrap-20261114.md"
+    },
+    {
+      "path": "docs/CHANGELOG.md",
+      "sha256": "02de0401ced3a91e3cc0fe832c20913d7bcc8df35afced4db94f4702d6a589fe",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/docs/CHANGELOG.md"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "3ddcfdecfaffba9070ecb1a09eb1342073d2b571e298dd2aa2f2269ba05a5865",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/package-lock.json"
+    },
+    {
+      "path": "package.json",
+      "sha256": "cc6dcb0ca95c080c90c8e1ce865286be527b13bcd4b65a5b4ad6cecd190ab3c8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/package.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/README.md",
+      "sha256": "c13dceafa3834b6f3df9ff653996d5c24d93e4c35743719bc0299fba4130d421",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/SHA256SUMS",
+      "sha256": "73d512a6cd4b7eaf253a76309b9e8f995e47957138ff815f3256da3eafad63bd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit-assisted.py",
+      "sha256": "d3099939d96a287c8f7409566975fd89bf91f7d73e3f9f91e51e854398d3dd24",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/audit-assisted.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit-safety.py",
+      "sha256": "6634e57acad0ef82c923357269d5a38b0251190dfbfa256f93fff1b2ffb16c96",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/audit-safety.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit-supervised.py",
+      "sha256": "6fcef99cac0f189252d5463ef861364751730e1cf030981218df94cb528bef2c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/audit-supervised.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/audit.py",
+      "sha256": "84ec123377b7c281821d336186b9b6360c20d7e2912b0fce226099b37c8beec5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/baseline-summary.json",
+      "sha256": "6dde12fe06ce3ec8f168d59d373e71b3bf452bc4167eb8176695f2738b91efb5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/baseline-summary.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/bounded-storage.cjs",
+      "sha256": "7fbebbe58429f5883b9a16cf937489ce6f9bccbb61c8fe37868caafefc10a4df",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/bounded-storage.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/check-mock-authority.cjs",
+      "sha256": "da8ac3059eeedf72870af2849ee12ee78c9c6f3df813d44f350a95e5c4776a18",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/check-mock-authority.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/check-supervision.cjs",
+      "sha256": "66e9a791f4edc553668f1268aad3ea5111cf1dd33f1af4defcf38c5aaf2945ae",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/check-supervision.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/README.md",
+      "sha256": "12a86025c0bca465cc0d647ddd49f91b24bce54e392de37a173869c4ffb6fee6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/README.md",
+      "sha256": "25e8f1fa879feba8432c3012285f61255f71c7e623ebbcd24382a8465ee0a8ed",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/SHA256SUMS",
+      "sha256": "71b9b00fc9703d081187bb25398bb126805e8740f5620161a7a4814afaa32222",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/cancel-manifest.json",
+      "sha256": "1c661889518cb6aa2cda29c07997f6db1ef4d808c934764399e940dbce4c1fe6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/cancel-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/genre-manifest.json",
+      "sha256": "a10370299c50d430efebfd2c17e0617f978390e91fd56b681da8154ced58df48",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/genre-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/hold-manifest.json",
+      "sha256": "77f57b57e623b660ec12e3fabae14b933f3c8fd94bf0d7b632bda20030b21be3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/hold-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/projection-controls.json",
+      "sha256": "d72f66df6dd93fad885179dd3edc8c051ee7486b7a68e9ca8bb350567d660967",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/projection-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/provider-manifest.json",
+      "sha256": "7c48bf48904145a19c445933c06142ca54d029798fae4b8d5a391cccaed657db",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/provider-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/requested-membership.json",
+      "sha256": "bf23ac8f8edf0f1fbb48a11d82af33b1a2d37ece8b40dce3f7e7f8169de59c59",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/requested-membership.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/selection-status.json",
+      "sha256": "1cb76c3bf015671078acc78e46f1fd7ce43a243dcf762aa3160eded78c5bd8a8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/selection-status.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/selection.json",
+      "sha256": "668bb7b94ba72806b5b8426113af825a22f3f2ed56d6e3db72de1aeb11e8436e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/selection.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/source-and-tool-locks.json",
+      "sha256": "09ab95d6b9b428dce73e574eca06e764ad6b2a5460ac8036d05ba6243d4f5abc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/source-and-tool-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/unknown-usage-manifest.json",
+      "sha256": "21d4993e6c2ab478ac621781c2c56c9638da86233b8f099c013894d65698110f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/unknown-usage-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/verification.json",
+      "sha256": "6e04f4926baa9e006b1a069e908f94b91aa0629124559f4f657c4544fb7a431f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/attempt7/verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/audit-complete-mock-run.py",
+      "sha256": "e532044d05740f754238212d03d8662bc0be239a253b3280b6f1c44c06fdce46",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/audit-complete-mock-run.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/copies.json",
+      "sha256": "27446dbfb6ea094527fa091e0251ceb894625545ac6acf7f7def3f79f4df2953",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/copies.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/delivery-validation.json",
+      "sha256": "3db444f4351523f286950162ae2bb61e45730f8c6f138f0ec01b6c50c72a4758",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/delivery-validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/blast-radius.json",
+      "sha256": "55e1676a3afbb4757e2914e841c9d5e3adcf6d247f8ebd6c1f993241616510c6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/blast-radius.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-configuration-locks.json",
+      "sha256": "215f29dbf1c9e3dc605b054ccd7132241f898cee5f8e45ff6196d01032c8b29d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-configuration-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-doctest-result.json",
+      "sha256": "a3b36272ebceb409bd56018b6cb5dbd9069fd683f2fe5d64cab3ae26e992bed6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-doctest-result.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-results.json",
+      "sha256": "78d3f1fe8624fd2986d6548f914706a722fd53d833e5dd2c9a17da9ea91fc9ee",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-results.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-seal.json",
+      "sha256": "b2ff98ddcd0cf44df90563f086a82429aabb79318e65e371b33a7e6699927f67",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-final-seal.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-ignored-tests.json",
+      "sha256": "ff2689d74357c09c7356965acf5e2a8912b6120239893cf59a5c1eac6be339ed",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-ignored-tests.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-loopback-only.sb",
+      "sha256": "cf35cca89f2e1b677995e788c0fe365bf627c641f260a3e4ea80cbde31a0c60e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-loopback-only.sb"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-network-preflight.json",
+      "sha256": "068e06acb98ee92096fa0a547362c1bd485bbd1a0cd4f0c4961ef1708e0f1d2a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-network-preflight.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-restoration-before.json",
+      "sha256": "21ab568d445d7a60d5cdd7360a74a957b432130e5344e959e056902cd1a9aaab",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-restoration-before.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-restoration-verification.json",
+      "sha256": "34cf7a4fc51366992e8a08f98f045cfc8dd22e4fb7c591214ea58f46183e24e0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-restoration-verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-verification.json",
+      "sha256": "d9e483bf739837dc56a327d6c706e56796096c508f17b95363de3b651d1b5b2e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/desktop-verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/final-source-locks.json",
+      "sha256": "669df3c5a264995c9a865b881ba1d31b0b07a3cf6ec88171f51ade73686fd9f6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/final-source-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-controls.json",
+      "sha256": "12a3f932c7c7404bdec1ea3ac83fb117afae25b39e3802fa8b263d81592006cb",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-green.patch.json",
+      "sha256": "7b79fe5e8325f868770cb9a8920bfcbbf4beaef6087055292951fa8934695bea",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-green.patch.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-red-seal.json",
+      "sha256": "45d11524a24709d1d637fe84cd533313b53ea98fa97bb0e786261ee4e6bd79d1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-red-seal.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-red.patch.json",
+      "sha256": "c517756f84b97e63b7bc03b74f71f4c04469510f1f9cdeff5581e36ee8d7b545",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/fixture-red.patch.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/ignored-tests.json",
+      "sha256": "d53b7459e5d90ccff311f52b46c8e80af17df1a5ba8e47c47339945fc67d9220",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/ignored-tests.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/initial-identity-verification.json",
+      "sha256": "ded055e2d8738eec7c06ff1319d5bd4a6fba8efc3b5d7b4f9b57b69dd773e7aa",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/initial-identity-verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/original-discrepancy-matrix-desktop-completed.json",
+      "sha256": "c54d2bb2616a2fe8e7cdaddf1878be5b8371361cd7d32d68f4d7c54e765ebd0b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/original-discrepancy-matrix-desktop-completed.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/original-discrepancy-matrix.json",
+      "sha256": "02a70f6ff654b24ac3b3a3ebfdeff386bb387e552b1df2c80760c854f4f22f36",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/original-discrepancy-matrix.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/runtime.json",
+      "sha256": "d4259400aeec1d562ddd44362e30f1d42ff563309f101f9ab0c56d90358ed436",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/runtime.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/server-final-results.json",
+      "sha256": "b4569800f80de4f446905549d1dde06ebc9eb0258666823f918bb2407a578b44",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/server-final-results.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/server-final-seal.json",
+      "sha256": "f94481cdcb5b7793194cd25731aa8312c3df5cf919a876b1588438c133919bc5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/server-final-seal.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/verification.json",
+      "sha256": "1eb4b935d24ab097e60aef2c71ff4d2e09ecf32e9c7e7543a0be769769e94abc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/gates/verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/validate-native-projection.py",
+      "sha256": "c45ce4f78de7242c19b4ba222265fffee8a5edbedab1d65c0f0393581ce32bd3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-assistance/validate-native-projection.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/README.md",
+      "sha256": "eb2b93cb135606e6648d7623b5bc87072f1fa3b680de6a3aac5d704585937a1c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/SHA256SUMS",
+      "sha256": "c53cae88d52a9145e814990e73390790db9aa326da1b4096f49dd7be6db29ca4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/audit.json",
+      "sha256": "8e4ad8faf3251098b29e0adef73c91dd1ea111919a8dc8e46370eaf8c3c06672",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/audit.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/bindings.json",
+      "sha256": "5d128aa792bd30391a28d7a5e75e6bb29246f50218cdf8c680349fe5f4a38740",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/launcher-outcome.json",
+      "sha256": "77b6580f0efe7e490c2b0cd371bb9f0a67cce36b1ec7a4f5aec8f4db202cc28f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/process-controls.json",
+      "sha256": "01b1f5e880f6bc471cf273665f0caa35b5933afeb1cd448b3d6ba94614658c47",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/process-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/receiver-outcome.json",
+      "sha256": "fa74862c368f98319e1c129b9abae1bab5b33a90c5f11ef21a41150487b4bcb5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/source-and-tool-locks.json",
+      "sha256": "f9342726705a2d6b40876977050bb3be664e2bd9064f995049f128463c8a9529",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/source-and-tool-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/validation.json",
+      "sha256": "5a0715c5d0741a549e0da26b88df4cca13fc346866964d7dc2b68861f5175876",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-provider-reuse/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/README.md",
+      "sha256": "e7efbd62a07188d82ced6eeef75fc86e051bbbfcc7fcb973c7f613e8507eb49c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/SHA256SUMS",
+      "sha256": "c1b07c37ce10c267353aadaf69f236d6f66ca2b9fc504727a87a9ebf7d2014f1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/audit172.json",
+      "sha256": "3039e500fa33b83c71233fe0d46249ead20a5ac540a50d0443e1f393eddab427",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/audit172.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/bindings.json",
+      "sha256": "3143840ea3e64614dcf9f2e5ced4d3a9f1373f0e47a5560fffc069317826d1cf",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/launcher-outcome.json",
+      "sha256": "4a4e5fdd2f42c5f1509e17131b49fa7766b4163820f86118073750ac336de943",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/process-dispositions173.json",
+      "sha256": "b883c62cf30e4a074f04a64db505e7a64e296189819785e467eca640f8e9ce63",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/process-dispositions173.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/receiver-outcome.json",
+      "sha256": "122c42324e0590f78a971db85945b475856398769a4215f4c536c272bed15a98",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/review.md",
+      "sha256": "24963ebd2ee14d7d0fede028e8ade0438d98a01a3b125d6343ff56eaa2d3e564",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/review.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/bounded-storage/validation.json",
+      "sha256": "db336cd1b24d9c7c5c0b5fb48e4166183155b608e247888f8a3ec6b1579a6963",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/bounded-storage/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-preceding.py",
+      "sha256": "2934fe08ed05bb3594bc52dedd7f13a44aa4ea8c17df3b83c0200abff96052d4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-preceding.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-v2.py",
+      "sha256": "167b09f3e2ca3d69c9f87cfde6a06dfe47fe3a96369dbf42f22482447072411e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-v2.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-v3.py",
+      "sha256": "85224ab05eecb55a505990f23ae6d540f7ddd6aaabe2399d816c561397bf83dc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare-v3.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare.py",
+      "sha256": "31122fedd83ea01b3780890e1066606e9c10da9b90a260d6dadb64dc29f363ff",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/compare.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/field-audit.py",
+      "sha256": "9027461eae21a625edffd08eea63bfd22c00dc54f1848b52ded84bff5cc28899",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/field-audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/field-contract.json",
+      "sha256": "4d498f2160a85d9df65a1d7845836c9758581fceb276d7b58f97b8f97702788a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/field-contract.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/preservation-audit.py",
+      "sha256": "fd1bc50d21457bb7392960d94424a35049f86350ccdc749327da9c9c460c0d9e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/preservation-audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/receipt-audit.py",
+      "sha256": "51d6e739ff8051efb209209065c75d9ad935b5f4d25562b3b5dba31de6d59fd3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/receipt-audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison.py",
+      "sha256": "b5f6d99976c84e7541bcb94fa0256f796ae2309e60f206293791d370a6f13163",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison_v2.py",
+      "sha256": "969a4d7392a8174db7eb5f14529c106e197b64c813b01d201d8e157b4ab225b8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison_v2.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison_v3.py",
+      "sha256": "083ffdef280015d3d7eb3d2eec52b4d6a50b560bd1e4d93222cdf71666c95721",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_comparison_v3.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_field_audit.py",
+      "sha256": "c9f82ac06a443ea3df2257f921ada8c64c890df534686da023eba847165b83a9",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_field_audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_preceding_comparison.py",
+      "sha256": "05061488adbf37248d43e89fa8faf8009330c217c033a930aff4a94724b59f55",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_preceding_comparison.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_preservation_audit.py",
+      "sha256": "95347c491b95672dd3992f308d991eed8ca813dc8e1724b9a68e1c33b4b6b8dd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_preservation_audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_receipt_audit.py",
+      "sha256": "56c69ae6509ae91ba7d52dd51b4d0bc2a061abc476ead8c5a28ff448eceac49c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/content-preservation/test_receipt_audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/copies.json",
+      "sha256": "552ebd9b2e93fc7cf744c692fdbed2f1dc0634d2e8277208481bb622d0f9efd8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/copies.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/export-comparison/compare.py",
+      "sha256": "bb694268237e18cd5a5c87d26e8ba7ac4e23b9791cd02da09a8054d59a31d3a1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/export-comparison/compare.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/audit.py",
+      "sha256": "293d88943d7cacca204050e2c1847956385aaccf0beda7094cef35e7926c9cc4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/construction-diff.py",
+      "sha256": "e1f68e630ee2607abfcf9f7f869f9d96adbcea59c28dab632c90a2e40800856c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/construction-diff.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/exchange-summary.py",
+      "sha256": "36e91cab5f9c19f529e7e07b401f84cb72b401e34bc45b937d462bbfaadad6fa",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/exchange-summary.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/freeze.py",
+      "sha256": "0196c91d2f2e56440b28fca1113c82a7716f7b7aca664cd6f5ad849e1cc74a09",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/freeze.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/paired-hashes.py",
+      "sha256": "0440ca340b275064e6e0df6196025d97f66ad8db0e2be0cdf9c4c78931012c5b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/paired-hashes.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/run.cjs",
+      "sha256": "47f5571355ae9041a19d09a5e6f21682211fdb26d0e0a1724e3d6d9eb34f6127",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/run.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/selection-v1.json",
+      "sha256": "f813feff8e3c6e899c3f3b5230bc0977893a2185e9a36c8f2017ba5d29af31a8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/selection-v1.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/supplement.py",
+      "sha256": "6506b57673b6887118596c22c2de47c7c1559433df22d95fbe41e8b76000c270",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/supplement.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-gaps/test-audit.py",
+      "sha256": "1b1aa0d93c9a7d4244a2ff588a9e6d75cbc5b9e2a8a4daeba90a8912b43c0d33",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-gaps/test-audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/contract-correction.json",
+      "sha256": "fd1f214245afa9fdb8036347924906f6332f67df8b87b12060e84962f1b74a3a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/contract-correction.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/prepare-correction.py",
+      "sha256": "dd6338388440b31932e86fd691f81963d78bc19766a19a090b9f77d1fd968f66",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/prepare-correction.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/test-contract.py",
+      "sha256": "b322f36fe828e5d332cb37ec67d6daffbf85d3fe6417f4eeac095aafe629ccb9",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/genre-routing-v2/test-contract.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/independent-review/evidence-locks.json",
+      "sha256": "92b4eee868cd891281599bbf4a5da3dc89ce6ebee326e9c78895353301d72575",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/independent-review/evidence-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/independent-review/extract-evidence.py",
+      "sha256": "5b6840f72d60d5b8a9f5d9d1e5810949265cf1645ee8fac12c45a99918685ca3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/independent-review/extract-evidence.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/independent-review/review-receipt.json",
+      "sha256": "d4e92139520c0fb5f7f11be092e0957354af48bd3806587c30f22df091b55d77",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/independent-review/review-receipt.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/README.md",
+      "sha256": "5b55c22a9098ad4c8405661f1992a25a48a52b812269d5a910e4276e3106680b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/SHA256SUMS",
+      "sha256": "099a9e4097ddf52df861f3d3fb3c53a7a24c5335efc158d2ea866244e68a15aa",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/approval-scope.json",
+      "sha256": "be4d48580eaa1799565fa57bfa6d944fd6bd80f1308e1c7111d5eb4c5ec3c933",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/approval-scope.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/audit70.json",
+      "sha256": "1863fcd5dfab5bb1ad631873de1d0a76783c09936994b42410e348518f59ee88",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/audit70.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/bindings.json",
+      "sha256": "78648afbde07953594274ab28f7fc0a2633caa34373ed783e4f3e95840f6684f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/delivery77.md",
+      "sha256": "383df7792b8ff354dbd226e9524728c587ec8b68d725d23f0a48ab796e6efe0d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/delivery77.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/delivery80.json",
+      "sha256": "41692ca7af714a7da06a0fd5a5ba6fb650df34701974a90cbd6d30fbce0bb3ff",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/delivery80.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/launcher-outcome.json",
+      "sha256": "e4317c8b37b70df3a45d0014dbb0c378cd44683aca9f4705d2b8da89bac1054d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/privacy71.json",
+      "sha256": "6b7c5079bf3698671ed117e7801232f0749186c916e01285035db9becee2f7b8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/privacy71.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/receiver-outcome.json",
+      "sha256": "92c183f489b93118662a0264744ee98c47121b46997e52cb281ad444ed2dc1bb",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/review.md",
+      "sha256": "9ce6d513e1c17a78ddfb334ea44e0b0267412c14fc657dfba6be53d4382d93fd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/review.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/source-and-tool-locks.json",
+      "sha256": "17a41f8afbdb4a73ad49833bbd1aa0b3ef45fcc6d8c85bd7326b4ac16b142faa",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/source-and-tool-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/source66.json",
+      "sha256": "4012cf8927b4045926864b8fe428c627b17c1aaff2610f83ace9de747059e4b7",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/source66.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/test-fixture-approval.json",
+      "sha256": "3344a94da547878f94a5c72452a8dab97e9f35c22dcb6aa440b25803d410f3b3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/test-fixture-approval.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/validation.json",
+      "sha256": "0a5ef461969cab4cc390342613b6aead0e91391101a396602f0829156de2efe9",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/mock-safeguards/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/README.md",
+      "sha256": "cde05e797891e7393bc384eec466458fab9914b3c701b73721bb04e17dfa8ab0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/SHA256SUMS",
+      "sha256": "256ef6875b55911c5eb0547256b63a8a1a94543992cd24f0748992039d7c5b70",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/audit.json",
+      "sha256": "fa47e9a1889b8e91062d3332417e767f6fa30631977c9e039481c72dbd1d21e4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/audit.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/bindings.json",
+      "sha256": "718790dabed075d8ce1ce3e86cba94b2a1077a97e115aa26f566d0791b3063f1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/evidence-bindings.json",
+      "sha256": "a93a3c96f3f590dabedbe0f6d45771603d34b587df3bf29ec41621a8a1a86106",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/evidence-bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/incomplete-audit.json",
+      "sha256": "143eacde094803bd6d1556e779eda30900eedd99c066dc951fb95321921bfd61",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/incomplete-audit.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/incomplete-launcher-outcome.json",
+      "sha256": "0ca85768328e3e70fe280fe2ea81e13c4aeb0c2fa9f540c61040235dce03586c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/incomplete-launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/join-controls.json",
+      "sha256": "13a0aac0bb91491d2e2e9c5ea3f43cb6238f474309a8f0ed67a4faa190f40006",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/join-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/launcher-outcome.json",
+      "sha256": "0b48fc153f71ad7610c12dcea45c841a8eaf9203bcd3747cacd892aa093c25f3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/privacy-dependency.json",
+      "sha256": "efe13c4392aca9b977a2d8bfe8e5def48eb315702013cc9c626871d43bbc8dc9",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/privacy-dependency.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/privacy.json",
+      "sha256": "935787db3d5ef9ba051b627cda9b86ca2934411d49861f9d3030d31f8d5684c1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/privacy.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/public-plan.json",
+      "sha256": "208a832bc5ded08de895e48d7fe9178081ae51a68debd4aa7ba33c73d1850370",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/public-plan.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/receiver-outcome.json",
+      "sha256": "a6eb6ec36bacdbdd85ae50b941cfa8c96dc3d49d0b7e0fc34cac780fc8c95743",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/retention-evidence.json",
+      "sha256": "28a46056e913a17ac293b487b222517cba5f3a9128510cb76f9abe8ab9d02d1b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/retention-evidence.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/settlement.json",
+      "sha256": "16cc0cb5eafcabd6603a09102592af1bfc872c7640a6b9a60ebed02e66fe2418",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/settlement.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/source-and-tool-locks.json",
+      "sha256": "4d75ac1e52b792e66b7354ddbeabfbe42a98400f2405350d8c2043dda4d5fe2b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/source-and-tool-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/source-manifest.json",
+      "sha256": "fedb35f51e959cdaf5be973b0fffb257f464443acf14770d35a6c8ae5d0b51eb",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/source-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/test-fixture-approval.json",
+      "sha256": "8bfd0f3126350ad45e7c124fae1cfed75a046ac90321b640162bd16266014e55",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/test-fixture-approval.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/validation.json",
+      "sha256": "80e9c2e58634bf81b714d461454db71aab04b2d2e64785373e8be517a1021b2a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/verification.json",
+      "sha256": "1156045197f9984740eba9bd796d1fd1f7f77f24398b726270c50446f93e6c51",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-hosted-bootstrap/verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/README.md",
+      "sha256": "fbd46742c75f2087292c43c8fcd9d0a310e055a72ff0c310e0dfa8fed713f390",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/SHA256SUMS",
+      "sha256": "0b14d1da717720a01e08228a44abe8e158f65303da51a8d73b85cb68977c538b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/audio-investigation.json",
+      "sha256": "c86ee72ff54a0db8df8fcc4f15bab84521fbb9ccc5e57cc524996f5b435e091b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/audio-investigation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/audit.json",
+      "sha256": "732af0b0309024e19131b7b7c28c85d5d3949e934a3bc984bf43c66f3af843fa",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/audit.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/bindings.json",
+      "sha256": "8bdad9016380e0cf0dd96717274331ecb184be8d8e69313fa94dcbe6fe8f6fd1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/checkpoint.json",
+      "sha256": "76d9e2015ba204620e887189e29df35a53d937e9e380c654f09ba30dbd772ae0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/checkpoint.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/journal-page-diagnostic.json",
+      "sha256": "43f0ee82e08b63f98f4a6609fac6c13a5031f19fdefdc41cd4c19287a8afc4ec",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/journal-page-diagnostic.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/launcher-outcome.json",
+      "sha256": "e56d4a629ca3a009251572e752e70b998b8a3b9fbe8c1a60b59ed290519ada8d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/native-http-joins.json",
+      "sha256": "8bd287a4782233c8fe22434f98086a43ea802a1cb63caf7d341a61cc38389140",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/native-http-joins.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/prior-process-dispositions.json",
+      "sha256": "2e7832246eddd42661427d3459ba525e42e1bd18fc141992dee2af1314ffa0de",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/prior-process-dispositions.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/privacy.json",
+      "sha256": "4c0fd7966db42ddaf886787232186ddd8a9d15e7b135bf11773722973215ec68",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/privacy.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/public-plan.json",
+      "sha256": "5c4b47e5786b25961d1e4907642ab67a4e3977bc95b5301aa21ecdcdc2c646a2",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/public-plan.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/receiver-outcome.json",
+      "sha256": "6d6baeefa24b6dae3b99dc28329156cb88dce3be157eef5f60c9b8616ea503f5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/repeat-verification.json",
+      "sha256": "c86fbd3546a1605f18cef2432bf72652fd345cdd212960ff3ff1b08c2441277e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/repeat-verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/retained-join-controls.json",
+      "sha256": "f879db6b732b418c6802920b13e9d9aed68eb007512fceacd8381930defb7b7c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/retained-join-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/scope-bindings.json",
+      "sha256": "a527867da318090311a695921526103433ec1f47e1e2887a0bccbc28c29b1c50",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/scope-bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/source-manifest.json",
+      "sha256": "242956fcc7c31f43049b93df39bd1df52ec5df80ca51f21ac3edb21443b24915",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/source-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/validation.json",
+      "sha256": "7ba7b9587eee617f926479bfce8f13171fc2575b00a57f191ac2eacba0474613",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/verification.json",
+      "sha256": "d5c76e1114d17987b1c8e99e8b6e2a6cd1b2d01bbceee4464100fc6a5b537df8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/workload-notes.md",
+      "sha256": "49f54c63e8e0bc27c4d5a6800ac18f977057a6c720a8ae2e34bc2354f7707e2f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/offline-http-integration/workload-notes.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/README.md",
+      "sha256": "92089543c7bf05e93ce0e51f0e6f6995366fc9c2a3c784a8ce3f2d650249cac5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/SHA256SUMS",
+      "sha256": "c74d906ceebefc3eb0f02209e165c1a09db2c1d0c627aa5c2f1e38d228f56769",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/SHA256SUMS"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/audit.json",
+      "sha256": "3312bf241ac0411f0c2c4398bd947902abf2788516003c16bf2e3f598d0a4883",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/audit.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/bindings.json",
+      "sha256": "702b59ea47771b9a06d1cfcbf0ec1e1362fba083c22c2ad0237b686819909053",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/evidence-bindings.json",
+      "sha256": "8941ed300b10e0a3873d149cd9063d09ee3a881009fb66d91e83efcbec9762e0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/evidence-bindings.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/join-controls.json",
+      "sha256": "c6e8759863e274bf98b82310746eab6c2cebc9386c81ca9a0362cbaf4e625c3c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/join-controls.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/launcher-outcome.json",
+      "sha256": "282d995773287ff3a7b0c9df3e6472024cd4c2fafa1f503ae296ace8fc72c68e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/launcher-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/native-plan.json",
+      "sha256": "07264aadfd76479b3a54c7e928b9b29d8f500edb2636f3f4b8ab611f78b7df1f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/native-plan.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/preflight.json",
+      "sha256": "66da0886462b791955e73ca6b20a2abc6245891d66fab6c50a88f1ee5e9a4e1f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/preflight.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/privacy.json",
+      "sha256": "e2bcb2d5ceabcf677536912026f7c9413b670ea8667c47395c088d74b32a5d7a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/privacy.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/public-plan.json",
+      "sha256": "15ab9dac39d513cbed743a68139cf1765f116192ee2c358c83e8e1a1befacb32",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/public-plan.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/receiver-outcome.json",
+      "sha256": "87bb2d9c96d4a201ef6c3e7106b57e30b6a7f8ab9cbfd0a46d058e43ab29a66f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/receiver-outcome.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/source-and-tool-locks.json",
+      "sha256": "8e38e7b6a6d64a8b14c685f5f0498dd9041a0b9cb82a79f15dd67ead942d25d9",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/source-and-tool-locks.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/source-manifest.json",
+      "sha256": "a8b09cb8029dafb1cac84a75ed05d35aa271299b9dcaee77854656b197b58a40",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/source-manifest.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/test-fixture-approval.json",
+      "sha256": "8a14c5eb6e92766b89e51987becf0641a41fcaf7ad85ee6b1af2d92e477f1a41",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/test-fixture-approval.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/validation.json",
+      "sha256": "9d9bb7586e7cf58703b4032faa6270483c22ba1da0a09bf9507d4f7dd414459c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/validation.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/verification.json",
+      "sha256": "d11ffe23ab303cbd8eb4e8f296bfb1117024ed3af9efb6d61b7a94cb22b1c789",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/prepared-model-rehearsal/verification.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/README.md",
+      "sha256": "27a69a888b08ef3d444849211ddf90a56dea65707a6333f83858da67f9fd2c92",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/compare.py",
+      "sha256": "037207d1ebaabfbf5dc355635c772ba175328b284a16aa60d9e8684a64e99d69",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/compare.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/evidence-summary.json",
+      "sha256": "43e763e80688f4e80142b402a8825fbd567562c18d774464d35d6a65184407d0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/evidence-summary.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/independent-spec-review.md",
+      "sha256": "397b749c204134e6c4e7deedc09e4344b8feaef9b11614dfa044c6b22ef73055",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/independent-spec-review.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/selection.json",
+      "sha256": "52d64d85af711939abfbf83f6a3a8e257849680f0592863820f37b45ac94e852",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/selection.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/test_comparison.py",
+      "sha256": "35f9045552af3fd58050849e57d2501c4912ecdbd4336462eaaa6f6107622f07",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/primary-artist-retention/test_comparison.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/README.md",
+      "sha256": "cb2092aa1238977dcb3bffe971b8174d527a6dce58fa5464b0bb536a55e0a0d7",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/README.md"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/audit.py",
+      "sha256": "074bbc3bd8cf244bf2bb1127806b08bf8c4056f872e65dae10d4fd1f484944e3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/compare.py",
+      "sha256": "044c1830572818a2b6d303eb1248131a5eb65e928bee8dd8c509bda3e1ab4010",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/compare.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/evidence-summary.json",
+      "sha256": "88b2b31f0d89cab0b3149fde83467682ebb59ad6f124edf8f818983a3ab292e5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/evidence-summary.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/guard-review.json",
+      "sha256": "dc817b7ab0636ecbd22c8744d97fd7891afd0f7eb197b6d816338c83ba348ecb",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/guard-review.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/selection.json",
+      "sha256": "52d64d85af711939abfbf83f6a3a8e257849680f0592863820f37b45ac94e852",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/selection.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/source-lock.json",
+      "sha256": "2c3d281fbf25b449ad9f6b37da0ab727db87a4f4b12accc3b68ef8144301fd90",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/source-lock.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py",
+      "sha256": "26fcb0555a04ca5a8f777cf11416c88c5be59d29ba8224991c91b2f46e7d9e77",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/checkpoints/runtime-artist-diagnostic/test_comparison.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/compare-safety.py",
+      "sha256": "f8b63f1340d64a353ce4f2c6034adc70ea64d753bd2c599d519b1d00df65b9d1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/compare-safety.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/export-evidence.py",
+      "sha256": "91cefad3c1d780d65d3468f359ce2c3cb95d92fd8bf67d6b3301689ee73d04ad",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/export-evidence.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/finalization-control.cjs",
+      "sha256": "bd05eda4eb1cae067b57e526e7b1e8c330da09322814c2e7f3d1a84011b99c25",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/finalization-control.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/mock-authority.cjs",
+      "sha256": "dd5f9e10ea4cb8d04fd8a43ec8ad5df9b59f384ee3d91299fda697175b188d7e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/mock-authority.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/preflight-model.cjs",
+      "sha256": "9224b9154c68855240ab6f3250aa4fbad8f7f3158d8740ed00359716512bdb0e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/preflight-model.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-assisted.cjs",
+      "sha256": "7bdad364c361da82ca544af58fa1148cff1cdd09e834a3034fbd1f96c3f429e4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-assisted.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-bounded.cjs",
+      "sha256": "0f3f7386758bc98fbe60a2dd51bc4a632b8d0cdd06eecf6eb87cd2204ef57938",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-bounded.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-native.cjs",
+      "sha256": "9f00dde47fe7395a052b4e53792da534e78790ddef1dca54ee024fdc25ce6f40",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-native.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-rehearsal.cjs",
+      "sha256": "5fc62392fe2bac4d1f028e5e04b5be0330e56767861ce5d4e20fad169d2a5bdd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-rehearsal.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-safety.cjs",
+      "sha256": "68531dcbc4527426552541eb8f251b0cc4f1bf6db15ae8b692c1406b0150d4f2",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-safety.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/run-supervised.cjs",
+      "sha256": "f87fc56b0d086bfb45b83d018b1a656995fb6d1fef411bcee0c8480bc521150f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/run-supervised.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/safety-model-inputs.json",
+      "sha256": "3e1654a2325bf97eb10ab183fce4ac25e2536ba25b894703ccd14bae161798d2",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/safety-model-inputs.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/safety-negative-queries.json",
+      "sha256": "7ebe5611338d2eca9e90cb239ceb7e65205f7c5a344fb067ef96ace014ac4057",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/safety-negative-queries.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/safety-selection-provider-first-v2.json",
+      "sha256": "26312541bf9405f8186466c86aea24a3621a993f884c85f1a6280a93d61fcf63",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/safety-selection-provider-first-v2.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/safety-selection-provider-first-v3.json",
+      "sha256": "315f087a1b791cfb628419436632b7c72c283898478ed2b8421811fc541ff786",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/safety-selection-provider-first-v3.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/safety-selection.json",
+      "sha256": "9adc0b2373eee6245c16d54411777f7c61d7348f7f36296bda7f0313c0022001",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/safety-selection.json"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/score-best-aligned.py",
+      "sha256": "121e22d4ed75a887e06be6ad2b4f5280df7d6a349b298a9c5dc85b39832e303b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/score-best-aligned.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/score-observations.py",
+      "sha256": "8c117a33084ee3df9caf9b4180be61d5865e21063014df13edb01dee37e6f4f2",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/score-observations.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_evidence_export.py",
+      "sha256": "25e0ef0c0f2c1070e3f97beed78a45d95aadd9174d949f4d3efd7f1f3764e45b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_evidence_export.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_model_preflight.cjs",
+      "sha256": "54258e20d70ec0dfaef219bc00466b7bd68cc48e402246bd623661aed65e1995",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_model_preflight.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_observation_scoring.py",
+      "sha256": "8c8381a2dda780b32046d364473b8b5256bb8afb4903ceeeba5a3b7261056896",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_observation_scoring.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_rehearsal.cjs",
+      "sha256": "2215874e24e02405efe99d4e973c0148846ffbe650535e1865cd4a6a3e1a6e33",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_rehearsal.cjs"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_safety_audit.py",
+      "sha256": "d6d04d259597aadb558199e7292debf8594d0d168becbad0f378d750b4e27baf",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_safety_audit.py"
+    },
+    {
+      "path": "scripts/auto-tag-eval-replay/test_supervision.cjs",
+      "sha256": "fa4977536ad9791fa890db5148d8d6b553c1802cff6f4e1c3d185c419a585310",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/auto-tag-eval-replay/test_supervision.cjs"
+    },
+    {
+      "path": "scripts/mock-provider-service.cjs",
+      "sha256": "9c9e86d34881d1bc0b4a08d279593233ebe8cd3746ba2296a3f88fef9c962db3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/scripts/mock-provider-service.cjs"
+    },
+    {
+      "path": "src-tauri/Cargo.lock",
+      "sha256": "556e3d21480206cde561e32acd91aeffd8aaa060a559a453975a36b20cdf147e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/Cargo.lock"
+    },
+    {
+      "path": "src-tauri/Cargo.toml",
+      "sha256": "dbad4bdcea3baf86032d00b2bb4991cf640c954f3e71fff0ea0b0b858a07c154",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/Cargo.toml"
+    },
+    {
+      "path": "src-tauri/build.rs",
+      "sha256": "4379ba89924184a9a57d189938af36565f876df56bc4edcca39fc5a2bd282e8a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/build.rs"
+    },
+    {
+      "path": "src-tauri/src/bin/soundrobe-inventory.rs",
+      "sha256": "e58557dbf7687c2fc5699be98fdf0bc93826724ca6997398a69262ae5b949378",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/bin/soundrobe-inventory.rs"
+    },
+    {
+      "path": "src-tauri/src/bin/soundrobe-server.rs",
+      "sha256": "5d04e000ad3245bee456cb5e6b2b5d124b1ef142502b9a5af7aeedb3ea4718b1",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/bin/soundrobe-server.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/album_search.rs",
+      "sha256": "28d21abb81fd8d4cfe0eb9c08d5a1e372dc65a349815cf609ae3f5a50adfb91a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/album_search.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/artist_inventory.rs",
+      "sha256": "aced4da072b4b87c2f793658238f92230184adc52f4280baf9f379a27aa77d85",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/artist_inventory.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/artist_inventory/recovery_preview.rs",
+      "sha256": "e81b196b51eec3fcb611cb18891174ac95992ccc246bbfeb746070f87948e129",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/artist_inventory/recovery_preview.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/artist_inventory/recovery_preview_tests.rs",
+      "sha256": "5c1a0551c0ed2a382d72a21c89248677356fc06691e96cce9a70018645108400",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/artist_inventory/recovery_preview_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/assistant.rs",
+      "sha256": "cb0313d57108ffd35e3c22ad94996702a596c70afb4b1db1522529f4104b43a3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/assistant.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/assistant_intent.rs",
+      "sha256": "1391c42cf3cf5ec7dbe736234e43732710129f29cd059c451afd645a9554a4c8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/assistant_intent.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/assistant_metadata_tools.rs",
+      "sha256": "af5d57f1f9fc0e838fca5bfb66cce56409610b2a6c2c79fab9866e164d2a5396",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/assistant_metadata_tools.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/assistant_tools.rs",
+      "sha256": "3397e54bc8ffee2be500ad1d7a5f10e39dbb591f470631b2077c80c127d97909",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/assistant_tools.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/audit.rs",
+      "sha256": "66bb916bebd439b4bdbf3667efcb29642d454ce6491b70c261424854317ff260",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/audit.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag.rs",
+      "sha256": "0befa3ffdbbc75e63b1ad9d747d2d6950713ee5cbea20dfce47a078e68952f4a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_acoustid.rs",
+      "sha256": "4f891165ef3c71de0f5d068e2ab1328f790c4ac7c43aba43b662c10012995bf8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_acoustid.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_benchmark.rs",
+      "sha256": "1ce45de563e4fbd52144bdb4029bc4f27f452f3b47516e75bad9c25bfa6de070",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_benchmark.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_collections_tests.rs",
+      "sha256": "459f25df50c6f2b68eac151ea1349b08ec0526da285e9eb0708f178f39ae0ab6",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_collections_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_coverage_v3_tests.rs",
+      "sha256": "e524561089d07f49884898fa60ac6251fd8776ae4313e1ef1efbd94add34e20d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_coverage_v3_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_duplicates_tests.rs",
+      "sha256": "cab12347ca0f1395ed4099869ba9ca24c0758b71957253041c97ff9cbf1dde0f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_duplicates_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_editions.rs",
+      "sha256": "c1b368886b506da2f00698d01b9827d218f27a840a3351a74f82da88eecd7988",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_editions.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_editions_tests.rs",
+      "sha256": "9719bfecd2f8693e98e80675237a7770862b838acced908eb6f8f88a9e3d923d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_editions_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_enya_smoke_tests.rs",
+      "sha256": "dba4213198c737417f2856b0baad04d5bbdda5d0cad2eebc3c1d99ac22393000",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_enya_smoke_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_eval.rs",
+      "sha256": "6662edade4719694a29a82342593ed6aa22e9bfe01b02a84075abde1d56de1d3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_eval.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_evidence.rs",
+      "sha256": "74ae2874ecd63306eb2762a9fa88eb18009bd948cafe61f384bd47583a774731",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_evidence.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_relapse_tests.rs",
+      "sha256": "ca038838905531f046c3e9ac0be8c3547ad9ae5615eeaab9d1a88d4c428a5049",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_relapse_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_review.rs",
+      "sha256": "9c6bf630c98c9b00d5234b32b8ca118ebd4e3d8fba04b1dd6100583bc02f6a6d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_review.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/auto_tag_track_core_tests.rs",
+      "sha256": "7316b615b34eb34256a1a7c54c0238b86b5d00885ee34252b7145c3d72bfb80c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/auto_tag_track_core_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/configuration.rs",
+      "sha256": "33de7184de13ef0519639cfd52be87814386d5a2e97a986c4bba12cc86f9cfb5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/configuration.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/conversation.rs",
+      "sha256": "46e508cbd85d3752842778356cfc4c815da69b8ce02829647081291c79b8da73",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/conversation.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/covers.rs",
+      "sha256": "13ed3ced9ec2fee3b95d19e0bd7e22c6b2263f6a508cff972c003261b67ec16b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/covers.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/dataset.rs",
+      "sha256": "7697f996891e5e010602e1e7640fc7ae24123927dd4124e0df05e1d38b628ae4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/dataset.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/debug.rs",
+      "sha256": "172601d55c3b355f26e646411b36cb3b3c4ec1efd34f66f98453a085cc373620",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/debug.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/directories.rs",
+      "sha256": "d2e6b0b20fc54a066a91227ddd9c79907bcac90d24f64d4ca32855b28a7f90e4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/directories.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/library.rs",
+      "sha256": "fc8d844d38589124fdb6d9b917e8f75911a5f5f780bc0fc3b850683e94131300",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/library.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/lyrics.rs",
+      "sha256": "243b508a64c8338fe1b6c500bb8f4de90f50fd32047cef55da08fda91e520b36",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/lyrics.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/meta.rs",
+      "sha256": "9a68a876602aa4ef3edbfad0e786636f445668c4ec326a5f6a4d7ab11d62215f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/meta.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/mod.rs",
+      "sha256": "36255308f1e22630734cf571f659d60bf14ba3c0d5e0f4bc38f5d38cbe701de5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/mod.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/mutations.rs",
+      "sha256": "f6efbe8e615249b4e379e0c4fe9273bb755225c396f41f03676f776a91e2feb7",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/mutations.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/organizer.rs",
+      "sha256": "43e6ee7f5539b73ac41456c6b917d3eb603ba5cf3c4959171034917e868ac19b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/organizer.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/recording_discovery.rs",
+      "sha256": "8de70dd9774acc9cd9e80f49cad9f3d6eb7e7f0c25b87f5efcc3e7a74f26bc67",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/recording_discovery.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/shell.rs",
+      "sha256": "5c5960e8cda3b74713d895a999c374ef605545501d97019919d8ae3665cc8e6f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/shell.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/tasks.rs",
+      "sha256": "929c34b2d3c3f490f452c01405e1bdebd198c421a5360ceba9a4ec5258794015",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/tasks.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/track_matcher.rs",
+      "sha256": "8939eb51ecc1fe7fa21191c0a9f4c313be955f4d2f27a072d32b5944426e199d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/track_matcher.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/track_matcher_groups_tests.rs",
+      "sha256": "4227f9ee74f4bd66f44340f675d6b5a5ebb9e7729171604c6b2f2e9ed05366dd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/track_matcher_groups_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/track_matcher_guarded_tests.rs",
+      "sha256": "6c623d334a510c0fbf6ad6b2ff2d32f60484f0ece1a8bf53dd82bbcf30dc8a59",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/track_matcher_guarded_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/tracks.rs",
+      "sha256": "cdbc3db5a5de2ae1796419e410c86ec904ab6c753b3651358e19539934e6797e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/tracks.rs"
+    },
+    {
+      "path": "src-tauri/src/commands/updater.rs",
+      "sha256": "914c9a21bd107aa47a4370bc0555f4ebc157366279c989d447058431b6487506",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/commands/updater.rs"
+    },
+    {
+      "path": "src-tauri/src/desktop.rs",
+      "sha256": "038b532810a172f7c649081d836d9406ba2b0e510ff24cf443fc762ecfc6018c",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/desktop.rs"
+    },
+    {
+      "path": "src-tauri/src/error.rs",
+      "sha256": "18a310c5395b1de37c966b942d38012421cbbc1d076490ff83004c1576d324ce",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/error.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/acoustid.rs",
+      "sha256": "42c4b4247e9b332174a12347498cbeb6c7cc2c92f43fe37e4c3fc3300d46593d",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/acoustid.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/acoustid_flac.rs",
+      "sha256": "05451ad729304d4b9f8b791ef87fd4b44c2873b437721491077970e905670959",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/acoustid_flac.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/acoustid_flac_tests.rs",
+      "sha256": "842e99925449cf6a9b84a8ffa999f186aff5cd7918d75de5671c566051d65537",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/acoustid_flac_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/agent_completion.rs",
+      "sha256": "af4517006d9f9d0c86eb41107eddf7575ed1406215eac46563d13d539ec4cdde",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/agent_completion.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/aliases.rs",
+      "sha256": "f85bbc582e918fad72faa14c64dab3497e1e9cd5d014af9da7453b1cc59be6cb",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/aliases.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/artwork.rs",
+      "sha256": "23062aa3e1f8d44d6595d6c659cfbd6329f13733d4cc55d0038590fdfa5111f5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/artwork.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/audio_evidence.rs",
+      "sha256": "763ac5fdadfd9e0bed556e9057decffb9b1fe2eee0b05da61109ca9e4b0252dc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/audio_evidence.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/audio_evidence_groups_tests.rs",
+      "sha256": "4239a0d145ca641108b73fee5c417f603ecfe2ab0994e1f87a8b9d6ef4f954f8",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/audio_evidence_groups_tests.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/bounded_eval.rs",
+      "sha256": "4575bd9f069676d8ca8aeb975a4744c3f5b1415a98ed8c7624172e0b942ef3ef",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/bounded_eval.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/encoding.rs",
+      "sha256": "705a8abb9317ac7f3c510e24d77754a02c30fe837a335ee07e12d0495892447f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/encoding.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/fs.rs",
+      "sha256": "3dae5963ece48e6339fd3bac7ee8a6489cb5f3e509b5a899c9360e71b797c40f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/fs.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/http.rs",
+      "sha256": "3d8bcb4eabb27812f26031fc88fcefce5e96fccbced187630578123b215e7b70",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/http.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/logging.rs",
+      "sha256": "a53d5f2c2448ba287322f463aaab848cc8d9b61165d5c91d62cde7fe37f5f72b",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/logging.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_authority.rs",
+      "sha256": "65d45149e278ed09fa43c1994205662bb80d8fdf6c035cf899947cf8089227de",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_authority.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_broker.rs",
+      "sha256": "a16f6b7576b4f7fe508113f339ab121b73c947009f40fdff1fce5e30853de287",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_broker.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_live_boundary.rs",
+      "sha256": "d364a74c48623d2b2a441d1bc4758fbcc117207185fc2ae427f0d70e05719043",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_live_boundary.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_ownership.rs",
+      "sha256": "dfabd3b0468e8e924a26584c9fadc95761f34e6bd8f15c79f5e30123c607fbaf",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_ownership.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_policy.rs",
+      "sha256": "bd73fcbaf7375961f878c25ab14c4b0c07b834ccba26f558eed409fe9cc3849f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_policy.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_receiver.rs",
+      "sha256": "298d8255bac6f6bf2bcb7eb347522cb1013545dff564747d54b26ecfd3766f87",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_receiver.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_storage.rs",
+      "sha256": "f1b3de0b9e7075c72bd110c18b247dc3750851d823800a53fb5431f726c3f37a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_storage.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_supervisor.rs",
+      "sha256": "233d7d40fadad49f74009e7ba43b585908cde6e030840ac6526f35ed3d2935fe",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_supervisor.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mock_run_transport.rs",
+      "sha256": "3aa56ddc372cd8b63940903af0ba44e43abcfc7a321db10e60c051333ab33b6e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mock_run_transport.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/mod.rs",
+      "sha256": "173fef133d6c665e7bda3f59c1902fbd2192ea33adef2bd33bff220bf39541cc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/mod.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/openrouter.rs",
+      "sha256": "ee7f816203f8a2736ba650f4c176db8185d72f845f094c86ad48140b55a26b41",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/openrouter.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/sqlite.rs",
+      "sha256": "965c3da8c6b883e446bd610db3ba6deedccb7946d7dbc6742802846518139cc5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/sqlite.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/tag_catalog.rs",
+      "sha256": "bfaeee199aa6e5752c0232ce2830adf577240a298274c7810cbbdb7639f0f06e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/tag_catalog.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/tag_io.rs",
+      "sha256": "57d3948f333042839814f0ada4922e0997475dd3ddcc582becf4b10fc7c25b03",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/tag_io.rs"
+    },
+    {
+      "path": "src-tauri/src/infra/text.rs",
+      "sha256": "45801439bb0201c44b4c1f52b28ee868e5ef4124affd578148cd2bf36fb07dca",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/infra/text.rs"
+    },
+    {
+      "path": "src-tauri/src/lib.rs",
+      "sha256": "7640167e485732c4636f670012aedadcf9d29a114dcca4a2178d8e8ed97d4768",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/lib.rs"
+    },
+    {
+      "path": "src-tauri/src/main.rs",
+      "sha256": "7da23807d4ecec452cdac356d137e046a96b3ae482d213718459d080488cf5f3",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/main.rs"
+    },
+    {
+      "path": "src-tauri/src/server.rs",
+      "sha256": "5ae8e595ab58d594e4a5593057bd5f50e8b51c1765cbfd4b949b83e7f1e46e85",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/server.rs"
+    },
+    {
+      "path": "src-tauri/src/state/album.rs",
+      "sha256": "f6b2b2e3a970a67934080f62f3a5a1042f85f1e7b830bc64516523b87972c5a4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/album.rs"
+    },
+    {
+      "path": "src-tauri/src/state/assistant.rs",
+      "sha256": "32e3d98266e8d93aa8cb35911a8b1e72b44467a0ccc3932cb69cae455f50c2cc",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/assistant.rs"
+    },
+    {
+      "path": "src-tauri/src/state/assistant_task.rs",
+      "sha256": "e3446a5287d5b7138bd1bc5707e560329967613572cecbe4c5f2a4234d484187",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/assistant_task.rs"
+    },
+    {
+      "path": "src-tauri/src/state/audit.rs",
+      "sha256": "34725a43782772f2ccdb652a05d2c9c40bac3b10b4aaa764ac52e1290f5e8158",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/audit.rs"
+    },
+    {
+      "path": "src-tauri/src/state/background.rs",
+      "sha256": "1666e21f85e602bbeac25f437006dc350547c544d67f80ae59b0c94b60d300d2",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/background.rs"
+    },
+    {
+      "path": "src-tauri/src/state/config.rs",
+      "sha256": "d28c86fcdf0658257b14ff36308e1da9c6203fd624d011d5941bf922ab305b7a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/config.rs"
+    },
+    {
+      "path": "src-tauri/src/state/conversation.rs",
+      "sha256": "a832ea29e7a2e8242e3bc6b4521c7c5a6c4254a476e769a968af5fc56c48768a",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/conversation.rs"
+    },
+    {
+      "path": "src-tauri/src/state/cron.rs",
+      "sha256": "7db159eed7bc1e29fc0e763ab205c560b7460cbf3480241e2b7fc523e3200036",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/cron.rs"
+    },
+    {
+      "path": "src-tauri/src/state/events.rs",
+      "sha256": "9bcd2c41b9e42012d643200c1c10e55f0a25d090d01ef4a460d00e1709cf4db5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/events.rs"
+    },
+    {
+      "path": "src-tauri/src/state/library.rs",
+      "sha256": "554d44f5938d3b7f7ee7001b679a4b65a171cce510aacbe57dc1bce61ce27918",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/library.rs"
+    },
+    {
+      "path": "src-tauri/src/state/mod.rs",
+      "sha256": "37d6399c61714e003cce220dda0ac02ba80084cf9908e2a0da0b3100dd8a3c37",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/mod.rs"
+    },
+    {
+      "path": "src-tauri/src/state/operation.rs",
+      "sha256": "4d55b276c7b77122b3452c7a8e5bdde70b2db12057cc9fec56927d727eee8297",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/operation.rs"
+    },
+    {
+      "path": "src-tauri/src/state/paths.rs",
+      "sha256": "943734b031729a4c06bdca2e6e42546fbbfa48664f8d3079a477fe5342b36826",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/paths.rs"
+    },
+    {
+      "path": "src-tauri/src/state/provider_title_aliases.rs",
+      "sha256": "0f57501172d02efcc1e7303fc7d583d5cdb72e4dce8793c2cf87af4f93eee1c5",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/provider_title_aliases.rs"
+    },
+    {
+      "path": "src-tauri/src/state/providers.rs",
+      "sha256": "39445b95cf522cef5e61a4172eb3dc6fd15e306fdd57e45c07f03ab27e1135a4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/providers.rs"
+    },
+    {
+      "path": "src-tauri/src/state/quit_guard.rs",
+      "sha256": "f95ad9a9f2ab0a6b7abd64d92b7a76f30443e741b131199d47762fd24fa9cce0",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/quit_guard.rs"
+    },
+    {
+      "path": "src-tauri/src/state/sqlite.rs",
+      "sha256": "bc555639aed3ecfdc602f24266cb4f0db313ec714172389e5e2561ed66efeb25",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/sqlite.rs"
+    },
+    {
+      "path": "src-tauri/src/state/tag_source.rs",
+      "sha256": "5919c43c6be64175610018cd66b74e165c166ee6b9d091992693b72efde57738",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/tag_source.rs"
+    },
+    {
+      "path": "src-tauri/src/state/tasks.rs",
+      "sha256": "a046d3b3c0da4aa816220fc1dc69b6db1110d61b10700ee200d293f3b499921e",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/tasks.rs"
+    },
+    {
+      "path": "src-tauri/src/state/updater.rs",
+      "sha256": "bbcf6802368f087c442462518ef9cb841f54e660ca16d71111eed0848b40a9cd",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/updater.rs"
+    },
+    {
+      "path": "src-tauri/src/state/window_state.rs",
+      "sha256": "2eeb4f790663c882f649f5b1f3025db52f652271c277063f11975b053debf13f",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/window_state.rs"
+    },
+    {
+      "path": "src-tauri/src/state/worker.rs",
+      "sha256": "92d0932b0d13dbd61366dd7250ceffc7c2dc0e2ca8ec6ab6ba86c2da0e390cd4",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/worker.rs"
+    },
+    {
+      "path": "src-tauri/src/state/write_queue.rs",
+      "sha256": "c7dd27035febe2094c772c8f421b598b0093a8e31e920f054cfb182e000b6b46",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/src/state/write_queue.rs"
+    },
+    {
+      "path": "src-tauri/tests/inventory_audio.rs",
+      "sha256": "68ddb5c091d87073c6076a16c54b9394b7448f4b6276be261ada7e6c11490b74",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/tests/inventory_audio.rs"
+    },
+    {
+      "path": "src-tauri/tests/inventory_recovery_cli.rs",
+      "sha256": "23db8d422b6908c38c28f7811947ffb7c11e7f24968ef4956a509935b91404da",
+      "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/source/src-tauri/tests/inventory_recovery_cli.rs"
+    }
+  ],
+  "executable": {
+    "path": "src-tauri/target/debug/deps/soundrobe_lib-044fd9dc614a3617",
+    "retained": ".amp/in/artifacts/native-prepared-bootstrap-20261114/native-test-executable",
+    "sha256": "a3ea92bc9f27e02b8254fc84c9288f15bbf7b71f3f1e2a94eade43765da1ad5a"
+  },
+  "previousSlicePatchSha256": "838f2abe503ace4ac7f28a399008e20575c12afcc8868e1aa65d588712fd339f",
+  "liveCalls": false,
+  "realCredentialReads": false,
+  "realRunSigned": false,
+  "freshSixJobRun": false,
+  "custody": "disposable random keys only; provisioned signer not opened",
+  "limits": "unchanged; this is component/regression evidence, not workload fit or real quality"
+}

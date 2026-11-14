@@ -138,6 +138,255 @@ fn settings_sha(model: &str) -> String {
     .unwrap())
 }
 
+// Shared bounded custody checks for native trust/configuration/approval files.
+fn owner_bytes(path: &std::path::Path, limit: u64) -> Result<Vec<u8>, String> {
+    require(path.is_absolute())?;
+    require(path.parent().and_then(|p| p.canonicalize().ok()).as_deref() == path.parent())?;
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                "approval_file_missing"
+            } else {
+                "approval_file_unavailable"
+            }
+        })?;
+    let metadata = file.metadata().map_err(|_| "approval_file_unavailable")?;
+    require(
+        metadata.is_file()
+            && metadata.uid() == unsafe { libc::geteuid() }
+            && metadata.mode() & 0o077 == 0
+            && metadata.nlink() == 1
+            && metadata.len() <= limit,
+    )?;
+    let mut bytes = Vec::new();
+    file.take(limit + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "approval_file_unavailable")?;
+    require(bytes.len() as u64 <= limit)?;
+    Ok(bytes)
+}
+fn owner_directory(path: &std::path::Path) -> Result<(), String> {
+    let metadata = std::fs::symlink_metadata(path).map_err(|_| "approval_directory_unavailable")?;
+    require(
+        path.is_absolute()
+            && path.canonicalize().ok().as_deref() == Some(path)
+            && metadata.is_dir()
+            && metadata.uid() == unsafe { libc::geteuid() }
+            && metadata.mode() & 0o077 == 0,
+    )
+}
+
+/// Native-owned bootstrap capability; never deserialized from child IPC.
+/// No signer is loaded, and credential bytes remain lazy behind closed dispatch.
+pub(crate) struct PreparedBootstrap {
+    pub(crate) context: Rehearsal,
+    pub(crate) credential: CredentialFile,
+    pub(crate) approval_file: std::path::PathBuf,
+}
+impl PreparedBootstrap {
+    #[cfg(target_os = "macos")]
+    pub(crate) fn owner_directory() -> Result<std::path::PathBuf, String> {
+        use std::os::unix::ffi::OsStringExt;
+        // Account database, not HOME or a launcher-provided trust-directory override.
+        let mut entry = std::mem::MaybeUninit::<libc::passwd>::uninit();
+        let mut result = std::ptr::null_mut();
+        let mut buffer = vec![0u8; 16384];
+        let code = unsafe {
+            libc::getpwuid_r(
+                libc::geteuid(),
+                entry.as_mut_ptr(),
+                buffer.as_mut_ptr().cast(),
+                buffer.len(),
+                &mut result,
+            )
+        };
+        require(code == 0 && !result.is_null())?;
+        let entry = unsafe { entry.assume_init() };
+        require(!entry.pw_dir.is_null())?;
+        let home = unsafe { std::ffi::CStr::from_ptr(entry.pw_dir) }.to_bytes();
+        Ok(
+            std::path::PathBuf::from(std::ffi::OsString::from_vec(home.to_vec()))
+                .join(".soundrobe/evaluation-approval"),
+        )
+    }
+    pub(crate) fn read(directory: &std::path::Path, plan: &RehearsalPlan) -> Result<Self, String> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase", deny_unknown_fields)]
+        struct Config {
+            version: u8,
+            plan_sha256: String,
+            verifier_sha256: String,
+            credential_path: std::path::PathBuf,
+            pricing: TextPricing,
+        }
+        require(plan.native_prepared)?;
+        owner_directory(directory)?;
+        let config: Config = serde_json::from_slice(&owner_bytes(
+            &directory.join("prepared-bootstrap.json"),
+            16384,
+        )?)
+        .map_err(|_| "approval_bootstrap_invalid")?;
+        require(
+            config.version == 1 && config.plan_sha256 == sha(&serde_json::to_vec(plan).unwrap()),
+        )?;
+        let verifier = ApprovalVerifier::read(
+            &directory.join("approval-verifier.ed25519"),
+            &config.verifier_sha256,
+        )?;
+        let context = plan.prepare_hosted(&verifier, config.pricing)?;
+        let credential = CredentialFile::new(config.credential_path, plan.model.clone())
+            .map_err(str::to_owned)?;
+        Ok(Self {
+            context,
+            credential,
+            approval_file: directory.join("prepared-approval.json"),
+        })
+    }
+}
+impl Rehearsal {
+    // Explicit owner-side call only; never reached by broker IPC or the launcher.
+    pub(in super::super) fn sign_owner_payload(
+        &self,
+        directory: &std::path::Path,
+        payload: Value,
+    ) -> Result<Approval, String> {
+        use ring::signature::{Ed25519KeyPair, KeyPair};
+        require(
+            self.disabled_hosted()
+                && !self.offline_fixture
+                && !self.offline_http
+                && self.offline_response.is_none(),
+        )?;
+        owner_directory(directory)?;
+        ApprovalVerifier::read(
+            &directory.join("approval-verifier.ed25519"),
+            &sha(&self.public_key),
+        )?;
+        let private = owner_bytes(&directory.join("approval-signing-key.pk8"), 4096)?;
+        // OpenSSL generates PKCS8 v1 without a public component. Ring derives it;
+        // compare it with the separately pinned verifier rather than trusting it.
+        let signer = Ed25519KeyPair::from_pkcs8_maybe_unchecked(&private)
+            .map_err(|_| "approval_signer_invalid")?;
+        require(signer.public_key().as_ref() == self.public_key)?;
+        let bytes = serde_json::to_vec(&payload).map_err(|_| "mock_approval_invalid")?;
+        require(bytes.len() <= 4096)?;
+        Ok(Approval {
+            payload,
+            signature: signer.sign(&bytes).as_ref().to_vec(),
+        })
+    }
+}
+
+/// No-replace publication is supported only on the verified macOS boundary.
+/// A failure after rename is unknown publication, never permission to retry.
+#[cfg(target_os = "macos")]
+pub(crate) fn publish_owner_approval(
+    directory: &std::path::Path,
+    approval: &Approval,
+) -> Result<(), String> {
+    use std::io::Write;
+    use std::os::unix::ffi::OsStrExt;
+    if super::super::storage::is_scoped() {
+        return Err("approval_publication_owner_process_required".into());
+    }
+    owner_directory(directory)?;
+    let bytes = serde_json::to_vec(approval).map_err(|_| "approval_file_invalid")?;
+    require(bytes.len() <= 8192)?;
+    let target = directory.join("prepared-approval.json");
+    let temporary = directory.join(format!(".prepared-approval-{}", uuid::Uuid::new_v4()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&temporary)
+        .map_err(|_| "approval_publication_unavailable")?;
+    let result = (|| {
+        file.write_all(&bytes)
+            .and_then(|_| file.sync_all())
+            .map_err(|_| "approval_publication_unavailable")?;
+        let from = std::ffi::CString::new(temporary.as_os_str().as_bytes())
+            .map_err(|_| "approval_publication_unavailable")?;
+        let to = std::ffi::CString::new(target.as_os_str().as_bytes())
+            .map_err(|_| "approval_publication_unavailable")?;
+        require(
+            unsafe {
+                libc::renameatx_np(
+                    libc::AT_FDCWD,
+                    from.as_ptr(),
+                    libc::AT_FDCWD,
+                    to.as_ptr(),
+                    libc::RENAME_EXCL,
+                )
+            } == 0,
+        )
+    })();
+    drop(file);
+    if let Err(error) = result {
+        std::fs::remove_file(&temporary).map_err(|_| "approval_publication_cleanup_unknown")?;
+        return Err(error);
+    }
+    std::fs::File::open(directory)
+        .and_then(|file| file.sync_all())
+        .map_err(|_| "approval_publication_unknown")?;
+    let observed = owner_bytes(&target, 8192).map_err(|_| "approval_publication_unknown")?;
+    if observed != bytes {
+        return Err("approval_publication_unknown".into());
+    }
+    Ok(())
+}
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn publish_owner_approval(
+    _directory: &std::path::Path,
+    _approval: &Approval,
+) -> Result<(), String> {
+    Err("approval_publication_unsupported".into())
+}
+
+pub(crate) fn read_owner_approval(path: &std::path::Path) -> Result<Approval, String> {
+    owner_directory(path.parent().ok_or("approval_file_unavailable")?)?;
+    serde_json::from_slice(&owner_bytes(path, 8192)?).map_err(|_| "approval_file_invalid".into())
+}
+
+/// An independently pinned owner file, never a plan/IPC-supplied verifier.
+/// Loading public bytes does not provision a signer or enable hosted dispatch.
+pub(crate) struct ApprovalVerifier {
+    public_key: [u8; 32],
+}
+impl ApprovalVerifier {
+    pub(crate) fn read(path: &std::path::Path, expected_sha256: &str) -> Result<Self, String> {
+        use ring::signature::{Ed25519KeyPair, KeyPair};
+        require(super::super::digest_valid(expected_sha256))?;
+        let bytes = owner_bytes(path, 32).map_err(|_| "approval_verifier_unavailable")?;
+        require(
+            bytes.len() == 32 && sha(&bytes) == expected_sha256 && bytes.iter().any(|b| *b != 0),
+        )?;
+        require(bytes != TEST_PUBLIC_KEY)?;
+        for seed in [42, 43] {
+            let fixture = Ed25519KeyPair::from_seed_unchecked(&[seed; 32]).unwrap();
+            require(bytes != fixture.public_key().as_ref())?;
+        }
+        Ok(Self {
+            public_key: bytes.try_into().unwrap(),
+        })
+    }
+}
+impl RehearsalPlan {
+    pub(crate) fn prepare_hosted(
+        &self,
+        verifier: &ApprovalVerifier,
+        pricing: TextPricing,
+    ) -> Result<Rehearsal, String> {
+        require(
+            self.offline_hosted.is_none() && !self.offline_http && self.offline_response.is_none(),
+        )?;
+        self.disabled_context(verifier.public_key, pricing)
+    }
+}
+
 /// Native-only capability. No IPC/serde constructor, environment fallback or key Debug.
 /// Owner-only Unix file access is not malicious-host isolation or memory zeroization.
 pub(crate) struct CredentialFile {
@@ -247,6 +496,241 @@ impl CredentialFile {
         }
         Some(key.into())
     }
+}
+
+#[test]
+fn prepared_bootstrap_uses_owner_files_without_reading_credentials_or_fixture_trust() {
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/approval-fixtures")
+        .join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let key = Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()).unwrap();
+    let signer = Ed25519KeyPair::from_pkcs8(key.as_ref()).unwrap();
+    let verifier = root.join("approval-verifier.ed25519");
+    std::fs::write(&verifier, signer.public_key().as_ref()).unwrap();
+    std::fs::set_permissions(&verifier, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let raw = json!({"nativePrepared":true,"model":"~deepseek/deepseek-v4-flash-latest",
+        "observedTarget":"deepseek/deepseek-v4-flash-0731","route":"wafer/us","provider":"Wafer",
+        "input":{"artist":"Asymmetric Artist","album":"Different Album","tracks":["One","Other"]}});
+    let plan: RehearsalPlan = serde_json::from_value(raw.clone()).unwrap();
+    assert!(
+        plan.context().is_err(),
+        "native plan must not fall back to seed42"
+    );
+    let config = json!({"version":1,"planSha256":sha(&serde_json::to_vec(&plan).unwrap()),
+        "verifierSha256":sha(signer.public_key().as_ref()),"credentialPath":root.join("missing/.env.local"),
+        "pricing":{"promptPicoUsd":1,"completionPicoUsd":2,"catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")}});
+    let file = root.join("prepared-bootstrap.json");
+    let write = |value: &Value| {
+        std::fs::write(&file, serde_json::to_vec(value).unwrap()).unwrap();
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o600)).unwrap();
+    };
+    write(&config);
+    assert!(
+        PreparedBootstrap::read(&root, &plan).is_err(),
+        "missing credential parent"
+    );
+    std::fs::create_dir(root.join("missing")).unwrap();
+    let prepared = PreparedBootstrap::read(&root, &plan).unwrap();
+    assert_eq!(
+        prepared.context.binding()["verifierSha256"],
+        config["verifierSha256"]
+    );
+    assert_eq!(
+        prepared.context.binding()["boundary"]["liveDispatchAvailable"],
+        false
+    );
+    assert_eq!(
+        prepared.context.binding()["boundary"]["allowanceUsdCents"],
+        500
+    );
+    assert!(prepared.context.binding().get("offlineFixture").is_none());
+    assert!(
+        !root.join("missing/.env.local").exists(),
+        "bootstrap must not need credential bytes"
+    );
+    for field in [
+        "planSha256",
+        "verifierSha256",
+        "version",
+        "liveDispatchAvailable",
+        "pricing",
+    ] {
+        let mut bad = config.clone();
+        bad[field] = match field {
+            "version" => json!(2),
+            "pricing" => {
+                json!({"promptPicoUsd":u64::MAX,"completionPicoUsd":1,"catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")})
+            }
+            "liveDispatchAvailable" => json!(true),
+            _ => json!(sha(b"wrong")),
+        };
+        write(&bad);
+        assert!(PreparedBootstrap::read(&root, &plan).is_err(), "{field}");
+    }
+    write(&config);
+    for mode in [0o644, 0o620] {
+        std::fs::set_permissions(&file, std::fs::Permissions::from_mode(mode)).unwrap();
+        assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    }
+    write(&config);
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o750)).unwrap();
+    assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let alias = root.join("alias.json");
+    std::fs::hard_link(&file, &alias).unwrap();
+    assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    std::fs::remove_file(&alias).unwrap();
+    std::fs::rename(&file, &alias).unwrap();
+    std::os::unix::fs::symlink(&alias, &file).unwrap();
+    assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    std::fs::remove_file(&file).unwrap();
+    assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    write(&config);
+    for marker in [json!(false), json!(1), Value::Null] {
+        let mut bad = raw.clone();
+        bad["nativePrepared"] = marker;
+        assert!(serde_json::from_value::<RehearsalPlan>(bad)
+            .map_or(true, |p| PreparedBootstrap::read(&root, &p).is_err()));
+    }
+    let mut bad = raw;
+    bad["offlineHosted"] = config["pricing"].clone();
+    let bad: RehearsalPlan = serde_json::from_value(bad).unwrap();
+    let mut matching = config.clone();
+    matching["planSha256"] = json!(sha(&serde_json::to_vec(&bad).unwrap()));
+    write(&matching);
+    assert!(PreparedBootstrap::read(&root, &bad).is_err());
+    std::fs::write(&file, vec![b' '; 16385]).unwrap();
+    assert!(PreparedBootstrap::read(&root, &plan).is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn native_approval_verifier_is_owner_pinned_and_not_public_fixture_trust() {
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use std::os::unix::fs::PermissionsExt;
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/approval-fixtures")
+        .join(uuid::Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&root).unwrap();
+    let path = root
+        .canonicalize()
+        .unwrap()
+        .join("approval-verifier.ed25519");
+    // Disposable random signer exists only in this control, never provisioning.
+    let key = Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new()).unwrap();
+    let signer = Ed25519KeyPair::from_pkcs8(key.as_ref()).unwrap();
+    let public = signer.public_key().as_ref();
+    std::fs::write(&path, public).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let verifier = ApprovalVerifier::read(&path, &sha(public)).unwrap();
+    let plan: RehearsalPlan =
+        serde_json::from_value(json!({"model":"~deepseek/deepseek-v4-flash-latest",
+        "observedTarget":"deepseek/deepseek-v4-flash-0731","route":"wafer/us","provider":"Wafer",
+        "input":{"artist":"Asymmetric Artist","album":"Different Album","tracks":["One","Other"]}}))
+        .unwrap();
+    let pricing = TextPricing {
+        prompt_pico_usd: 1,
+        completion_pico_usd: 2,
+        catalog_sha256: sha(b"public catalog"),
+        terms_sha256: sha(b"public terms"),
+    };
+    let context = plan.prepare_hosted(&verifier, pricing.clone()).unwrap();
+    assert_eq!(context.binding()["verifierSha256"], sha(public));
+    assert!(context.binding().get("offlineFixture").is_none());
+    assert_eq!(
+        context.binding()["boundary"]["liveDispatchAvailable"],
+        false
+    );
+    let request_sha = sha(&context.body);
+    let (journal, owner) = super::super::Journal::create_rehearsal(
+        &root.join("registry.sqlite"),
+        serde_json::from_str(include_str!(
+            "../../../test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json"
+        ))
+        .unwrap(),
+        json!({"executable":sha(b"test executable")}),
+        context,
+    )
+    .unwrap();
+    journal
+        .command(
+            &owner,
+            super::super::Command::Lease {
+                role: "owner".into(),
+            },
+        )
+        .unwrap();
+    super::super::tests::freeze_request(&journal, &owner, Some(request_sha));
+    let report = journal.report().unwrap();
+    let scope = json!({"runId":report["runId"],"checkpoint":report["checkpoint"],"bindings":report["bindings"],
+        "membership":report["membership"],"preparations":report["preparations"],"policy":report["testPolicy"]});
+    let payload = json!({"version":1,"runId":report["runId"],"checkpoint":report["checkpoint"],
+        "scopeSha256":sha(&serde_json::to_vec(&scope).unwrap()),"nonce":uuid::Uuid::new_v4().to_string(),
+        "expiresUnixSeconds":super::now().unwrap()+1200});
+    let approval = || {
+        serde_json::from_value(json!({"signature":signer.sign(&serde_json::to_vec(&payload).unwrap()).as_ref(),"payload":payload})).unwrap()
+    };
+    journal
+        .command(
+            &owner,
+            super::super::Command::Approve {
+                approval: approval(),
+            },
+        )
+        .unwrap();
+    assert!(journal
+        .command(
+            &owner,
+            super::super::Command::Approve {
+                approval: approval()
+            }
+        )
+        .is_err());
+    assert_eq!(journal.report().unwrap()["liveAuthority"], false);
+    assert!(ApprovalVerifier::read(&path, &sha(b"wrong pin")).is_err());
+    for mode in [0o644, 0o620] {
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        assert!(ApprovalVerifier::read(&path, &sha(public)).is_err());
+    }
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let alias = root.join("alias");
+    std::fs::hard_link(&path, &alias).unwrap();
+    assert!(ApprovalVerifier::read(&path, &sha(public)).is_err());
+    std::fs::remove_file(&alias).unwrap();
+    std::os::unix::fs::symlink(&path, &alias).unwrap();
+    assert!(ApprovalVerifier::read(&alias, &sha(public)).is_err());
+    std::fs::remove_file(&alias).unwrap();
+    for raw in [
+        vec![],
+        vec![0; 32],
+        vec![1; 33],
+        TEST_PUBLIC_KEY.to_vec(),
+        Ed25519KeyPair::from_seed_unchecked(&[42; 32])
+            .unwrap()
+            .public_key()
+            .as_ref()
+            .to_vec(),
+        Ed25519KeyPair::from_seed_unchecked(&[43; 32])
+            .unwrap()
+            .public_key()
+            .as_ref()
+            .to_vec(),
+    ] {
+        std::fs::write(&path, &raw).unwrap();
+        assert!(ApprovalVerifier::read(&path, &sha(&raw)).is_err());
+    }
+    let mut fixture = serde_json::to_value(&plan).unwrap();
+    fixture["offlineHosted"] = serde_json::to_value(&pricing).unwrap();
+    assert!(serde_json::from_value::<RehearsalPlan>(fixture)
+        .unwrap()
+        .prepare_hosted(&verifier, pricing)
+        .is_err());
+    std::fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

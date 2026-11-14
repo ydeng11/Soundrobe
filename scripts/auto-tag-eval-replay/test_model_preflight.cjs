@@ -1,4 +1,34 @@
 const { test } = require('node:test');
+
+test('public offline response bytes are sibling-bound and never an activation input', () => {
+  const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
+  const { offlineResponseFixture } = require('./run-bounded.cjs');
+  const root = fs.mkdtempSync(path.join(process.cwd(), '.amp/in/public-response-'));
+  const file = path.join(root, 'response-fixture.json'), planFile = path.join(root, 'public-plan.json');
+  const bytes = Buffer.from('{"public":"asymmetric response","usage":17}\n');
+  const sha = value => crypto.createHash('sha256').update(value).digest('hex');
+  const plan = { offlineHosted: {}, offlineHttp: true, offlineResponse: { sha256: sha(bytes), status: 429 } };
+  try {
+    fs.writeFileSync(file, bytes);
+    const result = offlineResponseFixture(plan, planFile);
+    assert.deepEqual(result, { path: path.relative(process.cwd(), file), sha256: sha(bytes) });
+    assert.equal(offlineResponseFixture({}, planFile), null);
+    for (const change of [p => delete p.offlineHosted, p => p.offlineHttp = false,
+      p => p.offlineResponse.status = true, p => p.offlineResponse.status = 600,
+      p => p.offlineResponse.status = 99, p => p.offlineResponse.sha256 = '0'.repeat(64),
+      p => p.offlineResponse.path = '.env.local', p => p.offlineResponse = null]) {
+      const changed = structuredClone(plan); change(changed);
+      assert.throws(() => offlineResponseFixture(changed, planFile));
+    }
+    fs.unlinkSync(file);
+    assert.throws(() => offlineResponseFixture(plan, planFile));
+    fs.symlinkSync(planFile, file);
+    assert.throws(() => offlineResponseFixture(plan, planFile));
+    fs.unlinkSync(file);
+    fs.writeFileSync(file, Buffer.alloc(65537));
+    assert.throws(() => offlineResponseFixture({ ...plan, offlineResponse: { sha256: sha(fs.readFileSync(file)), status: 200 } }, planFile));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
@@ -19,6 +49,169 @@ const hosts = () => ({ data: { id: target, endpoints: [
     pricing: { prompt: '0.00000006', completion: '0.00000018' } },
 ] } });
 const prepare = (...args) => require('./preflight-model.cjs').preflight(...args);
+
+const disabledPolicy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair';
+function ownerCoordinationControl() {
+  const frozen = { runId: 'native-component', checkpoint: 'a'.repeat(64), state: 'frozen',
+    testPolicy: disabledPolicy, liveAuthority: false, consumptions: 0, credentialLookups: 0,
+    actualFakeLookups: 0, counters: { model: 0 }, operations: {},
+    membership: { requestedFieldSlots: 216 }, preparations: { job: { digest: 'prepared' } },
+    bindings: { modelRehearsalPlan: { nativePrepared: true }, modelRehearsal: {
+      policy: disabledPolicy, liveAuthority: false, boundary: { allowanceUsdCents: 500,
+        hardBillingCap: false, billingRiskAccepted: false, liveDispatchAvailable: false, readyForExecution: false } } } };
+  const consumed = { consumed: true, testFixtureOnly: true, expiresUnixSeconds: Math.floor(Date.now() / 1000) + 1200 };
+  const report = { ...structuredClone(frozen), state: 'executing', consumptions: 1,
+    approvalSha256: 'b'.repeat(64), approvalExpires: consumed.expiresUnixSeconds };
+  const ready = { state: 'ready', checkpoint: frozen.checkpoint, approvalSha256: report.approvalSha256, liveAuthority: false };
+  const control = { frozen, consumed, report, ready, calls: [], saved: [], statuses: [
+    { state: 'pending', checkpoint: frozen.checkpoint, liveAuthority: false }, ready], scope: { remainingMs: 1000 } };
+  control.authority = { async command(command) {
+    control.calls.push(command);
+    if (command.op === control.fail) throw Error('RPC lost; never retry');
+    if (command.op === 'scope') return control.scope;
+    if (command.op === 'owner_approval_status') return control.statuses.shift() ?? ready;
+    if (command.op === 'approve_owner_file') return control.consumed;
+    if (command.op === 'report') return control.report;
+    throw Error('unexpected command');
+  } };
+  control.run = () => require('./mock-authority.cjs').approveFrozen(control.authority, frozen,
+    (filename, value) => control.saved.push({ filename, value }));
+  return control;
+}
+
+test('owner coordinator waits only for pending, scopes every check/consume, and retains joined disabled evidence', async () => {
+  const c = ownerCoordinationControl();
+  const receipt = await c.run();
+  assert.deepEqual(c.calls.map(v => v.op), ['scope', 'owner_approval_status', 'scope', 'owner_approval_status',
+    'scope', 'approve_owner_file', 'report']);
+  assert.ok(c.calls.every(v => Object.keys(v).join(',') === 'op'));
+  assert.deepEqual(c.saved, [{ filename: 'owner-approval-coordination.json', value: receipt }]);
+  for (const key of ['runId', 'checkpoint', 'bindings', 'membership', 'preparations', 'approvalSha256',
+    'approvalExpires', 'consumptions', 'state', 'credentialLookups', 'actualFakeLookups']) {
+    assert.deepEqual(receipt[key], c.report[key], key);
+  }
+  assert.equal(receipt.liveAuthority, false);
+  assert.equal(receipt.componentCoordinationOnly, true);
+  assert.equal(receipt.successCertificate, false);
+});
+
+test('owner coordinator rejects missing/exhausted/malformed scope before status or consume', async () => {
+  for (const scope of [undefined, null, {}, { remainingMs: 0 }, { remainingMs: -1 },
+    { remainingMs: '1000' }, { remainingMs: 1.5 }, { remainingMs: Number.MAX_SAFE_INTEGER + 1 }]) {
+    const c = ownerCoordinationControl(); c.scope = scope;
+    await assert.rejects(c.run(), /scope/);
+    assert.deepEqual(c.calls, [{ op: 'scope' }]);
+  }
+  const c = ownerCoordinationControl(); c.statuses = [c.ready];
+  const command = c.authority.command;
+  c.authority.command = value => { if (c.calls.length === 2) c.scope = { remainingMs: 0 }; return command(value); };
+  await assert.rejects(c.run(), /scope/);
+  assert.equal(c.calls.some(v => v.op === 'approve_owner_file'), false);
+});
+
+test('owner coordinator fails closed on status drift, wrong types and unknown status without polling', async () => {
+  for (const mutate of [s => s.state = 'unknown', s => s.state = false, s => s.checkpoint = 'c'.repeat(64),
+    s => s.liveAuthority = true, s => s.liveAuthority = 0, s => s.approvalSha256 = true,
+    s => s.approvalSha256 = 'bad', s => s.extra = true, s => delete s.checkpoint,
+    s => { s.state = 'pending'; }, s => { s.state = 'pending'; delete s.approvalSha256; s.extra = 1; }]) {
+    const c = ownerCoordinationControl(), status = structuredClone(c.ready); mutate(status); c.statuses = [status];
+    await assert.rejects(c.run(), /status/);
+    assert.deepEqual(c.calls.map(v => v.op), ['scope', 'owner_approval_status']);
+    assert.deepEqual(c.saved, []);
+  }
+});
+
+test('owner coordinator joins immutable consumed scope, hash, expiry, state and zero activity', async () => {
+  for (const mutate of [r => r.runId = 'other', r => r.checkpoint = 'c'.repeat(64),
+    r => r.bindings.extra = 1, r => r.membership.requestedFieldSlots = 1, r => r.preparations = {},
+    r => r.approvalSha256 = 'c'.repeat(64), r => r.consumptions = 2, r => r.state = 'frozen',
+    r => r.liveAuthority = true, r => r.credentialLookups = 1, r => r.actualFakeLookups = 1,
+    r => r.counters.model = 1, r => r.operations.model = { category: 'model' },
+    r => r.approvalExpires = 1, r => r.approvalExpires++, r => delete r.credentialLookups]) {
+    const c = ownerCoordinationControl(); c.statuses = [c.ready]; mutate(c.report);
+    await assert.rejects(c.run(), /coordination/);
+    assert.equal(c.calls.filter(v => v.op === 'approve_owner_file').length, 1);
+    assert.deepEqual(c.saved, []);
+  }
+  for (const consumed of [null, {}, { consumed: false }, { consumed: true, expiresUnixSeconds: 1 }]) {
+    const c = ownerCoordinationControl(); c.statuses = [c.ready]; c.consumed = consumed;
+    await assert.rejects(c.run(), /coordination/);
+    assert.equal(c.calls.filter(v => v.op === 'approve_owner_file').length, 1);
+  }
+});
+
+test('owner coordinator never retries RPC loss including ambiguous consume or report', async () => {
+  for (const fail of ['scope', 'owner_approval_status', 'approve_owner_file', 'report']) {
+    const c = ownerCoordinationControl(); c.statuses = [c.ready]; c.fail = fail;
+    await assert.rejects(c.run(), /RPC lost/);
+    assert.equal(c.calls.filter(v => v.op === fail).length, 1);
+    assert.deepEqual(c.saved, []);
+  }
+});
+
+test('pending publication stops at the native scope deadline without consuming', async () => {
+  const c = ownerCoordinationControl(), command = c.authority.command;
+  c.authority.command = value => {
+    const result = command(value);
+    if (value.op === 'owner_approval_status') c.scope = { remainingMs: 0 };
+    return result;
+  };
+  await assert.rejects(c.run(), /scope/);
+  assert.deepEqual(c.calls.map(v => v.op), ['scope', 'owner_approval_status', 'scope']);
+  assert.deepEqual(c.saved, []);
+});
+
+test('coordination result persists through the supplied saver; storage loss never retries consumption', async () => {
+  const root = fs.mkdtempSync(path.resolve('.amp/in/owner-coordination-'));
+  try {
+    const c = ownerCoordinationControl(); c.statuses = [c.ready];
+    const receipt = await require('./mock-authority.cjs').approveFrozen(c.authority, c.frozen,
+      (filename, value) => fs.writeFileSync(path.join(root, filename), JSON.stringify(value), { flag: 'wx' }));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(root, 'owner-approval-coordination.json'))), receipt);
+    assert.deepEqual(fs.readdirSync(root), ['owner-approval-coordination.json']);
+    const failed = ownerCoordinationControl(); failed.statuses = [failed.ready];
+    await assert.rejects(require('./mock-authority.cjs').approveFrozen(failed.authority, failed.frozen,
+      () => { throw Error('charged retention failed'); }), /charged retention failed/);
+    assert.equal(failed.calls.filter(v => v.op === 'approve_owner_file').length, 1);
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('native coordinator rejects fixture modes, loose native markers, enabled flags and changed allowance before RPC', async () => {
+  for (const mutate of [r => r.state = 'executing', r => r.consumptions = 1,
+    r => r.bindings.modelRehearsal.offlineFixture = false,
+    ...['offlineHosted', 'offlineHttp', 'offlineResponse'].flatMap(key => [
+      r => r.bindings.modelRehearsalPlan[key] = false, r => r.bindings.modelRehearsal[key] = false]),
+    ...[false, 1, 'true', null].map(value => r => r.bindings.modelRehearsalPlan.nativePrepared = value),
+    r => r.liveAuthority = true, r => r.bindings.modelRehearsal.liveAuthority = true,
+    r => r.bindings.modelRehearsal.boundary.allowanceUsdCents = 501,
+    ...['hardBillingCap', 'billingRiskAccepted', 'liveDispatchAvailable', 'readyForExecution'].map(key =>
+      r => r.bindings.modelRehearsal.boundary[key] = true)]) {
+    const c = ownerCoordinationControl(); mutate(c.frozen);
+    await assert.rejects(c.run());
+    assert.deepEqual(c.calls, []);
+  }
+});
+
+test('fixture coordinator retains the existing public fixture approval and approves exactly once', async () => {
+  const report = { runId: 'fixture', checkpoint: 'frozen', bindings: {}, membership: {}, preparations: {} };
+  const saved = [], calls = [];
+  await require('./mock-authority.cjs').approveFrozen({ async command(c) { calls.push(c); } }, report,
+    (filename, value) => saved.push({ filename, value }));
+  assert.equal(saved.length, 1);
+  assert.equal(saved[0].filename, 'test-fixture-approval.json');
+  assert.deepEqual(calls, [{ op: 'approve', approval: saved[0].value }]);
+});
+
+test('native launcher rejects every fixture combination before reading fixture files', () => {
+  const { offlineResponseFixture } = require('./run-bounded.cjs');
+  assert.equal(offlineResponseFixture({ nativePrepared: true }), null);
+  for (const value of [false, 1, 'true', null]) {
+    assert.throws(() => offlineResponseFixture({ nativePrepared: value }), /native/);
+  }
+  for (const key of ['offlineHosted', 'offlineHttp', 'offlineResponse']) {
+    assert.throws(() => offlineResponseFixture({ nativePrepared: true, [key]: false }), /native/);
+  }
+});
 
 test('file-only preflight preserves the exact moving alias without emitting credentials or authority', () => {
   const result = prepare(env, model(), hosts());
@@ -146,12 +339,24 @@ test('prepared-policy approval uses separate public fixture trust and rejects un
   const fixture = crypto.createPrivateKey({format:'der',type:'pkcs8',key:Buffer.from('302e020100300506032b657004220420'+'2a'.repeat(32),'hex')});
   assert.ok(crypto.verify(null, Buffer.from(canonical(approval.payload)), crypto.createPublicKey(fixture), Buffer.from(approval.signature)));
   assert.equal(approval.payload.scopeSha256, crypto.createHash('sha256').update(canonical({runId:report.runId,checkpoint:report.checkpoint,bindings:{},membership:{},preparations:{},policy})).digest('hex'));
-  const hosted = { ...report, testPolicy: 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair' };
+  const hosted = { ...report, bindings: { modelRehearsal: { offlineFixture: true } },
+    testPolicy: 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair' };
   const signed = testApproval(hosted);
   const hostedFixture = crypto.createPrivateKey({format:'der',type:'pkcs8',key:Buffer.from('302e020100300506032b657004220420'+'2b'.repeat(32),'hex')});
   assert.ok(crypto.verify(null, Buffer.from(canonical(signed.payload)), crypto.createPublicKey(hostedFixture), Buffer.from(signed.signature)));
   assert.equal(crypto.verify(null, Buffer.from(canonical(signed.payload)), crypto.createPublicKey(fixture), Buffer.from(signed.signature)), false);
   assert.throws(() => testApproval({...report,testPolicy:'unapproved-live-policy'}));
+  for (const value of [undefined, false, 1, null]) {
+    const changed = structuredClone(hosted);
+    if (value === undefined) delete changed.bindings.modelRehearsal.offlineFixture;
+    else changed.bindings.modelRehearsal.offlineFixture = value;
+    assert.throws(() => testApproval(changed), /fixture/);
+  }
+  for (const value of [true, false, 1, null]) {
+    const changed = structuredClone(hosted);
+    changed.bindings.modelRehearsalPlan = { nativePrepared: value };
+    assert.throws(() => testApproval(changed), /native/);
+  }
 });
 
 test('hosted offline staging requires one classified native observation without inventing an arrival', () => {
@@ -179,7 +384,8 @@ test('hosted offline staging requires one classified native observation without 
       r => r.bindings.modelRehearsalPlan.offlineHttp = value]),
     r => r.operations.model.response.observation = 'offline_injected_native_response',
     r => r.operations.model.response.http.transport = 'hosted_https',
-    r => r.operations.model.response.remoteArrivalVerified = true]) {
+    r => r.operations.model.response.remoteArrivalVerified = true,
+    ...[true, false, 1, null].map(value => r => r.bindings.modelRehearsalPlan.nativePrepared = value)]) {
     const changed = structuredClone(http); mutate(changed);
     assert.throws(() => validateProvisionalReceipt(changed, structuredClone(changed)));
   }

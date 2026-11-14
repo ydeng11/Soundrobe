@@ -32,6 +32,7 @@ struct Shared {
     forwarding: Arc<Semaphore>,
     http: reqwest::Client,
     transport: transport::Transport,
+    owner_approval_file: Option<std::path::PathBuf>,
     _registry_lock: std::fs::File,
     // Unit-control seam after a real SQLite commit; true selects dispatch.
     // Unset in broker construction and never bootstrap-selectable.
@@ -153,13 +154,14 @@ impl Drop for Broker {
 }
 impl Broker {
     pub(crate) async fn start(journal: Journal, owner: String) -> Result<Self, String> {
-        Self::with_transport(journal, owner, transport::Transport::default(), None).await
+        Self::with_transport(journal, owner, transport::Transport::default(), None, None).await
     }
     async fn with_transport(
         journal: Journal,
         owner: String,
         transport: transport::Transport,
         after_journal: Option<Box<dyn Fn(bool) + Send + Sync>>,
+        owner_approval_file: Option<std::path::PathBuf>,
     ) -> Result<Self, String> {
         use std::os::unix::fs::PermissionsExt;
         let lock = std::fs::OpenOptions::new()
@@ -194,6 +196,7 @@ impl Broker {
             forwarding: Arc::new(Semaphore::new(16)),
             http,
             transport,
+            owner_approval_file,
             _registry_lock: lock,
             after_journal,
         });
@@ -279,8 +282,39 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
             report["actualFakeLookups"] = json!(state.transport.lookups());
             return Ok(report);
         }
-        let command: Command =
-            serde_json::from_value(envelope.command).map_err(|_| "mock_ipc_invalid")?;
+        if envelope.command == json!({"op":"owner_approval_status"}) {
+            super::require(envelope.handle == state.owner)?;
+            #[cfg(target_os = "macos")]
+            if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
+                monitor.check()?;
+            }
+            let _admission = state
+                .admission
+                .lock()
+                .map_err(|_| "mock_authority_stopped")?;
+            if state.stopped.load(Ordering::SeqCst) {
+                return Err("mock_authority_stopped".into());
+            }
+            let path = state
+                .owner_approval_file
+                .as_ref()
+                .ok_or("approval_file_unavailable")?;
+            return state.journal.owner_approval_status(&state.owner, path);
+        }
+        let command: Command = if envelope.command == json!({"op":"approve_owner_file"}) {
+            // Native-selected fixed owner file only. The child cannot choose a
+            // path, public key or signer; ordinary fixture brokers have no file.
+            super::require(envelope.handle == state.owner)?;
+            let path = state
+                .owner_approval_file
+                .as_ref()
+                .ok_or("approval_file_unavailable")?;
+            Command::Approve {
+                approval: super::policy::boundary::read_owner_approval(path)?,
+            }
+        } else {
+            serde_json::from_value(envelope.command).map_err(|_| "mock_ipc_invalid")?
+        };
         let command = match command {
             Command::Genre { input } => {
                 return state.transport.genre(&state, &envelope.handle, input).await
@@ -644,6 +678,565 @@ async fn control_request(broker: &Broker, handle: &str, command: Value) -> Value
     serde_json::from_str(&reply).unwrap()
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn owner_publication_cannot_bypass_scoped_storage_accounting() {
+    use std::os::unix::fs::PermissionsExt;
+    if let Some(root) = std::env::var_os("SOUNDROBE_OWNER_PUBLICATION_SCOPED_TEST") {
+        let root = std::path::PathBuf::from(root);
+        super::storage::install_receiver(&root, uuid::Uuid::new_v4()).unwrap();
+        let ledger = std::fs::read(root.join(".storage-ledger")).unwrap();
+        let approval =
+            serde_json::from_value(json!({"payload":{},"signature":vec![0; 64]})).unwrap();
+        assert_eq!(
+            super::policy::boundary::publish_owner_approval(&root.join("owner"), &approval)
+                .unwrap_err(),
+            "approval_publication_owner_process_required"
+        );
+        assert_eq!(std::fs::read(root.join(".storage-ledger")).unwrap(), ledger);
+        assert_eq!(std::fs::read_dir(root.join("owner")).unwrap().count(), 0);
+        return;
+    }
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../.amp/in/artifacts")
+        .join(format!("owner-publication-scoped-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(root.join("owner")).unwrap();
+    let root = root.canonicalize().unwrap();
+    std::fs::set_permissions(root.join("owner"), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let output = std::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "infra::mock_run_authority::broker::owner_publication_cannot_bypass_scoped_storage_accounting", "--nocapture"])
+        .env_clear().env("PATH", std::env::var_os("PATH").unwrap_or_default())
+        .env("SOUNDROBE_OWNER_PUBLICATION_SCOPED_TEST", &root).output().unwrap();
+    std::fs::remove_dir_all(root).unwrap();
+    assert!(
+        output.status.success(),
+        "scoped publication child: {} {}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_https() {
+    use super::policy::boundary::PreparedBootstrap;
+    use ring::signature::{Ed25519KeyPair, KeyPair};
+    use std::os::unix::fs::PermissionsExt;
+    for (damage, status_check) in [
+        "none",
+        "openssl-v1",
+        "replay",
+        "fixture",
+        "scope",
+        "expired",
+        "missing",
+        "mode",
+        "symlink",
+        "hardlink",
+        "oversize",
+        "malformed",
+        "directory-mode",
+        "path-injection",
+        "client",
+    ]
+    .into_iter()
+    .flat_map(|damage| [(damage, false), (damage, true)])
+    {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.amp/in/approval-fixtures")
+            .join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let root = root.canonicalize().unwrap();
+        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let private = if damage == "openssl-v1" {
+            let file = root.join("openssl-disposable.pk8");
+            let output = std::process::Command::new("openssl")
+                .args([
+                    "genpkey",
+                    "-algorithm",
+                    "ED25519",
+                    "-outform",
+                    "DER",
+                    "-out",
+                ])
+                .arg(&file)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "disposable OpenSSL key generation failed"
+            );
+            assert!(output.stdout.is_empty());
+            let bytes = std::fs::read(&file).unwrap();
+            std::fs::remove_file(file).unwrap();
+            assert!(
+                Ed25519KeyPair::from_pkcs8(&bytes).is_err(),
+                "control must exercise PKCS8 v1"
+            );
+            bytes
+        } else {
+            Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())
+                .unwrap()
+                .as_ref()
+                .to_vec()
+        };
+        let signer = Ed25519KeyPair::from_pkcs8_maybe_unchecked(&private).unwrap();
+        let write = |name: &str, bytes: &[u8]| {
+            let file = root.join(name);
+            std::fs::write(&file, bytes).unwrap();
+            std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o600)).unwrap();
+        };
+        write("approval-verifier.ed25519", signer.public_key().as_ref());
+        write("approval-signing-key.pk8", private.as_ref());
+        let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["One","Other"]});
+        let plan: super::policy::RehearsalPlan = serde_json::from_value(json!({"nativePrepared":true,
+            "model":"~deepseek/deepseek-v4-flash-latest","observedTarget":"deepseek/deepseek-v4-flash-0731",
+            "route":"wafer/us","provider":"Wafer","input":input})).unwrap();
+        write("prepared-bootstrap.json", &serde_json::to_vec(&json!({"version":1,
+            "planSha256":super::sha(&serde_json::to_vec(&plan).unwrap()),"verifierSha256":super::sha(signer.public_key().as_ref()),
+            "credentialPath":root.join(".env.local"),"pricing":{"promptPicoUsd":1,"completionPicoUsd":2,
+            "catalogSha256":super::sha(b"catalog"),"termsSha256":super::sha(b"terms")}})).unwrap());
+        let prepared = PreparedBootstrap::read(&root, &plan).unwrap();
+        let request_sha = prepared.context.binding()["requestSha256"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let transport = transport::Transport::http_boundary(
+            prepared.credential,
+            transport::HostedHttp::pinned(),
+        );
+        let (journal, owner) = Journal::create_rehearsal(
+            &root.join("registry.sqlite"),
+            serde_json::from_str(include_str!(
+                "../../../test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json"
+            ))
+            .unwrap(),
+            json!({"executable":super::sha(b"test executable"),"modelRehearsalPlan":plan}),
+            prepared.context,
+        )
+        .unwrap();
+        journal
+            .command(
+                &owner,
+                Command::Lease {
+                    role: "owner".into(),
+                },
+            )
+            .unwrap();
+        let broker = Broker::with_transport(
+            journal.clone(),
+            owner.clone(),
+            transport,
+            None,
+            Some(prepared.approval_file),
+        )
+        .await
+        .unwrap();
+        let nonce = uuid::Uuid::new_v4().to_string();
+        let expiry = super::policy::now().unwrap() + 1200;
+        assert!(journal
+            .owner_approval(&owner, &root, &super::sha(b"not frozen"), &nonce, expiry)
+            .is_err());
+        super::tests::freeze_request(&journal, &owner, Some(request_sha));
+        let report = journal.report().unwrap();
+        let checkpoint = report["checkpoint"].as_str().unwrap();
+        let mut missing_context = journal.clone();
+        missing_context.rehearsal = None;
+        assert!(missing_context
+            .owner_approval(&owner, &root, checkpoint, &nonce, expiry)
+            .is_err());
+        for (handle, expected, nonce, expires) in [
+            ("not owner", checkpoint, nonce.as_str(), expiry),
+            (owner.as_str(), "other checkpoint", nonce.as_str(), expiry),
+            (owner.as_str(), checkpoint, "invalid nonce", expiry),
+            (owner.as_str(), checkpoint, nonce.as_str(), 1),
+            (owner.as_str(), checkpoint, nonce.as_str(), expiry + 1801),
+        ] {
+            assert!(journal
+                .owner_approval(handle, &root, expected, nonce, expires)
+                .is_err());
+        }
+        if damage == "none" {
+            let key_path = root.join("approval-signing-key.pk8");
+            for corruption in [
+                "missing",
+                "malformed",
+                "wrong-key",
+                "mode",
+                "symlink",
+                "hardlink",
+                "oversize",
+                "directory-mode",
+            ] {
+                match corruption {
+                    "missing" => std::fs::remove_file(&key_path).unwrap(),
+                    "malformed" => write("approval-signing-key.pk8", b"PRIVATE_KEY_ERROR_CANARY"),
+                    "wrong-key" => {
+                        let other =
+                            Ed25519KeyPair::generate_pkcs8(&ring::rand::SystemRandom::new())
+                                .unwrap();
+                        write("approval-signing-key.pk8", other.as_ref());
+                    }
+                    "mode" => {
+                        std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o640))
+                            .unwrap()
+                    }
+                    "symlink" => {
+                        std::fs::rename(&key_path, root.join("other.pk8")).unwrap();
+                        std::os::unix::fs::symlink(root.join("other.pk8"), &key_path).unwrap();
+                    }
+                    "hardlink" => std::fs::hard_link(&key_path, root.join("other.pk8")).unwrap(),
+                    "oversize" => write("approval-signing-key.pk8", &vec![b'x'; 4097]),
+                    "directory-mode" => {
+                        std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o750))
+                            .unwrap()
+                    }
+                    _ => unreachable!(),
+                }
+                let error = journal
+                    .owner_approval(&owner, &root, checkpoint, &nonce, expiry)
+                    .unwrap_err();
+                assert!(!error.contains("PRIVATE_KEY_ERROR_CANARY"), "{corruption}");
+                if key_path.symlink_metadata().is_ok() {
+                    std::fs::remove_file(&key_path).unwrap();
+                }
+                if root.join("other.pk8").exists() {
+                    std::fs::remove_file(root.join("other.pk8")).unwrap();
+                }
+                std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+                write("approval-signing-key.pk8", private.as_ref());
+            }
+        }
+        assert_eq!(
+            journal.report().unwrap(),
+            report,
+            "issuance rejection changed the Journal"
+        );
+        let issued = serde_json::to_value(
+            journal
+                .owner_approval(&owner, &root, checkpoint, &nonce, expiry)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            journal.report().unwrap(),
+            report,
+            "signing must not consume approval"
+        );
+        let scope = json!({"runId":report["runId"],"checkpoint":report["checkpoint"],"bindings":report["bindings"],
+            "membership":report["membership"],"preparations":report["preparations"],"policy":report["testPolicy"]});
+        let mut payload = json!({"version":1,"runId":report["runId"],"checkpoint":report["checkpoint"],
+            "scopeSha256":super::sha(&serde_json::to_vec(&scope).unwrap()),"nonce":uuid::Uuid::new_v4().to_string(),
+            "expiresUnixSeconds":super::policy::now().unwrap()+1200});
+        if damage == "scope" {
+            payload["scopeSha256"] = json!(super::sha(b"other scope"));
+        }
+        if damage == "expired" {
+            payload["expiresUnixSeconds"] = json!(1);
+        }
+        let approval = if damage == "fixture" {
+            sign_fixture_payload(payload)
+        } else if ["scope", "expired"].contains(&damage) {
+            json!({"signature":signer.sign(&serde_json::to_vec(&payload).unwrap()).as_ref(),"payload":payload})
+        } else {
+            issued
+        };
+        let published = cfg!(target_os = "macos") && ["none", "openssl-v1"].contains(&damage);
+        #[cfg(target_os = "macos")]
+        if published {
+            assert_eq!(
+                control_request(&broker, &owner, json!({"op":"owner_approval_status"})).await,
+                json!({"ok":true,"value":{"state":"pending","checkpoint":checkpoint,"liveAuthority":false}})
+            );
+            std::fs::remove_file(root.join("approval-signing-key.pk8")).unwrap();
+            let typed: super::policy::Approval = serde_json::from_value(approval.clone()).unwrap();
+            assert!(missing_context
+                .publish_owner_approval(&owner, &root, checkpoint, &typed)
+                .is_err());
+            assert!(journal
+                .owner_approval_status(
+                    &owner,
+                    &root.join("missing-directory/prepared-approval.json")
+                )
+                .is_err());
+            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o750)).unwrap();
+            assert!(journal
+                .publish_owner_approval(&owner, &root, checkpoint, &typed)
+                .is_err());
+            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).unwrap();
+            assert!(journal
+                .publish_owner_approval("wrong owner", &root, checkpoint, &typed)
+                .is_err());
+            assert!(journal
+                .publish_owner_approval(&owner, &root, "wrong checkpoint", &typed)
+                .is_err());
+            let mut corrupt = approval.clone();
+            corrupt["signature"][0] = json!(approval["signature"][0].as_u64().unwrap() ^ 1);
+            assert!(journal
+                .publish_owner_approval(
+                    &owner,
+                    &root,
+                    checkpoint,
+                    &serde_json::from_value(corrupt).unwrap()
+                )
+                .is_err());
+            let target = root.join("prepared-approval.json");
+            write("prepared-approval.json", b"existing owner file");
+            assert!(journal
+                .publish_owner_approval(&owner, &root, checkpoint, &typed)
+                .is_err());
+            assert_eq!(std::fs::read(&target).unwrap(), b"existing owner file");
+            std::fs::remove_file(&target).unwrap();
+            let outcomes = std::thread::scope(|scope| {
+                let a = scope
+                    .spawn(|| journal.publish_owner_approval(&owner, &root, checkpoint, &typed));
+                let b = scope
+                    .spawn(|| journal.publish_owner_approval(&owner, &root, checkpoint, &typed));
+                [a.join().unwrap(), b.join().unwrap()]
+            });
+            assert_eq!(outcomes.iter().filter(|r| r.is_ok()).count(), 1);
+            assert_eq!(
+                std::fs::read(&target).unwrap(),
+                serde_json::to_vec(&approval).unwrap()
+            );
+            use std::os::unix::fs::MetadataExt;
+            let metadata = std::fs::symlink_metadata(&target).unwrap();
+            assert_eq!(metadata.mode() & 0o777, 0o600);
+            assert_eq!(metadata.nlink(), 1);
+            assert!(!std::fs::read_dir(&root).unwrap().any(|f| f
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".prepared-approval-")));
+            assert_eq!(
+                journal.report().unwrap(),
+                report,
+                "publication consumed approval"
+            );
+            let status =
+                control_request(&broker, &owner, json!({"op":"owner_approval_status"})).await;
+            assert_eq!(
+                status,
+                json!({"ok":true,"value":{"state":"ready","checkpoint":checkpoint,
+                "approvalSha256":super::sha(&serde_json::to_vec(&approval).unwrap()),"liveAuthority":false}})
+            );
+        }
+        if !published && damage != "missing" {
+            write(
+                "prepared-approval.json",
+                &serde_json::to_vec(&approval).unwrap(),
+            );
+        }
+        if damage == "mode" {
+            std::fs::set_permissions(
+                root.join("prepared-approval.json"),
+                std::fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+        }
+        if damage == "symlink" {
+            std::fs::rename(root.join("prepared-approval.json"), root.join("other.json")).unwrap();
+            std::os::unix::fs::symlink(
+                root.join("other.json"),
+                root.join("prepared-approval.json"),
+            )
+            .unwrap();
+        }
+        if damage == "hardlink" {
+            std::fs::hard_link(root.join("prepared-approval.json"), root.join("other.json"))
+                .unwrap();
+        }
+        if damage == "oversize" {
+            write("prepared-approval.json", &vec![b' '; 8193]);
+        }
+        if damage == "malformed" {
+            write("prepared-approval.json", b"{}");
+        }
+        if damage == "directory-mode" {
+            std::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o750)).unwrap();
+        }
+        let command = if damage == "path-injection" {
+            json!({"op":"approve_owner_file","path":root.join("prepared-approval.json")})
+        } else {
+            json!({"op":"approve_owner_file"})
+        };
+        let handle = if damage == "client" {
+            "wrong-owner-handle"
+        } else {
+            &owner
+        };
+        let valid = ["none", "openssl-v1", "replay"].contains(&damage);
+        if status_check {
+            let status_command = if damage == "path-injection" {
+                json!({"op":"owner_approval_status","path":root.join("prepared-approval.json")})
+            } else {
+                json!({"op":"owner_approval_status"})
+            };
+            let status = control_request(&broker, handle, status_command).await;
+            assert_eq!(
+                status["ok"],
+                valid || damage == "missing",
+                "status/{damage}: {status}"
+            );
+            if damage == "missing" {
+                assert_eq!(status["value"]["state"], "pending");
+            } else if valid {
+                assert_eq!(status["value"]["state"], "ready");
+            }
+        }
+        if damage == "none" {
+            let output = std::process::Command::new("node")
+                .current_dir(
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .parent()
+                        .unwrap(),
+                )
+                .env_clear()
+                .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+                .args([
+                    "-e",
+                    r#"
+const {approveFrozen, rpc} = require('./scripts/auto-tag-eval-replay/mock-authority.cjs');
+(async () => {
+  const [socket, owner] = process.argv.slice(1);
+  // Component-only scope seam: this broker has no supervised native monitor.
+  const until = performance.now() + 5000;
+  const authority = { command: c => c.op === 'scope'
+    ? Promise.resolve({remainingMs: Math.max(0, Math.floor(until - performance.now()))})
+    : rpc(socket, owner, c) };
+  const retained = [];
+  const result = await approveFrozen(authority, await authority.command({op:'report'}),
+    (name, value) => { retained.push({name, value}); });
+  if (retained.length !== 1 || retained[0].name !== 'owner-approval-coordination.json'
+      || result.liveAuthority !== false) throw Error('coordination receipt mismatch');
+  process.stdout.write(JSON.stringify({scopeSeam:'component-only-not-native-deadline', retained}));
+})().catch(error => { process.stderr.write(error.message); process.exitCode = 1; });
+"#,
+                ])
+                .arg(broker.descriptor["socket"].as_str().unwrap())
+                .arg(&owner)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "JS/native coordination: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let witness: Value = serde_json::from_slice(&output.stdout).unwrap();
+            println!("OWNER_COORDINATION_WITNESS {witness}");
+        } else {
+            assert_eq!(
+                control_request(&broker, handle, command.clone()).await["ok"],
+                valid,
+                "{damage}"
+            );
+        }
+        if valid {
+            assert!(
+                journal
+                    .owner_approval_status(&owner, &root.join("prepared-approval.json"))
+                    .is_err(),
+                "consumed approval remained ready"
+            );
+        }
+        assert_eq!(
+            journal.report().unwrap()["consumptions"],
+            usize::from(valid),
+            "{damage}"
+        );
+        if damage == "replay" {
+            assert_eq!(control_request(&broker, &owner, command).await["ok"], false);
+        }
+        if ["none", "openssl-v1"].contains(&damage) {
+            let session = journal
+                .command(
+                    &owner,
+                    Command::Register {
+                        job: "assistance-crowd".into(),
+                        stage: Stage::Execution,
+                        endpoint: "http://127.0.0.1:1".into(),
+                        manifest_sha256: super::sha(b"fixture"),
+                    },
+                )
+                .unwrap();
+            let client = session["client"].as_str().unwrap();
+            for (handle, role) in [
+                (client, "native"),
+                (session["service"].as_str().unwrap(), "fixture"),
+            ] {
+                journal
+                    .command(handle, Command::Lease { role: role.into() })
+                    .unwrap();
+            }
+            journal
+                .command(
+                    client,
+                    Command::Attach {
+                        executable_sha256: super::sha(b"test executable"),
+                        preparation_sha256: Some(super::sha(b"assistance-crowd")),
+                    },
+                )
+                .unwrap();
+            let result =
+                control_request(&broker, client, json!({"op":"genre","input":input})).await;
+            assert_eq!(result["ok"], false);
+            assert_eq!(result["code"], "live_dispatch_disabled");
+            let status =
+                control_request(&broker, &owner, json!({"op":"owner_approval_status"})).await;
+            assert_eq!(status["ok"], false);
+            assert_eq!(status["code"], "mock_authority_stopped");
+            assert!(journal
+                .publish_owner_approval(
+                    &owner,
+                    &root,
+                    checkpoint,
+                    &serde_json::from_value(approval.clone()).unwrap()
+                )
+                .is_err());
+            assert_eq!(
+                std::fs::read(root.join("prepared-approval.json")).unwrap(),
+                serde_json::to_vec(&approval).unwrap()
+            );
+        }
+        if ["none", "openssl-v1"].contains(&damage) {
+            let terminal = journal.report().unwrap();
+            eprintln!(
+                "OWNER_SIGNING_EVIDENCE={}",
+                json!({"keyFormat":if damage == "openssl-v1" {"openssl_pkcs8_v1"} else {"ring_pkcs8_v2"},
+                "frozen":report,"approval":approval,"publicKey":signer.public_key().as_ref(),
+                "expectedVerifierSha256":super::sha(signer.public_key().as_ref()),"verifiedAt":expiry-1200,"terminal":terminal})
+            );
+        }
+        assert!(
+            journal
+                .owner_approval(&owner, &root, checkpoint, &nonce, expiry)
+                .is_err(),
+            "terminal run signed again"
+        );
+        let report =
+            control_request(&broker, &owner, json!({"op":"report"})).await["value"].clone();
+        assert_eq!(report["consumptions"], usize::from(valid));
+        assert_eq!(report["credentialLookups"], 0);
+        assert_eq!(report["actualFakeLookups"], 0);
+        assert_eq!(report["counters"]["model"], 0);
+        assert_eq!(report["counters"]["reserved"], 0);
+        assert_eq!(report["state"], "terminal");
+        assert_eq!(report["membership"]["requestedFieldSlots"], 216);
+        assert_eq!(report["liveAuthority"], false);
+        assert!(!root.join(".env.local").exists());
+        drop(broker);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    let (root, journal, owner) = contextual_setup(false);
+    let broker = Broker::start(journal.clone(), owner.clone()).await.unwrap();
+    assert_eq!(
+        control_request(&broker, &owner, json!({"op":"approve_owner_file"})).await["ok"],
+        false
+    );
+    assert_eq!(journal.report().unwrap()["consumptions"], 0);
+    drop(broker);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn model_rehearsal_approval_cannot_reuse_fixture_trust_or_recover_authority() {
     for disabled in [false, true] {
@@ -889,7 +1482,7 @@ async fn hosted_http_controls_settle_exact_responses_without_enabling_live_boots
         } else {
             transport::Transport::http_boundary(source, sender)
         };
-        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None)
+        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None, None)
             .await
             .unwrap();
         super::tests::freeze_request(&journal, &owner, Some(super::sha(&request_bytes)));
@@ -1306,7 +1899,7 @@ async fn disabled_boundary_broker_uses_native_file_and_observation_without_exter
         } else {
             transport::Transport::offline_boundary(source, executor)
         };
-        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None)
+        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None, None)
             .await
             .unwrap();
         super::tests::freeze_request(&journal, &owner, Some(body_digest));
@@ -1519,10 +2112,15 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
                 std::thread::sleep(std::time::Duration::from_millis(2100));
             }
         });
-        let broker =
-            Broker::with_transport(journal.clone(), owner.clone(), supplier, Some(barrier))
-                .await
-                .unwrap();
+        let broker = Broker::with_transport(
+            journal.clone(),
+            owner.clone(),
+            supplier,
+            Some(barrier),
+            None,
+        )
+        .await
+        .unwrap();
         let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]});
         let mut body = json!({"model":"scripted/genre-v1","temperature":0.2,"max_tokens":1024,
             "reasoning":{"enabled":false},"provider":{"allow_fallbacks":false,"require_parameters":true},"stream":false,
@@ -1813,6 +2411,7 @@ fn mock_authority_stop_revokes_admission_before_a_held_journal_gate_returns() {
         forwarding: Arc::new(Semaphore::new(16)),
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
         transport: transport::Transport::default(),
+        owner_approval_file: None,
         _registry_lock: std::fs::File::create(root.join("control-test.lock")).unwrap(),
         after_journal: None,
     });
@@ -1860,6 +2459,7 @@ fn mock_authority_late_committed_admission_is_consumed_but_never_acknowledged_af
         forwarding: Arc::new(Semaphore::new(16)),
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
         transport: transport::Transport::default(),
+        owner_approval_file: None,
         _registry_lock: std::fs::File::create(root.join("return-control.lock")).unwrap(),
         after_journal: Some(Box::new(move |_| {
             arrived.send(()).unwrap();
@@ -1989,6 +2589,7 @@ async fn mock_authority_revoked_post_commit_dispatch_never_reaches_fixture_wire(
             forwarding: Arc::new(Semaphore::new(16)),
             http: reqwest::Client::builder().no_proxy().build().unwrap(),
             transport: transport::Transport::default(),
+            owner_approval_file: None,
             _registry_lock: std::fs::File::create(root.join("dispatch-control.lock")).unwrap(),
             after_journal: Some(Box::new(move |dispatch| {
                 if dispatch {
@@ -2333,10 +2934,22 @@ pub(crate) async fn supervised_process(
     let plan = input["bindings"].get("modelRehearsalPlan");
     super::require(plan.is_some() == std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN").is_some())?;
     let mut transport = transport::Transport::default();
+    let mut owner_approval_file = None;
     let (journal, owner) = if let Some(plan) = plan {
         let plan: super::policy::RehearsalPlan =
             serde_json::from_value(plan.clone()).map_err(|_| "mock_rehearsal_plan_invalid")?;
-        let context = plan.context()?;
+        let context = if plan.native_prepared {
+            use super::policy::boundary::PreparedBootstrap;
+            let prepared = PreparedBootstrap::read(&PreparedBootstrap::owner_directory()?, &plan)?;
+            transport = transport::Transport::http_boundary(
+                prepared.credential,
+                transport::HostedHttp::pinned(),
+            );
+            owner_approval_file = Some(prepared.approval_file);
+            prepared.context
+        } else {
+            plan.context()?
+        };
         if plan.offline_hosted.is_some() {
             let plan_file = std::path::PathBuf::from(
                 std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN")
@@ -2375,6 +2988,16 @@ pub(crate) async fn supervised_process(
                     &context,
                     source,
                     root.join("offline-http-observation.json"),
+                    plan.offline_response
+                        .as_ref()
+                        .map(|response| {
+                            response.read(
+                                &plan_file,
+                                &input["bindings"]["sourcesAndTools"],
+                                &std::env::current_dir().map_err(io_error)?,
+                            )
+                        })
+                        .transpose()?,
                 )
                 .await?
             } else {
@@ -2395,7 +3018,9 @@ pub(crate) async fn supervised_process(
             None,
         )?
     };
-    let broker = Broker::with_transport(journal.clone(), owner, transport, None).await?;
+    let broker =
+        Broker::with_transport(journal.clone(), owner, transport, None, owner_approval_file)
+            .await?;
     receiver::durable_json(&directory, "ready.json", &broker.descriptor).map_err(io_error)?;
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("stalled-storage") {
         use std::io::Read;

@@ -21,6 +21,7 @@ function validateReceipt(receipt, expected, state) {
     && receipt.bindings?.modelRehearsal?.offlineFixture === true;
   const binding = receipt?.bindings?.modelRehearsal;
   const plan = receipt?.bindings?.modelRehearsalPlan;
+  if (Object.hasOwn(plan ?? {}, 'nativePrepared')) throw Error('native prepared runs are not accepted by the mock receipt validator');
   const http = Object.hasOwn(binding ?? {}, 'offlineHttp') || Object.hasOwn(plan ?? {}, 'offlineHttp');
   if (http && (!hosted || binding.offlineHttp !== true || plan?.offlineHttp !== true
       || !plan.offlineHosted || typeof plan.offlineHosted !== 'object' || Array.isArray(plan.offlineHosted))) {
@@ -180,6 +181,8 @@ function testApproval(report) {
   const policy = report.testPolicy ?? 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair';
   const rehearsal = policy === 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair';
   const hosted = policy === 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair';
+  if (Object.hasOwn(report.bindings?.modelRehearsalPlan ?? {}, 'nativePrepared')) throw Error('native prepared approval cannot use the public signer');
+  if (hosted && report.bindings?.modelRehearsal?.offlineFixture !== true) throw Error('hosted public signer requires explicit fixture trust');
   if (!rehearsal && !hosted && policy !== 'offline-retained-evidence-v1;loopback-scripted-genre-v1;no-live;no-retry;no-repair') throw Error('Unknown offline signing policy');
   const scope = { runId: report.runId, checkpoint: report.checkpoint, bindings: report.bindings,
     membership: report.membership, preparations: report.preparations, policy };
@@ -190,4 +193,71 @@ function testApproval(report) {
     '302e020100300506032b657004220420' + (hosted ? '2b'.repeat(32) : rehearsal ? '2a'.repeat(32) : '9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60'), 'hex') });
   return { payload, signature: [...crypto.sign(null, Buffer.from(canonical(payload)), key)] };
 }
-module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt, testApproval };
+async function approveFrozen(authority, report, retain) {
+  const plan = report?.bindings?.modelRehearsalPlan;
+  if (!Object.hasOwn(plan ?? {}, 'nativePrepared')) {
+    const approval = testApproval(report);
+    await retain('test-fixture-approval.json', approval);
+    return authority.command({ op: 'approve', approval });
+  }
+  const frozen = structuredClone(report);
+  const binding = frozen.bindings?.modelRehearsal, boundary = binding?.boundary;
+  const policy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair';
+  const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const noModelActivity = value => value.credentialLookups === 0 && value.actualFakeLookups === 0
+    && value.counters?.model === 0 && value.operations && typeof value.operations === 'object'
+    && !Array.isArray(value.operations) && Object.values(value.operations).every(o => o?.category !== 'model');
+  if (plan.nativePrepared !== true || frozen.state !== 'frozen' || frozen.consumptions !== 0
+      || typeof frozen.runId !== 'string' || !frozen.runId || !digest(frozen.checkpoint)
+      || !frozen.membership || !frozen.preparations || !noModelActivity(frozen)
+      || frozen.testPolicy !== policy || binding?.policy !== policy
+      || frozen.liveAuthority !== false || binding.liveAuthority !== false
+      || ['offlineFixture', 'offlineHosted', 'offlineHttp', 'offlineResponse'].some(key =>
+        Object.hasOwn(plan, key) || Object.hasOwn(binding, key))
+      || boundary?.allowanceUsdCents !== 500
+      || ['hardBillingCap', 'billingRiskAccepted', 'liveDispatchAvailable', 'readyForExecution']
+        .some(key => boundary?.[key] !== false)) throw Error('native approval coordination scope invalid');
+  let deadline = Infinity;
+  const scope = async () => {
+    const value = await authority.command({ op: 'scope' });
+    if (!Number.isSafeInteger(value?.remainingMs) || value.remainingMs <= 0) throw Error('native approval scope unavailable or exhausted');
+    deadline = Math.min(deadline, performance.now() + value.remainingMs);
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw Error('native approval scope exhausted');
+    return remaining;
+  };
+  let status;
+  for (;;) {
+    await scope();
+    status = await authority.command({ op: 'owner_approval_status' });
+    const keys = status?.state === 'pending' ? ['checkpoint', 'liveAuthority', 'state']
+      : ['approvalSha256', 'checkpoint', 'liveAuthority', 'state'];
+    if (!status || !['pending', 'ready'].includes(status.state)
+        || !isDeepStrictEqual(Object.keys(status).sort(), keys)
+        || status.checkpoint !== frozen.checkpoint || status.liveAuthority !== false
+        || (status.state === 'ready' && !digest(status.approvalSha256))) throw Error('native owner approval status invalid or drifted');
+    if (status.state === 'ready') break;
+    const remaining = deadline - performance.now();
+    if (remaining <= 0) throw Error('native approval scope exhausted');
+    await new Promise(resolve => setTimeout(resolve, Math.min(25, remaining)));
+  }
+  await scope();
+  const consumed = await authority.command({ op: 'approve_owner_file' });
+  const current = await authority.command({ op: 'report' });
+  if (consumed?.consumed !== true || !Number.isSafeInteger(consumed.expiresUnixSeconds)
+      || consumed.expiresUnixSeconds <= Math.floor(Date.now() / 1000)
+      || !current || current.state !== 'executing' || current.consumptions !== 1
+      || current.liveAuthority !== false || current.testPolicy !== frozen.testPolicy
+      || !noModelActivity(current) || current.approvalSha256 !== status.approvalSha256
+      || current.approvalExpires !== consumed.expiresUnixSeconds
+      || ['runId', 'checkpoint', 'bindings', 'membership', 'preparations'].some(key =>
+        !isDeepStrictEqual(current[key], frozen[key]))) throw Error('native approval coordination receipt mismatched');
+  const receipt = { componentCoordinationOnly: true, liveAuthority: false, humanPresenceVerified: false,
+    qualityCertificate: false, successCertificate: false,
+    ...Object.fromEntries(['runId', 'checkpoint', 'bindings', 'membership', 'preparations', 'approvalSha256',
+      'approvalExpires', 'consumptions', 'state', 'credentialLookups', 'actualFakeLookups', 'counters']
+      .map(key => [key, current[key]])) };
+  await retain('owner-approval-coordination.json', receipt);
+  return receipt;
+}
+module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt, testApproval, approveFrozen };
