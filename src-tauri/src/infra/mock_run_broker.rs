@@ -827,6 +827,362 @@ async fn mock_policy_approval_is_pinned_exact_single_use_and_durable() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn hosted_http_controls_settle_exact_responses_without_enabling_live_bootstrap() {
+    use super::policy::boundary::CredentialFile;
+    use std::os::unix::fs::PermissionsExt;
+    let mut evidence = Vec::new();
+    for mode in [
+        "success",
+        "withheld",
+        "status",
+        "schema",
+        "identity",
+        "usage",
+        "bool-usage",
+        "reasoning",
+        "refusal",
+        "tools",
+        "extra-answer",
+        "duplicate-answer",
+        "overflow-number",
+        "negative-zero",
+        "redirect",
+        "oversize",
+        "truncated",
+        "slow",
+        "replay",
+        "revoked",
+        "closed",
+        "pinned-closed",
+        "in-flight-stop",
+        "input-drift",
+    ] {
+        let (root, journal, owner) = contextual_setup(true);
+        let input = json!({"artist":"Asymmetric Artist","album":"Different Album","tracks":["Track One","Other Two"]});
+        let request_bytes = journal
+            .rehearsal
+            .as_ref()
+            .unwrap()
+            .request_body(&serde_json::from_value(input.clone()).unwrap())
+            .unwrap();
+        let credential = root.join(".env.local");
+        std::fs::write(
+            &credential,
+            "LLM_API_KEY=FAKE_HTTP_ONLY_CANARY\nLLM_MODEL=~deepseek/deepseek-v4-flash-latest\n",
+        )
+        .unwrap();
+        std::fs::set_permissions(&credential, std::fs::Permissions::from_mode(0o600)).unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let endpoint = format!(
+            "http://{}/api/v1/chat/completions",
+            listener.local_addr().unwrap()
+        );
+        let source =
+            CredentialFile::new(credential, "~deepseek/deepseek-v4-flash-latest".into()).unwrap();
+        let sender = if mode == "pinned-closed" {
+            transport::HostedHttp::pinned()
+        } else {
+            transport::HostedHttp::local_control(endpoint.parse().unwrap()).unwrap()
+        };
+        let transport = if mode == "closed" {
+            transport::Transport::new(Box::new(move || source.read()))
+        } else {
+            transport::Transport::http_boundary(source, sender)
+        };
+        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None)
+            .await
+            .unwrap();
+        super::tests::freeze_request(&journal, &owner, Some(super::sha(&request_bytes)));
+        let approval = rehearsal_approval(&journal.report().unwrap());
+        assert_eq!(
+            control_request(&broker, &owner, json!({"op":"approve","approval":approval})).await
+                ["ok"],
+            true
+        );
+        let session = journal
+            .command(
+                &owner,
+                Command::Register {
+                    job: "assistance-crowd".into(),
+                    stage: Stage::Execution,
+                    endpoint: "http://127.0.0.1:1".into(),
+                    manifest_sha256: super::sha(b"fixture"),
+                },
+            )
+            .unwrap();
+        let client = session["client"].as_str().unwrap();
+        for (handle, role) in [
+            (client, "native"),
+            (session["service"].as_str().unwrap(), "fixture"),
+        ] {
+            journal
+                .command(handle, Command::Lease { role: role.into() })
+                .unwrap();
+        }
+        journal
+            .command(
+                client,
+                Command::Attach {
+                    executable_sha256: super::sha(b"test executable"),
+                    preparation_sha256: Some(super::sha(b"assistance-crowd")),
+                },
+            )
+            .unwrap();
+        let mut value = json!({"model":"deepseek/deepseek-v4-flash-0731","provider":"Wafer",
+            "choices":[{"finish_reason":"stop","message":{"content":"{\"genre\":\"CONTROL_GENRE\",\"confidence\":0.8}"}}],
+            "usage":{"prompt_tokens":13,"completion_tokens":5,"total_tokens":18},"diagnostic":"RAW_RESPONSE_CANARY"});
+        match mode {
+            "withheld" => {
+                value["choices"][0]["message"]["content"] =
+                    json!("{\"genre\":\"WITHHELD_CANARY\",\"confidence\":0.59}")
+            }
+            "schema" => value["choices"][0]["message"]["content"] = json!("RAW_SCHEMA_CANARY"),
+            "identity" => value["provider"] = json!("Other"),
+            "usage" => {
+                value.as_object_mut().unwrap().remove("usage");
+            }
+            "bool-usage" => value["usage"]["prompt_tokens"] = json!(true),
+            "reasoning" => {
+                value["usage"]["completion_tokens_details"] = json!({"reasoning_tokens":1})
+            }
+            "refusal" => value["choices"][0]["message"]["refusal"] = json!("REFUSAL_CANARY"),
+            "tools" => value["choices"][0]["message"]["tool_calls"] = json!([{"id":"TOOL_CANARY"}]),
+            "extra-answer" => {
+                value["choices"][0]["message"]["content"] =
+                    json!("{\"genre\":\"CONTROL_GENRE\",\"confidence\":0.8,\"extra\":true}")
+            }
+            "duplicate-answer" => {
+                value["choices"][0]["message"]["content"] =
+                    json!("{\"genre\":\"Jazz\",\"genre\":\"Jazz\",\"confidence\":0.8}")
+            }
+            "negative-zero" => {
+                value["usage"] = json!({"prompt_tokens":0,"completion_tokens":5,"total_tokens":5});
+            }
+            _ => {}
+        }
+        let status = if mode == "status" {
+            429
+        } else if mode == "redirect" {
+            307
+        } else {
+            200
+        };
+        let response = if mode == "oversize" {
+            vec![b'X'; 65537]
+        } else if mode == "status" {
+            b"REMOTE_ERROR_CANARY".to_vec()
+        } else if mode == "overflow-number" {
+            serde_json::to_string(&value)
+                .unwrap()
+                .replace("\"RAW_RESPONSE_CANARY\"", "1e400")
+                .into_bytes()
+        } else if mode == "negative-zero" {
+            serde_json::to_string(&value)
+                .unwrap()
+                .replace("\"prompt_tokens\":0", "\"prompt_tokens\":-0")
+                .into_bytes()
+        } else {
+            serde_json::to_vec(&value).unwrap()
+        };
+        let captured = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed = captured.clone();
+        let bytes = response.clone();
+        let j = journal.clone();
+        let server_owner = owner.clone();
+        let fixture = tokio::spawn(
+            axum::serve(
+                listener,
+                Router::new().fallback(move |request: Request| {
+                    let observed = observed.clone();
+                    let bytes = bytes.clone();
+                    let j = j.clone();
+                    let server_owner = server_owner.clone();
+                    async move {
+                        assert_eq!(request.method(), reqwest::Method::POST);
+                        assert_eq!(request.uri().path(), "/api/v1/chat/completions");
+                        assert_eq!(
+                            request.headers()["authorization"],
+                            "Bearer FAKE_HTTP_ONLY_CANARY"
+                        );
+                        assert!(request
+                            .headers()
+                            .get("x-soundrobe-mock-operation")
+                            .is_none());
+                        let body = to_bytes(request.into_body(), 32768).await.unwrap().to_vec();
+                        observed.lock().unwrap().push(body);
+                        if mode == "in-flight-stop" {
+                            j.command(&server_owner, Command::Stop).unwrap();
+                        }
+                        let body = if mode == "truncated" {
+                            Body::from_stream(futures_util::stream::iter(vec![
+                                Ok::<_, std::io::Error>("partial"),
+                                Err(std::io::Error::other("WIRE_CLOSED_CANARY")),
+                            ]))
+                        } else if mode == "slow" {
+                            Body::from_stream(futures_util::stream::once(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(5200)).await;
+                                Ok::<_, std::io::Error>(bytes)
+                            }))
+                        } else {
+                            Body::from(bytes)
+                        };
+                        Response::builder()
+                            .status(status)
+                            .header("location", "http://127.0.0.1:1/never")
+                            .header("x-private-canary", "HEADER_CANARY")
+                            .body(body)
+                            .unwrap()
+                    }
+                }),
+            )
+            .into_future(),
+        );
+        let mut command = json!({"op":"genre","input":input});
+        if mode == "input-drift" {
+            command["input"]["album"] = json!("changed");
+        }
+        if mode == "revoked" {
+            assert_eq!(
+                control_request(&broker, &owner, json!({"op":"stop"})).await["ok"],
+                true
+            );
+        }
+        let reply = control_request(&broker, client, command.clone()).await;
+        let valid = ["success", "withheld", "replay"].contains(&mode);
+        assert_eq!(reply["ok"], valid, "{mode}: {reply}");
+        if mode == "replay" {
+            assert_eq!(control_request(&broker, client, command).await["ok"], false);
+        }
+        let report = journal.report().unwrap();
+        let attempted = !["closed", "pinned-closed", "revoked", "input-drift"].contains(&mode);
+        let complete =
+            attempted && !["oversize", "truncated", "slow", "in-flight-stop"].contains(&mode);
+        assert_eq!(
+            report["credentialLookups"],
+            usize::from(attempted),
+            "{mode}"
+        );
+        assert_eq!(
+            report["counters"]["model"],
+            usize::from(attempted),
+            "{mode}"
+        );
+        assert_eq!(report["counters"]["arrived"], 0);
+        assert_eq!(
+            report["counters"]["completed"],
+            usize::from(complete),
+            "{mode}"
+        );
+        assert_eq!(report["liveAuthority"], false);
+        assert!(
+            !report.to_string().contains("CANARY"),
+            "persisted private text: {mode}"
+        );
+        assert!(
+            !reply.to_string().contains("CANARY"),
+            "IPC private text: {mode}"
+        );
+        if attempted {
+            let operations = report["operations"].as_object().unwrap();
+            let receipt = &operations.values().next().unwrap()["response"];
+            if complete {
+                assert_eq!(receipt["sha256"], super::sha(&response));
+                assert_eq!(receipt["bytes"], response.len());
+                assert_eq!(receipt["status"], status);
+                assert_eq!(receipt["observation"], "native_http_response");
+                assert_eq!(receipt["remoteArrivalVerified"], false);
+                assert_eq!(receipt["http"]["transport"], "offline_local_http");
+                assert_eq!(receipt["http"]["requestSha256"], super::sha(&request_bytes));
+                assert_eq!(
+                    receipt["http"]["validation"],
+                    if mode == "withheld" {
+                        "withheld"
+                    } else if valid {
+                        "accepted"
+                    } else {
+                        "rejected"
+                    }
+                );
+                if valid {
+                    assert_eq!(
+                        receipt["http"]["projection"]["genre"],
+                        if mode == "withheld" {
+                            ""
+                        } else {
+                            "CONTROL_GENRE"
+                        }
+                    );
+                } else {
+                    assert!(receipt["http"]["projection"].is_null());
+                }
+                evidence.push(
+                    json!({"mode":mode,"request":String::from_utf8(request_bytes.clone()).unwrap(),
+                    "response":String::from_utf8(response.clone()).unwrap(),"receipt":receipt}),
+                );
+            } else {
+                assert!(receipt.is_null());
+            }
+        }
+        if mode == "success" {
+            // Later session registrations rewrite and resize the Journal row.
+            // Accepted metadata must not survive in untyped, freed page bytes.
+            for job in [
+                "disabled-crowd",
+                "disabled-billie",
+                "disabled-enya",
+                "assistance-billie",
+                "assistance-enya",
+            ] {
+                journal
+                    .command(
+                        &owner,
+                        Command::Register {
+                            job: job.into(),
+                            stage: Stage::Execution,
+                            endpoint: "http://127.0.0.1:1234".into(),
+                            manifest_sha256: super::sha(b"fixture"),
+                        },
+                    )
+                    .unwrap();
+            }
+            let live = journal.report().unwrap().to_string();
+            let stored = std::fs::read(root.join("registry.sqlite")).unwrap();
+            assert_eq!(
+                stored
+                    .windows(b"CONTROL_GENRE".len())
+                    .filter(|part| *part == b"CONTROL_GENRE")
+                    .count(),
+                live.matches("CONTROL_GENRE").count(),
+                "accepted metadata in unclassified Journal pages"
+            );
+        }
+        assert_eq!(
+            *captured.lock().unwrap(),
+            if attempted {
+                vec![request_bytes]
+            } else {
+                vec![]
+            },
+            "{mode}"
+        );
+        fixture.abort();
+    }
+    // Evidence export is explicit and create-new: a regression gate must not
+    // overwrite the source-bound receipt table of an earlier checkpoint.
+    if let Some(file) = std::env::var_os("SOUNDROBE_HTTP_CONTROL_EVIDENCE") {
+        use std::io::Write;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(file)
+            .unwrap();
+        file.write_all(&serde_json::to_vec_pretty(&evidence).unwrap())
+            .unwrap();
+        file.sync_all().unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn disabled_boundary_broker_uses_native_file_and_observation_without_external_egress() {
     use super::policy::boundary::{CredentialFile, ENDPOINT};
     use std::os::unix::fs::PermissionsExt;
@@ -2014,7 +2370,16 @@ pub(crate) async fn supervised_process(
             let source =
                 super::policy::boundary::CredentialFile::new(credential, plan.model.clone())
                     .map_err(|_| "mock_credential_fixture_invalid")?;
-            transport = transport::Transport::offline_rehearsal(&context, source)?;
+            transport = if plan.offline_http {
+                transport::Transport::offline_http_rehearsal(
+                    &context,
+                    source,
+                    root.join("offline-http-observation.json"),
+                )
+                .await?
+            } else {
+                transport::Transport::offline_rehearsal(&context, source)?
+            };
         }
         Journal::create_rehearsal(
             &directory.join("registry.sqlite"),

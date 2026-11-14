@@ -28,6 +28,21 @@ pub(crate) struct RehearsalPlan {
     input: GenreInput,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) offline_hosted: Option<boundary::TextPricing>,
+    #[serde(
+        default,
+        skip_serializing_if = "std::ops::Not::not",
+        deserialize_with = "offline_http_fixture"
+    )]
+    pub(crate) offline_http: bool,
+}
+fn offline_http_fixture<'de, D: serde::Deserializer<'de>>(input: D) -> Result<bool, D::Error> {
+    if bool::deserialize(input)? {
+        Ok(true)
+    } else {
+        Err(serde::de::Error::custom(
+            "offline HTTP fixture marker must be true",
+        ))
+    }
 }
 impl RehearsalPlan {
     pub(crate) fn body(&self, input: &GenreInput) -> Result<Value, String> {
@@ -39,6 +54,7 @@ impl RehearsalPlan {
     }
     pub(crate) fn context(&self) -> Result<Rehearsal, String> {
         use ring::signature::{Ed25519KeyPair, KeyPair};
+        require(!self.offline_http || self.offline_hosted.is_some())?;
         // Deliberately public fixture seed, independently selected natively.
         // Not read from the plan or approval and never real user trust.
         let seed = if self.offline_hosted.is_some() {
@@ -53,6 +69,7 @@ impl RehearsalPlan {
                 pricing.clone(),
             )?;
             context.offline_fixture = true;
+            context.offline_http = self.offline_http;
             return Ok(context);
         }
         Rehearsal::new(
@@ -77,6 +94,7 @@ pub(crate) struct Rehearsal {
     route: String,
     boundary: Option<Value>,
     offline_fixture: bool,
+    pub(super) offline_http: bool,
 }
 impl Rehearsal {
     pub(super) fn disabled_hosted(&self) -> bool {
@@ -111,6 +129,7 @@ impl Rehearsal {
             route: route.into(),
             boundary: None,
             offline_fixture: false,
+            offline_http: false,
         })
     }
     fn body(input: &GenreInput, model: &str, route: &str) -> Result<Vec<u8>, String> {
@@ -137,6 +156,9 @@ impl Rehearsal {
         }
         if self.offline_fixture {
             binding["offlineFixture"] = json!(true);
+        }
+        if self.offline_http {
+            binding["offlineHttp"] = json!(true);
         }
         binding
     }
@@ -281,6 +303,33 @@ fn prepared_rehearsal_plan_keeps_worker_body_and_native_pin_separate() {
         context.binding()["requestSha256"]
     );
     assert_eq!(serde_json::to_value(hosted_plan).unwrap(), hosted);
+    let mut http = hosted.clone();
+    http["offlineHttp"] = json!(true);
+    let http_plan: RehearsalPlan = serde_json::from_value(http.clone()).unwrap();
+    let http_context = http_plan.context().unwrap();
+    assert_eq!(http_context.binding()["offlineHttp"], true);
+    assert_eq!(http_context.binding()["policy"], boundary::DISABLED_POLICY);
+    assert_eq!(
+        http_context.binding()["verifierSha256"],
+        hosted_context.binding()["verifierSha256"]
+    );
+    assert_eq!(
+        http_context.binding()["requestSha256"],
+        hosted_context.binding()["requestSha256"]
+    );
+    assert_eq!(serde_json::to_value(http_plan).unwrap(), http);
+    for invalid in [json!(false), json!(1), json!("true"), Value::Null] {
+        let mut changed = http.clone();
+        changed["offlineHttp"] = invalid;
+        assert!(serde_json::from_value::<RehearsalPlan>(changed)
+            .and_then(|p| p.context().map_err(serde::de::Error::custom))
+            .is_err());
+    }
+    http.as_object_mut().unwrap().remove("offlineHosted");
+    assert!(serde_json::from_value::<RehearsalPlan>(http)
+        .unwrap()
+        .context()
+        .is_err());
     hosted["offlineHosted"]["readyForExecution"] = json!(true);
     assert!(serde_json::from_value::<RehearsalPlan>(hosted).is_err());
     let mut injected = value;

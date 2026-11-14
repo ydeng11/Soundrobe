@@ -1,0 +1,19 @@
+{
+  "byteIdenticalReanalysis": [
+    {
+      "audit": "audit-02.json",
+      "bytes": 5017,
+      "sha256": "732af0b0309024e19131b7b7c28c85d5d3949e934a3bc984bf43c66f3af843fa"
+    },
+    {
+      "audit": "privacy-02.json",
+      "bytes": 112630,
+      "sha256": "4c0fd7966db42ddaf886787232186ddd8a9d15e7b135bf11773722973215ec68"
+    }
+  ],
+  "completedEvidenceBindings": 62,
+  "finalVerificationSha256": "d5c76e1114d17987b1c8e99e8b6e2a6cd1b2d01bbceee4464100fc6a5b537df8",
+  "verifierSha256": "4805a2439a0e9a09131f4481fa4665303738045e4a33701c0524f2145e95c18b",
+  "nativeWorkloadRerun": false,
+  "liveCalls": false
+}

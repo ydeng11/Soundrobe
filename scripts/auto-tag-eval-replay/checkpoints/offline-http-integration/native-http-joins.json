@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "scope": "actual native broker loopback HTTP component controls",
+  "positiveJoins": 16,
+  "semanticRejections": 144,
+  "results": [
+    {
+      "mode": "success",
+      "validation": "accepted",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "d947e1f041e09ccedbdf5aa75ac3a6d9c46f33cfaf218f98e36b6dd02f138c21"
+    },
+    {
+      "mode": "withheld",
+      "validation": "withheld",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "6e2649d85e85dafc943e4373894c30995494dae3055a13e2503a47a6504cee85"
+    },
+    {
+      "mode": "status",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "e88e8e176503be366d379ccdbc54c67d02a94b1587e460c80acc3c11cc861568"
+    },
+    {
+      "mode": "schema",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "2ebc017dc3e41ffbbbba5edec6f8912c5ad6de4ded19cf17aad7b62ffb5a2114"
+    },
+    {
+      "mode": "identity",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "1f573a1c20221f2d7a086667f63a24daed94e2062891dd166054a3fa7874d031"
+    },
+    {
+      "mode": "usage",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "898de52c767f05653ac950d1bc5e2370d6a086b2ca2fd1e43eaac7e1d5898d9e"
+    },
+    {
+      "mode": "bool-usage",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "cf1d00a23f203d4e0388d43a194bb3f73264978f7bd562123b4745684de01f77"
+    },
+    {
+      "mode": "reasoning",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "8c1b54e44e5fcf3bb20092c8810cd2b5c05e815fe9504d19f707938fb4d394fc"
+    },
+    {
+      "mode": "refusal",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "a3aec6a4f7504248d795ab8b0bcf365f22a12259bce3f98dc6afc34555658d5a"
+    },
+    {
+      "mode": "tools",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "b142dd44b69781befffc2bd81deee258dd9a3067beab5db7bbcc39e1240d87b5"
+    },
+    {
+      "mode": "extra-answer",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "09a205342ef14d4ff85682cd4248b4cd12cd7ec75a2e336391d5a5307534defd"
+    },
+    {
+      "mode": "duplicate-answer",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "444ccdf9b5327ff5760a59e18d00bbb9f8ceebdfa7499b9e8060c4937448b6c7"
+    },
+    {
+      "mode": "overflow-number",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "1b09f567c6965dda051c478ae439c59e8ff6cb046e1a4802d6956d2259853c4a"
+    },
+    {
+      "mode": "negative-zero",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "059e4826184d563e1bf97a670742262a805259cc1a7a71158f8e0e5fe7232fd0"
+    },
+    {
+      "mode": "redirect",
+      "validation": "rejected",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "d947e1f041e09ccedbdf5aa75ac3a6d9c46f33cfaf218f98e36b6dd02f138c21"
+    },
+    {
+      "mode": "replay",
+      "validation": "accepted",
+      "requestSha256": "18ed0f497ec5bb4f793a4ddb8a76d79f30fe190a18513d9ac8b53059ee1dc476",
+      "responseSha256": "d947e1f041e09ccedbdf5aa75ac3a6d9c46f33cfaf218f98e36b6dd02f138c21"
+    }
+  ],
+  "liveCalls": false,
+  "tlsHandshakeExercised": false,
+  "supervisedWorkload": false,
+  "qualityCredit": 0,
+  "verifierBindings": {
+    "originalSha256": "7def60fac356e2852610d16aaefacd71ae9e50a8cd51d0ee3a5a5d764562902a",
+    "relocatedSha256": "079e375dfbec3d84adb0c8a868b5dd5d4298c10497cd08f22369d52293b96cb0",
+    "countedInputRelocations": 1,
+    "wrapperSha256": "973287ecb23c8850b49187484bd1fbcf15965f2ab786fa449524495ed9290d65"
+  },
+  "finalInputRelocation": {
+    "originalSha256": "973287ecb23c8850b49187484bd1fbcf15965f2ab786fa449524495ed9290d65",
+    "relocatedSha256": "8bc226fdcae88e17a1f5accf8302aae4fd962aab260ab332827405607f68cef4",
+    "countedInputRelocations": 1,
+    "nativeTableSha256": "92426239cd99ef8d6da5f5a6288abf19b11de5f9da75b61a98766e85c6c4312e",
+    "wrapperSha256": "ca1d54c3b54b5e742f51ba1c2d7c29a1507fff6bcd89ef561b4ac3d680494938"
+  }
+}

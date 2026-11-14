@@ -1,6 +1,7 @@
 """Read-only re-audit of witnessed mock completion and all 216 native slots."""
 import hashlib
 import json
+import math
 import pathlib
 import re
 import sqlite3
@@ -18,6 +19,111 @@ def load(file):
 
 def digest(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
+
+
+def http_response_audit(request_bytes, response_bytes, receipt, expected_model, expected_provider, transport):
+    """Rebuild fully received HTTP claims, never delivery, identity or authority.
+
+    Invalid response content requires a rejected/null projection. Invalid byte
+    bounds or receipt evidence raises AssertionError; partial responses belong
+    to the transport and cannot be audited here. No filesystem or network I/O.
+    """
+    assert type(request_bytes) is bytes and len(request_bytes) <= 32768, 'request bytes'
+    assert type(response_bytes) is bytes and len(response_bytes) <= 65536, 'response bytes'
+    assert type(transport) is str and transport in ('offline_local_http', 'hosted_https'), 'transport'
+    assert type(expected_model) is str and type(expected_provider) is str, 'expected claims'
+    fields = {'sha256', 'bytes', 'status', 'identityClaimsVerified', 'pricingVerified',
+        'usageClaimsVerified', 'observation', 'remoteArrivalVerified', 'http'}
+    assert type(receipt) is dict and set(receipt) == fields, 'receipt fields'
+    assert type(receipt['bytes']) is int and receipt['bytes'] == len(response_bytes) \
+        and receipt['sha256'] == hashlib.sha256(response_bytes).hexdigest(), 'response binding'
+    assert type(receipt['status']) is int and 100 <= receipt['status'] <= 599, 'status'
+    assert all(receipt[key] is False for key in ('identityClaimsVerified', 'pricingVerified',
+        'usageClaimsVerified', 'remoteArrivalVerified')), 'verification flags'
+    assert receipt['observation'] == 'native_http_response', 'observation'
+
+    def invalid_json_number(_):
+        raise ValueError('non-JSON number')
+
+    def json_float(raw):
+        value = float(raw)
+        if not math.isfinite(value):
+            raise ValueError('out-of-range JSON number')
+        return value
+
+    def json_integer(raw):
+        # Native serde_json represents lexical -0 as a float, not u64 evidence.
+        json_float(raw)
+        return -0.0 if raw == '-0' else int(raw)
+
+    def unique_answer(pairs):
+        value = dict(pairs)
+        assert len(value) == len(pairs), 'duplicate answer field'
+        return value
+
+    def derive_projection():
+        assert receipt['status'] == 200
+        value = json.loads(response_bytes.decode('utf-8'), parse_constant=invalid_json_number,
+            parse_float=json_float, parse_int=json_integer)
+        assert type(value) is dict
+        assert type(value['model']) is str and value['model'] == expected_model
+        assert type(value['provider']) is str and value['provider'] == expected_provider
+        choices = value['choices']
+        assert type(choices) is list and len(choices) == 1
+        choice = choices[0]
+        assert type(choice) is dict and choice['finish_reason'] == 'stop'
+        message = choice['message']
+        assert type(message) is dict
+        assert message.get('refusal') is None and message.get('function_call') is None
+        tools = message.get('tool_calls')
+        assert tools is None or (type(tools) is list and not tools)
+        for key in ('reasoning', 'reasoning_content'):
+            assert message.get(key) is None or (type(message[key]) is str and message[key] == '')
+        content = message['content']
+        assert type(content) is str and len(content.encode('utf-8')) <= 4096
+        answer = json.loads(content, parse_constant=invalid_json_number,
+            parse_float=json_float, parse_int=json_integer, object_pairs_hook=unique_answer)
+        assert type(answer) is dict and set(answer) == {'genre', 'confidence'}
+        genre, confidence = answer['genre'], answer['confidence']
+        assert type(genre) is str and len(genre.encode('utf-8')) <= 256
+        assert not any(ord(c) < 32 or 127 <= ord(c) <= 159 for c in genre)
+        assert type(confidence) in (int, float) and 0 <= confidence <= 1 and math.isfinite(confidence)
+        usage = value['usage']
+        assert type(usage) is dict
+        prompt, completion, total = (usage[k] for k in ('prompt_tokens', 'completion_tokens', 'total_tokens'))
+        assert all(type(n) is int for n in (prompt, completion, total))
+        assert 0 <= prompt <= 8192 and 0 <= completion <= 1024 and total == prompt + completion
+        if 'completion_tokens_details' in usage:
+            details = usage['completion_tokens_details']
+            assert type(details) is dict
+            reasoning = details.get('reasoning_tokens', 0)
+            assert type(reasoning) is int and reasoning == 0
+        return dict(model=value['model'], provider=value['provider'],
+            genre=genre if confidence >= 0.6 else '', confidence=confidence,
+            usage=dict(promptTokens=prompt, completionTokens=completion, totalTokens=total, reasoningTokens=0))
+
+    try:
+        projection = derive_projection()
+    except (AssertionError, KeyError, TypeError, ValueError, UnicodeError, RecursionError):
+        projection = None
+    validation = 'rejected' if projection is None else ('accepted' if projection['genre'] else 'withheld')
+    expected = dict(version=1, transport=transport,
+        requestSha256=hashlib.sha256(request_bytes).hexdigest(), validation=validation, projection=projection)
+
+    def matches(actual, wanted, confidence=False):
+        # Python's ordinary equality confuses False with 0 and True with 1.
+        # Only confidence is a general number; other evidence numbers are ints.
+        if confidence:
+            return type(actual) in (int, float) and actual == wanted
+        if type(actual) is not type(wanted):
+            return False
+        if type(wanted) is dict:
+            return set(actual) == set(wanted) and all(matches(actual[k], v, k == 'confidence')
+                for k, v in wanted.items())
+        return actual == wanted
+
+    assert matches(receipt['http'], expected), 'http receipt'
+    return expected
 
 
 def model_rehearsal_audit(run, receipt, requested):
@@ -41,7 +147,13 @@ def model_rehearsal_audit(run, receipt, requested):
     assert 'modelRehearsalPlan' in bindings, 'model rehearsal context missing immutable plan'
     plan = bindings['modelRehearsalPlan']
     hosted = 'offlineHosted' in plan
-    assert set(plan) == {'model', 'observedTarget', 'route', 'provider', 'input'} | ({'offlineHosted'} if hosted else set()), 'model rehearsal plan fields'
+    offline_http = 'offlineHttp' in plan
+    assert set(plan) == ({'model', 'observedTarget', 'route', 'provider', 'input'}
+        | ({'offlineHosted'} if hosted else set()) | ({'offlineHttp'} if offline_http else set())), 'model rehearsal plan fields'
+    if offline_http:
+        assert hosted and plan['offlineHttp'] is True, 'offline HTTP requires explicit hosted fixture plan'
+        assert bindings['modelRehearsal']['offlineHttp'] is True, 'offline HTTP immutable mode binding'
+        assert bindings['transport']['endpoint'] == 'native-owned-loopback-http/api/v1/chat/completions', 'offline HTTP transport binding'
     if hosted:
         policy = disabled_policy
         assert bindings['modelRehearsal']['offlineFixture'] is True
@@ -51,6 +163,7 @@ def model_rehearsal_audit(run, receipt, requested):
         file = ROOT / source['path']
         if file.suffix == '.json' and load(file) == plan:
             assert file.resolve().is_relative_to(ROOT) and not pathlib.Path(source['path']).is_absolute()
+            assert not offline_http or load(file).get('offlineHttp') is True, 'offline HTTP public plan marker'
             assert digest(file) == source['sha256'], 'model rehearsal public plan hash drift'
             locked_plans.append(source['path'])
     assert len(locked_plans) == 1, 'model rehearsal public plan must be source-locked exactly once'
@@ -100,6 +213,8 @@ def model_rehearsal_audit(run, receipt, requested):
     binding = dict(policy=policy, model=plan['model'], observedTarget=plan['observedTarget'],
         providerClaim=plan['provider'], route=plan['route'], requestSha256=request_sha,
         verifierSha256=sha(verifier), liveAuthority=False)
+    if offline_http:
+        binding['offlineHttp'] = True
     if hosted:
         binding['offlineFixture'] = True
         pricing = plan['offlineHosted']
@@ -120,11 +235,13 @@ def model_rehearsal_audit(run, receipt, requested):
     assert bindings['modelRehearsal']['liveAuthority'] is False
     assert receipt['testPolicy'] == policy
     assert selection['modelRehearsalPlan'] == plan and selection['model'] == plan['model']
+    assert not offline_http or selection['modelRehearsalPlan'].get('offlineHttp') is True, 'offline HTTP selection marker'
     names = [e['name'] for e in requested['evaluations']]
     assert len(names) == len(set(names)) == 6 and 'assistance-crowd' in names
     assert set(receipt['preparations']) == set(names)
     for name, stage, folder, descriptor in descriptors:
         assert descriptor['model_rehearsal'] == plan, f'{name}/{folder}: rehearsal descriptor drift'
+        assert not offline_http or descriptor['model_rehearsal'].get('offlineHttp') is True, f'{name}/{folder}: offline HTTP descriptor marker'
         assert descriptor['job'] == name and descriptor['stage'] == stage
     answer = dict(genre='MOCK_ACCEPTED_GENRE_CANARY', confidence=0.8)
     usage = dict(prompt_tokens=7, completion_tokens=3, total_tokens=10)
@@ -142,6 +259,17 @@ def model_rehearsal_audit(run, receipt, requested):
         identityClaimsVerified=False, pricingVerified=False, usageClaimsVerified=False)
     if hosted:
         response.update(observation='offline_injected_native_response', remoteArrivalVerified=False)
+    if offline_http:
+        # Derive from the fixed public bytes and actual Journal receipt, not the
+        # fixture's prepared-response claims or the driver's selected export.
+        http = http_response_audit(request_bytes, response_bytes, operation['response'],
+            plan['observedTarget'], plan['provider'], 'offline_local_http')
+        response.update(observation='native_http_response', http=http)
+        observation = dict(version=1, transport='offline_local_http', requests=1,
+            requestSha256=request_sha, requestBytes=len(request_bytes),
+            responseSha256=response_sha, responseBytes=len(response_bytes), status=200,
+            exactRequest=True, fakeCredentialPresented=True, liveAuthority=False)
+        assert canonical(load(run / 'offline-http-observation.json')) == canonical(observation), 'offline HTTP fixture observation drift'
     assert canonical(operation['response']) == canonical(response)
     assert all(operation['response'][k] is False for k in ['identityClaimsVerified', 'pricingVerified', 'usageClaimsVerified'])
     session = receipt['sessions'][operation['session']]
@@ -287,8 +415,9 @@ def incomplete_audit(run):
         containment='not_inferred_from_files', groundedAssistanceAccuracyCredit=0, liveAuthority=False)
 
 
-def retained_auditor_source(hosted=False):
+def retained_auditor_source(hosted=False, offline_http=False):
     """Count every adaptation; never modify the sealed historical sources."""
+    assert not offline_http or hosted, 'offline HTTP requires hosted fixture adaptations'
     original = ROOT / '.planning/design/live-run-contract-20261111/durable-mock-evidence-20261112/audit-durable.py'
     source = original.read_text()
     native_replacements = [
@@ -359,6 +488,11 @@ def retained_auditor_source(hosted=False):
     for old, new in replacements:
         assert source.count(old) == 1, old
         source = source.replace(old, new)
+    if offline_http:
+        old = "assert operation['response']['observation'] == 'offline_injected_native_response'"
+        new = "assert operation['response']['observation'] == 'native_http_response'"
+        assert source.count(old) == 1, old
+        source = source.replace(old, new)
     return original, source
 
 
@@ -426,8 +560,10 @@ def audit(run):
 
     # All scoring/source/payload/worker checks remain; hosted mode distinguishes
     # a Journal observation from fixture wires without manufacturing an arrival.
-    hosted = rehearsal is not None and 'offlineHosted' in load(run / 'authority/provisional.json')['bindings']['modelRehearsalPlan']
-    original, source = retained_auditor_source(hosted)
+    plan = load(run / 'authority/provisional.json')['bindings'].get('modelRehearsalPlan', {})
+    hosted = rehearsal is not None and 'offlineHosted' in plan
+    offline_http = rehearsal is not None and plan.get('offlineHttp') is True
+    original, source = retained_auditor_source(hosted, offline_http)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
     wire = load(run / 'wire-reconciliation.json')
     assert wire['actualFakeLookups'] == wire['durableLookupAdmissions'] == 1

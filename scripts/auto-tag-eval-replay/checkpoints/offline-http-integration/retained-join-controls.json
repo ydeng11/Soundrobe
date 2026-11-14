@@ -1,0 +1,61 @@
+{
+  "positiveCopies": 1,
+  "intendedSemanticRejections": 8,
+  "results": [
+    {
+      "case": "positive",
+      "accepted": true
+    },
+    {
+      "case": "marker-downgrade",
+      "rejected": true,
+      "assertion": "assert bindings['modelRehearsal']['offlineHttp'] is True, 'offline HTTP immutable mode binding'",
+      "message": "offline HTTP immutable mode binding"
+    },
+    {
+      "case": "invented-arrival",
+      "rejected": true,
+      "assertion": "assert all(operation[k] is True for k in ['dispatched', 'completed']) and operation['arrived'] is (not hosted)",
+      "message": ""
+    },
+    {
+      "case": "fixture-status-drift",
+      "rejected": true,
+      "assertion": "assert canonical(load(run / 'offline-http-observation.json')) == canonical(observation), 'offline HTTP fixture observation drift'",
+      "message": "offline HTTP fixture observation drift"
+    },
+    {
+      "case": "projection-drift",
+      "rejected": true,
+      "assertion": "assert matches(receipt['http'], expected), 'http receipt'",
+      "message": "http receipt"
+    },
+    {
+      "case": "native-export-drift",
+      "rejected": true,
+      "assertion": "assert canonical(load(directory / 'native-model-observations.json')) == canonical(selected), f'{name}: native model projection drift'",
+      "message": "assistance-crowd: native model projection drift"
+    },
+    {
+      "case": "rehashed-wrong-route",
+      "rejected": true,
+      "assertion": "assert requests == ([body] if active else []), f'{name}: prepared request drift'",
+      "message": "assistance-crowd: prepared request drift"
+    },
+    {
+      "case": "false-quality-credit",
+      "rejected": true,
+      "assertion": "assert score['groundedAssistanceAccuracyCredit'] == 0 and score['writableDelta'] == [] and not score['acceptedCertificate']",
+      "message": ""
+    },
+    {
+      "case": "missing-summary",
+      "rejected": true,
+      "assertion": "assert execution['modelRequests'] == len(selected), f'{name}: native observation summary drift'",
+      "message": "assistance-crowd: native observation summary drift"
+    }
+  ],
+  "auditSha256": "9ddebd07ede932a446f1ad027acbc3b5f20eb5d453e4214fb3ccf4150fe9449b",
+  "leverSha256": "f07c793f2ea1f52a5c075b90416688d2838158567731634e34dbfe9a9ae4efc9",
+  "scope": "Copied actual-run JSON model joins only; not runtime faults or full completion auditing"
+}

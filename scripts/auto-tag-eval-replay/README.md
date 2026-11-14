@@ -12,6 +12,64 @@ model credentials are needed. The replay writes only disposable silent FLACs
 and uses frozen loopback HTTP responses. It does not test acoustic recognition
 or establish local mastering identity.
 
+## Check the disabled hosted HTTP transport offline
+
+The test-only broker has a dormant sender for the native-prepared OpenRouter
+request. Hosted HTTPS admission returns `live_dispatch_disabled` before a
+reservation or credential lookup, including with public fixture approval.
+Maintained bootstrap uses injection by default. A source-locked public hosted
+fixture plan may add `"offlineHttp": true` to select a native-created, one-request
+numeric-loopback fixture instead. False/nonboolean or context-free markers are
+rejected. No caller-supplied endpoint is accepted. No launcher option, plan flag,
+environment setting or application command enables external dispatch.
+
+Run the component controls with generated public fake credentials:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --no-default-features \
+    --features server --lib http_ -- --test-threads=1
+node --test scripts/auto-tag-eval-replay/test_model_preflight.cjs \
+    scripts/auto-tag-eval-replay/test_supervision.cjs
+```
+
+The native control rewrites only the destination to numeric loopback HTTP.
+It checks exact request bytes and a single send, using the existing no-proxy,
+no-redirect, no-retry client and five-second attempt timeout. Request and
+response limits remain 32 KiB and 64 KiB. Oversize, truncated, timed-out or
+stopped delivery remains incomplete and cannot retry or refund its admission.
+A fully received rejected response settles the attempt, not a valid answer.
+
+HTTP receipts use `observation: native_http_response`. Their optional `http`
+object records version, transport, request hash, validation and a bounded typed
+projection. Rejected projections are null. Withheld projections suppress the
+genre. Identity, pricing, usage and remote-arrival verification flags remain
+false. Raw response bodies, headers and arbitrary remote errors do not enter
+runtime Journal receipts or IPC. Set `SOUNDROBE_HTTP_CONTROL_EVIDENCE` to a new
+local output file to retain the component table's public synthetic bodies for
+cross-language checks. Export is optional and create-new; it cannot overwrite
+an earlier checkpoint. The controls never read the development credential file.
+
+The Python `http_response_audit` helper independently derives a response
+projection from complete bytes and checks the exact receipt. Explicit offline
+HTTP rehearsals also join the plan/binding marker, native loopback observation,
+actual HTTP receipt, worker state and mock scores through the supervised auditor.
+The local observation describes a validated request and prepared response bytes;
+it is not remote-delivery authority. There are still 496 ordinary fixture arrivals
+and one separately classified native observation, not an invented service arrival.
+The accepted HTTP genre is retained only in declared typed projection/review/media
+sinks. Journal creation and every write connection enable SQLite secure deletion,
+so rewritten projections do not linger in freed cells or overflow pages. The
+privacy checker rejects extra database-page copies rather than exempting them.
+Raw bodies and private/rejected canaries have no new log or file exemption.
+This checks completed retained bytes, not interrupted-write or physical erasure.
+
+Historical injected-response audits reject HTTP substitution without the exact
+mode marker. Mock scoring still grants zero grounded quality credit. Native
+completion remains dependent on witnessed timely successful supervisor exit,
+not response receipt or staging. TLS handshakes, external connectivity, real
+credential compatibility, production approval custody and provider billing
+remain untested. Component checks do not replace a fresh six-job rehearsal.
+
 ## Restore the expected directory layout
 
 The archived scripts deliberately retain their original relative paths. Do not

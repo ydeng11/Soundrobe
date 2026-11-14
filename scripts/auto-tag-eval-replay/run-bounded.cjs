@@ -92,6 +92,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     rehearsal = read(rehearsalFile);
   }
   const hosted = rehearsal?.offlineHosted !== undefined;
+  const offlineHttp = Object.hasOwn(rehearsal ?? {}, 'offlineHttp');
+  if (offlineHttp && (!hosted || rehearsal.offlineHttp !== true)) throw Error('Invalid offline HTTP fixture mode');
   const credentialFixture = hosted ? path.join(path.dirname(path.resolve(rehearsalFile)), 'credential-fixture/.env.local') : null;
   if (hosted && (!rehearsal.offlineHosted || typeof rehearsal.offlineHosted !== 'object'
       || path.dirname(path.resolve(rehearsalFile)) !== path.dirname(output)
@@ -184,8 +186,9 @@ async function main(output, executable, userLabelDirectory, mode) {
     read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
       disposableRunRoot: output, sinkPolicy: 'offline-retained-evidence-v1',
       ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
-      sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring'],
-      transport: { endpoint: hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
+      sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring',
+        ...(offlineHttp ? ['typed-native-http-response'] : [])],
+      transport: { endpoint: offlineHttp ? 'native-owned-loopback-http/api/v1/chat/completions' : hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
         attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
         retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
@@ -543,7 +546,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     const wires = inventories.flatMap(i => i.wireArrivals), ids = wires.map(w => w.operation);
     const nativeModels = hosted ? Object.entries(report.operations).filter(([,o]) => o.category === 'model') : [];
     if (hosted && (nativeModels.length > 1 || nativeModels.some(([id,o]) => ids.includes(id)
-        || !o.dispatched || o.arrived || !o.completed || o.response?.observation !== 'offline_injected_native_response'
+        || !o.dispatched || o.arrived || !o.completed
+        || o.response?.observation !== (offlineHttp ? 'native_http_response' : 'offline_injected_native_response')
         || o.response.remoteArrivalVerified !== false))) throw Error('Native offline observation reconciliation failed');
     if (new Set(ids).size !== ids.length || ids.some(id => !report.operations[id]?.arrived)
         || ids.length !== report.counters.arrived || report.counters.reserved !== report.counters.completed

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Offline hosted-transport controls exercise a single bounded HTTP attempt and independently audit accepted, withheld and rejected response receipts without retaining raw replies in general logs. Explicit native-loopback rehearsals can carry these receipts through supervised workers, readback and mock scoring. Live dispatch remains disabled, and these controls do not establish real-model quality or billing safety.
 - Disabled hosted-evaluation rehearsals can carry separate test approval trust, public settings and text-price evidence through native bootstrap, owner-only fake credential files, workers, readback and scoring. Offline audits distinguish injected native responses from fixture wire arrivals; the launcher still cannot activate live calls.
 - Offline broker rehearsals can bind a prepared DeepSeek request to separate test approval trust, reject changed input or response identity, and retain exact bounded response receipts. Reopening without the native verifier cannot restore authority; live calls remain disabled.
 - File-only model-evaluation preflight preserves the configured DeepSeek alias, checks supplied public hosting metadata and exports a credential-free native request plan. Reports distinguish estimated text costs from a billing ceiling and never authorize live calls.

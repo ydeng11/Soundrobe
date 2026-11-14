@@ -1,0 +1,23 @@
+{
+  "sha256": "fc1df6fcc5f33193f90db835aea1311ee060888fddcc1c44e588e2b91ca104a3",
+  "pageSize": 4096,
+  "rawExactCanaries": 2,
+  "liveTypedCanaries": 1,
+  "offsets": [
+    433670,
+    531973
+  ],
+  "pages": [
+    106,
+    130
+  ],
+  "freelistPages": 33,
+  "scope": "Read-only original completed run; no recovery or mutation",
+  "allocatedPageClassification": [
+    [
+      "authority",
+      130,
+      "overflow"
+    ]
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "observedAt": "2026-11-14T03:23:30.224255+00:00",
+  "conclusion": "five original tests pass unchanged now; historical OS cause and two original direct causes remain unestablished",
+  "head": "a0e9a2255ca7397da9f31241991be38ae8157c85",
+  "branch": "artist-library-inventory",
+  "preservedImplementationPaths": [
+    "docs/CHANGELOG.md",
+    "scripts/auto-tag-eval-replay/README.md",
+    "scripts/auto-tag-eval-replay/audit-supervised.py",
+    "scripts/auto-tag-eval-replay/test_supervision.cjs",
+    "src-tauri/src/infra/mock_run_authority.rs",
+    "src-tauri/src/infra/mock_run_broker.rs",
+    "src-tauri/src/infra/mock_run_live_boundary.rs",
+    "src-tauri/src/infra/mock_run_transport.rs"
+  ],
+  "sourceBindingsVerified": 1894,
+  "originalExecutableSha256": "c894c2a8d86c3cc5ff574b5f05f2f30bcc3dc2542e00b6038fa020f9d705da66",
+  "originalBroadOutcome": {
+    "state": "FAILED",
+    "passed": 874,
+    "failed": 5,
+    "ignored": 31,
+    "seconds": "2647.76"
+  },
+  "originalFocusedOutcome": {
+    "state": "FAILED",
+    "passed": 0,
+    "failed": 1,
+    "ignored": 0,
+    "seconds": "676.33"
+  },
+  "originalFailuresWithExplicitBatchDeadline": 3,
+  "currentOriginalExecutableTests": {
+    "summary": {
+      "status": "ok",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "seconds": "19.35"
+    },
+    "tests": [
+      "commands::auto_tag::collection_tests::exact_flac_copies_reach_shorter_artist_release_and_keep_conflicts_in_review",
+      "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_ignore_metadata_not_audio_and_bind_all_sources",
+      "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_never_expand_nominations_or_merge_transformed_audio",
+      "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_preserve_native_precision_channels_and_full_frame_count",
+      "infra::audio_evidence::audio_evidence_groups_tests::exact_flac_groups_reject_corruption_silence_other_codecs_and_stale_hashes"
+    ]
+  },
+  "diagnosticOnlyTests": {
+    "summary": {
+      "status": "ok",
+      "passed": 2,
+      "failed": 0,
+      "ignored": 0,
+      "seconds": "0.84"
+    },
+    "additions": [
+      "    eprintln!(\"AUDIO_INVESTIGATION_METADATA_PROOF {}\", proof.diagnostics());",
+      "    eprintln!(\"AUDIO_INVESTIGATION_REJECTION_PROOF {}\", proof.diagnostics());"
+    ],
+    "sourceRestored": true,
+    "metadataObservations": 3,
+    "rejectionObservations": 6
+  },
+  "startup": {
+    "ffmpeg": {
+      "tool": "ffmpeg",
+      "executable": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffmpeg",
+      "observedAt": "2026-11-14T03:19:48.793269+00:00",
+      "purpose": "isolated version startup; no media or network input",
+      "nativeLimitsChanged": false,
+      "pid": 76195,
+      "spawnReturnedSeconds": 0.003343665972352028,
+      "exitCode": 0,
+      "launchThroughExitSeconds": 0.05438337498344481,
+      "outputSha256": "47c46eab3fa1ee4a3373b813fa318d762740e144b95e8df599bb49c9e7776d29"
+    },
+    "ffprobe": {
+      "tool": "ffprobe",
+      "executable": "/opt/homebrew/Cellar/ffmpeg/9.0.2_1/bin/ffprobe",
+      "observedAt": "2026-11-14T03:19:48.848024+00:00",
+      "purpose": "isolated version startup; no media or network input",
+      "nativeLimitsChanged": false,
+      "pid": 76196,
+      "spawnReturnedSeconds": 0.0014136669924482703,
+      "exitCode": 0,
+      "launchThroughExitSeconds": 0.027601083973422647,
+      "outputSha256": "a6a9ae98aff38c33ee55a2afb1a50f23992d289224c42ffc5245b6990dd92ca3"
+    }
+  },
+  "diagnosticOsCauseEstablished": false,
+  "fullGateRerun": false,
+  "parentChildSamplingRequired": false,
+  "parentChildSamplingReason": "no slow startup reproduced; scheduling/spawn-block hypothesis not tested",
+  "persistentSourceChange": false,
+  "limitsChanged": false,
+  "osChanged": false,
+  "externalCalls": false,
+  "credentialsRead": false,
+  "originalMediaUsed": false,
+  "commit": false,
+  "push": false,
+  "exactFreshFixtureByteIdentityToHistoricalRunsEstablished": false,
+  "planSha256": "269d6bae0c2d2ef37ab5fc291e0e37a405292135cb1d77acc40b5d90bfd80e6b",
+  "stableEvidence": {
+    "graph-query.txt": "02aa33dacf273085d8f0b4675d560e1107edd9d058baa7661c9e22522a59185f",
+    "tool-startup.py": "6d2bfe1c14d3a654b79461ffd44fd56283c016343df26559fc7a35fb64d5fb15",
+    "tool-startup.log": "0ea572210dc8c8eb9616e0f1188250980e58183b0cfdd13b6d9ceac0b6b79ac5",
+    "ffmpeg-startup.json": "6fee7c4eea7c14777dc087cb91a8647a9ea2a85f0cbf7861812907ac87458443",
+    "ffprobe-startup.json": "99897eff733d38377fc0828ab91ded1764ba9a0dcd98d686ab9a547caa0b21af",
+    "ffmpeg-version.log": "47c46eab3fa1ee4a3373b813fa318d762740e144b95e8df599bb49c9e7776d29",
+    "ffprobe-version.log": "a6a9ae98aff38c33ee55a2afb1a50f23992d289224c42ffc5245b6990dd92ca3",
+    "audio_evidence_groups_tests.original.rs": "4239a0d145ca641108b73fee5c417f603ecfe2ab0994e1f87a8b9d6ef4f954f8",
+    "diagnostic-only.patch": "66c92fea47d5909e6a8fb463532d083bbd557e4e4fbbaf6e0dfa8d276730c015",
+    "diagnostic-build.log": "75c7075a0f6cbd08b47a7867fe4d4894ae66262768bbd0600856df8b136a1fe8",
+    "diagnostic-test-executable": "6c0bd3d14acf44d158d7232d0e52b1548cb6ca2de1c5e9f768bee7786ea51703",
+    "two-diagnostic-tests.log": "787572df792b7c0ec6aa80a9fb8eb6ea347d73b9781fd1192cb15ddf8f69c850",
+    "five-original-tests.log": "5f9c3b42548f2e1e10d239b2a05019370dd5e680d26e001776dc6b1d06b2460e",
+    "before-verification.json": "5b32273b90d68be360b7e9ea4bed3732c424c1691ba82d89f7832d1771ca0099",
+    "after-verification.json": "e63a144177d07f44fe9edf8a19218c4ae53962332c9dc758d85c492d5f1ebc6b",
+    "verify-investigation.py": "5b0170d3bcb4521c60004de3ae905a3c2c8bf1b57c87b3a7241183283cd96307"
+  }
+}

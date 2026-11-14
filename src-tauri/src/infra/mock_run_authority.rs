@@ -110,6 +110,8 @@ pub(crate) enum Command {
         sha256: String,
         bytes: u32,
         status: u16,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        http: Option<policy::boundary::HttpObservation>,
     },
     Attach {
         executable_sha256: String,
@@ -674,7 +676,12 @@ impl Run {
                 sha256,
                 bytes,
                 status,
+                http,
             } => {
+                if let Some(observation) = &http {
+                    require(native_response && owner)?;
+                    observation.validate(rehearsal.unwrap(), status)?;
+                }
                 let o = self
                     .operations
                     .get_mut(&operation)
@@ -698,8 +705,15 @@ impl Run {
                     "identityClaimsVerified":false,"pricingVerified":false,"usageClaimsVerified":false}));
                 if native_response {
                     let response = o.response.as_mut().unwrap();
-                    response["observation"] = json!("offline_injected_native_response");
+                    response["observation"] = json!(if http.is_some() {
+                        "native_http_response"
+                    } else {
+                        "offline_injected_native_response"
+                    });
                     response["remoteArrivalVerified"] = json!(false);
+                    if let Some(observation) = http {
+                        response["http"] = serde_json::to_value(observation).unwrap();
+                    }
                 }
                 Ok(json!({"recorded":true}))
             }
@@ -1136,7 +1150,7 @@ impl Journal {
             .map_err(|_| "mock_registry_unavailable")?;
         #[cfg(not(unix))]
         let c = Connection::open(path).map_err(|_| "mock_registry_unavailable")?;
-        c.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL;
+        c.execute_batch("PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA secure_delete=ON;
             CREATE TABLE authority (id INTEGER PRIMARY KEY CHECK(id=1), state TEXT NOT NULL);
             CREATE TABLE authority_bindings (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);")
             .map_err(|_| "mock_registry_unavailable")?;
@@ -1183,7 +1197,9 @@ impl Journal {
             .map_err(|_| "mock_registry_unavailable")?;
         c.busy_timeout(Duration::from_millis(100))
             .map_err(|_| "mock_registry_unavailable")?;
-        c.execute_batch("PRAGMA synchronous=FULL")
+        // This setting is connection-local: every rewrite must scrub freed
+        // cells/overflow pages, not leave extra untyped response projections.
+        c.execute_batch("PRAGMA synchronous=FULL; PRAGMA secure_delete=ON")
             .map_err(|_| "mock_registry_unavailable")?;
         let tx = c
             .transaction_with_behavior(TransactionBehavior::Immediate)

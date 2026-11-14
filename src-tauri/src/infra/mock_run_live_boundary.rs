@@ -6,6 +6,76 @@ use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 pub(crate) const DISABLED_POLICY: &str = "disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair";
 pub(crate) const ENDPOINT: &str = "https://openrouter.ai/api/v1/chat/completions";
 
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum HttpTransport {
+    HostedHttps,
+    OfflineLocalHttp,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HttpUsage {
+    pub(crate) prompt_tokens: u64,
+    pub(crate) completion_tokens: u64,
+    pub(crate) total_tokens: u64,
+    pub(crate) reasoning_tokens: u64,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct HttpProjection {
+    pub(crate) model: String,
+    pub(crate) provider: String,
+    pub(crate) genre: String,
+    pub(crate) confidence: f64,
+    pub(crate) usage: HttpUsage,
+}
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum HttpValidation {
+    Accepted,
+    Withheld,
+    Rejected,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct HttpObservation {
+    pub(crate) version: u8,
+    pub(crate) transport: HttpTransport,
+    pub(crate) request_sha256: String,
+    pub(crate) validation: HttpValidation,
+    pub(crate) projection: Option<HttpProjection>,
+}
+impl HttpObservation {
+    pub(crate) fn validate(&self, context: &Rehearsal, status: u16) -> Result<(), String> {
+        require(self.version == 1 && self.request_sha256 == sha(&context.body))?;
+        match (&self.projection, self.validation) {
+            (None, HttpValidation::Rejected) => Ok(()),
+            (Some(p), validation) => {
+                require(
+                    status == 200
+                        && p.model == context.resolved_model
+                        && p.provider == context.provider
+                        && p.genre.len() <= 256
+                        && !p.genre.chars().any(char::is_control)
+                        && p.confidence.is_finite()
+                        && (0.0..=1.0).contains(&p.confidence)
+                        && p.usage.prompt_tokens <= 8192
+                        && p.usage.completion_tokens <= 1024
+                        && p.usage.total_tokens
+                            == p.usage.prompt_tokens + p.usage.completion_tokens
+                        && p.usage.reasoning_tokens == 0,
+                )?;
+                require(if validation == HttpValidation::Accepted {
+                    !p.genre.is_empty() && p.confidence >= 0.6
+                } else {
+                    validation == HttpValidation::Withheld && p.genre.is_empty()
+                })
+            }
+            _ => Err("mock_http_observation_invalid".into()),
+        }
+    }
+}
+
 /// Public, native-supplied evidence, not provider-side price enforcement.
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]

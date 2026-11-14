@@ -2,6 +2,143 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { validateProvisionalReceipt } = require('./mock-authority.cjs');
 
+test('HTTP response audit independently derives bounded claims without authority or diagnostic leakage', () => {
+  const { spawnSync } = require('node:child_process');
+  const result = spawnSync('python3', ['-B', '-c', `
+import sys,json,hashlib,copy
+sys.path.insert(0,'scripts/auto-tag-eval-replay')
+from importlib import import_module
+m=import_module('audit-supervised')
+assert callable(getattr(m,'http_response_audit',None)), 'missing independent HTTP response auditor'
+sha=lambda b:hashlib.sha256(b).hexdigest()
+encode=lambda v:json.dumps(v,ensure_ascii=False,separators=(',',':')).encode()
+request=b'{"model":"request-alias"}'
+model='response-model';provider='claimed-provider'
+answer=dict(genre='Jazz',confidence=0.8)
+body=dict(model=model,provider=provider,choices=[dict(finish_reason='stop',message=dict(content=encode(answer).decode()))],
+    usage=dict(prompt_tokens=7,completion_tokens=3,total_tokens=10),diagnostic='RAW_SECRET_CANARY')
+projection=dict(model=model,provider=provider,genre='Jazz',confidence=0.8,
+    usage=dict(promptTokens=7,completionTokens=3,totalTokens=10,reasoningTokens=0))
+count=0
+def check(label,change=lambda b:None,validation='accepted',project=None,status=200,raw=None,req=request,transport='offline_local_http',damage=None,error=None):
+    global count
+    value=copy.deepcopy(body);change(value)
+    response=encode(value) if raw is None else raw
+    expected=dict(version=1,transport=transport,requestSha256=sha(req),validation=validation,
+        projection=None if validation=='rejected' else copy.deepcopy(projection if project is None else project))
+    receipt=dict(sha256=sha(response),bytes=len(response),status=status,identityClaimsVerified=False,
+        pricingVerified=False,usageClaimsVerified=False,observation='native_http_response',remoteArrivalVerified=False,http=copy.deepcopy(expected))
+    if damage: damage(receipt)
+    try:
+        observed=m.http_response_audit(req,response,receipt,model,provider,transport)
+    except AssertionError as exc:
+        assert error is not None and error in str(exc), (label,'wrong rejection',str(exc),error)
+    else:
+        assert error is None, (label,'accepted corrupt receipt')
+        assert observed==expected, (label,observed,expected)
+        assert observed is not receipt['http']
+        if observed['projection'] is not None:
+            assert observed['projection'] is not receipt['http']['projection']
+        assert 'RAW_SECRET_CANARY' not in json.dumps(observed)
+        assert set(observed)=={'version','transport','requestSha256','validation','projection'}
+    count+=1
+def content(value):
+    return lambda b:b['choices'][0]['message'].update(content=encode(value).decode())
+cases=[
+    ('accepted',{}),('hosted HTTPS claims still unverified',dict(transport='hosted_https')),
+    ('confidence numeric equality',dict(change=content(dict(genre='Jazz',confidence=1.0)),project=dict(projection,confidence=1))),
+    ('threshold accepted',dict(change=content(dict(genre='Jazz',confidence=0.6)),project=dict(projection,confidence=0.6))),
+    ('low confidence withheld',dict(change=content(dict(genre='Jazz',confidence=0.59)),validation='withheld',project=dict(projection,genre='',confidence=0.59))),
+    ('empty genre withheld',dict(change=content(dict(genre='',confidence=0.8)),validation='withheld',project=dict(projection,genre=''))),
+    ('optional empty fields',dict(change=lambda b:b['choices'][0]['message'].update(refusal=None,function_call=None,tool_calls=[],reasoning='',reasoning_content=None))),
+    ('usage limit',dict(change=lambda b:b.update(usage=dict(prompt_tokens=8192,completion_tokens=1024,total_tokens=9216,completion_tokens_details=dict(reasoning_tokens=0))),project=dict(projection,usage=dict(promptTokens=8192,completionTokens=1024,totalTokens=9216,reasoningTokens=0)))),
+    ('absent reasoning tokens',dict(change=lambda b:b['usage'].update(completion_tokens_details={}))),
+    ('genre UTF8 boundary',dict(change=content(dict(genre='é'*128,confidence=0.8)),project=dict(projection,genre='é'*128))),
+    ('genre UTF8 overflow',dict(change=content(dict(genre='é'*128+'x',confidence=0.8)),validation='rejected')),
+    ('request byte boundary',dict(req=b'x'*32768)),
+    ('request byte overflow',dict(req=b'x'*32769,error='request bytes')),
+    ('invalid UTF8',dict(raw=b'\\xff',validation='rejected')),
+    ('malformed JSON',dict(raw=b'{',validation='rejected')),
+    ('non-object JSON',dict(raw=b'[]',validation='rejected')),
+    ('nonfinite confidence',dict(change=content(dict(genre='Jazz',confidence=float('nan'))),validation='rejected')),
+    ('invalid JSON diagnostic constant',dict(change=lambda b:b.update(diagnostic=float('nan')),validation='rejected')),
+    ('duplicate genre field',dict(change=lambda b:b['choices'][0]['message'].update(content='{"genre":"Jazz","genre":"Jazz","confidence":0.8}'),validation='rejected')),
+    ('duplicate confidence field',dict(change=lambda b:b['choices'][0]['message'].update(content='{"genre":"Jazz","confidence":0.8,"confidence":0.8}'),validation='rejected')),
+    ('overflowing diagnostic float',dict(raw=encode(body).replace(b'"diagnostic":"RAW_SECRET_CANARY"',b'"diagnostic":1e400'),validation='rejected')),
+    ('overflowing diagnostic integer',dict(raw=encode(body).replace(b'"diagnostic":"RAW_SECRET_CANARY"',b'"diagnostic":'+b'9'*400),validation='rejected')),
+    ('negative-zero usage is not unsigned integer evidence',dict(raw=encode(dict(body,usage=dict(prompt_tokens=0,completion_tokens=3,total_tokens=3))).replace(b'"prompt_tokens":0',b'"prompt_tokens":-0'),validation='rejected')),
+    ('infinite confidence',dict(change=content(dict(genre='Jazz',confidence=float('inf'))),validation='rejected')),
+]
+for status in (100,201,400,599): cases.append(('status '+str(status),dict(status=status,validation='rejected')))
+for key,value in [('genre',True),('genre','bad\\n'),('genre','bad\\x7f'),('genre','bad\\x85'),('confidence',True),('confidence',-0.1),('confidence',1.1),('confidence','0.8')]:
+    cases.append(('answer '+key+repr(value),dict(change=content(dict(answer,**{key:value})),validation='rejected')))
+for value in ({'genre':'Jazz'},dict(answer,extra=1),['Jazz'],None):
+    cases.append(('answer shape '+repr(value),dict(change=content(value),validation='rejected')))
+for key,value in [('refusal','no'),('refusal',False),('function_call',{}),('tool_calls',[{}]),('tool_calls',False),('reasoning','secret'),('reasoning_content','secret'),('reasoning',False),('content',{}),('content','not JSON')]:
+    cases.append(('message '+key+repr(value),dict(change=lambda b,k=key,v=value:b['choices'][0]['message'].update({k:v}),validation='rejected')))
+for key,value in [('model','wrong'),('provider','wrong'),('model',True),('provider',None),('choices',[]),('choices',[{},{}]),('choices',{}),('usage',None)]:
+    cases.append(('outer '+key+repr(value),dict(change=lambda b,k=key,v=value:b.update({k:v}),validation='rejected')))
+cases.extend([('unfinished',dict(change=lambda b:b['choices'][0].update(finish_reason='length'),validation='rejected')),
+    ('missing message',dict(change=lambda b:b['choices'][0].pop('message'),validation='rejected')),
+    ('missing finish reason',dict(change=lambda b:b['choices'][0].pop('finish_reason'),validation='rejected')),
+    ('missing content',dict(change=lambda b:b['choices'][0]['message'].pop('content'),validation='rejected'))])
+for key in ('model','provider','choices','usage'):
+    cases.append(('missing response '+key,dict(change=lambda b,k=key:b.pop(k),validation='rejected')))
+for key,value in [('prompt_tokens',True),('prompt_tokens',7.0),('prompt_tokens',8193),('prompt_tokens',-1),('completion_tokens',1025),('total_tokens',11),('total_tokens',True),('completion_tokens_details',None),('completion_tokens_details',[]),('completion_tokens_details',dict(reasoning_tokens=1)),('completion_tokens_details',dict(reasoning_tokens=False))]:
+    cases.append(('usage '+key+repr(value),dict(change=lambda b,k=key,v=value:b['usage'].update({k:v}),validation='rejected')))
+for key in ('prompt_tokens','completion_tokens','total_tokens'):
+    cases.append(('missing usage '+key,dict(change=lambda b,k=key:b['usage'].pop(k),validation='rejected')))
+# Limits count bytes, including JSON whitespace, rather than Unicode code points.
+inner=encode(dict(answer,genre='é')).decode()
+for size in (4096,4097):
+    cases.append(('content byte '+str(size),dict(change=lambda b,n=size:b['choices'][0]['message'].update(content=inner+' '*(n-len(inner.encode()))),project=dict(projection,genre='é'),validation='accepted' if size==4096 else 'rejected')))
+utf8=encode(dict(body,diagnostic='é'))
+for size in (65536,65537):
+    cases.append(('response byte '+str(size),dict(raw=utf8+b' '*(size-len(utf8)),**({} if size==65536 else {'error':'response bytes'}))))
+for label,options in cases: check(label,**options)
+damage=[('response hash',lambda r:r.update(sha256='0'*64),'response binding'),
+    ('response length',lambda r:r.update(bytes=r['bytes']+1),'response binding'),
+    ('boolean bytes',lambda r:r.update(bytes=True),'response binding'),
+    ('request hash',lambda r:r['http'].update(requestSha256='0'*64),'http receipt'),
+    ('changed projection',lambda r:r['http']['projection'].update(genre='Invented'),'http receipt'),
+    ('boolean confidence',lambda r:r['http']['projection'].update(confidence=True),'http receipt'),
+    ('boolean version',lambda r:r['http'].update(version=True),'http receipt'),
+    ('float version',lambda r:r['http'].update(version=1.0),'http receipt'),
+    ('boolean usage',lambda r:r['http']['projection']['usage'].update(reasoningTokens=False),'http receipt'),
+    ('float usage',lambda r:r['http']['projection']['usage'].update(promptTokens=7.0),'http receipt'),
+    ('HTTP extra diagnostic',lambda r:r['http'].update(diagnostic='RAW_SECRET_CANARY'),'http receipt'),
+    ('receipt extra header',lambda r:r.update(headers={'authorization':'secret'}),'receipt fields'),
+    ('receipt not object',lambda r:r.clear(),'receipt fields'),
+    ('old observation',lambda r:r.update(observation='offline_injected_native_response'),'observation'),
+    ('transport drift',lambda r:r['http'].update(transport='hosted_https'),'http receipt'),
+    ('projection extra authority',lambda r:r['http']['projection'].update(liveAuthority=True),'http receipt'),
+    ('null projection accepted',lambda r:r['http'].update(projection=None),'http receipt'),
+    ('forged rejected',lambda r:r['http'].update(validation='rejected',projection=None),'http receipt')]
+for key in ('identityClaimsVerified','pricingVerified','usageClaimsVerified','remoteArrivalVerified'):
+    for value in (True,0,None): damage.append((key+repr(value),lambda r,k=key,v=value:r.update({k:v}),'verification flags'))
+for value in (True,200.0,99,600,'200'):
+    damage.append(('invalid status '+repr(value),lambda r,v=value:r.update(status=v),'status'))
+for key in ('sha256','bytes','status','identityClaimsVerified','pricingVerified','usageClaimsVerified','observation','remoteArrivalVerified','http'):
+    damage.append(('missing receipt '+key,lambda r,k=key:r.pop(k),'receipt fields'))
+for key in ('version','transport','requestSha256','validation','projection'):
+    damage.append(('missing http '+key,lambda r,k=key:r['http'].pop(k),'http receipt'))
+for key in ('model','provider','genre','confidence','usage'):
+    damage.append(('missing projection '+key,lambda r,k=key:r['http']['projection'].pop(k),'http receipt'))
+for key in ('promptTokens','completionTokens','totalTokens','reasoningTokens'):
+    damage.append(('missing projected usage '+key,lambda r,k=key:r['http']['projection']['usage'].pop(k),'http receipt'))
+for label,mutate,error in damage: check(label,damage=mutate,error=error)
+check('unknown transport',transport='fixture',error='transport')
+check('boolean confidence cannot equal one',change=content(dict(answer,confidence=1)),project=dict(projection,confidence=1),damage=lambda r:r['http']['projection'].update(confidence=True),error='http receipt')
+check('rejected cannot carry projection',status=400,validation='rejected',damage=lambda r:r['http'].update(projection=projection),error='http receipt')
+check('withheld cannot expose genre',change=content(dict(genre='Jazz',confidence=0.5)),validation='withheld',project=dict(projection,genre='',confidence=0.5),damage=lambda r:r['http']['projection'].update(genre='Jazz'),error='http receipt')
+check('corrupt exact request bytes',damage=lambda r:r['http'].update(requestSha256=sha(request+b' ')),error='http receipt')
+print(str(count)+' independent HTTP audit cases passed; no authority or quality promotion')
+`], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /independent HTTP audit cases passed; no authority or quality promotion/);
+  console.log(result.stdout.trim());
+});
+
 const receipt = () => ({ state: 'provisional_complete', consumptions: 1, denied: 0,
   ownerLive: false, liveAuthority: false, runId: 'fresh-run', checkpoint: 'frozen',
   membership: { requestedFieldSlots: 216 }, bindings: { supervision: { generation: 'fresh-generation' } },
@@ -21,7 +158,8 @@ test('explicitly released staging is valid evidence, never complete authority', 
   }
 });
 
-for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' : 'fixture'} model rehearsal audit joins exact alias request, response receipts and retained provenance`, () => {
+for (const mode of ['fixture', 'offline hosted', 'offline HTTP']) test(`prepared ${mode} model rehearsal audit joins exact alias request, response receipts and retained provenance`, () => {
+  const hosted = mode !== 'fixture', offlineHttp = mode === 'offline HTTP';
   const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
   const { spawnSync } = require('node:child_process');
   const root = fs.mkdtempSync(path.resolve('.amp/in/model-audit-'));
@@ -32,6 +170,7 @@ for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' :
     route: 'wafer/us', provider: 'Wafer', input: { artist: '盧廣仲', album: 'Album', tracks: ['Intro', 'Title'] } };
   if (hosted) plan.offlineHosted = { promptPicoUsd: 1000, completionPicoUsd: 2000,
     catalogSha256: 'a'.repeat(64), termsSha256: 'b'.repeat(64) };
+  if (offlineHttp) plan.offlineHttp = true;
   const policy = hosted ? 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
     : 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair';
   const body = { model: plan.model, temperature: 0.2, max_tokens: 1024, reasoning: { enabled: false }, stream: false,
@@ -58,12 +197,13 @@ for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' :
     fs.mkdirSync(path.dirname(credentialFile));
     fs.writeFileSync(credentialFile, credential, { mode: 0o600 });
   }
-  put('selection.json', { model: plan.model, modelRehearsalPlan: plan });
+  put('selection.json', { model: plan.model, modelRehearsalPlan: structuredClone(plan) });
   const binding = { policy, model: plan.model, observedTarget: plan.observedTarget, providerClaim: plan.provider,
     route: plan.route, requestSha256, verifierSha256: sha(Buffer.from(hosted
       ? '4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff'
       : '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61', 'hex')), liveAuthority: false };
   if (hosted) binding.offlineFixture = true;
+  if (offlineHttp) binding.offlineHttp = true;
   if (hosted) binding.boundary = { endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     settingsSha256: sha(JSON.stringify({ model: plan.model, endpoint: 'https://openrouter.ai/api/v1', provider: 'openrouter', source: 'env_local_only' })),
     pricingEvidence: structuredClone(plan.offlineHosted), textEstimatePicoUsd: 10240000, allowanceUsdCents: 500,
@@ -74,6 +214,13 @@ for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' :
     sourcesAndTools: [{ path: path.relative(process.cwd(), planFile), sha256: sha(JSON.stringify(plan)) },
       ...(hosted ? [{ path: path.relative(process.cwd(), credentialFile), sha256: sha(credential) }] : [])] },
     preparations: {}, sessions: {}, operations: {}, counters: { model: 1 }, credentialLookups: 1 };
+  if (offlineHttp) {
+    receipt.bindings.transport = { endpoint: 'native-owned-loopback-http/api/v1/chat/completions' };
+    put('offline-http-observation.json', { version: 1, transport: 'offline_local_http', requests: 1,
+      requestSha256, requestBytes: request.length, responseSha256: sha(response),
+      responseBytes: Buffer.byteLength(response), status: 200, exactRequest: true,
+      fakeCredentialPresented: true, liveAuthority: false });
+  }
   const requested = { evaluations: names.map(name => ({ name })) };
   for (const name of names) {
     const active = name === 'assistance-crowd';
@@ -86,7 +233,7 @@ for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' :
     for (const [stage, folder] of [['preparation', 'preparation'], ['execution', 'cold']]) {
       const id = `${name}-${stage}`;
       receipt.sessions[id] = { job: name, stage };
-      put(`${name}/${folder}/session.json`, { job: name, stage, model_rehearsal: plan });
+      put(`${name}/${folder}/session.json`, { job: name, stage, model_rehearsal: structuredClone(plan) });
       put(`${name}/${folder}/inventory-final.json`, { modelRequests: active && !hosted && stage === 'execution'
         ? [{ status: 200, sha256: requestSha256, bytes: request.length, responseSha256: sha(response), responseBytes: Buffer.byteLength(response), mockCredentialPresented: true }] : [],
       wireArrivals: active && !hosted && stage === 'execution'
@@ -106,12 +253,18 @@ for (const hosted of [false, true]) test(`prepared ${hosted ? 'offline hosted' :
     response: { status: 200, bytes: Buffer.byteLength(response), sha256: sha(response),
       identityClaimsVerified: false, pricingVerified: false, usageClaimsVerified: false,
       ...(hosted ? { observation: 'offline_injected_native_response', remoteArrivalVerified: false } : {}) } };
+  const http = { version: 1, transport: 'offline_local_http', requestSha256, validation: 'accepted',
+    projection: { model: plan.observedTarget, provider: plan.provider, genre: responseValue.genre,
+      confidence: 0.8, usage: { promptTokens: 7, completionTokens: 3, totalTokens: 10, reasoningTokens: 0 } } };
+  if (offlineHttp) Object.assign(receipt.operations['single-model'].response,
+    { observation: 'native_http_response', http });
   if (hosted) for (const name of names) put(`${name}/native-model-observations.json`, name === 'assistance-crowd'
     ? { 'single-model': structuredClone(receipt.operations['single-model']) } : {});
   const check = (mutate = () => {}) => {
     const current = structuredClone({ files, receipt, requested, credential, credentialMode: 0o600 }); mutate(current);
     fs.writeFileSync(planFile, JSON.stringify(current.publicPlan || plan));
     if (hosted) { fs.writeFileSync(credentialFile, current.credential); fs.chmodSync(credentialFile, current.credentialMode); }
+    fs.rmSync(output, { recursive: true, force: true });
     for (const [file, value] of Object.entries(current.files)) {
       const target = path.join(output, file); fs.mkdirSync(path.dirname(target), { recursive: true });
       fs.writeFileSync(target, value instanceof Uint8Array ? value : JSON.stringify(value));
@@ -185,6 +338,62 @@ print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])
         c => c.files['assistance-crowd/cold/inventory-final.json'].modelRequests[0].responseSha256 = 'b'.repeat(64),
       ]),
       c => c.receipt.operations['single-model'].response.identityClaimsVerified = true,
+      ...(!offlineHttp ? [c => Object.assign(c.receipt.operations['single-model'].response,
+        { observation: 'native_http_response', remoteArrivalVerified: false, http: {
+          version: 1, transport: 'offline_local_http', requestSha256, validation: 'accepted',
+          projection: { model: plan.observedTarget, provider: plan.provider, genre: responseValue.genre,
+            confidence: 0.8, usage: { promptTokens: 7, completionTokens: 3, totalTokens: 10, reasoningTokens: 0 } } } })] : []),
+      ...(offlineHttp ? [
+        c => delete c.receipt.bindings.modelRehearsal.offlineHttp,
+        c => delete c.receipt.bindings.modelRehearsalPlan.offlineHttp,
+        c => { delete c.receipt.bindings.modelRehearsalPlan.offlineHttp; delete c.receipt.bindings.modelRehearsal.offlineHttp; },
+        c => delete c.receipt.bindings.modelRehearsalPlan.offlineHosted,
+        c => delete c.files['assistance-crowd/cold/session.json'].model_rehearsal.offlineHttp,
+        c => c.receipt.bindings.transport.endpoint = 'http://127.0.0.1:1234/api/v1/chat/completions',
+        c => c.receipt.operations['single-model'].response.observation = 'offline_injected_native_response',
+        c => delete c.receipt.operations['single-model'].response.http,
+        c => c.receipt.operations['single-model'].response.sha256 = 'e'.repeat(64),
+        c => c.receipt.operations['single-model'].response.bytes++,
+        c => c.receipt.operations['single-model'].response.http.transport = 'hosted_https',
+        c => c.receipt.operations['single-model'].response.http.projection.genre = 'Invented',
+        c => c.receipt.operations['single-model'].response.http.projection.usage.promptTokens++,
+        c => c.receipt.operations['single-model'].response.http.requestSha256 = 'd'.repeat(64),
+        c => c.receipt.operations['single-model'].response.http.validation = 'withheld',
+        c => delete c.files['offline-http-observation.json'],
+        c => {
+          c.publicPlan = { ...plan, offlineHttp: 1 };
+          c.receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(c.publicPlan));
+        },
+        c => c.files['selection.json'].modelRehearsalPlan.offlineHttp = 1,
+        ...names.flatMap(name => ['preparation', 'cold'].map(folder => c => c.files[`${name}/${folder}/session.json`].model_rehearsal.offlineHttp = 1)),
+        c => {
+          c.publicPlan = c.receipt.bindings.modelRehearsalPlan;
+          delete c.publicPlan.offlineHttp; delete c.receipt.bindings.modelRehearsal.offlineHttp;
+          delete c.files['selection.json'].modelRehearsalPlan.offlineHttp;
+          for (const [file, value] of Object.entries(c.files)) if (file.endsWith('/session.json')) delete value.model_rehearsal.offlineHttp;
+          c.receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(c.publicPlan));
+        },
+        ...[false, 1, 'true', null].flatMap(value => [
+          c => c.receipt.bindings.modelRehearsal.offlineHttp = value,
+          c => {
+            c.publicPlan = c.receipt.bindings.modelRehearsalPlan;
+            c.publicPlan.offlineHttp = value;
+            c.receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(c.publicPlan));
+          },
+        ]),
+        ...Object.entries({ version: true, transport: 'hosted_https', requests: 2,
+          requestSha256: 'a'.repeat(64), requestBytes: request.length + 1,
+          responseSha256: 'b'.repeat(64), responseBytes: Buffer.byteLength(response) + 1,
+          status: 201, exactRequest: false, fakeCredentialPresented: false, liveAuthority: true,
+          authorization: 'MOCK_ONLY_SECRET_CANARY' }).map(([key, value]) => c => c.files['offline-http-observation.json'][key] = value),
+        ...['requests', 'requestBytes', 'responseBytes', 'status'].flatMap(key => [
+          c => c.files['offline-http-observation.json'][key] = true,
+          c => delete c.files['offline-http-observation.json'][key],
+        ]),
+      ] : [
+        c => c.receipt.bindings.modelRehearsal.offlineHttp = true,
+        c => c.receipt.bindings.modelRehearsalPlan.offlineHttp = true,
+      ]),
       c => c.receipt.operations.extra = structuredClone(c.receipt.operations['single-model']),
       c => c.files['disabled-billie/cold/inventory-final.json'].modelRequests.push({}),
       c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.assisted_genre.model = plan.observedTarget,
@@ -193,6 +402,7 @@ print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])
       c => c.files['assistance-crowd/score.provisional.json'].groundedAssistanceAccuracyCredit = 1,
     ];
     for (const [i, mutate] of damage.entries()) assert.notEqual(check(mutate).status, 0, `accepted semantic damage ${i}`);
+    console.log(`${mode}: one accepted join and ${damage.length} rejected semantic corruptions`);
     const historical = check(c => {
       c.receipt.bindings = {}; delete c.receipt.testPolicy;
       c.files['selection.json'] = { model: 'scripted/genre-v1' };
@@ -203,13 +413,16 @@ print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])
   } finally { fs.rmSync(root, { recursive: true }); }
 });
 
-test('hosted retained auditor adaptations reconcile 497 settled operations with only 496 fixture arrivals', () => {
+for (const offlineHttp of [false, true]) test(`${offlineHttp ? 'HTTP' : 'hosted'} retained auditor adaptations reconcile 497 settled operations with only 496 fixture arrivals`, () => {
   const { spawnSync } = require('node:child_process');
   const result = spawnSync('python3', ['-B', '-c', `
 import pathlib,sys,json,importlib,tempfile,hashlib,copy
 sys.path.insert(0,'scripts/auto-tag-eval-replay')
 m=importlib.import_module('audit-supervised')
-original,source=m.retained_auditor_source(True)
+offline_http=${offlineHttp ? 'True' : 'False'}
+assert hashlib.sha256(m.retained_auditor_source()[1].encode()).hexdigest()=='540699a2153af67f86f845eebecaed879164908fdc35644284be6043aee3a0f1'
+assert hashlib.sha256(m.retained_auditor_source(True)[1].encode()).hexdigest()=='319be49ed4c0156723624b1934aac9256b4185f3c0af820ba6e875cb1c31f67a'
+original,source=m.retained_auditor_source(True,offline_http=True) if offline_http else m.retained_auditor_source(True)
 compile(source,'adapted-durable','exec')
 # Obtain the exact nested native adaptation without executing either auditor.
 ns={}
@@ -231,7 +444,7 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
     request_sha=hashlib.sha256(request_bytes).hexdigest()
     model={'category':'model','session':'assistance-crowd-execution','dispatched':True,'arrived':False,'completed':True,
         'request_sha256':hashlib.sha256(json.dumps(['POST','/model/chat/completions',request_sha],separators=(',',':')).encode()).hexdigest(),
-        'response':{'observation':'offline_injected_native_response','remoteArrivalVerified':False}}
+        'response':{'observation':'native_http_response' if offline_http else 'offline_injected_native_response','remoteArrivalVerified':False}}
     receipt['operations']['model']=model
     for index,name in enumerate(names):
         directory=run/name
@@ -277,6 +490,8 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
     rejected(lambda:model.update(arrived=True),lambda:model.update(arrived=False))
     rejected(lambda:receipt['counters'].update(arrived=497),lambda:receipt['counters'].update(arrived=496))
     rejected(lambda:receipt['operations'].update(extra=copy.deepcopy(model)),lambda:receipt['operations'].pop('extra'))
+    observation=model['response']['observation']
+    rejected(lambda:model['response'].update(observation='offline_injected_native_response' if offline_http else 'native_http_response'),lambda:model['response'].update(observation=observation))
     projection=run/'assistance-crowd/native-model-observations.json'
     rejected(lambda:put(projection,{}),lambda:put(projection,{'model':model}))
     wirefile=run/'wire-reconciliation.json';wire=load(wirefile)
@@ -284,10 +499,11 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
     invfile=run/'assistance-crowd/cold/inventory-final.json';snapshot=run/'assistance-crowd/cold-fixture-ingress.json';inv=load(invfile)
     invented=copy.deepcopy(inv);invented['modelRequests']=[{}];invented['wireArrivals'].append(dict(operation='model',method='POST',route='/model/chat/completions'))
     rejected(lambda:(put(invfile,invented),put(snapshot,invented)),lambda:(put(invfile,inv),put(snapshot,inv)))
-print('hosted counted native/durable adaptations and corruption controls passed')
+print(('HTTP' if offline_http else 'hosted')+' counted native/durable adaptations and 7 corruption controls passed')
 `], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /corruption controls passed/);
+  console.log(result.stdout.trim());
 });
 
 test('recovery records observed receiver success, never staged files or eventual supervisor exit', () => {

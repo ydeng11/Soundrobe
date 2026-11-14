@@ -1,0 +1,18 @@
+{
+  "model": "~deepseek/deepseek-v4-flash-latest",
+  "observedTarget": "deepseek/deepseek-v4-flash-0731",
+  "route": "wafer/us",
+  "provider": "Wafer",
+  "input": {
+    "artist": "盧廣仲",
+    "album": "勵志論",
+    "tracks": ["Intro", "勵志論", "自我的介紹", "雨時多雲偶陣晴", "狂迪", "像你", "肌肉的記憶", "輕輕", "冒煙的燈泡", "明年", "英雄 (動畫電影《諸葛四郎-英雄的英雄》主題曲) [Acoustic Ver.]"]
+  },
+  "offlineHosted": {
+    "promptPicoUsd": 43400,
+    "completionPicoUsd": 300000,
+    "catalogSha256": "9d95fda337d1a614d6a131a60fb000f565a340465a0c7d7895cdcc18c751be63",
+    "termsSha256": "28a46056e913a17ac293b487b222517cba5f3a9128510cb76f9abe8ab9d02d1b"
+  },
+  "offlineHttp": true
+}

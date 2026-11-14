@@ -19,9 +19,18 @@ function validateProvisionalReceipt(receipt, expected) {
 function validateReceipt(receipt, expected, state) {
   const hosted = receipt?.testPolicy === 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
     && receipt.bindings?.modelRehearsal?.offlineFixture === true;
+  const binding = receipt?.bindings?.modelRehearsal;
+  const plan = receipt?.bindings?.modelRehearsalPlan;
+  const http = Object.hasOwn(binding ?? {}, 'offlineHttp') || Object.hasOwn(plan ?? {}, 'offlineHttp');
+  if (http && (!hosted || binding.offlineHttp !== true || plan?.offlineHttp !== true
+      || !plan.offlineHosted || typeof plan.offlineHosted !== 'object' || Array.isArray(plan.offlineHosted))) {
+    throw Error('offline HTTP mode missing or mismatched');
+  }
   const operations = Object.values(receipt?.operations ?? {});
   const native = hosted ? operations.filter(o => o.category === 'model' && o.arrived === false
-    && o.response?.observation === 'offline_injected_native_response' && o.response.remoteArrivalVerified === false) : [];
+    && o.response?.observation === (http ? 'native_http_response' : 'offline_injected_native_response')
+    && (http ? o.response.http?.transport === 'offline_local_http' && o.response.http.version === 1 : !Object.hasOwn(o.response, 'http'))
+    && o.response.remoteArrivalVerified === false) : [];
   if (hosted && (native.length !== 1 || operations.filter(o => o.category === 'model').length !== 1
       || operations.length !== receipt.counters?.reserved || receipt.counters?.model !== 1)) {
     throw Error('offline native observation missing or ambiguous');

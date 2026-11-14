@@ -165,6 +165,24 @@ test('hosted offline staging requires one classified native observation without 
     resultSha256:'a'.repeat(64),counters:{reserved:1,arrived:0,completed:1,model:1},preparations:{},
     sessions:Object.fromEntries(Array.from({length:12},(_,i)=>[i,{closed:true}])),operations:{model}};
   assert.doesNotThrow(()=>validateProvisionalReceipt(report,structuredClone(report)));
+  const http = structuredClone(report);
+  http.bindings.modelRehearsalPlan = { offlineHosted: {}, offlineHttp: true };
+  http.bindings.modelRehearsal.offlineHttp = true;
+  http.operations.model.response.observation = 'native_http_response';
+  http.operations.model.response.http = { version: 1, transport: 'offline_local_http' };
+  assert.doesNotThrow(() => validateProvisionalReceipt(http, structuredClone(http)));
+  for (const mutate of [r => delete r.bindings.modelRehearsal.offlineHttp,
+    r => delete r.bindings.modelRehearsalPlan.offlineHttp,
+    r => delete r.bindings.modelRehearsalPlan.offlineHosted,
+    ...[false, 1, 'true', null].flatMap(value => [
+      r => r.bindings.modelRehearsal.offlineHttp = value,
+      r => r.bindings.modelRehearsalPlan.offlineHttp = value]),
+    r => r.operations.model.response.observation = 'offline_injected_native_response',
+    r => r.operations.model.response.http.transport = 'hosted_https',
+    r => r.operations.model.response.remoteArrivalVerified = true]) {
+    const changed = structuredClone(http); mutate(changed);
+    assert.throws(() => validateProvisionalReceipt(changed, structuredClone(changed)));
+  }
   for (const mutate of [r=>r.operations.model.response.observation='wire',
     r=>r.operations.model.response.remoteArrivalVerified=true,r=>r.operations.model.arrived=true,
     r=>r.counters.arrived=1,r=>r.operations.extra=structuredClone(model),

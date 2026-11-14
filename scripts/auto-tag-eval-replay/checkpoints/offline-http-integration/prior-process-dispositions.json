@@ -1,0 +1,46 @@
+[
+  {
+    "root": ".amp/in/artifacts/offline-http-integration-20261114/run-01",
+    "disposition": "native complete; privacy failed",
+    "actorsAbsent": {
+      "receiver": 92786,
+      "supervisor": 93132,
+      "anchor": 93133,
+      "broker": 93134,
+      "driver": 93135
+    },
+    "groupsAbsent": {
+      "receiver": 92778,
+      "supervisor": 93132,
+      "execution": 93133
+    },
+    "bindings": {
+      "native-supervision.json": "1e6e763d07d2a0f516828fc04e2e7a3430db4dbef88f31a603fb2b30e85c31fa",
+      "group-identity.json": "68e6bd0b873ef2d1aed540e63190e844452a7cf65add4f707a398d01ab6b8c99",
+      "supervisor-identity.json": "ef5fdb9b7de4906eae2fda400d164e2f1eca993ab10260228835507206ec9d85",
+      "driver-start.json": "405d61c2669c064dc5b0de345b68e43db391bacf25b3c65018f11ed39d5083e2"
+    }
+  },
+  {
+    "root": ".amp/in/artifacts/mock-supervision-20261112/maintained-bootstrap-a2c242e5-b73e-484b-90f9-f1014019a4c4",
+    "disposition": "broad-gate two-second readiness control failed",
+    "actorsAbsent": {
+      "receiver": 96407,
+      "supervisor": 96408,
+      "anchor": 96410,
+      "broker": 96411,
+      "driver": 96412
+    },
+    "groupsAbsent": {
+      "receiver": 88415,
+      "supervisor": 96408,
+      "execution": 96410
+    },
+    "bindings": {
+      "native-supervision.json": "4ad5f43120a8a655c4d2c2c56f57a0c0df343b0e4df1431e89a91112a6668c74",
+      "group-identity.json": "b06f004c5a1b22da55819b29261ef53c8c893b2b8025abe48a4dcc253a68b431",
+      "supervisor-identity.json": "56c509045ef97d4fe6e221c6320b5927631a1309ea339559a358ec9c72b9fb65",
+      "driver-start.json": "222a9befda1f6a51aa55be526d5c918af418fe0be91c2e33480b2b2bfeb50239"
+    }
+  }
+]
