@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "manifestVersion": 1,
+  "corpusVersion": "2026-09-12.inventory-1",
+  "reviewPolicy": "Additive offline review against existing raw provider captures, independently checked before promotion. A selected-disc representative must establish parent-album identity as well as complete distinct title/version occurrences and measured compatible durations. No existing answers, snapshots, title rules or duration rules change. This manifest is opt-in and does not replace batch-suite.json. Unresolved cases are unscored, not verified abstentions or hard negatives. Content review does not establish audio, mastering, source pressing or native tagging quality.",
+  "cases": [
+    {
+      "caseId": "7f1380683cb4",
+      "status": "verified_match",
+      "provider": "musicbrainz",
+      "releaseId": "76969f4f-cb44-453b-af6f-cc48a68d2a2a",
+      "snapshot": "provider-snapshots/discovery/folder-identities-2026-11-07/musicbrainz-e61ce3cddb442af8.json",
+      "providerTrackPolicy": {
+        "kind": "selected_media",
+        "mediaPosition": "3"
+      },
+      "hardNegativeIds": [],
+      "reviewNotes": "The local A Box of Dreams CD3 Stars folder and captured album tags agree with the parent album and named Stars medium. The frozen European release also corroborates year 1997 and WEA catalogue 3984 21333 2. All 16 release-track occurrences map uniquely to positions 3-1 through 3-16; every measured duration differs by at most 0.001 seconds, and release/track/recording performer credits name Enya. The other 30 provider tracks belong exclusively to Oceans and Clouds and are outside the selected-media policy. Capitalization and diacritics use unchanged title rules; no version qualifier is discarded. This is a compatible selected-disc metadata representative, not authenticated local pressing or audio identity. Independent review retained under .amp/in/artifacts/offline-eval-expansion-20261115/."
+    },
+    {
+      "caseId": "01da4c5b7d3c",
+      "status": "unresolved",
+      "reason": "All nine local Hotel California tracks map completely to medium 2 of frozen MusicBrainz 75e14d58-3d22-4eb6-a9a4-e6f62b7b8b98, but that release is the different Desperado / Hotel California / The Long Run package. The local folder identifies the 2017 40th Anniversary Expanded Edition and album tags identify Hotel California. Matching included disc content does not independently establish the parent package as an acceptable album metadata target. No duration failure, mastering incompatibility, verified no-match or hard negative is inferred.",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "51eb54100836",
+      "status": "unresolved",
+      "reason": "All ten local The Long Run tracks map completely to medium 3 of frozen MusicBrainz 75e14d58-3d22-4eb6-a9a4-e6f62b7b8b98. Local folder and album tags identify Legacy, 2018, disc 6, rather than the proposed 2003 three-album package. Compatible disc content does not establish Legacy parent-album or disc-number equivalence. This is unresolved album/package identity, not a verified no-match or a content hard negative.",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "5fca8c7c34dc",
+      "status": "unresolved",
+      "reason": "All ten local The Long Run tracks map completely to medium 3 of frozen MusicBrainz 75e14d58-3d22-4eb6-a9a4-e6f62b7b8b98. The local album is the standalone The Long Run, with a 2013 hi-res remaster folder claim, while the provider parent album is Desperado / Hotel California / The Long Run. The named medium establishes included album content, not an adjudicated replacement parent-album target. Different mastering or audio is not established, and no verified no-match or hard negative is asserted.",
+      "hardNegativeIds": []
+    },
+    {
+      "caseId": "631b5de44f78",
+      "status": "unresolved",
+      "reason": "All nine local Hotel California tracks map completely to medium 2 of frozen MusicBrainz 75e14d58-3d22-4eb6-a9a4-e6f62b7b8b98. Local folder and album tags identify Legacy, 2018, disc 5, not the provider's different three-album package. Matching selected-medium contents cannot silently replace Legacy parent-album identity or justify a different package disc number. This is unresolved album/package identity, not acoustic incompatibility, a verified no-match or a content hard negative.",
+      "hardNegativeIds": []
+    }
+  ]
+}
