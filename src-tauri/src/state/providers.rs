@@ -4187,10 +4187,7 @@ async fn wait_for_musicbrainz_with_cancellation(cancelled: Option<&AtomicBool>) 
         *last_request = Some(scheduled);
         scheduled.saturating_duration_since(now)
     };
-    if !delay.is_zero() && !sleep_with_cancellation(delay, cancelled).await {
-        return false;
-    }
-    true
+    delay.is_zero() || sleep_with_cancellation(delay, cancelled).await
 }
 
 fn valid_image(image: &RemoteImage) -> bool {
