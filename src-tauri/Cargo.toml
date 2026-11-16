@@ -104,6 +104,11 @@ desktop = [
 server = ["dep:axum", "dep:tower", "dep:tower-http", "dep:subtle", "dep:tokio-util", "dep:futures-util", "dep:url"]
 wdio = ["desktop", "dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]
 
+# Keep native test executables within the offline owner's 512 MiB source bound.
+# Retain file/line information without the full dependency type debug data.
+[profile.test]
+debug = "line-tables-only"
+
 # memchr uses explicit SIMD intrinsics (SSE2/AVX2 on x86_64, NEON on aarch64)
 # that need at least -O1 to inline and eliminate loop overhead.  Compiling it
 # with opt-level 3 in debug mode keeps the rest of the crate fast to build

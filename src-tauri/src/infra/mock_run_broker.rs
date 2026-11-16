@@ -964,6 +964,10 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
                 },
             )
             .unwrap();
+        // Exercise prewritten files on every platform, plus native publication
+        // on macOS, where the publication implementation is available.
+        let published =
+            cfg!(target_os = "macos") && status_check && ["none", "openssl-v1"].contains(&damage);
         let publication = Arc::new(AtomicBool::new(false));
         let broker = Broker::with_transport(
             journal.clone(),
@@ -971,8 +975,7 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
             transport,
             None,
             Some(prepared.approval_file),
-            ["none", "publication-pending"]
-                .contains(&damage)
+            (damage == "publication-pending" || (published && damage == "none"))
                 .then(|| publication.clone()),
         )
         .await
@@ -1086,7 +1089,6 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
         } else {
             issued
         };
-        let published = cfg!(target_os = "macos") && ["none", "openssl-v1"].contains(&damage);
         #[cfg(target_os = "macos")]
         if published {
             assert_eq!(
