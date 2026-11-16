@@ -261,9 +261,8 @@ pub(crate) fn paired_event(mut event: Value) -> Result<bool, String> {
             Ok(false)
         })
         .unwrap_or(Ok(false))
-        .map_err(|error| {
+        .inspect_err(|_| {
             deny("paired mock drift");
-            error
         })
 }
 
@@ -690,7 +689,7 @@ pub(crate) fn write_guard() -> impl Fn() -> Result<(), String> + Send + 'static 
             client.command(crate::infra::mock_run_authority::Command::MutationAdmission)?;
         }
         match &scope {
-            Some((budget, job, input)) => budget.validate_job(&job, &input),
+            Some((budget, job, input)) => budget.validate_job(job, input),
             None => Ok(()),
         }
     }
@@ -1039,10 +1038,7 @@ mod tests {
                         .unwrap();
                     let mut bytes = Vec::new();
                     let mut block = [0; 4096];
-                    loop {
-                        let Ok(n) = stream.read(&mut block) else {
-                            break;
-                        };
+                    while let Ok(n) = stream.read(&mut block) {
                         if n == 0 {
                             break;
                         }

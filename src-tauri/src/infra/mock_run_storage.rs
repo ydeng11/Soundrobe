@@ -237,6 +237,7 @@ pub(crate) fn attach_from_env() -> io::Result<()> {
         .map_err(|_| io::Error::other("storage process already installed"))
 }
 
+#[cfg(feature = "server")]
 pub(crate) fn descriptor() -> serde_json::Value {
     let Some(process) = PROCESS_STORAGE.get() else {
         return serde_json::Value::Null;
@@ -271,6 +272,7 @@ pub(crate) fn write_new(path: &Path, bytes: &[u8], terminal: bool) -> io::Result
     Ok(true)
 }
 
+#[cfg(feature = "server")]
 pub(crate) fn healthy() -> io::Result<()> {
     if let Some(process) = PROCESS_STORAGE.get() {
         process.account.healthy()?;
@@ -278,6 +280,7 @@ pub(crate) fn healthy() -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "server")]
 pub(crate) fn write_new_or_unscoped(
     path: impl AsRef<Path>,
     bytes: impl AsRef<[u8]>,

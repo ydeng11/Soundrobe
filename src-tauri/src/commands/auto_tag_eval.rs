@@ -1242,7 +1242,7 @@ pub(crate) fn generate_synthetic_flac(path: &Path, duration: f64) -> Result<f64,
         let duration_us = evidence
             .lines()
             .filter_map(|line| line.strip_prefix("out_time_us="))
-            .last()
+            .next_back()
             .and_then(|v| v.parse::<u64>().ok())
             .ok_or_else(|| ApiError::Message("synthetic sample count missing".into()))?;
         let samples = (duration_us * 44100 + 500000) / 1000000;
@@ -3746,7 +3746,7 @@ async fn run_auto_tag_eval(
     let frozen_preparation = durable
         .as_ref()
         .filter(|d| d.stage == Stage::Execution)
-        .map(|d| serde_json::from_slice::<Value>(&d.preparation_bytes().unwrap()).unwrap());
+        .map(|d| serde_json::from_slice::<Value>(d.preparation_bytes().unwrap()).unwrap());
     let corpus_path = PathBuf::from(
         std::env::var("SOUNDROBE_AUTO_TAG_EVAL_CORPUS")
             .expect("SOUNDROBE_AUTO_TAG_EVAL_CORPUS required"),

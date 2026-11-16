@@ -522,6 +522,10 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .file_name()
         .and_then(|name| name.to_str())
         .unwrap_or_default();
+    let annotated_box_set = Regex::new(
+        r"(?i)[\]】)）]\s+\d+\s*x\s*cd(?:\s+box\s+set)?(?:\s*,\s*compilation)?\s*$|\b\d+\s*cd\s+\d{4}-\d{4}(?:\s*,\s*(?:mp3|flac))?\s*$",
+    )
+    .expect("valid annotated box-set folder regex");
     let mut artist_path = identity_album_path.parent();
     let mut skipped_container = false;
     while artist_path
@@ -529,11 +533,7 @@ pub fn build_lookup_request(album_path: &Path) -> Result<LookupRequest, ApiError
         .and_then(|name| name.to_str())
         .is_some_and(|name| {
             ["single", "singles", "albums", "keep"].iter().any(|container| name.eq_ignore_ascii_case(container))
-                || Regex::new(
-                    r"(?i)[\]】)）]\s+\d+\s*x\s*cd(?:\s+box\s+set)?(?:\s*,\s*compilation)?\s*$|\b\d+\s*cd\s+\d{4}-\d{4}(?:\s*,\s*(?:mp3|flac))?\s*$",
-                )
-                .expect("valid annotated box-set folder regex")
-                .is_match(name)
+                || annotated_box_set.is_match(name)
         })
     {
         skipped_container = true;
@@ -11547,7 +11547,7 @@ mod tests {
             retry_after_seconds: None,
             retryable: false,
         }];
-        let (basic, _) = album_content_candidate(&request, &[candidate.clone()], &attempts)
+        let (basic, _) = album_content_candidate(&request, std::slice::from_ref(&candidate), &attempts)
             .unwrap()
             .unwrap();
         assert_eq!(basic.album_artist.as_deref(), Some("郑少秋"));
@@ -11739,7 +11739,7 @@ mod tests {
         };
         let (basic, _) = album_content_candidate(
             &request,
-            &[candidate.clone()],
+            std::slice::from_ref(&candidate),
             &[completed.clone(), budget.clone()],
         )
         .unwrap()
@@ -11759,7 +11759,7 @@ mod tests {
                 ..budget.clone()
             };
             assert!(
-                album_content_candidate(&request, &[candidate.clone()], &[completed.clone(), bad])
+                album_content_candidate(&request, std::slice::from_ref(&candidate), &[completed.clone(), bad])
                     .unwrap()
                     .is_none(),
                 "{diagnostic}"
@@ -11771,7 +11771,7 @@ mod tests {
         };
         assert!(album_content_candidate(
             &request,
-            &[candidate.clone()],
+            std::slice::from_ref(&candidate),
             &[completed.clone(), outage]
         )
         .unwrap()
@@ -11782,7 +11782,7 @@ mod tests {
         };
         assert!(album_content_candidate(
             &request,
-            &[candidate.clone()],
+            std::slice::from_ref(&candidate),
             &[same_provider, budget.clone()]
         )
         .unwrap()

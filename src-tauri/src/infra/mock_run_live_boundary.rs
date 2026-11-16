@@ -183,11 +183,19 @@ fn owner_directory(path: &std::path::Path) -> Result<(), String> {
 /// No signer is loaded, and credential bytes remain lazy behind closed dispatch.
 pub(crate) struct PreparedBootstrap {
     pub(crate) context: Rehearsal,
+    #[cfg_attr(
+        not(feature = "server"),
+        expect(dead_code, reason = "Consumed by the server-only broker")
+    )]
     pub(crate) credential: CredentialFile,
+    #[cfg_attr(
+        not(feature = "server"),
+        expect(dead_code, reason = "Consumed by the server-only broker")
+    )]
     pub(crate) approval_file: std::path::PathBuf,
 }
 impl PreparedBootstrap {
-    #[cfg(target_os = "macos")]
+    #[cfg(all(feature = "server", target_os = "macos"))]
     pub(crate) fn owner_directory() -> Result<std::path::PathBuf, String> {
         use std::os::unix::ffi::OsStringExt;
         // Account database, not HOME or a launcher-provided trust-directory override.
@@ -248,6 +256,7 @@ impl PreparedBootstrap {
 }
 impl Rehearsal {
     // Explicit owner-side call only; never reached by broker IPC or the launcher.
+    #[cfg(feature = "server")]
     pub(in super::super) fn sign_owner_payload(
         &self,
         directory: &std::path::Path,
@@ -282,7 +291,7 @@ impl Rehearsal {
 
 /// No-replace publication is supported only on the verified macOS boundary.
 /// A failure after rename is unknown publication, never permission to retry.
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "server", target_os = "macos"))]
 pub(crate) fn publish_owner_approval(
     directory: &std::path::Path,
     approval: &Approval,
@@ -338,7 +347,7 @@ pub(crate) fn publish_owner_approval(
     }
     Ok(())
 }
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(feature = "server", not(target_os = "macos")))]
 pub(crate) fn publish_owner_approval(
     _directory: &std::path::Path,
     _approval: &Approval,
@@ -346,6 +355,7 @@ pub(crate) fn publish_owner_approval(
     Err("approval_publication_unsupported".into())
 }
 
+#[cfg(feature = "server")]
 pub(crate) fn read_owner_approval(path: &std::path::Path) -> Result<Approval, String> {
     owner_directory(path.parent().ok_or("approval_file_unavailable")?)?;
     serde_json::from_slice(&owner_bytes(path, 8192)?).map_err(|_| "approval_file_invalid".into())
@@ -829,7 +839,7 @@ fn disabled_boundary_credentials_are_bounded_native_file_only_and_fail_redacted(
         (format!("LLM_API_KEY=FAKE_OWNER_ONLY_SECRET\nLLM_MODEL={model}\n"),true),
         (format!("export LLM_API_KEY = 'FAKE_OWNER_ONLY_SECRET' # retained comment\nLLM_MODEL=\"{model}\"\nOTHER=value\n"),true),
         (format!("LLM_API_KEY=FAKE_OWNER_ONLY_SECRET\nLLM_MODEL={model}\nLLM_PROVIDER=openrouter\nLLM_BASE_URL=https://openrouter.ai/api/v1\n"),true),
-        (format!("LLM_API_KEY=FAKE_OWNER_ONLY_SECRET\nLLM_MODEL=changed\n"),false),
+        ("LLM_API_KEY=FAKE_OWNER_ONLY_SECRET\nLLM_MODEL=changed\n".to_string(),false),
         (format!("LLM_MODEL={model}\n"),false),
         (format!("LLM_API_KEY=****masked\nLLM_MODEL={model}\n"),false),
         (format!("LLM_API_KEY=`FAKE_OWNER_ONLY_SECRET`\nLLM_MODEL={model}\n"),false),

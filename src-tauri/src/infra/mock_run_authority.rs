@@ -1238,7 +1238,7 @@ impl Journal {
     }
     /// Explicit owner-side issuance, not consumption or live-call authorization.
     /// No IPC operation or launcher invokes this signer.
-    #[cfg(unix)]
+    #[cfg(all(feature = "server", unix))]
     pub(crate) fn owner_approval(
         &self,
         owner: &str,
@@ -1258,7 +1258,7 @@ impl Journal {
         Ok(approval)
     }
 
-    #[cfg(unix)]
+    #[cfg(all(feature = "server", unix))]
     fn frozen_owner_run(&self, owner: &str) -> Result<(Run, &policy::Rehearsal), String> {
         let context = self
             .rehearsal
@@ -1285,7 +1285,7 @@ impl Journal {
     }
 
     /// Publishes an already issued approval; neither signs nor consumes it.
-    #[cfg(unix)]
+    #[cfg(all(feature = "server", unix))]
     pub(crate) fn publish_owner_approval(
         &self,
         owner: &str,
@@ -1299,7 +1299,7 @@ impl Journal {
         policy::boundary::publish_owner_approval(directory, approval)
     }
 
-    #[cfg(unix)]
+    #[cfg(all(feature = "server", unix))]
     pub(crate) fn owner_approval_status(&self, owner: &str, path: &Path) -> Result<Value, String> {
         let (run, context) = self.frozen_owner_run(owner)?;
         let approval = match policy::boundary::read_owner_approval(path) {
