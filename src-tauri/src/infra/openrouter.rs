@@ -1652,14 +1652,16 @@ mod tests {
                 }
             }
             tokio::time::advance(Duration::from_millis(50)).await;
-            tokio::time::timeout(Duration::from_millis(1), &mut completion)
+            tokio::time::timeout(Duration::from_millis(11), &mut completion)
                 .await
                 .expect("schema repair must not get a fresh deadline")
         };
         assert!(matches!(result, Err(OpenRouterError::Timeout(90))));
         assert_eq!(diagnostics.attempts.len(), 2);
         assert_eq!(diagnostics.attempts[1].schema_repair, 1);
-        assert_eq!(diagnostics.total_elapsed_ms, 90);
+        // Headers may become ready at expiry; allow one body poll and timer tick,
+        // but never another 90 ms budget for the repair.
+        assert!((90..=101).contains(&diagnostics.total_elapsed_ms));
     }
 
     #[tokio::test]
