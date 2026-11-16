@@ -243,9 +243,13 @@ describe("package scripts", () => {
     expect(workflow).toContain("args: --no-default-features --features server");
     expect(workflow).toContain("server::tests::background_smoke");
     expect(workflow).toContain("--ignored --nocapture");
-    // The smoke generates its own media, so the runner needs ffmpeg or the step
-    // fails for a reason that has nothing to do with the code.
-    expect(workflow).toContain("ffmpeg");
+    // Synthetic-media controls need both an encoder and an independent decoder.
+    const workflowJobs: ReleaseWorkflow = parse(workflow);
+    for (const job of ["unit", "rust-tests"]) {
+      const dependencies = namedStep(workflowJobs, job, "Install Linux dependencies");
+      expect(dependencies.run, `${job} media encoder`).toMatch(/\bffmpeg\b/);
+      expect(dependencies.run, `${job} independent FLAC decoder`).toMatch(/\bflac\b/);
+    }
   });
 
   it("loads the local dotenv file for the credentialed OpenRouter release gate", () => {
