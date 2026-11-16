@@ -1,5 +1,29 @@
 # Auto-tag evaluation
 
+## Goal and planned offline feedback loop
+
+The goal is a repeatable feedback loop for changes to auto-tagging capabilities. Each comparison must show what improved, what regressed, and whether the app still writes correct metadata safely. The eval set supplies reviewed inputs and expected outcomes; expanding or hardening that set is supporting work, not the final deliverable.
+
+Offline v1 is planned, not implemented as one end-to-end command. Its acceptance target is one reproducible command that runs a baseline and a changed implementation, then emits a compact before/after report. Existing replay tools and historical results below are components and checkpoints, not proof that this loop is complete.
+
+The planned loop is:
+
+1. Freeze both executable identities, the reviewed suite, provider responses, configuration, scoring rules, and equal request budgets. Compare the same eligible cases across the three profiles, with separate cold and warm caches.
+2. Run both implementations through the native auto-tagging path using loopback provider responses and disposable media. Hosted dispatch remains disabled. Missing fixtures, process failures, and skipped cases stay visible rather than disappearing from the comparison.
+3. Compare correct recoveries, regressions, wrong matches, and abstentions by case and profile. Score core album content, parent-album identity, exact edition, per-track mappings, and artist credits separately. Unreviewed cases cannot contribute to accuracy.
+4. Check independent tag readback, audio-payload preservation, numbering, write authorization, and request-budget accounting. A write or successful process exit alone is not a correct recovery.
+5. Inspect failures and classify product defects, fixture gaps, and uncertain truth separately. Turn confirmed product failures into regression cases without weakening reviewed expectations, then rerun after a targeted change.
+
+The report must name both executable revisions and input locks, retain the full requested case denominator, and show improvements alongside regressions and unresolved failures. A gain in recovery count cannot hide a new wrong assignment or safety violation. Comparisons with different inputs or incomplete execution must be reported as incomplete, not as evidence of improvement.
+
+The current inventory contains 378 cases and 3,506 tracks. The maintained checkpoint scores 51 metadata positives with 539 track mappings. Two opt-in review manifests, `reviewed-selected-media-20261115.json` and `reviewed-explicit-extras-20261116.json`, extend that to 53 metadata positives with 575 mappings. The remaining 45 unresolved and 280 unverified cases stay unscored. The additions do not replace the maintained checkpoint or authorize exact-edition writes from core-content evidence.
+
+Offline v1 does not require labeling all 325 unscored cases, collecting new provider evidence, or proving acoustic or genuine hosted-model quality. If all 53 positives are eligible for every profile, each implementation requires 318 case evaluations across three profiles and cold/warm phases; a baseline/candidate pair requires 636. These are planned counts, not measured runtimes. Further general receipt-hardening passes are out of scope unless a concrete defect blocks this loop.
+
+Implementation and native execution are deferred. The current scope is the revised plan, documentation, and shipment of existing work. Historical evidence remains preserved under Git-ignored `.amp/in/artifacts/`; it is not included in a fresh clone. The [offline eval handoff](../.planning/handoffs/offline-eval-v1-20261116.md) distinguishes completed fixture work from planned loop implementation.
+
+## Existing replay tools and checkpoints
+
 For HTTP replay through the production provider clients, use the
 [offline MusicBrainz and Discogs fixture service](offline-provider-mock.md).
 It serves locked raw snapshots and exports missing requests for evidence collection.

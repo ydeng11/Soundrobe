@@ -2,7 +2,9 @@
 
 ## Goal
 
-Build a reproducible benchmark that demonstrates additional correct metadata recoveries without losing correct results, assigning wrong versions or parent albums, changing audio payloads, authorizing unintended writes, or exceeding request budgets and cooldowns.
+Build a repeatable feedback loop for changes to auto-tagging capabilities. Compare baseline and changed implementations on the same frozen inputs, show improvements and regressions, and verify safe metadata writes. The eval set is supporting material, not the final deliverable. The [current plan](../../docs/auto-tag-evaluation.md#goal-and-planned-offline-feedback-loop) defines acceptance and exclusions.
+
+Implementation and native execution are deferred at the user's request. This update reframes the plan and documentation for shipment only.
 
 Offline metadata review establishes compatible content, not acoustic identity, exact source pressing, genuine model quality, or current native-app success. Hosted calls remain disabled. Verification uses retained provider responses and disposable media, never writes to the original library, and preserves earlier evidence.
 
@@ -27,7 +29,7 @@ Evidence remains under Git-ignored `.amp/in/artifacts/`. The latest correction a
 
 These are local, unsealed consistency checks. They do not authenticate capture history. A fresh clone receives the manifests and this handoff, not the ignored correction sources, generated suites, private inventory evidence, or receipt archive. Reproducing the complete historical audit therefore requires the preserved local evidence. This commit does not claim to make that archive portable.
 
-The shared branch also contains unrelated native/mock work. This commit excludes those changes. No push, merge, deployment, or hosted execution is part of this handoff.
+The original fixture commit excludes unrelated uncommitted native/mock work. The documentation follow-up authorizes shipment of the existing work, not implementation or native evaluation. Hosted execution and deployment remain excluded.
 
 ## Fresh wrap-up checks
 
@@ -72,15 +74,13 @@ print(json.dumps(result, ensure_ascii=False, indent=2))
 PY
 ```
 
-## Planned offline v1, not yet completed
+## Planned offline v1, implementation deferred
 
-1. Freeze one authoritative versioned suite and explicit per-profile scoring scopes. Keep parent-package, selected-medium, and core-content claims distinct.
-2. Connect one reproducible entry point to current native loopback replay using frozen provider responses and disposable silent media. Keep hosted dispatch disabled.
-3. Exercise the three profiles with separate cold and warm caches. Including all 53 metadata positives would imply 318 evaluations, subject to explicit native eligibility. This is a job count, not measured execution time.
-4. Check independent tag readback, payload preservation, artist credits, numbering, write approval, and request-budget accounting. Report fixture gaps and product failures separately rather than relaxing truth.
-5. Publish a compact result with the exact binary, input locks, exclusions, and failure list.
+The authoritative [feedback-loop plan](../../docs/auto-tag-evaluation.md#goal-and-planned-offline-feedback-loop) replaces the earlier suite-first work order. Acceptance is one command that compares baseline and candidate native implementations on identical frozen inputs and emits a compact before/after report. The loop must retain failures and skipped cases, separate scoring scopes, verify readback and write safety, and support a targeted fix followed by rerun.
 
-Completing v1 does not require labeling all 325 unscored cases, acquiring more provider evidence, or proving acoustic or genuine hosted-model quality. Further receipt hardening is closed unless a concrete new defect appears.
+For 53 eligible positives across three profiles and cold/warm phases, the planned count is 318 evaluations per implementation, or 636 per baseline/candidate comparison. Eligibility is explicit, and these are not measured runtimes. No loop implementation or execution is authorized by this documentation-only shipment.
+
+Completing v1 does not require labeling all 325 unscored cases, acquiring more provider evidence, or proving acoustic or genuine hosted-model quality. Further receipt hardening is closed unless a concrete defect blocks the loop.
 
 ## Known coverage limits
 
