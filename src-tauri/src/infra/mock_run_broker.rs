@@ -33,6 +33,7 @@ struct Shared {
     http: reqwest::Client,
     transport: transport::Transport,
     owner_approval_file: Option<std::path::PathBuf>,
+    owner_approval_published: Option<Arc<AtomicBool>>,
     _registry_lock: std::fs::File,
     // Unit-control seam after a real SQLite commit; true selects dispatch.
     // Unset in broker construction and never bootstrap-selectable.
@@ -42,7 +43,9 @@ impl Shared {
     fn command(&self, handle: &str, command: Command) -> Result<Value, String> {
         #[cfg(target_os = "macos")]
         if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
-            let _ = monitor.check();
+            if monitor.check().is_err() {
+                self.stopped.store(true, Ordering::SeqCst);
+            }
         }
         let stop = matches!(command, Command::Stop | Command::IngressDenied { .. });
         if stop {
@@ -83,6 +86,13 @@ impl Shared {
                 b"before actual SQLite transaction",
             )
             .map_err(|_| "mock_control_storage")?;
+        }
+        if consume {
+            super::require(
+                self.owner_approval_published
+                    .as_ref()
+                    .is_none_or(|published| published.load(Ordering::SeqCst)),
+            )?;
         }
         let result = self.journal.command(handle, command);
         #[cfg(target_os = "macos")]
@@ -128,7 +138,9 @@ impl Shared {
         // consumed, but its result cannot release a new effect/session grant.
         #[cfg(target_os = "macos")]
         if let Some(monitor) = super::supervisor::ownership::broker_monitor() {
-            let _ = monitor.check();
+            if monitor.check().is_err() {
+                self.stopped.store(true, Ordering::SeqCst);
+            }
         }
         if result.is_ok() && self.stopped.load(Ordering::SeqCst) && !reconcile {
             Err("mock_authority_stopped".into())
@@ -142,6 +154,7 @@ pub(crate) struct Broker {
     pub(crate) descriptor: Value,
     tasks: Vec<tokio::task::JoinHandle<()>>,
     socket_root: std::path::PathBuf,
+    shared: Arc<Shared>,
 }
 impl Drop for Broker {
     fn drop(&mut self) {
@@ -154,7 +167,15 @@ impl Drop for Broker {
 }
 impl Broker {
     pub(crate) async fn start(journal: Journal, owner: String) -> Result<Self, String> {
-        Self::with_transport(journal, owner, transport::Transport::default(), None, None).await
+        Self::with_transport(
+            journal,
+            owner,
+            transport::Transport::default(),
+            None,
+            None,
+            None,
+        )
+        .await
     }
     async fn with_transport(
         journal: Journal,
@@ -162,6 +183,7 @@ impl Broker {
         transport: transport::Transport,
         after_journal: Option<Box<dyn Fn(bool) + Send + Sync>>,
         owner_approval_file: Option<std::path::PathBuf>,
+        owner_approval_published: Option<Arc<AtomicBool>>,
     ) -> Result<Self, String> {
         use std::os::unix::fs::PermissionsExt;
         let lock = std::fs::OpenOptions::new()
@@ -183,10 +205,12 @@ impl Broker {
             .timeout(std::time::Duration::from_secs(5))
             .build()
             .map_err(|_| "mock_transport_unavailable")?;
+        // Admission revocation precedes durable Stop. It must not alias the
+        // independent containment latch: that could kill this broker halfway
+        // through its SQLite/ledger transaction. Native deadlines and owner
+        // loss still stop containment independently; the supervised loop sees
+        // terminal state only after the serialized command has returned.
         let stopped = Arc::new(AtomicBool::new(false));
-        #[cfg(target_os = "macos")]
-        let stopped = super::supervisor::ownership::broker_monitor()
-            .map_or(stopped, |monitor| monitor.stopped.clone());
         let shared = Arc::new(Shared {
             journal,
             owner: owner.clone(),
@@ -197,6 +221,7 @@ impl Broker {
             http,
             transport,
             owner_approval_file,
+            owner_approval_published,
             _registry_lock: lock,
             after_journal,
         });
@@ -224,7 +249,9 @@ impl Broker {
             )
             .await;
         });
+        let ipc_shared = shared.clone();
         let ipc_task = tokio::spawn(async move {
+            let shared = ipc_shared;
             let slots = Arc::new(Semaphore::new(16));
             while let Ok((stream, _)) = ipc.accept().await {
                 let Ok(permit) = slots.clone().try_acquire_owned() else {
@@ -243,6 +270,7 @@ impl Broker {
             descriptor: json!({"mode":"durable_mock_only","gateway":gateway,"socket":socket,"owner":owner}),
             tasks: vec![http_task, ipc_task],
             socket_root,
+            shared,
         })
     }
 }
@@ -299,7 +327,13 @@ async fn control(stream: tokio::net::UnixStream, state: Arc<Shared>) {
                 .owner_approval_file
                 .as_ref()
                 .ok_or("approval_file_unavailable")?;
-            return state.journal.owner_approval_status(&state.owner, path);
+            let status = state.journal.owner_approval_status(&state.owner, path)?;
+            if status["state"] == "ready"
+                && state.owner_approval_published.as_ref().is_some_and(|published| !published.load(Ordering::SeqCst))
+            {
+                return Ok(json!({"state":"pending","checkpoint":status["checkpoint"],"liveAuthority":false}));
+            }
+            return Ok(status);
         }
         let command: Command = if envelope.command == json!({"op":"approve_owner_file"}) {
             // Native-selected fixed owner file only. The child cannot choose a
@@ -678,6 +712,99 @@ async fn control_request(broker: &Broker, handle: &str, command: Value) -> Value
     serde_json::from_str(&reply).unwrap()
 }
 
+#[test]
+fn model_send_admission_is_durably_single_use_before_any_response() {
+    let (root, journal, owner) = super::tests::setup();
+    let body = super::sha(b"single-request-public-fixture");
+    super::tests::freeze_request(&journal, &owner, Some(body.clone()));
+    journal
+        .command(
+            &owner,
+            Command::Approve {
+                approval: serde_json::from_value(fixture_approval(&journal.report().unwrap()))
+                    .unwrap(),
+            },
+        )
+        .unwrap();
+    let session = journal
+        .command(
+            &owner,
+            Command::Register {
+                job: "assistance-crowd".into(),
+                stage: Stage::Execution,
+                endpoint: "http://127.0.0.1:1234".into(),
+                manifest_sha256: super::sha(b"fixture"),
+            },
+        )
+        .unwrap();
+    let client = session["client"].as_str().unwrap();
+    for (handle, role) in [
+        (client, "native"),
+        (session["service"].as_str().unwrap(), "fixture"),
+    ] {
+        journal
+            .command(handle, Command::Lease { role: role.into() })
+            .unwrap();
+    }
+    journal
+        .command(
+            client,
+            Command::Attach {
+                executable_sha256: super::sha(b"test executable"),
+                preparation_sha256: Some(super::sha(b"assistance-crowd")),
+            },
+        )
+        .unwrap();
+    let reserved = journal
+        .command(
+            client,
+            Command::Reserve {
+                method: "POST".into(),
+                path: "/model/chat/completions".into(),
+                body_sha256: body,
+            },
+        )
+        .unwrap();
+    let operation = reserved["operation"].as_str().unwrap().to_owned();
+    journal
+        .command(
+            &owner,
+            Command::Dispatch {
+                operation: operation.clone(),
+            },
+        )
+        .unwrap();
+    journal
+        .command(
+            &owner,
+            Command::CredentialLookup {
+                operation: operation.clone(),
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        journal
+            .command(
+                &owner,
+                Command::ModelSendAdmission {
+                    operation: operation.clone()
+                }
+            )
+            .unwrap(),
+        json!({"admitted":true})
+    );
+    // A transport error or missing response cannot authorize another wire attempt.
+    assert!(journal
+        .clone()
+        .command(&owner, Command::ModelSendAdmission { operation })
+        .is_err());
+    let report = journal.report().unwrap();
+    assert_eq!(report["counters"]["model"], 1);
+    assert_eq!(report["credentialLookups"], 1);
+    assert_eq!(report["state"], "terminal");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[cfg(target_os = "macos")]
 #[test]
 fn owner_publication_cannot_bypass_scoped_storage_accounting() {
@@ -686,6 +813,20 @@ fn owner_publication_cannot_bypass_scoped_storage_accounting() {
         let root = std::path::PathBuf::from(root);
         super::storage::install_receiver(&root, uuid::Uuid::new_v4()).unwrap();
         let ledger = std::fs::read(root.join(".storage-ledger")).unwrap();
+        let plan: super::policy::RehearsalPlan = serde_json::from_value(json!({
+            "model":"~deepseek/deepseek-v4-flash-latest",
+            "observedTarget":"deepseek/deepseek-v4-flash-0731",
+            "route":"wafer/us","provider":"Wafer",
+            "input":{"artist":"Public Artist","album":"Public Album","tracks":["One"]}
+        }))
+        .unwrap();
+        let context = plan.context().unwrap();
+        assert_eq!(
+            context
+                .sign_owner_payload(&root.join("owner"), json!({}))
+                .unwrap_err(),
+            "approval_signing_owner_process_required"
+        );
         let approval =
             serde_json::from_value(json!({"payload":{},"signature":vec![0; 64]})).unwrap();
         assert_eq!(
@@ -724,6 +865,7 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
     for (damage, status_check) in [
         "none",
         "openssl-v1",
+        "publication-pending",
         "replay",
         "fixture",
         "scope",
@@ -822,12 +964,16 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
                 },
             )
             .unwrap();
+        let publication = Arc::new(AtomicBool::new(false));
         let broker = Broker::with_transport(
             journal.clone(),
             owner.clone(),
             transport,
             None,
             Some(prepared.approval_file),
+            ["none", "publication-pending"]
+                .contains(&damage)
+                .then(|| publication.clone()),
         )
         .await
         .unwrap();
@@ -1012,6 +1158,14 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
                 report,
                 "publication consumed approval"
             );
+            if damage == "none" {
+                assert_eq!(
+                    control_request(&broker, &owner, json!({"op":"owner_approval_status"})).await,
+                    json!({"ok":true,"value":{"state":"pending","checkpoint":checkpoint,"liveAuthority":false}}),
+                    "a visible file must not substitute for completed native owner publication"
+                );
+                publication.store(true, Ordering::SeqCst);
+            }
             let status =
                 control_request(&broker, &owner, json!({"op":"owner_approval_status"})).await;
             assert_eq!(
@@ -1056,6 +1210,8 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
         }
         let command = if damage == "path-injection" {
             json!({"op":"approve_owner_file","path":root.join("prepared-approval.json")})
+        } else if damage == "publication-pending" {
+            json!({"op":"approve","approval":approval})
         } else {
             json!({"op":"approve_owner_file"})
         };
@@ -1074,10 +1230,10 @@ async fn native_prepared_owner_file_approval_uses_actual_ipc_but_never_opens_htt
             let status = control_request(&broker, handle, status_command).await;
             assert_eq!(
                 status["ok"],
-                valid || damage == "missing",
+                valid || ["missing", "publication-pending"].contains(&damage),
                 "status/{damage}: {status}"
             );
-            if damage == "missing" {
+            if ["missing", "publication-pending"].contains(&damage) {
                 assert_eq!(status["value"]["state"], "pending");
             } else if valid {
                 assert_eq!(status["value"]["state"], "ready");
@@ -1482,9 +1638,10 @@ async fn hosted_http_controls_settle_exact_responses_without_enabling_live_boots
         } else {
             transport::Transport::http_boundary(source, sender)
         };
-        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None, None)
-            .await
-            .unwrap();
+        let broker =
+            Broker::with_transport(journal.clone(), owner.clone(), transport, None, None, None)
+                .await
+                .unwrap();
         super::tests::freeze_request(&journal, &owner, Some(super::sha(&request_bytes)));
         let approval = rehearsal_approval(&journal.report().unwrap());
         assert_eq!(
@@ -1899,9 +2056,10 @@ async fn disabled_boundary_broker_uses_native_file_and_observation_without_exter
         } else {
             transport::Transport::offline_boundary(source, executor)
         };
-        let broker = Broker::with_transport(journal.clone(), owner.clone(), transport, None, None)
-            .await
-            .unwrap();
+        let broker =
+            Broker::with_transport(journal.clone(), owner.clone(), transport, None, None, None)
+                .await
+                .unwrap();
         super::tests::freeze_request(&journal, &owner, Some(body_digest));
         let approval = rehearsal_approval(&journal.report().unwrap());
         assert_eq!(
@@ -2117,6 +2275,7 @@ async fn mock_policy_genre_returns_only_schema_with_one_exact_wire_and_no_gatewa
             owner.clone(),
             supplier,
             Some(barrier),
+            None,
             None,
         )
         .await
@@ -2412,6 +2571,7 @@ fn mock_authority_stop_revokes_admission_before_a_held_journal_gate_returns() {
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
         transport: transport::Transport::default(),
         owner_approval_file: None,
+        owner_approval_published: None,
         _registry_lock: std::fs::File::create(root.join("control-test.lock")).unwrap(),
         after_journal: None,
     });
@@ -2460,6 +2620,7 @@ fn mock_authority_late_committed_admission_is_consumed_but_never_acknowledged_af
         http: reqwest::Client::builder().no_proxy().build().unwrap(),
         transport: transport::Transport::default(),
         owner_approval_file: None,
+        owner_approval_published: None,
         _registry_lock: std::fs::File::create(root.join("return-control.lock")).unwrap(),
         after_journal: Some(Box::new(move |_| {
             arrived.send(()).unwrap();
@@ -2590,6 +2751,7 @@ async fn mock_authority_revoked_post_commit_dispatch_never_reaches_fixture_wire(
             http: reqwest::Client::builder().no_proxy().build().unwrap(),
             transport: transport::Transport::default(),
             owner_approval_file: None,
+            owner_approval_published: None,
             _registry_lock: std::fs::File::create(root.join("dispatch-control.lock")).unwrap(),
             after_journal: Some(Box::new(move |dispatch| {
                 if dispatch {
@@ -2899,7 +3061,23 @@ pub(crate) async fn supervised_process(
     root: std::path::PathBuf,
     monitor: Arc<super::supervisor::ownership::Monitor>,
 ) -> Result<(), String> {
-    use super::supervisor::ownership::receiver;
+    use super::supervisor::ownership::{owner_launch::BrokerOwnerLink, receiver};
+    let owner_channel = BrokerOwnerLink::bootstrap(&root, monitor.clone())?;
+    let mut owner_response = None;
+    let mut owner_wire = None;
+    if let Some((_, bootstrap)) = &owner_channel {
+        let plan_file = std::path::PathBuf::from(
+            std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN").ok_or("owner_plan_invalid")?,
+        );
+        let (plan, _) = receiver::read_json(&plan_file).map_err(|_| "owner_plan_invalid")?;
+        let plan = serde_json::from_value(plan).map_err(|_| "owner_plan_invalid")?;
+        let public = bootstrap.public_bootstrap(&root, &plan)?;
+        owner_response = bootstrap.response_fixture(&plan_file)?;
+        owner_wire =
+            bootstrap.response_wire(&plan_file, owner_response.as_ref().map_or(0, Vec::len))?;
+        receiver::durable_json(&root, "owner-execution-bootstrap.json", &public)
+            .map_err(|_| "owner_bootstrap_storage_unavailable")?;
+    }
     // Launcher stderr may be discarded. Retain active broker/dependency TRACE
     // through the existing charged facade, without a user logging fallback.
     let trace = super::storage::files::File::create(root.join("broker-trace.log"))
@@ -2931,8 +3109,16 @@ pub(crate) async fn supervised_process(
             .parse::<i32>()
             .map_err(|_| "mock_group_invalid")?);
     monitor.check()?;
+    if let Some((_, bootstrap)) = &owner_channel {
+        let claimed = bootstrap.claimed_binding();
+        super::require(input["bindings"]["ownerExecution"] == claimed)?;
+        input["bindings"]["ownerExecution"] = claimed;
+    }
     let plan = input["bindings"].get("modelRehearsalPlan");
     super::require(plan.is_some() == std::env::var_os("SOUNDROBE_MODEL_REHEARSAL_PLAN").is_some())?;
+    super::require(
+        owner_channel.is_none() || plan.is_some_and(|plan| plan["nativePrepared"] == true),
+    )?;
     let mut transport = transport::Transport::default();
     let mut owner_approval_file = None;
     let (journal, owner) = if let Some(plan) = plan {
@@ -2940,11 +3126,31 @@ pub(crate) async fn supervised_process(
             serde_json::from_value(plan.clone()).map_err(|_| "mock_rehearsal_plan_invalid")?;
         let context = if plan.native_prepared {
             use super::policy::boundary::PreparedBootstrap;
-            let prepared = PreparedBootstrap::read(&PreparedBootstrap::owner_directory()?, &plan)?;
-            transport = transport::Transport::http_boundary(
-                prepared.credential,
-                transport::HostedHttp::pinned(),
-            );
+            let prepared = if let Some((_, bootstrap)) = &owner_channel {
+                bootstrap.prepared(&root, &plan)?
+            } else {
+                PreparedBootstrap::read(&PreparedBootstrap::owner_directory()?, &plan)?
+            };
+            transport = if let Some((link, bootstrap)) = &owner_channel {
+                transport::Transport::owner_offline_rehearsal(
+                    &prepared.context,
+                    prepared.credential,
+                    root.join(if owner_wire.is_some() {
+                        "offline-http-disconnect-observation.json"
+                    } else {
+                        "offline-http-observation.json"
+                    }),
+                    link.offline_dispatch(bootstrap, &root, &plan)?,
+                    owner_response,
+                    owner_wire,
+                )
+                .await?
+            } else {
+                transport::Transport::http_boundary(
+                    prepared.credential,
+                    transport::HostedHttp::pinned(),
+                )
+            };
             owner_approval_file = Some(prepared.approval_file);
             prepared.context
         } else {
@@ -3018,9 +3224,17 @@ pub(crate) async fn supervised_process(
             None,
         )?
     };
-    let broker =
-        Broker::with_transport(journal.clone(), owner, transport, None, owner_approval_file)
-            .await?;
+    let broker = Broker::with_transport(
+        journal.clone(),
+        owner,
+        transport,
+        None,
+        owner_approval_file,
+        owner_channel
+            .as_ref()
+            .map(|(link, _)| link.publication_flag()),
+    )
+    .await?;
     receiver::durable_json(&directory, "ready.json", &broker.descriptor).map_err(io_error)?;
     if std::env::var("SOUNDROBE_NATIVE_CONTROL").as_deref() == Ok("stalled-storage") {
         use std::io::Read;
@@ -3042,9 +3256,25 @@ pub(crate) async fn supervised_process(
         fifo.read_exact(&mut byte).map_err(io_error)?;
         return Err("mock_storage_control_unexpectedly_resumed".into());
     }
+    let mut owner_frozen = false;
     loop {
         monitor.check()?;
-        let report = journal.report()?;
+        let report = {
+            // Observe terminal state only after command connection teardown,
+            // not between its SQLite commit and charged VFS close operations.
+            let _admission = broker
+                .shared
+                .admission
+                .lock()
+                .map_err(|_| "mock_authority_stopped")?;
+            journal.report()?
+        };
+        if report["state"] == "frozen" && !owner_frozen {
+            if let Some((link, _)) = &owner_channel {
+                link.frozen(report["runId"].as_str().ok_or("owner_run_invalid")?)?;
+                owner_frozen = true;
+            }
+        }
         if report["state"] == "terminal" {
             return Err("mock_supervised_terminal".into());
         }

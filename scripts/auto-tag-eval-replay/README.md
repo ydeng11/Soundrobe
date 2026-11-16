@@ -137,7 +137,10 @@ and bounded expiry before loading fixed `approval-signing-key.pk8`. Its derived
 public key must match the separately pinned owner verifier. Bounded owner-only
 custody applies to the signer too; OpenSSL PKCS8 v1 and ring PKCS8 v2 are covered.
 Issuance returns a signature without changing the Journal or consuming approval.
-No broker IPC or launcher invokes this signer, and it publishes no owner file.
+Ordinary broker IPC and the native-prepared launcher do not invoke this signer.
+The explicit owner-offline entry described in the
+[owner-offline evaluation reference](../../docs/auto-tag-evaluation.md#owner-authorized-offline-evaluation)
+can issue and publish an approval after consuming signed offline execution intent.
 
 The separate `owner_approval_audit` Python helper takes a frozen report, approval,
 raw public verifier, independently supplied verifier digest and verification
@@ -173,19 +176,21 @@ to the observed hash and unchanged frozen bindings/membership/preparations. It
 requires zero credential/model activity and retains only
 `owner-approval-coordination.json`, explicitly without success, quality, presence
 or live authority. RPC failures and ambiguous consumption are never retried.
-The launcher then deliberately stops at `native_prepared_execution_disabled`
-before pending executions. It omits the scripted-model fallback for native mode;
-public fixture behavior and historical mock-success rejection remain unchanged.
+Without signed owner execution intent, the ordinary native-prepared launcher
+stops at `native_prepared_execution_disabled` before pending executions.
+It omits the scripted-model fallback for native mode. The explicit owner-offline
+entry instead permits a disposable-key, fake-credential rehearsal; public fixture
+behavior and historical mock-success rejection remain unchanged.
 
 The offline proof includes disposable keys, atomic publication/no-overwrite,
 actual broker pending/readiness/consumption and a Node-to-native coordinator
 component control. The component uses an explicitly labelled local remaining-scope
 seam, not a supervised native-clock or launcher-workload proof. No provisioned key,
-real credential or real-run signature is used. Trusted owner invocation,
-non-fixture final-response publication/complete auditing, credential compatibility,
-a fresh source-bound supervised rehearsal, pricing estimate and separately
-authorized activation remain unfinished. No prompt-preview requirement is
-reinstated by this work.
+real credential or real-run signature is used. Those are predecessor component
+limits, not the scope of the owner-offline entry. Hosted credential compatibility,
+a pricing estimate, real-provider response validation, and separately authorized
+hosted activation remain unfinished. No prompt-preview requirement is reinstated
+by this work.
 
 ## Restore the expected directory layout
 

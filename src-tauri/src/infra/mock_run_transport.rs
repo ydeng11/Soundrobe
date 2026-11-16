@@ -91,6 +91,8 @@ pub(super) struct Transport {
     lookups: AtomicUsize,
     hosted_executor: Option<HostedExecutor>,
     source_settings_sha256: Option<String>,
+    #[cfg(target_os = "macos")]
+    owner_offline: Option<super::super::supervisor::ownership::owner_launch::OfflineDispatchPermit>,
     // JoinSet aborts its native-owned fixture when the broker transport drops.
     fixture_tasks: tokio::task::JoinSet<()>,
 }
@@ -106,6 +108,8 @@ impl Transport {
             lookups: AtomicUsize::new(0),
             hosted_executor: None,
             source_settings_sha256: None,
+            #[cfg(target_os = "macos")]
+            owner_offline: None,
             fixture_tasks: tokio::task::JoinSet::new(),
         }
     }
@@ -182,6 +186,41 @@ impl Transport {
             }
             _ => return Err("mock_response_fixture_invalid".into()),
         };
+        Self::start_offline_http(context, source, observation, response, status, None).await
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) async fn owner_offline_rehearsal(
+        context: &super::super::policy::Rehearsal,
+        source: super::super::policy::boundary::CredentialFile,
+        observation: std::path::PathBuf,
+        permit: super::super::supervisor::ownership::owner_launch::OfflineDispatchPermit,
+        response: Option<Vec<u8>>,
+        truncate_after: Option<usize>,
+    ) -> Result<Self, String> {
+        require(
+            context.disabled_hosted()
+                && !context.offline_http
+                && context.binding().get("offlineFixture").is_none(),
+        )?;
+        let response = response.unwrap_or_else(|| fixture_response(context));
+        require(response.len() <= 65536)?;
+        let mut transport =
+            Self::start_offline_http(context, source, observation, response, 200, truncate_after)
+                .await?;
+        transport.owner_offline = Some(permit);
+        Ok(transport)
+    }
+
+    async fn start_offline_http(
+        context: &super::super::policy::Rehearsal,
+        source: super::super::policy::boundary::CredentialFile,
+        observation: std::path::PathBuf,
+        response: Vec<u8>,
+        status: u16,
+        truncate_after: Option<usize>,
+    ) -> Result<Self, String> {
+        require(truncate_after.is_none_or(|n| n > 0 && n < response.len()))?;
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .map_err(|_| "mock_fixture_unavailable")?;
@@ -205,6 +244,7 @@ impl Transport {
                 .to_vec(),
             response,
             status,
+            truncate_after,
             observation,
             served: std::sync::atomic::AtomicBool::new(false),
             shutdown: std::sync::Arc::new(tokio::sync::Notify::new()),
@@ -247,6 +287,10 @@ impl Transport {
             }
             require(hosted == self.hosted_executor.is_some())?;
             if let Some(context) = rehearsal.filter(|_| hosted) {
+                #[cfg(target_os = "macos")]
+                if let Some(permit) = &self.owner_offline {
+                    permit.admit(context)?;
+                }
                 if let Some(HostedExecutor::Http(sender)) = &self.hosted_executor {
                     sender.admit(context)?;
                 }
@@ -407,6 +451,7 @@ struct OfflineHttpFixture {
     request: Vec<u8>,
     response: Vec<u8>,
     status: u16,
+    truncate_after: Option<usize>,
     observation: std::path::PathBuf,
     served: std::sync::atomic::AtomicBool,
     shutdown: std::sync::Arc<tokio::sync::Notify>,
@@ -417,25 +462,66 @@ async fn offline_fixture_request(
     request: axum::extract::Request,
 ) -> axum::response::Response {
     let result = async {
-        require(!fixture.served.swap(true, Ordering::SeqCst)
-            && request.method() == reqwest::Method::POST
-            && request.uri() == "/api/v1/chat/completions"
-            && request.headers().get("authorization").is_some_and(|v| v == "Bearer MOCK_ONLY_SECRET_CANARY")
-            && request.headers().get("content-type").is_some_and(|v| v == "application/json")
-            && !request.headers().contains_key("x-soundrobe-mock-operation"))?;
-        let bytes = axum::body::to_bytes(request.into_body(), 32768).await.map_err(|_| "mock_fixture_invalid")?;
+        require(
+            !fixture.served.swap(true, Ordering::SeqCst)
+                && request.method() == reqwest::Method::POST
+                && request.uri() == "/api/v1/chat/completions"
+                && request
+                    .headers()
+                    .get("authorization")
+                    .is_some_and(|v| v == "Bearer MOCK_ONLY_SECRET_CANARY")
+                && request
+                    .headers()
+                    .get("content-type")
+                    .is_some_and(|v| v == "application/json")
+                && !request.headers().contains_key("x-soundrobe-mock-operation"),
+        )?;
+        let bytes = axum::body::to_bytes(request.into_body(), 32768)
+            .await
+            .map_err(|_| "mock_fixture_invalid")?;
         require(bytes.as_ref() == fixture.request)?;
-        let observed = json!({"version":1,"transport":"offline_local_http","requests":1,
-            "requestSha256":sha(&bytes),"requestBytes":bytes.len(),
-            "responseSha256":sha(&fixture.response),"responseBytes":fixture.response.len(),"status":fixture.status,
+        let mut observed = json!({"version":1,"transport":"offline_local_http","requests":1,
+            "requestSha256":sha(&bytes),"requestBytes":bytes.len(),"status":fixture.status,
             "exactRequest":true,"fakeCredentialPresented":true,"liveAuthority":false});
-        super::super::storage::write_new_or_unscoped(&fixture.observation, serde_json::to_vec(&observed).unwrap())
-            .map_err(|_| "mock_fixture_storage")?;
+        if let Some(n) = fixture.truncate_after {
+            observed["responseComplete"] = json!(false);
+            observed["plannedResponseSha256"] = json!(sha(&fixture.response));
+            observed["plannedResponseBytes"] = json!(fixture.response.len());
+            observed["prefixSha256"] = json!(sha(&fixture.response[..n]));
+            observed["prefixBytes"] = json!(n);
+            observed["deliveryEvidence"] = json!("fixture_prefix_offered_not_client_receipt");
+        } else {
+            observed["responseSha256"] = json!(sha(&fixture.response));
+            observed["responseBytes"] = json!(fixture.response.len());
+        }
+        super::super::storage::write_new_or_unscoped(
+            &fixture.observation,
+            serde_json::to_vec(&observed).unwrap(),
+        )
+        .map_err(|_| "mock_fixture_storage")?;
         super::super::storage::files::File::open(fixture.observation.parent().unwrap())
-            .and_then(|directory| directory.sync_all()).map_err(|_| "mock_fixture_storage")?;
+            .and_then(|directory| directory.sync_all())
+            .map_err(|_| "mock_fixture_storage")?;
         Ok::<_, String>(())
-    }.await;
+    }
+    .await;
     fixture.shutdown.notify_one();
+    if let Some(n) = fixture.truncate_after.filter(|_| result.is_ok()) {
+        use futures_util::StreamExt;
+        let prefix = axum::body::Bytes::copy_from_slice(&fixture.response[..n]);
+        let stream = futures_util::stream::once(async move { Ok::<_, std::io::Error>(prefix) })
+            .chain(futures_util::stream::once(async {
+                // Yield so the prefix reaches the socket before its body fails.
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                Err(std::io::Error::other("offline_fixture_disconnect"))
+            }));
+        return axum::response::Response::builder()
+            .status(fixture.status)
+            .header("connection", "close")
+            .header("content-length", fixture.response.len())
+            .body(axum::body::Body::from_stream(stream))
+            .unwrap();
+    }
     axum::response::Response::builder()
         .status(if result.is_ok() { fixture.status } else { 403 })
         .header("connection", "close")
@@ -578,6 +664,85 @@ async fn offline_http_bootstrap_fixture_is_exact_single_request_and_not_external
             assert!(!String::from_utf8_lossy(&bytes).contains("MOCK_"));
         }
         drop(transport);
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
+async fn offline_wire_disconnect_yields_partial_bytes_never_a_complete_response() {
+    use super::super::policy::{boundary::CredentialFile, RehearsalPlan};
+    let plan: RehearsalPlan = serde_json::from_value(json!({
+        "model":"~deepseek/deepseek-v4-flash-latest","observedTarget":"deepseek/deepseek-v4-flash-0731",
+        "route":"wafer/us","provider":"Wafer","input":{"artist":"Offline Artist","album":"Asymmetric Album","tracks":["One","Different Two"]},
+        "offlineHosted":{"promptPicoUsd":1,"completionPicoUsd":2,"catalogSha256":sha(b"catalog"),"termsSha256":sha(b"terms")},
+        "offlineHttp":true})).unwrap();
+    let context = plan.context().unwrap();
+    let root = std::env::temp_dir().join(format!("sr-wire-eof-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir(&root).unwrap();
+    let credential = root.join(".env.local");
+    std::fs::write(
+        &credential,
+        format!(
+            "LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL={}\n",
+            plan.model
+        ),
+    )
+    .unwrap();
+    for truncate in [None, Some(1)] {
+        let observation = root.join(if truncate.is_some() {
+            "disconnect.json"
+        } else {
+            "complete.json"
+        });
+        let response_bytes = fixture_response(&context);
+        let source = CredentialFile::new(credential.clone(), plan.model.clone()).unwrap();
+        let mut transport = Transport::start_offline_http(
+            &context,
+            source,
+            observation.clone(),
+            response_bytes.clone(),
+            200,
+            truncate,
+        )
+        .await
+        .unwrap();
+        let endpoint = match transport.hosted_executor.as_ref().unwrap() {
+            HostedExecutor::Http(sender) => sender.endpoint.clone(),
+            _ => panic!("expected HTTP"),
+        };
+        let mut request = context
+            .request("MOCK_ONLY_SECRET_CANARY", ENDPOINT.parse().unwrap())
+            .unwrap();
+        *request.url_mut() = endpoint;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .retry(reqwest::retry::never())
+            .build()
+            .unwrap();
+        let mut response = client.execute(request).await.unwrap();
+        let mut bytes = Vec::new();
+        let error = loop {
+            match response.chunk().await {
+                Ok(Some(chunk)) => bytes.extend_from_slice(&chunk),
+                Ok(None) => break false,
+                Err(_) => break true,
+            }
+        };
+        transport.fixture_tasks.join_next().await.unwrap().unwrap();
+        let observed: Value =
+            serde_json::from_slice(&std::fs::read(&observation).unwrap()).unwrap();
+        if truncate.is_some() {
+            assert!(error, "premature EOF was accepted as a complete body");
+            assert_eq!(bytes, response_bytes[..1]);
+            assert_eq!(observed["responseComplete"], false);
+            assert_eq!(observed["prefixBytes"], 1);
+            assert_eq!(observed["plannedResponseSha256"], sha(&response_bytes));
+            assert!(observed.get("responseSha256").is_none());
+        } else {
+            assert!(!error);
+            assert_eq!(bytes, response_bytes);
+            assert_eq!(observed["responseSha256"], sha(&bytes));
+        }
     }
     std::fs::remove_dir_all(root).unwrap();
 }

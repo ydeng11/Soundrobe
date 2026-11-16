@@ -23,6 +23,126 @@ def digest(file):
     return hashlib.sha256(file.read_bytes()).hexdigest()
 
 
+def owner_execution_intent_audit(proposal, intent, public_key, expected_verifier_sha256, verified_at):
+    """Verify only the public mock_run_owner v1 proposal/intent signature scope.
+
+    Supply parsed JSON objects with duplicate keys already rejected, an
+    independently trusted raw 32-byte Ed25519 key and lowercase SHA-256 pin,
+    and integer Unix seconds. Invalid evidence or unavailable local OpenSSL
+    raises AssertionError, including under optimized Python. No source paths
+    are read: signed digest declarations do not verify actual source bytes,
+    native construction, runtime custody, nonce consumption, execution, human
+    presence, dispatch, billing or quality. Temporary verification files are
+    public only; no credentials, private keys or network are consulted.
+    """
+    if not __debug__:
+        raise AssertionError('owner intent audit requires enabled assertions')
+    sha = lambda data: hashlib.sha256(data).hexdigest()
+    is_digest = lambda value: type(value) is str and re.fullmatch('[a-f0-9]{64}', value) is not None
+    is_u64 = lambda value: type(value) is int and 0 <= value < 2**64
+
+    def is_uuid4(value):
+        if type(value) is not str or len(value) != 36:
+            return False
+        try:
+            identity = uuid.UUID(value)
+            return identity.version == 4 and str(identity) == value
+        except ValueError:
+            return False
+
+    def canonical(value, limit):
+        # Exact shallow schemas are checked before encoding; no arbitrary JSON
+        # trees or float representations enter this independent contract.
+        try:
+            encoded = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False).encode('utf-8')
+        except (ValueError, UnicodeError, RecursionError):
+            raise AssertionError('owner record encoding') from None
+        assert len(encoded) <= limit, 'owner record byte bound'
+        return encoded
+
+    assert type(public_key) is bytes and len(public_key) == 32, 'public key'
+    assert public_key != bytes(32) and public_key.hex() not in (
+        'd75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a',
+        '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61',
+        '4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff'), 'fixture verifier'
+    assert is_digest(expected_verifier_sha256) and sha(public_key) == expected_verifier_sha256, 'independent verifier digest'
+    assert is_u64(verified_at), 'verification time'
+    digest_fields = {'executableSha256', 'membershipSha256', 'nativePlanSha256', 'requestSha256',
+        'verifierSha256', 'boundaryPricingSha256', 'contextSha256'}
+    assert type(proposal) is dict and set(proposal) == digest_fields | {
+        'version', 'proposalId', 'executionKind', 'sourcesAndTools'}, 'proposal fields'
+    assert type(proposal['version']) is int and proposal['version'] == 1, 'proposal version'
+    assert is_uuid4(proposal['proposalId']), 'proposal UUIDv4'
+    kind = proposal['executionKind']
+    assert type(kind) is str and kind in ('offlineRehearsal', 'hostedSingleRequest'), 'execution kind'
+    assert all(is_digest(proposal[field]) for field in digest_fields), 'proposal digests'
+    assert proposal['verifierSha256'] == expected_verifier_sha256, 'proposal verifier'
+    sources = proposal['sourcesAndTools']
+    assert type(sources) is list and 0 < len(sources) <= 4096, 'source list'
+    paths = set()
+    runtime_count = 0
+    for source in sources:
+        assert type(source) is dict and set(source) in ({'path', 'sha256'}, {'path', 'runtime'}), 'source fields'
+        path = source['path']
+        assert type(path) is str and 0 < len(path) <= 4096, 'source path'
+        try:
+            assert len(path.encode('utf-8')) <= 4096, 'source path byte bound'
+        except UnicodeError:
+            raise AssertionError('source path encoding') from None
+        # Match Unix Path::components: inner dots/repeated separators collapse,
+        # but a leading CurDir, root or any ParentDir is not Normal.
+        parts = pathlib.PurePosixPath(path).parts
+        assert not any(ord(char) < 32 or 127 <= ord(char) <= 159 for char in path) \
+            and not path.startswith(('/', './')) and path != '.' \
+            and parts and all(part != '..' for part in parts), 'relative source path'
+        assert path not in paths, 'duplicate source path'
+        paths.add(path)
+        if 'runtime' in source:
+            assert source['runtime'] == 'nativeSupervision' and parts[-1] == 'native-supervision.json', 'runtime marker'
+            runtime_count += 1
+        else:
+            assert parts[-1] != 'native-supervision.json' and is_digest(source['sha256']), 'static source digest'
+    assert runtime_count <= 1, 'runtime marker count'
+    proposal_sha256 = sha(canonical(proposal, 1048576))
+    claims = {'version', 'proposalId', 'proposalSha256', 'executionKind', 'nonce',
+        'issuedUnixSeconds', 'expiresUnixSeconds', 'hostedEstimateRiskAccepted'}
+    assert type(intent) is dict and set(intent) == claims | {'signature'}, 'intent fields'
+    assert type(intent['version']) is int and intent['version'] == 1, 'intent version'
+    assert type(intent['proposalId']) is str and intent['proposalId'] == proposal['proposalId'] \
+        and is_digest(intent['proposalSha256']) and intent['proposalSha256'] == proposal_sha256 \
+        and type(intent['executionKind']) is str and intent['executionKind'] == kind, 'intent proposal binding'
+    assert is_uuid4(intent['nonce']), 'intent nonce UUIDv4'
+    issued, expires = intent['issuedUnixSeconds'], intent['expiresUnixSeconds']
+    assert is_u64(issued) and is_u64(expires) and 0 < issued <= verified_at < expires \
+        and expires - issued <= 1800, 'original intent lifetime'
+    assert type(intent['hostedEstimateRiskAccepted']) is bool \
+        and intent['hostedEstimateRiskAccepted'] == (kind == 'hostedSingleRequest'), 'kind risk agreement'
+    signature = intent['signature']
+    assert type(signature) is list and len(signature) == 64 \
+        and all(type(byte) is int and 0 <= byte <= 255 for byte in signature), 'signature byte array'
+    intent_sha256 = sha(canonical(intent, 8192))
+    payload = b'soundrobe/owner-execution-intent/v1\0' + canonical({field: intent[field] for field in claims}, 8192)
+    try:
+        with tempfile.TemporaryDirectory(prefix='soundrobe-intent-verification-') as directory:
+            directory = pathlib.Path(directory)
+            (directory / 'public.der').write_bytes(bytes.fromhex('302a300506032b6570032100') + public_key)
+            (directory / 'payload').write_bytes(payload)
+            (directory / 'signature').write_bytes(bytes(signature))
+            verified = subprocess.run(['openssl', 'pkeyutl', '-verify', '-pubin', '-keyform', 'DER',
+                '-inkey', str(directory / 'public.der'), '-rawin', '-in', str(directory / 'payload'),
+                '-sigfile', str(directory / 'signature')], timeout=5, stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                env=dict(PATH=os.environ.get('PATH', os.defpath), OPENSSL_CONF=os.devnull))
+            assert verified.returncode == 0, 'owner intent signature'
+    except (OSError, subprocess.SubprocessError):
+        raise AssertionError('local Ed25519 verification unavailable') from None
+    return dict(version=1, signatureVerified=True, verifierSha256=expected_verifier_sha256,
+        proposalId=proposal['proposalId'], proposalSha256=proposal_sha256, intentSha256=intent_sha256,
+        executionKind=kind, nonce=intent['nonce'], issuedUnixSeconds=issued, expiresUnixSeconds=expires,
+        hostedEstimateRiskAccepted=intent['hostedEstimateRiskAccepted'], sourceBytesVerified=False,
+        executionVerified=False, dispatchVerified=False, liveAuthority=False, userPresenceVerified=False, qualityCredit=0)
+
+
 def owner_approval_audit(report, approval, public_key, expected_verifier_sha256, verified_at):
     """Verify a frozen native snapshot, not execution, user presence or quality.
 
@@ -90,8 +210,11 @@ def owner_approval_audit(report, approval, public_key, expected_verifier_sha256,
     assert type(report['runId']) is str and 0 < len(report['runId']) <= 128, 'run identifier'
     assert report['liveAuthority'] is False, 'report live authority'
     assert report.get('ownerLive') is True, 'live owner lease'
-    for key in ('consumptions', 'credentialLookups', 'mutationAdmissions'):
+    for key in ('consumptions', 'credentialLookups'):
         assert type(report[key]) is int and report[key] == 0, 'unconsumed preparation'
+    # Native preparation mutates disposable profile baselines before freeze.
+    # This global counter is not signed scope or proof of approved execution.
+    assert type(report['mutationAdmissions']) is int and 0 <= report['mutationAdmissions'] <= 4096, 'preparation mutation bound'
     for key in ('approvalSha256', 'approvalExpires', 'resultSha256'):
         assert report[key] is None, 'already approved or published'
     if 'actualFakeLookups' in report:
@@ -328,8 +451,53 @@ def http_response_audit(request_bytes, response_bytes, receipt, expected_model, 
     return expected
 
 
-def model_rehearsal_audit(run, receipt, requested):
+def owner_offline_response_bytes(run, plan, sources):
+    """Read only an exact public sibling response lock, never remote evidence.
+
+    Callers establish signed source order separately. No lock retains the
+    historical default response; a nearby file alone cannot select bytes.
+    """
+    response_sources = [s for s in sources if pathlib.Path(s['path']).name == 'response-fixture.json']
+    if not response_sources:
+        return None
+    canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+        separators=(',', ':'), allow_nan=False).encode()
+    plans = []
+    for source in sources:
+        file = ROOT / source['path']
+        if file.suffix != '.json' or file.name == 'response-fixture.json':
+            continue
+        if canonical(load(file)) == canonical(plan):
+            plans.append(source)
+    assert len(plans) == 1, 'owner public plan source must be unique'
+    plan_source = plans[0]
+    public_plan = ROOT / plan_source['path']
+    fixture = public_plan.with_name('response-fixture.json')
+    matches = [s for s in sources if (ROOT / s['path']).resolve() == fixture.resolve()]
+    if not matches:
+        return None
+    assert public_plan.name == 'public-native-plan.json', 'owner response public native plan name'
+    assert public_plan.resolve().is_relative_to(ROOT / '.amp/in/artifacts') \
+        and not public_plan.resolve().is_relative_to(run.resolve()), 'owner response case artifact location'
+    for file, lock in ((public_plan, plan_source), (fixture, matches[0])):
+        relative = file.relative_to(ROOT)
+        assert lock['path'] == relative.as_posix() and '..' not in relative.parts, 'owner response canonical source path'
+        assert not any((ROOT / pathlib.Path(*relative.parts[:i])).is_symlink()
+            for i in range(1, len(relative.parts) + 1)), 'owner response source symlink'
+        info = file.stat()
+        assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'owner response regular single-link file'
+    assert len(matches) == 1, 'owner response must be source-locked exactly once'
+    assert digest(public_plan) == plan_source['sha256'], 'owner public plan hash drift'
+    assert fixture.stat().st_size <= 65536, 'owner response bounded file'
+    with fixture.open('rb') as source:
+        response_bytes = source.read(65537)
+    assert len(response_bytes) <= 65536 and hashlib.sha256(response_bytes).hexdigest() == matches[0]['sha256'], 'owner response hash drift'
+    return response_bytes
+
+
+def model_rehearsal_audit(run, receipt, requested, *, _owner_public_key=None):
     """Join rehearsal evidence only; never establish completion or live authority."""
+    owner_offline = _owner_public_key is not None
     policy = 'offline-model-rehearsal-v1;separate-verifier;fake-credential;loopback-only;no-live;no-retry;no-repair'
     disabled_policy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair'
     canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
@@ -352,8 +520,13 @@ def model_rehearsal_audit(run, receipt, requested):
     offline_http = 'offlineHttp' in plan
     offline_response = 'offlineResponse' in plan
     assert set(plan) == ({'model', 'observedTarget', 'route', 'provider', 'input'}
+        | ({'nativePrepared'} if owner_offline else set())
         | ({'offlineHosted'} if hosted else set()) | ({'offlineHttp'} if offline_http else set())
         | ({'offlineResponse'} if offline_response else set())), 'model rehearsal plan fields'
+    if owner_offline:
+        assert plan['nativePrepared'] is True and not (hosted or offline_http or offline_response), 'owner nonfixture plan'
+        assert type(_owner_public_key) is bytes and len(_owner_public_key) == 32, 'owner verifier'
+        assert bindings['transport']['endpoint'] == 'native-owned-loopback-http/api/v1/chat/completions', 'owner offline transport'
     if offline_response:
         assert hosted and plan.get('offlineHttp') is True, 'offline response requires offline HTTP hosted mode'
         metadata = plan['offlineResponse']
@@ -367,12 +540,14 @@ def model_rehearsal_audit(run, receipt, requested):
     if hosted:
         policy = disabled_policy
         assert bindings['modelRehearsal']['offlineFixture'] is True
+    if owner_offline:
+        policy = disabled_policy
     assert set(plan['input']) == {'artist', 'album', 'tracks'}, 'model rehearsal input fields'
     locked_plans = []
     for source in bindings['sourcesAndTools']:
         file = ROOT / source['path']
         # Raw response JSON may be malformed; validate its file before reading.
-        if file.suffix != '.json' or (offline_response and file.name == 'response-fixture.json'):
+        if file.suffix != '.json' or ((offline_response or owner_offline) and file.name == 'response-fixture.json'):
             continue
         public = load(file)
         if public == plan:
@@ -382,6 +557,7 @@ def model_rehearsal_audit(run, receipt, requested):
             assert digest(file) == source['sha256'], 'model rehearsal public plan hash drift'
             locked_plans.append(source['path'])
     assert len(locked_plans) == 1, 'model rehearsal public plan must be source-locked exactly once'
+    owner_response = owner_offline_response_bytes(run, plan, bindings['sourcesAndTools']) if owner_offline else None
     if offline_response:
         public_plan = ROOT / locked_plans[0]
         assert not public_plan.is_symlink() and stat.S_ISREG(public_plan.stat().st_mode), 'public plan regular file'
@@ -439,7 +615,8 @@ def model_rehearsal_audit(run, receipt, requested):
     request_sha = sha(request_bytes)
     # Public seed43 hosted / seed42 fixture verifiers are independently fixed,
     # never supplied by JSON; neither establishes real user approval.
-    verifier = bytes.fromhex('4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff' if hosted
+    verifier = _owner_public_key if owner_offline else bytes.fromhex(
+        '4508a07aa941707f3eb2db94c8897a80b2c1197476b6de213ac273df7d86c4ff' if hosted
         else '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61')
     binding = dict(policy=policy, model=plan['model'], observedTarget=plan['observedTarget'],
         providerClaim=plan['provider'], route=plan['route'], requestSha256=request_sha,
@@ -448,9 +625,10 @@ def model_rehearsal_audit(run, receipt, requested):
         binding['offlineHttp'] = True
     if offline_response:
         binding['offlineResponse'] = metadata
-    if hosted:
-        binding['offlineFixture'] = True
-        pricing = plan['offlineHosted']
+    if hosted or owner_offline:
+        if hosted:
+            binding['offlineFixture'] = True
+        pricing = bindings['modelRehearsal']['boundary']['pricingEvidence'] if owner_offline else plan['offlineHosted']
         assert isinstance(pricing, dict) and set(pricing) == {'promptPicoUsd', 'completionPicoUsd', 'catalogSha256', 'termsSha256'}
         for key in ['promptPicoUsd', 'completionPicoUsd']:
             assert type(pricing[key]) is int and 0 <= pricing[key] <= 2**64 - 1
@@ -466,19 +644,23 @@ def model_rehearsal_audit(run, receipt, requested):
             retention=dict(remote='documented_provider_defaults_for_public_metadata', local='until_result_review'))
     assert canonical(bindings['modelRehearsal']) == canonical(binding), 'model rehearsal immutable binding drift'
     assert bindings['modelRehearsal']['liveAuthority'] is False
+    # Only this explicitly selected branch uses the native-owned HTTP fixture
+    # without fixture markers in the signed preparation/context.
+    if owner_offline:
+        hosted = offline_http = True
     assert receipt['testPolicy'] == policy
     assert selection['modelRehearsalPlan'] == plan and selection['model'] == plan['model']
-    if offline_response:
+    if offline_response or owner_offline:
         assert canonical(selection['modelRehearsalPlan']) == canonical(plan), 'offline response selection drift'
-    assert not offline_http or selection['modelRehearsalPlan'].get('offlineHttp') is True, 'offline HTTP selection marker'
+    assert owner_offline or not offline_http or selection['modelRehearsalPlan'].get('offlineHttp') is True, 'offline HTTP selection marker'
     names = [e['name'] for e in requested['evaluations']]
     assert len(names) == len(set(names)) == 6 and 'assistance-crowd' in names
     assert set(receipt['preparations']) == set(names)
     for name, stage, folder, descriptor in descriptors:
         assert descriptor['model_rehearsal'] == plan, f'{name}/{folder}: rehearsal descriptor drift'
-        if offline_response:
+        if offline_response or owner_offline:
             assert canonical(descriptor['model_rehearsal']) == canonical(plan), f'{name}/{folder}: offline response descriptor drift'
-        assert not offline_http or descriptor['model_rehearsal'].get('offlineHttp') is True, f'{name}/{folder}: offline HTTP descriptor marker'
+        assert owner_offline or not offline_http or descriptor['model_rehearsal'].get('offlineHttp') is True, f'{name}/{folder}: offline HTTP descriptor marker'
         assert descriptor['job'] == name and descriptor['stage'] == stage
     answer = dict(genre='MOCK_ACCEPTED_GENRE_CANARY', confidence=0.8)
     usage = dict(prompt_tokens=7, completion_tokens=3, total_tokens=10)
@@ -489,14 +671,18 @@ def model_rehearsal_audit(run, receipt, requested):
     response_status = 200
     if offline_response:
         response_bytes, response_status = fixture_bytes, metadata['status']
+    if owner_response is not None:
+        response_bytes = owner_response
     response_sha = sha(response_bytes)
     model_operations = {k: v for k, v in receipt['operations'].items() if v['category'] == 'model'}
     assert len(model_operations) == receipt['counters']['model'] == receipt['credentialLookups'] == 1
-    if offline_response:
+    if offline_response or owner_offline:
         assert type(receipt['counters']['model']) is int and type(receipt['credentialLookups']) is int, 'model count types'
     operation_id, operation = next(iter(model_operations.items()))
     assert all(operation[k] is True for k in ['dispatched', 'completed']) and operation['arrived'] is (not hosted)
     assert operation['request_sha256'] == sha(compact(['POST', '/model/chat/completions', request_sha]))
+    if owner_offline:
+        assert operation['send_admitted'] is True, 'owner model send admission'
     response = dict(sha256=response_sha, bytes=len(response_bytes), status=response_status,
         identityClaimsVerified=False, pricingVerified=False, usageClaimsVerified=False)
     if hosted:
@@ -560,13 +746,13 @@ def model_rehearsal_audit(run, receipt, requested):
             execution = load(directory / 'result.provisional.json')
             assert execution['modelRequests'] == len(selected), f'{name}: native observation summary drift'
             assert execution['wireArrivals'] == len(inventory['wireArrivals']), f'{name}: invented summary arrival'
-            if offline_response:
+            if offline_response or owner_offline:
                 assert type(execution['modelRequests']) is int and type(execution['wireArrivals']) is int, 'summary count types'
         rows = load(directory / 'cold/records.json')
         assert len(rows) == 1
         row = rows[0]
         candidate = row['native'].get('candidate') or {}
-        genre = http['projection']['genre'] if offline_response else answer['genre']
+        genre = http['projection']['genre'] if offline_response or owner_response is not None else answer['genre']
         assisted = dict(model=plan['model'], input_sha256=sha(canonical(payload)), value=genre) if active and genre else None
         assert candidate.get('assisted_genre') == row['persistedEvidence']['assistedGenre'] == assisted, name
         if active:
@@ -576,14 +762,14 @@ def model_rehearsal_audit(run, receipt, requested):
             else:
                 assert candidate.get('genre') in (None, ''), 'withheld response invented candidate genre'
                 assert row['fieldObservations']['tracks'] and all(t['genre'] in (None, '') for t in row['fieldObservations']['tracks']), 'withheld response invented readback genre'
-            if offline_response:
+            if offline_response or owner_offline:
                 assert row['serviceFailureObserved'] is False, 'completed rehearsal service failure'
                 assert [d for d in row['native']['diagnostics'] if d.get('stage') == 'genre'] == [
                     dict(stage='genre', code='genre_assisted' if genre else 'genre_rejected')], 'genre diagnostic drift'
         assert load(directory / 'scoring-contract.json')['spec']['mode'] == 'mock', name
         score = load(directory / 'score.provisional.json')
         assert score['groundedAssistanceAccuracyCredit'] == 0 and score['writableDelta'] == [] and not score['acceptedCertificate']
-        if offline_response:
+        if offline_response or owner_offline:
             assert type(score['groundedAssistanceAccuracyCredit']) is int and score['acceptedCertificate'] is False, 'mock credit types'
     result = dict(policy=policy, requestSha256=request_sha, responseSha256=response_sha,
         model=plan['model'], observedTarget=plan['observedTarget'], providerClaim=plan['provider'],
@@ -591,6 +777,9 @@ def model_rehearsal_audit(run, receipt, requested):
         identityClaimsVerified=False, groundedAssistanceAccuracyCredit=0, liveAuthority=False)
     if offline_response:
         result['http'] = http
+    if owner_offline:
+        result.update(http=http, responseEvidence='public_offline_fixture_bytes_not_remote_response_evidence'
+            if owner_response is not None else 'deterministic_default_fixture_reconstruction_not_retained_raw_bytes')
     return result
 
 
@@ -769,7 +958,197 @@ def retained_auditor_source(hosted=False, offline_http=False, offline_response=F
     return original, source
 
 
-def audit(run):
+def owner_offline_retained_auditor_source(rehearsal, plan):
+    """Two native and one durable owner-only adaptations; sealed sources unchanged.
+
+    The caller supplies the independently audited response and bound plan, not
+    review/provenance claims from a row. A withheld answer is a completed mock
+    observation with no actionable review, not an accepted genre or quality.
+    """
+    assert rehearsal['http']['validation'] in ('accepted', 'withheld'), 'completed owner response validation'
+    genre = rehearsal['http']['projection']['genre']
+    assert bool(genre) == (rehearsal['http']['validation'] == 'accepted'), 'owner response genre validation'
+    assert rehearsal['model'] == plan['model'], 'owner response model binding'
+    assisted = dict(model=rehearsal['model'], input_sha256=hashlib.sha256(json.dumps(
+        plan['input'], ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()).hexdigest(),
+        value=genre) if genre else None
+    original, source = retained_auditor_source(True, True)
+    replacements = [
+        ("assert row['reviewPendingAfterRestart'] and row['actionableReviewAfterRestart']",
+         f"assert row['reviewPendingAfterRestart'] is {bool(genre)!r} and row['actionableReviewAfterRestart'] is {bool(genre)!r}"),
+        ("assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate']['assisted_genre']",
+         f"assert row['persistedEvidence']['assistedGenre'] == row['native']['candidate'].get('assisted_genre') == {assisted!r}"),
+    ]
+    nested = ''
+    for old, new in replacements:
+        nested += f'assert source.count({old!r}) == 1\nsource = source.replace({old!r}, {new!r})\n'
+    insertion = 'old = "directory / \'cold/preparation.json\'"'
+    assert source.count(insertion) == 1, 'owner native adaptation insertion'
+    source = source.replace(insertion, nested + insertion)
+    old = "assert operation['dispatched'] is True and operation['completed'] is True and operation['arrived'] is False"
+    assert source.count(old) == 1, 'owner durable admission adaptation'
+    source = source.replace(old, old + " and operation['send_admitted'] is True")
+    return original, source
+
+
+def owner_offline_completed_audit(run, *, proposal, intent, approval, public_key,
+                                  expected_verifier_sha256, verified_at, trusted_executable):
+    """Independently audit a completed OWNER OFFLINE rehearsal, never hosted.
+
+    proposal, intent and approval are caller-supplied public JSON objects with
+    duplicate keys rejected before parsing. Trust is raw 32-byte Ed25519 public
+    key bytes, a separately pinned lowercase SHA-256 and integer Unix seconds
+    at signature verification (not inferred from a run file or current clock).
+    trusted_executable is the independently selected canonical evaluator path,
+    never a value taken from signed source declarations or file permissions.
+    The approval object is supplied from outside the run; no provisioned owner
+    directory, signer, private key or credential configuration is discovered.
+
+    Both existing signature auditors run, then actual source bytes, bootstrap,
+    consumed coordination and final receipt are joined before the general
+    completion/scoring/worker/storage audits. Missing evidence fails closed.
+    Locked public fixture bytes are re-read when present; otherwise default
+    response bytes are reconstructed. Neither is retained remote evidence.
+    Signatures do not prove human presence, nonce-file custody or live authority.
+    """
+    if not __debug__:
+        raise AssertionError('owner completed audit requires enabled assertions')
+    run = pathlib.Path(run).resolve()
+    assert run.is_relative_to(ROOT / '.amp/in/artifacts') and run != ROOT / '.amp/in/artifacts', 'owner run root'
+    canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+        separators=(',', ':'), allow_nan=False).encode()
+    sha = lambda value: hashlib.sha256(canonical(value)).hexdigest()
+
+    def public_file(file, limit=8 * 1048576):
+        assert file.resolve().is_relative_to(ROOT) and not file.is_symlink() \
+            and stat.S_ISREG(file.stat().st_mode) and file.stat().st_size <= limit, 'bounded public evidence file'
+        def unique(pairs):
+            value = dict(pairs)
+            assert len(value) == len(pairs), 'duplicate public evidence field'
+            return value
+        return json.loads(file.read_bytes(), object_pairs_hook=unique)
+
+    intent_check = owner_execution_intent_audit(proposal, intent, public_key, expected_verifier_sha256, verified_at)
+    assert intent_check['executionKind'] == 'offlineRehearsal', 'hosted execution is disabled'
+    frozen = public_file(run / 'frozen-checkpoint.json')
+    approval_check = owner_approval_audit(frozen, approval, public_key, expected_verifier_sha256, verified_at)
+    assert approval['payload']['nonce'] == intent_check['nonce'], 'owner approval nonce differs from signed intent'
+    assert approval_check['expiresUnixSeconds'] == intent_check['expiresUnixSeconds'], 'owner approval expiry differs from signed intent'
+    bindings = frozen['bindings']
+    plan, context = bindings['modelRehearsalPlan'], bindings['modelRehearsal']
+    assert plan['nativePrepared'] is True and bindings['disposableRunRoot'] == str(run), 'native owner preparation root'
+    claimed = {key: intent_check[key] for key in ('version', 'proposalId', 'proposalSha256',
+        'intentSha256', 'executionKind', 'nonce', 'expiresUnixSeconds')}
+    assert canonical(bindings['ownerExecution']) == canonical(claimed), 'claimed owner binding'
+    packet = public_file(run / 'owner-execution-bootstrap.json', 1048576)
+    assert type(packet) is dict and set(packet) == {'version', 'proposal', 'intent', 'ownerExecution', 'offlineCredential'} \
+        and type(packet['version']) is int and packet['version'] == 1, 'owner bootstrap fields'
+    assert canonical(packet['proposal']) == canonical(proposal) and canonical(packet['intent']) == canonical(intent) \
+        and canonical(packet['ownerExecution']) == canonical(claimed), 'public owner bootstrap join'
+    requested = public_file(run / 'requested-membership.json')
+    assert canonical(requested) == canonical(frozen['membership']) == canonical(public_file(
+        ROOT / 'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json')), 'full native membership'
+    for key, value in dict(executableSha256=bindings['executable'], membershipSha256=sha(requested),
+            nativePlanSha256=sha(plan), requestSha256=context['requestSha256'],
+            verifierSha256=expected_verifier_sha256, boundaryPricingSha256=sha(context['boundary']),
+            contextSha256=sha(context)).items():
+        assert proposal[key] == value, 'owner proposal actual scope: ' + key
+
+    runtime = (run / 'native-supervision.json').relative_to(ROOT).as_posix()
+    locks = bindings['sourcesAndTools']
+    assert type(locks) is list and len(locks) == len(proposal['sourcesAndTools']), 'full owner source list'
+    credential = packet['offlineCredential']
+    assert type(credential) is dict and set(credential) == {'path', 'sha256'} \
+        and sum(canonical(lock) == canonical(credential) for lock in locks) == 1, 'public offline credential lock'
+    credential_file = ROOT / credential['path']
+    assert credential_file.resolve().is_relative_to(ROOT / '.amp/in/artifacts') \
+        and not credential_file.resolve().is_relative_to(run) \
+        and credential_file.name == '.env.local', 'only public fake credential fixture'
+    expected_credential = f"LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL={plan['model']}\n".encode()
+    assert credential['sha256'] == hashlib.sha256(expected_credential).hexdigest(), 'public fake credential expected lock'
+    public_plans = [ROOT / lock['path'] for lock in locks
+        if pathlib.PurePosixPath(lock['path']).name == 'public-native-plan.json']
+    assert len(public_plans) == 1, 'owner public plan source must be unique'
+    public_plan = public_plans[0]
+    assert public_plan.is_relative_to(ROOT / '.amp/in/artifacts') \
+        and not public_plan.is_relative_to(run), 'owner public plan artifact location'
+    public_files = {'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
+        'scripts/auto-tag-eval-replay/run-bounded.cjs', 'scripts/auto-tag-eval-replay/run-supervised.cjs',
+        'scripts/auto-tag-eval-replay/mock-authority.cjs', 'scripts/auto-tag-eval-replay/bounded-storage.cjs',
+        'scripts/auto-tag-eval-replay/score-observations.py', 'scripts/auto-tag-eval-replay/audit-supervised.py',
+        'scripts/mock-provider-service.cjs', 'scripts/bounded_storage.py', 'scripts/review_auto_tag_subset.py'}
+    label_roots = ('.planning/plans/crowd-lu-user-acceptance-v1-20261111/',
+        '.planning/plans/crowd-lu-annotation-sheet-20261111/',
+        '.planning/plans/scorable-assistance-contract-20261111/')
+    label_files = {'.planning/research/bounded-assistance-machine-labels-20261111.json',
+        '.planning/research/bounded-assistance-label-review-20261111.json',
+        '.amp/in/eval-dummies/artist-batch-extension/corpus.json', '.amp/in/eval-dummies/original/corpus.json'}
+    # Executable identity is independent audit input, not a signed claim or mode.
+    trusted_executable = pathlib.Path(trusted_executable)
+    assert trusted_executable.is_absolute() and trusted_executable == trusted_executable.resolve() \
+        and trusted_executable.is_relative_to(ROOT), 'trusted evaluator path'
+    assert locks and ROOT / locks[0]['path'] == trusted_executable, 'trusted evaluator source slot'
+    normalized, seen = [], set()
+    for index, lock in enumerate(locks):
+        assert type(lock) is dict and set(lock) == {'path', 'sha256'}, 'resolved source lock'
+        relative = pathlib.PurePosixPath(lock['path'])
+        assert not relative.is_absolute() and relative.as_posix() == lock['path'] \
+            and all(part not in ('.', '..') for part in relative.parts) and lock['path'] not in seen, 'canonical source path'
+        seen.add(lock['path'])
+        file = ROOT / lock['path']
+        # Match native public roots and exact input slots before any source
+        # contents are opened. A signature is not permission to read secrets.
+        public = not any(part.startswith('.') for part in relative.parts) and (
+            (lock['path'].startswith('src-tauri/src/') and file.suffix == '.rs')
+            or (lock['path'].startswith('test/fixtures/tauri/') and file.suffix == '.json')
+            or lock['path'] in public_files)
+        label = lock['path'] in label_files or any(
+            lock['path'].startswith(prefix) and len(relative.parts) == len(pathlib.PurePosixPath(prefix).parts) + 1
+            and not file.name.startswith('.') and (file.name == 'SHA256SUMS' or file.suffix in ('.json', '.md', '.py'))
+            for prefix in label_roots)
+        response, wire = file == public_plan.with_name('response-fixture.json'), file == public_plan.with_name('response-wire.json')
+        executable = index == 0 and file == trusted_executable and lock['sha256'] == bindings['executable']
+        assert not file.name.startswith('.env') or canonical(lock) == canonical(credential), 'not a public credential source'
+        assert public or label or executable or file == public_plan or response or wire \
+            or lock['path'] == runtime or canonical(lock) == canonical(credential), 'owner public source eligibility'
+        assert not any((ROOT / pathlib.Path(*relative.parts[:i])).is_symlink()
+            for i in range(1, len(relative.parts) + 1)), 'source symlink'
+        info = file.stat()
+        limit = 1024 if wire else 65536 if response or file == public_plan else 512 * 1048576
+        assert file.resolve().is_relative_to(ROOT) and stat.S_ISREG(info.st_mode) \
+            and info.st_nlink == 1 and info.st_size <= limit, 'source bounded regular single-link file'
+        normalized.append(dict(path=runtime, runtime='nativeSupervision') if lock['path'] == runtime else lock)
+    assert runtime in seen and canonical(normalized) == canonical(proposal['sourcesAndTools']), 'source locks/order/runtime join'
+    assert canonical(public_file(public_plan, 65536)) == canonical(plan), 'owner public plan contents'
+    owner_offline_response_bytes(run, plan, locks)
+    for lock in locks:
+        assert digest(ROOT / lock['path']) == lock['sha256'], 'actual owner source bytes: ' + lock['path']
+    assert locks[0]['sha256'] == bindings['executable'], 'actual executable source lock'
+    assert stat.S_IMODE(credential_file.stat().st_mode) == 0o600, 'public fake credential mode'
+    assert credential_file.read_bytes() == expected_credential, 'public fake credential bytes'
+
+    coordination = public_file(run / 'owner-approval-coordination.json')
+    expected_coordination = {key: frozen[key] for key in ('runId', 'checkpoint', 'bindings', 'membership', 'preparations', 'counters', 'credentialLookups')}
+    expected_coordination.update(componentCoordinationOnly=True, liveAuthority=False, humanPresenceVerified=False,
+        qualityCertificate=False, successCertificate=False, approvalSha256=approval_check['approvalSha256'],
+        approvalExpires=approval_check['expiresUnixSeconds'], consumptions=1, state='executing', actualFakeLookups=0)
+    assert canonical(coordination) == canonical(expected_coordination), 'consumed approval coordination join'
+    final = public_file(run / 'authority/provisional.json')
+    assert final['state'] == 'provisional_complete' and final['ownerLive'] is False \
+        and final['liveAuthority'] is False and type(final['consumptions']) is int and final['consumptions'] == 1, 'terminal owner receipt'
+    for key in ('runId', 'checkpoint', 'bindings', 'membership', 'preparations'):
+        assert canonical(final[key]) == canonical(frozen[key]), 'final signed owner scope: ' + key
+    assert final['approvalSha256'] == approval_check['approvalSha256'] \
+        and final['approvalExpires'] == approval_check['expiresUnixSeconds'], 'final owner approval binding'
+    assert final['resultSha256'] == digest(run / 'results.json'), 'final published result digest'
+    checked = audit(run, _owner_public_key=public_key)
+    checked['ownerExecution'] = dict(intent=intent_check, approval=approval_check, sourceBytesVerified=True,
+        executionKind='offlineRehearsal', userPresenceVerified=False, nonceCustodyVerified=False,
+        liveAuthority=False, groundedAssistanceAccuracyCredit=0)
+    return checked
+
+
+def audit(run, *, _owner_public_key=None):
     run = run.resolve()
     assert run.is_relative_to(ROOT / '.amp/in/artifacts')
     config = load(run / 'native-supervision.json')
@@ -805,7 +1184,8 @@ def audit(run):
     # Bind scorer inputs and published results to the actual native JSONL whose
     # digest the broker retained, rather than accepting two unrelated exports.
     requested = load(run / 'requested-membership.json')
-    rehearsal = model_rehearsal_audit(run, load(run / 'authority/provisional.json'), requested)
+    rehearsal = model_rehearsal_audit(run, load(run / 'authority/provisional.json'), requested,
+        _owner_public_key=_owner_public_key)
     executions = []
     for expected in requested['evaluations']:
         directory = run / expected['name']
@@ -837,7 +1217,10 @@ def audit(run):
     hosted = rehearsal is not None and 'offlineHosted' in plan
     offline_http = rehearsal is not None and plan.get('offlineHttp') is True
     offline_response = rehearsal is not None and 'offlineResponse' in plan
-    original, source = retained_auditor_source(hosted, offline_http, offline_response)
+    if _owner_public_key is not None:
+        original, source = owner_offline_retained_auditor_source(rehearsal, plan)
+    else:
+        original, source = retained_auditor_source(hosted, offline_http, offline_response)
     checked = json.loads(subprocess.check_output([sys.executable, '-B', '-c', source, str(run)], text=True))
     wire = load(run / 'wire-reconciliation.json')
     assert wire['actualFakeLookups'] == wire['durableLookupAdmissions'] == 1
@@ -853,6 +1236,8 @@ def audit(run):
         result['modelRehearsal'] = rehearsal
     if offline_response:
         result['auditBindings']['offlineResponseNativeAdaptations'] = 3
+    if _owner_public_key is not None:
+        result['auditBindings']['ownerOfflineAdaptations'] = dict(native=2, durable=1)
     if config.get('storage'):
         result['storage'] = storage_audit(run, config)
     return result

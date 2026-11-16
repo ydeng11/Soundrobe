@@ -2,6 +2,150 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { validateProvisionalReceipt } = require('./mock-authority.cjs');
 
+test('owner execution intent audit verifies stable signed scope without execution authority', () => {
+  const { spawnSync } = require('node:child_process');
+  const result = spawnSync('python3', ['-B', '-c', `
+import sys,json,hashlib,copy,tempfile,pathlib,subprocess,os,uuid,inspect
+from unittest.mock import patch
+sys.path.insert(0,'scripts/auto-tag-eval-replay')
+from importlib import import_module
+m=import_module('audit-supervised')
+assert callable(getattr(m,'owner_execution_intent_audit',None)), 'missing standalone owner execution intent auditor'
+canonical=lambda v:json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
+sha=lambda b:hashlib.sha256(b).hexdigest()
+domain=b'soundrobe/owner-execution-intent/v1'+bytes([0])
+env=dict(PATH=os.environ['PATH'],OPENSSL_CONF=os.devnull)
+def openssl(*args):
+    return subprocess.run(['openssl',*map(str,args)],env=env,check=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=5).stdout
+with tempfile.TemporaryDirectory(dir='.amp/in',prefix='intent-audit-') as temp:
+    root=pathlib.Path(temp);private=root/'disposable-private.pem'
+    openssl('genpkey','-algorithm','ED25519','-out',private)
+    key=openssl('pkey','-in',private,'-pubout','-outform','DER')[-32:];trust=sha(key);now=1800000000
+    proposal=dict(version=1,proposalId=str(uuid.uuid4()),executionKind='hostedSingleRequest',
+        executableSha256=sha(b'not actual executable bytes'),membershipSha256='a'*64,nativePlanSha256='b'*64,
+        requestSha256='c'*64,verifierSha256=trust,boundaryPricingSha256='d'*64,contextSha256='e'*64,
+        sourcesAndTools=[dict(path='public/盧廣仲 😀.rs',sha256='f'*64),
+            dict(path='.amp/in/artifacts/planned/native-supervision.json',runtime='nativeSupervision')])
+    def sign(p=proposal,signing_key=private,prefix=domain,**claims):
+        value=dict(version=1,proposalId=p['proposalId'],proposalSha256=sha(canonical(p)),executionKind=p['executionKind'],
+            nonce=str(uuid.uuid4()),issuedUnixSeconds=now-600,expiresUnixSeconds=now+1200,
+            hostedEstimateRiskAccepted=p['executionKind']=='hostedSingleRequest')
+        value.update(claims)
+        (root/'payload').write_bytes(prefix+canonical(value))
+        openssl('pkeyutl','-sign','-rawin','-inkey',signing_key,'-in',root/'payload','-out',root/'signature')
+        return dict(value,signature=list((root/'signature').read_bytes()))
+    intent=sign();accepted=0;rejected=0
+    def check(p=proposal,i=intent,k=key,t=trust,at=now):
+        return m.owner_execution_intent_audit(p,i,k,t,at)
+    expected=dict(version=1,signatureVerified=True,verifierSha256=trust,proposalId=proposal['proposalId'],
+        proposalSha256=sha(canonical(proposal)),intentSha256=sha(canonical(intent)),executionKind='hostedSingleRequest',
+        nonce=intent['nonce'],issuedUnixSeconds=now-600,expiresUnixSeconds=now+1200,hostedEstimateRiskAccepted=True,
+        sourceBytesVerified=False,executionVerified=False,dispatchVerified=False,liveAuthority=False,userPresenceVerified=False,qualityCredit=0)
+    before=copy.deepcopy((proposal,intent));real_run=subprocess.run;directories=[]
+    def observed(args,**kwargs):
+        assert args[:3]==['openssl','pkeyutl','-verify']
+        assert kwargs['timeout']==5 and kwargs['stdin']==kwargs['stdout']==kwargs['stderr']==subprocess.DEVNULL
+        assert kwargs['env']==env
+        directory=pathlib.Path(args[args.index('-inkey')+1]).parent;directories.append(directory)
+        assert set(p.name for p in directory.iterdir())=={'public.der','payload','signature'}
+        assert (directory/'public.der').read_bytes()==bytes.fromhex('302a300506032b6570032100')+key
+        assert (directory/'payload').read_bytes()==domain+canonical({k:v for k,v in intent.items() if k!='signature'})
+        assert (directory/'signature').read_bytes()==bytes(intent['signature'])
+        return real_run(args,**kwargs)
+    with patch.object(m.subprocess,'run',side_effect=observed): assert check()==expected
+    accepted+=1
+    assert len(directories)==1 and not directories[0].exists()
+    assert (proposal,intent)==before
+    def deny(label,**kwargs):
+        global rejected
+        try: check(**kwargs)
+        except AssertionError: rejected+=1
+        else: raise AssertionError('accepted '+label)
+    for failure in (OSError('unavailable'),subprocess.TimeoutExpired('openssl',5)):
+        with patch.object(m.subprocess,'run',side_effect=failure): deny('verification unavailable')
+    optimized=dict(vars(m))
+    exec(compile(inspect.getsource(m.owner_execution_intent_audit),'optimized-intent-audit','exec',optimize=2),optimized)
+    try: optimized['owner_execution_intent_audit'](proposal,intent,key,trust,now)
+    except AssertionError: rejected+=1
+    else: raise AssertionError('optimized Python accepted intent')
+    for kind in ('offlineRehearsal','hostedSingleRequest'):
+        p=dict(proposal,executionKind=kind,sourcesAndTools=[proposal['sourcesAndTools'][0]])
+        for issued,expires in ((now,now+1),(now,now+1800),(now-1799,now+1)):
+            assert check(p=p,i=sign(p,issuedUnixSeconds=issued,expiresUnixSeconds=expires))['signatureVerified'] is True
+            accepted+=1
+        deny('wrong risk',p=p,i=sign(p,hostedEstimateRiskAccepted=kind!='hostedSingleRequest'))
+    for p in (dict(reversed(list(proposal.items()))),dict(proposal,sourcesAndTools=list(reversed(proposal['sourcesAndTools']))),
+        dict(proposal,sourcesAndTools=[dict(path='native-supervision.json',runtime='nativeSupervision')]),
+        dict(proposal,sourcesAndTools=[dict(path='public//./tool.rs/',sha256='a'*64)])):
+        assert check(p=p,i=sign(p))['signatureVerified'] is True;accepted+=1
+    deny('unsigned source order',p=dict(proposal,sourcesAndTools=list(reversed(proposal['sourcesAndTools']))))
+    for field in proposal:
+        p=copy.deepcopy(proposal);del p[field];deny('missing proposal '+field,p=p)
+        p=copy.deepcopy(proposal);p[field]=None;deny('null proposal '+field,p=p)
+    for field in intent:
+        i=copy.deepcopy(intent);del i[field];deny('missing intent '+field,i=i)
+        i=copy.deepcopy(intent);i[field]=None;deny('null intent '+field,i=i)
+    for value in (None,[],True,dict(proposal,extra=1)): deny('proposal shape',p=value)
+    for value in (None,[],True,dict(intent,extra=1)): deny('intent shape',i=value)
+    for field,value in [('version',True),('version',1.0),('version',2),('proposalId',str(uuid.uuid1())),
+        ('proposalId',proposal['proposalId'].upper()),('executionKind','hosted'),('executionKind',True)]:
+        p=dict(proposal,**{field:value});deny('signed proposal type/identity',p=p,i=sign(p))
+    for field in ('executableSha256','membershipSha256','nativePlanSha256','requestSha256','verifierSha256','boundaryPricingSha256','contextSha256'):
+        for value in ('A'*64,'a'*63,True,[],0):
+            p=dict(proposal,**{field:value});deny('signed digest '+field,p=p,i=sign(p))
+        p=dict(proposal,**{field:'0'*64});deny('unsigned proposal drift '+field,p=p)
+    for field,value in [('version',True),('version',1.0),('version',2),('proposalId',str(uuid.uuid4())),
+        ('proposalSha256','0'*64),('executionKind','offlineRehearsal'),('hostedEstimateRiskAccepted',False),
+        ('hostedEstimateRiskAccepted',1),('nonce',str(uuid.uuid1())),('nonce',intent['nonce'].upper()),('nonce',''),('extra',1)]:
+        deny('signed invalid intent '+field,i=sign(**{field:value}))
+    for field in ('issuedUnixSeconds','expiresUnixSeconds'):
+        for value in (True,1.0,-1,2**64,'1800000000'):
+            deny('signed time type '+field,i=sign(**{field:value}))
+    for issued,expires in ((0,now+1),(now+1,now+2),(now,now),(now-1,now),(now-1800,now+1),(now,now+1801)):
+        deny('original lifetime or validity',i=sign(issuedUnixSeconds=issued,expiresUnixSeconds=expires))
+    for value in (True,1.0,-1,2**64,None,'now'): deny('audit time',at=value)
+    for value in (None,b'',key[:-1],bytearray(key),list(key)): deny('key type',k=value)
+    for value in (None,True,'0'*64,trust.upper()): deny('independent pin',t=value)
+    k=bytes(32);p=dict(proposal,verifierSha256=sha(k));deny('zero key',p=p,i=sign(p),k=k,t=sha(k))
+    for seed in (bytes.fromhex('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60'),bytes([42])*32,bytes([43])*32):
+        (root/'fixture-seed.der').write_bytes(bytes.fromhex('302e020100300506032b657004220420')+seed)
+        fixture_private=root/'public-fixture-private.pem'
+        openssl('pkey','-inform','DER','-in',root/'fixture-seed.der','-out',fixture_private)
+        k=openssl('pkey','-in',fixture_private,'-pubout','-outform','DER')[-32:]
+        p=dict(proposal,verifierSha256=sha(k))
+        deny('validly signed fixture key',p=p,i=sign(p,signing_key=fixture_private),k=k,t=sha(k))
+    other_private=root/'other-disposable-private.pem'
+    openssl('genpkey','-algorithm','ED25519','-out',other_private)
+    deny('wrong signer',i=sign(signing_key=other_private))
+    for value in ('00',[],[0]*63,[0]*65,[True]*64,[-1]*64,[256]*64,[0.0]*64):
+        deny('signature bytes',i=dict(intent,signature=value))
+    i=copy.deepcopy(intent);i['signature'][0]^=1;deny('corrupt signature',i=i)
+    deny('unsigned nonce',i=dict(intent,nonce=str(uuid.uuid4())))
+    for prefix in (b'',domain[:-1],b'soundrobe/owner-approval/v1'+bytes([0])):
+        deny('wrong signature domain',i=sign(prefix=prefix))
+    for sources in ([],{},[proposal['sourcesAndTools'][0]]*2,[proposal['sourcesAndTools'][1]]*2,
+        [dict(path='other.rs',runtime='nativeSupervision')],
+        [dict(path='native-supervision.json',sha256='a'*64)],
+        [dict(path='native-supervision.json',runtime='other')],
+        [dict(path='native-supervision.json',runtime='nativeSupervision'),dict(path='other/native-supervision.json',runtime='nativeSupervision')],
+        [dict(path='a.rs',sha256='a'*64,extra=True)],[dict(path='a.rs',sha256='A'*64)],
+        [dict(path='a.rs',sha256=True)],[None],[dict(path='a.rs')],
+        [dict(path=f'a/{n}.rs',sha256='a'*64) for n in range(4097)]):
+        p=dict(proposal,sourcesAndTools=sources);deny('signed source schema',p=p,i=sign(p))
+    for path in ('','/absolute','../escape','a/../b','./a','a/'+chr(0),'a/'+chr(127),'a/'+chr(159),'x'*4097,'曲'*1366,True,123):
+        p=dict(proposal,sourcesAndTools=[dict(path=path,sha256='a'*64)])
+        deny('signed invalid source path',p=p,i=sign(p))
+    p=dict(proposal,sourcesAndTools=[dict(path=chr(0xd800),sha256='a'*64)])
+    deny('invalid Unicode source path',p=p)
+    p=dict(proposal,sourcesAndTools=[dict(path=f'{n}/'+('x'*300),sha256='a'*64) for n in range(3000)])
+    deny('proposal byte bound',p=p,i=sign(p))
+    print(f'owner execution intent audit: {accepted} accepted scopes, {rejected} rejected corruptions; no execution, presence, dispatch, source-byte or quality credit')
+`], { env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 30000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /owner execution intent audit: .*no execution, presence, dispatch, source-byte or quality credit/);
+  console.log(result.stdout.trim());
+});
+
 test('owner approval audit verifies only a frozen disabled snapshot with independent trust and time', () => {
   const { spawnSync } = require('node:child_process');
   const result = spawnSync('python3', ['-B', '-c', `
@@ -73,6 +217,12 @@ with tempfile.TemporaryDirectory(dir='.amp/in',prefix='owner-audit-') as temp:
     assert len(verification_directories)==1 and not verification_directories[0].exists(), 'public verification temporary files leaked'
     assert (report,approval)==before, 'auditor mutated supplied evidence'
     accepted=1;rejected=0
+    # Preparation profiles mutate disposable baselines before freezing; this
+    # global bounded counter does not mean model dispatch or approved execution.
+    for count in (208,4096):
+        prepared=copy.deepcopy(report);prepared['mutationAdmissions']=count
+        assert m.owner_approval_audit(prepared,approval,key,trust,now)==expected
+        accepted+=1
     def deny(label,r=report,a=approval,k=key,t=trust,at=now):
         global rejected
         try: m.owner_approval_audit(r,a,k,t,at)
@@ -122,7 +272,7 @@ with tempfile.TemporaryDirectory(dir='.amp/in',prefix='owner-audit-') as temp:
         else: r[field]['injected']='changed'
         deny('checkpoint/scope drift '+field,r=r)
     semantic=[('state','executing'),('state','complete'),('consumptions',1),('consumptions',False),('credentialLookups',1),
-        ('credentialLookups',False),('mutationAdmissions',1),('approvalSha256','a'*64),('approvalExpires',now+1),('resultSha256','b'*64),('liveAuthority',True),
+        ('credentialLookups',False),('mutationAdmissions',False),('mutationAdmissions',-1),('mutationAdmissions',4097),('approvalSha256','a'*64),('approvalExpires',now+1),('resultSha256','b'*64),('liveAuthority',True),
         ('ownerLive',False),('ownerLive',1),('ownerLive',None)]
     for field,value in semantic:
         r=copy.deepcopy(report);r[field]=value;deny('report promotion '+field,r=r)
@@ -167,6 +317,168 @@ with tempfile.TemporaryDirectory(dir='.amp/in',prefix='owner-audit-') as temp:
         r=copy.deepcopy(report);r['bindings']['modelRehearsalPlan']=dict(plan,input=value)
         freeze(r);deny('signed malformed native input',r=r,a=approve(r))
     r=copy.deepcopy(report);r['membership']['oversized']='x'*2097153;freeze(r);deny('unbounded scope',r=r,a=approve(r))
+    assert callable(getattr(m,'owner_offline_completed_audit',None)), 'missing explicit completed owner-offline auditor'
+    with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='owner-completed-unit-') as temp_run:
+        run=pathlib.Path(temp_run).resolve()/'run';run.mkdir()
+        put=lambda name,value:(run/name).write_text(json.dumps(value,ensure_ascii=False))
+        (root/'native-evaluator').write_bytes(b'disposable stand-in executable bytes')
+        (root/'native-evaluator').chmod(0o700)
+        (run.parent/'public-native-plan.json').write_bytes(canonical(plan))
+        (run.parent/'public-fake-input').mkdir()
+        credential=run.parent/'public-fake-input/.env.local'
+        credential.write_text('LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\\nLLM_MODEL='+model+'\\n');credential.chmod(0o600)
+        r=copy.deepcopy(report);r['membership']=m.load(m.ROOT/'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json')
+        r['bindings'].update(modelRehearsalPlan=plan,disposableRunRoot=str(run),executable=sha((root/'native-evaluator').read_bytes()))
+        put('native-supervision.json',dict(generation=str(uuid.uuid4())))
+        relative=lambda p:str(p.resolve().relative_to(m.ROOT))
+        locks=[dict(path=relative(p),sha256=sha(p.read_bytes())) for p in (root/'native-evaluator',run.parent/'public-native-plan.json',credential,run/'native-supervision.json')]
+        r['bindings']['sourcesAndTools']=locks
+        proposal=dict(version=1,proposalId=str(uuid.uuid4()),executionKind='offlineRehearsal',executableSha256=r['bindings']['executable'],
+            membershipSha256=sha(canonical(r['membership'])),nativePlanSha256=sha(canonical(plan)),requestSha256=binding['requestSha256'],
+            verifierSha256=trust,boundaryPricingSha256=sha(canonical(boundary)),contextSha256=sha(canonical(binding)),
+            sourcesAndTools=locks[:-1]+[dict(path=locks[-1]['path'],runtime='nativeSupervision')])
+        claims=dict(version=1,proposalId=proposal['proposalId'],proposalSha256=sha(canonical(proposal)),executionKind='offlineRehearsal',
+            nonce=str(uuid.uuid4()),issuedUnixSeconds=now-600,expiresUnixSeconds=now+1200,hostedEstimateRiskAccepted=False)
+        (root/'payload').write_bytes(b'soundrobe/owner-execution-intent/v1'+bytes([0])+canonical(claims))
+        openssl('pkeyutl','-sign','-rawin','-inkey',private,'-in',root/'payload','-out',root/'signature')
+        intent=dict(claims,signature=list((root/'signature').read_bytes()))
+        owner={key:intent[key] for key in ('version','proposalId','proposalSha256','executionKind','nonce','expiresUnixSeconds')}
+        owner['intentSha256']=sha(canonical(intent));r['bindings']['ownerExecution']=owner
+        freeze(r);a=approve(r,nonce=intent['nonce'],expiresUnixSeconds=intent['expiresUnixSeconds'])
+        packet=dict(version=1,proposal=proposal,intent=intent,ownerExecution=owner,offlineCredential=locks[2])
+        put('owner-execution-bootstrap.json',packet);put('frozen-checkpoint.json',r);put('requested-membership.json',r['membership'])
+        coordination={key:r[key] for key in ('runId','checkpoint','bindings','membership','preparations','counters','credentialLookups')}
+        coordination.update(componentCoordinationOnly=True,liveAuthority=False,humanPresenceVerified=False,qualityCertificate=False,successCertificate=False,
+            approvalSha256=sha(canonical(a)),approvalExpires=a['payload']['expiresUnixSeconds'],consumptions=1,state='executing',actualFakeLookups=0)
+        put('owner-approval-coordination.json',coordination)
+        put('results.json',dict(mode='mock_only',executions=[]))
+        final=copy.deepcopy(r);final.update(state='provisional_complete',ownerLive=False,consumptions=1,approvalSha256=sha(canonical(a)),
+            approvalExpires=a['payload']['expiresUnixSeconds'],credentialLookups=1,actualFakeLookups=1,resultSha256=sha((run/'results.json').read_bytes()))
+        (run/'authority').mkdir();put('authority/provisional.json',final);put('authority-provisional.json',final)
+        def completed(**kwargs):
+            return m.owner_offline_completed_audit(run,proposal=kwargs.get('proposal',proposal),intent=kwargs.get('intent',intent),
+                approval=kwargs.get('approval',a),public_key=kwargs.get('public_key',key),expected_verifier_sha256=kwargs.get('pin',trust),
+                verified_at=kwargs.get('verified_at',now), trusted_executable=root/'native-evaluator')
+        # Unit-test the signature/scope join separately from downstream native
+        # completion; the stub is explicitly NOT a completed rehearsal proof.
+        with patch.object(m,'audit',return_value=dict(downstream='unit-stub')) as downstream:
+            checked=completed();assert checked['downstream']=='unit-stub'
+            assert checked['ownerExecution']['sourceBytesVerified'] is True
+            assert checked['ownerExecution']['userPresenceVerified'] is False
+            assert downstream.call_count==1 and downstream.call_args.kwargs==dict(_owner_public_key=key)
+        accepted_substitutions=[]
+        for field,changes in [('nonce',dict(nonce=str(uuid.uuid4()))),
+                ('expiry',dict(expiresUnixSeconds=intent['expiresUnixSeconds']+300))]:
+            replacement_claims=dict(nonce=intent['nonce'],expiresUnixSeconds=intent['expiresUnixSeconds'])
+            replacement_claims.update(changes)
+            replacement=approve(r,**replacement_claims)
+            assert m.owner_approval_audit(r,replacement,key,trust,now)['signatureVerified'] is True
+            # Keep downstream receipts coherent so only the signed intent join
+            # can reject this otherwise valid, independently signed approval.
+            replacement_binding=dict(approvalSha256=sha(canonical(replacement)),
+                approvalExpires=replacement['payload']['expiresUnixSeconds'])
+            put('owner-approval-coordination.json',dict(coordination,**replacement_binding))
+            put('authority/provisional.json',dict(final,**replacement_binding))
+            put('authority-provisional.json',dict(final,**replacement_binding))
+            with patch.object(m,'audit',return_value={}) as downstream:
+                try: completed(approval=replacement)
+                except AssertionError as error:
+                    assert str(error)=='owner approval '+field+' differs from signed intent', str(error)
+                    assert downstream.call_count==0, 'invalid owner join reached completion audit'
+                else: accepted_substitutions.append(field)
+        put('owner-approval-coordination.json',coordination)
+        put('authority/provisional.json',final);put('authority-provisional.json',final)
+        assert not accepted_substitutions, 'accepted independently signed owner approval substitutions: '+str(accepted_substitutions)
+        print('owner completed join: matching issuance accepted; independently signed nonce substitution and extended expiry rejected before downstream completion')
+        try: completed()
+        except (AssertionError,FileNotFoundError,KeyError): pass
+        else: raise AssertionError('prepared synthetic scope promoted without completion evidence')
+        def reject_completed(label,**kwargs):
+            with patch.object(m,'audit',return_value={}):
+                try: completed(**kwargs)
+                except (AssertionError,ValueError,KeyError): pass
+                else: raise AssertionError('accepted owner completed corruption: '+label)
+        reject_completed('wrong pin',pin='0'*64)
+        reject_completed('expired',verified_at=now+1200)
+        reject_completed('unsigned proposal',proposal=dict(proposal,requestSha256='0'*64))
+        reject_completed('corrupt approval',approval=dict(a,signature=[0]*64))
+        for name,record,changes in [('owner-execution-bootstrap.json',packet,dict(ownerExecution=dict(owner,executionKind='hostedSingleRequest'))),
+            ('owner-approval-coordination.json',coordination,dict(consumptions=0)),
+            ('owner-approval-coordination.json',coordination,dict(approvalSha256='0'*64)),
+            ('authority/provisional.json',final,dict(state='frozen')),
+            ('authority/provisional.json',final,dict(resultSha256='0'*64)),
+            ('authority/provisional.json',final,dict(bindings=dict(r['bindings'],ownerExecution=dict(owner,nonce=str(uuid.uuid4())))))]:
+            put(name,dict(record,**changes));reject_completed(name);put(name,record)
+        (root/'native-evaluator').write_bytes(b'drifted');reject_completed('actual executable source bytes')
+        (root/'native-evaluator').write_bytes(b'disposable stand-in executable bytes')
+        # Re-sign real disposable scopes so each response-file rejection must
+        # come from public source validation, not an invalid signature/hash of
+        # the proposal. The downstream stub still makes no completion claim.
+        original_r,original_proposal,original_intent=copy.deepcopy((r,proposal,intent))
+        raw=canonical(dict(model=plan['observedTarget'],provider='Wafer',usage=dict(prompt_tokens=23,completion_tokens=11,total_tokens=34),
+            choices=[dict(finish_reason='stop',message=dict(content=canonical(dict(genre='Jazz',confidence=0.8)).decode()))]))
+        private_cases={'private-key-source':'private-review-marker.pk8','private-json-source':'settings.json',
+            'hidden-source':'.private.rs','fake-credential-lookalike':'.env.local',
+            'private-executable-slot':'private-executable.pk8'}
+        for case in ('valid','boundary','changed','missing','oversize','hardlink','symlink','alias','wrong-plan-name','source-order',*private_cases):
+            case_root=run.parent/case;case_root.mkdir()
+            public_plan=case_root/('other-plan.json' if case=='wrong-plan-name' else 'public-native-plan.json')
+            public_plan.write_bytes(canonical(plan));response=case_root/'response-fixture.json'
+            response.write_bytes(raw+b' '*((65537 if case=='oversize' else 65536)-len(raw)) if case in ('oversize','boundary') else raw)
+            response_lock=dict(path=relative(response),sha256=sha(response.read_bytes()))
+            r,proposal,intent=copy.deepcopy((original_r,original_proposal,original_intent))
+            locks=copy.deepcopy(r['bindings']['sourcesAndTools'])
+            locks[1]=dict(path=relative(public_plan),sha256=sha(public_plan.read_bytes()))
+            if case=='alias': response_lock['path']=str(case_root.relative_to(m.ROOT))+'/./response-fixture.json'
+            locks.insert(-1,response_lock)
+            private_source=None
+            if case in private_cases:
+                private_source=case_root/private_cases[case]
+                private_source.write_bytes(b'BENIGN DISPOSABLE MARKER: NOT A SECRET OR KEY')
+                private_source.chmod(0o700)
+                private_lock=dict(path=relative(private_source),sha256=sha(private_source.read_bytes()))
+                if case=='private-executable-slot':
+                    locks[0]=private_lock
+                    r['bindings']['executable']=proposal['executableSha256']=private_lock['sha256']
+                else: locks.insert(-1,private_lock)
+            r['bindings']['sourcesAndTools']=locks
+            proposal['sourcesAndTools']=locks[:-1]+[dict(path=locks[-1]['path'],runtime='nativeSupervision')]
+            claims={k:v for k,v in intent.items() if k!='signature'};claims['proposalSha256']=sha(canonical(proposal))
+            (root/'payload').write_bytes(b'soundrobe/owner-execution-intent/v1'+bytes([0])+canonical(claims))
+            openssl('pkeyutl','-sign','-rawin','-inkey',private,'-in',root/'payload','-out',root/'signature')
+            intent=dict(claims,signature=list((root/'signature').read_bytes()))
+            owner={k:intent[k] for k in ('version','proposalId','proposalSha256','executionKind','nonce','expiresUnixSeconds')}
+            owner['intentSha256']=sha(canonical(intent));r['bindings']['ownerExecution']=owner
+            if case=='source-order': r['bindings']['sourcesAndTools']=list(reversed(locks))
+            freeze(r);a=approve(r,nonce=intent['nonce'],expiresUnixSeconds=intent['expiresUnixSeconds'])
+            packet=dict(version=1,proposal=proposal,intent=intent,ownerExecution=owner,offlineCredential=locks[2])
+            put('owner-execution-bootstrap.json',packet);put('frozen-checkpoint.json',r)
+            coordination={k:r[k] for k in ('runId','checkpoint','bindings','membership','preparations','counters','credentialLookups')}
+            coordination.update(componentCoordinationOnly=True,liveAuthority=False,humanPresenceVerified=False,qualityCertificate=False,successCertificate=False,
+                approvalSha256=sha(canonical(a)),approvalExpires=a['payload']['expiresUnixSeconds'],consumptions=1,state='executing',actualFakeLookups=0)
+            put('owner-approval-coordination.json',coordination)
+            final=copy.deepcopy(r);final.update(state='provisional_complete',ownerLive=False,consumptions=1,approvalSha256=sha(canonical(a)),
+                approvalExpires=a['payload']['expiresUnixSeconds'],credentialLookups=1,actualFakeLookups=1,resultSha256=sha((run/'results.json').read_bytes()))
+            put('authority/provisional.json',final)
+            if case=='changed': response.write_bytes(raw+b' ')
+            if case=='missing': response.unlink()
+            if case in ('hardlink','symlink'):
+                target_file=case_root/'same-response-bytes';response.rename(target_file)
+                os.link(target_file,response) if case=='hardlink' else response.symlink_to(target_file)
+            source_opens=[];actual_open=pathlib.Path.open
+            def observed_open(file,*args,**kwargs):
+                if file==private_source: source_opens.append(str(file))
+                return actual_open(file,*args,**kwargs)
+            with patch.object(pathlib.Path,'open',new=observed_open), patch.object(m,'audit',return_value=dict(downstream='unit-stub')) as downstream:
+                if case in ('valid','boundary'):
+                    assert completed()['downstream']=='unit-stub';assert downstream.call_count==1
+                else:
+                    try: completed()
+                    except (AssertionError,ValueError,KeyError,OSError): assert downstream.call_count==0
+                    else: raise AssertionError('accepted signed response source corruption: '+case)
+            assert not source_opens, 'opened nonpublic signed source before rejection: '+case
+        print('owner response source join: valid and 65536-byte signed scopes accepted; thirteen signed corruptions rejected before downstream completion and nonpublic source reads')
+        print('owner completed API: real disposable signatures and source/scope joins; downstream stub explicitly not completion proof')
     print(f'owner approval audit: {accepted} accepted snapshots, {rejected} rejected corruptions; no execution, presence or quality credit')
 `], { env: { PATH: process.env.PATH }, encoding: 'utf8', timeout: 30000 });
   assert.equal(result.status, 0, result.stderr);
@@ -330,14 +642,15 @@ test('explicitly released staging is valid evidence, never complete authority', 
   }
 });
 
-for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz', 'response Soul', 'response withheld', 'response rejected', 'response status']) test(`prepared ${mode} model rehearsal audit joins exact alias request, response receipts and retained provenance`, () => {
-  const custom = mode.startsWith('response '), withheld = mode === 'response withheld';
-  const rejected = ['response rejected', 'response status'].includes(mode);
-  const hosted = mode !== 'fixture', offlineHttp = mode === 'offline HTTP' || custom;
+for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'owner offline', 'owner response Jazz', 'owner response Soul', 'owner response withheld', 'owner response rejected', 'response Jazz', 'response Soul', 'response withheld', 'response rejected', 'response status']) test(`prepared ${mode} model rehearsal audit joins exact alias request, response receipts and retained provenance`, () => {
+  const owner = mode.startsWith('owner ');
+  const custom = mode.includes('response '), withheld = mode.endsWith('response withheld');
+  const rejected = mode.endsWith('response rejected') || mode === 'response status';
+  const hosted = mode !== 'fixture', offlineHttp = mode === 'offline HTTP' || custom || owner;
   const status = mode === 'response status' ? 429 : 200;
   const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
   const { spawnSync } = require('node:child_process');
-  const root = fs.mkdtempSync(path.resolve('.amp/in/model-audit-'));
+  const root = fs.mkdtempSync(path.resolve(owner ? '.amp/in/artifacts/model-audit-' : '.amp/in/model-audit-'));
   const sha = b => crypto.createHash('sha256').update(b).digest('hex');
   const canonical = value => JSON.stringify(value, (_, v) => v && typeof v === 'object' && !Array.isArray(v)
     ? Object.fromEntries(Object.keys(v).sort().map(k => [k, v[k]])) : v);
@@ -355,20 +668,20 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
     response_format: { type: 'json_schema', json_schema: { name: 'GenreFillResponse', schema: {
       type: 'object', properties: { genre: { type: 'string' }, confidence: { type: 'number' } }, required: ['genre', 'confidence'] } } } };
   const request = Buffer.from(canonical(body)), requestSha256 = sha(request);
-  const responseValue = { genre: custom ? (mode === 'response Soul' ? 'Soul' : 'Jazz') : 'MOCK_ACCEPTED_GENRE_CANARY', confidence: withheld ? 0.4 : mode === 'response Soul' ? 0.91 : 0.8 };
-  const usage = mode === 'response Soul' ? { prompt_tokens: 31, completion_tokens: 5, total_tokens: 36 }
+  const responseValue = { genre: custom ? (mode.endsWith('response Soul') ? 'Soul' : 'Jazz') : 'MOCK_ACCEPTED_GENRE_CANARY', confidence: withheld ? 0.59 : mode.endsWith('response Soul') ? 0.91 : 0.8 };
+  const usage = mode.endsWith('response Soul') ? { prompt_tokens: 31, completion_tokens: 5, total_tokens: 36 }
     : custom ? { prompt_tokens: 23, completion_tokens: 11, total_tokens: 34 }
     : { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 };
-  const response = mode === 'response rejected' ? '{' : (hosted ? canonical : JSON.stringify)({ model: plan.observedTarget, provider: plan.provider,
+  const response = mode.endsWith('response rejected') ? '{' : (hosted ? canonical : JSON.stringify)({ model: plan.observedTarget, provider: plan.provider,
     choices: [{ finish_reason: 'stop', message: { content: (hosted ? canonical : JSON.stringify)(responseValue) } }],
     usage, diagnostic: 'MOCK_RAW_DIAGNOSTIC_CANARY' });
-  if (custom) plan.offlineResponse = { sha256: sha(response), status };
+  if (custom && !owner) plan.offlineResponse = { sha256: sha(response), status };
   const names = ['disabled-billie', 'disabled-enya', 'disabled-crowd', 'assistance-billie', 'assistance-enya', 'assistance-crowd'];
   const files = {};
   const put = (file, value) => files[file] = value;
   // Public credential fixture sits beside the plan, outside the output tree.
   const output = path.join(root, 'output');
-  const planFile = path.join(root, 'public-plan.json');
+  const planFile = path.join(root, owner && custom ? 'public-native-plan.json' : 'public-plan.json');
   const responseFile = path.join(root, 'response-fixture.json');
   fs.writeFileSync(planFile, JSON.stringify(plan));
   const credentialFile = path.join(root, 'credential-fixture/.env.local');
@@ -384,7 +697,7 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
       : '197f6b23e16c8532c6abc838facd5ea789be0c76b2920334039bfa8b3d368d61', 'hex')), liveAuthority: false };
   if (hosted) binding.offlineFixture = true;
   if (offlineHttp) binding.offlineHttp = true;
-  if (custom) binding.offlineResponse = structuredClone(plan.offlineResponse);
+  if (custom && !owner) binding.offlineResponse = structuredClone(plan.offlineResponse);
   if (hosted) binding.boundary = { endpoint: 'https://openrouter.ai/api/v1/chat/completions',
     settingsSha256: sha(JSON.stringify({ model: plan.model, endpoint: 'https://openrouter.ai/api/v1', provider: 'openrouter', source: 'env_local_only' })),
     pricingEvidence: structuredClone(plan.offlineHosted), textEstimatePicoUsd: 10240000, allowanceUsdCents: 500,
@@ -429,6 +742,7 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
     put(`${name}/cold/records.json`, [{ native: { candidate: { ...(assisted ? { assisted_genre: assisted } : {}), genre: filled ? responseValue.genre : null },
       diagnostics: active ? [{ stage: 'genre', code: rejected ? 'genre_unavailable' : withheld ? 'genre_rejected' : 'genre_assisted' }] : [] },
       serviceFailureObserved: active && rejected,
+      reviewPendingAfterRestart: filled, actionableReviewAfterRestart: filled,
       persistedEvidence: { assistedGenre: assisted }, fieldObservations: { tracks: [{ genre: filled ? responseValue.genre : null }] } }]);
     if (active) files[`${name}/independent-request.json`] = request;
   }
@@ -445,6 +759,18 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
     { observation: 'native_http_response', http });
   if (hosted) for (const name of names) put(`${name}/native-model-observations.json`, name === 'assistance-crowd'
     ? { 'single-model': structuredClone(receipt.operations['single-model']) } : {});
+  const ownerKey = owner ? crypto.generateKeyPairSync('ed25519').publicKey.export({ type: 'spki', format: 'der' }).subarray(-32) : null;
+  if (owner) {
+    delete plan.offlineHosted; delete plan.offlineHttp; plan.nativePrepared = true;
+    fs.writeFileSync(planFile, JSON.stringify(plan));
+    receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(plan));
+    delete binding.offlineFixture; delete binding.offlineHttp;
+    binding.verifierSha256 = sha(ownerKey);
+    files['selection.json'].modelRehearsalPlan = structuredClone(plan);
+    for (const [file, value] of Object.entries(files)) if (file.endsWith('/session.json')) value.model_rehearsal = structuredClone(plan);
+    Object.assign(receipt.operations['single-model'], { send_admitted: true });
+    files['assistance-crowd/native-model-observations.json']['single-model'] = structuredClone(receipt.operations['single-model']);
+  }
   const check = (mutate = () => {}) => {
     const current = structuredClone({ files, receipt, requested, credential, credentialMode: 0o600 }); mutate(current);
     fs.rmSync(planFile, { force: true });
@@ -457,7 +783,10 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
       fs.rmSync(responseFile, { recursive: true, force: true });
       if (current.responseKind === 'symlink') fs.symlinkSync(planFile, responseFile);
       else if (current.responseKind === 'directory') fs.mkdirSync(responseFile);
-      else if (current.responseKind !== 'missing') fs.writeFileSync(responseFile, current.responseBytes ?? response);
+      else if (current.responseKind === 'hardlink') {
+        const target = path.join(root, 'response-linked-bytes');
+        fs.writeFileSync(target, response); fs.linkSync(target, responseFile);
+      } else if (current.responseKind !== 'missing') fs.writeFileSync(responseFile, current.responseBytes ?? response);
     }
     if (hosted) { fs.writeFileSync(credentialFile, current.credential); fs.chmodSync(credentialFile, current.credentialMode); }
     fs.rmSync(output, { recursive: true, force: true });
@@ -470,18 +799,32 @@ for (const mode of ['fixture', 'offline hosted', 'offline HTTP', 'response Jazz'
 sys.path.insert(0,'scripts/auto-tag-eval-replay')
 m=importlib.import_module('audit-supervised');r=pathlib.Path(sys.argv[1]);c=json.loads((r/'context.json').read_text())
 if c.get('floatStatus'): c['receipt']['bindings']['modelRehearsalPlan']['offlineResponse']['status']=200.0
-print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])))`, root], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
+checked=m.model_rehearsal_audit(r/'output',c['receipt'],c['requested']${owner ? `,_owner_public_key=bytes.fromhex('${ownerKey.toString('hex')}')` : ''})
+${owner ? `# Exercise the actual nested native checks using the independently audited raw response.
+_,source=m.owner_offline_retained_auditor_source(checked,c['receipt']['bindings']['modelRehearsalPlan'])
+sys.argv=['audit',str((r/'output').resolve())];ns={}
+exec(source[:source.index('native = json.loads')],ns)
+native=ns['adapted'];checks=native[native.index("    requests = [e['body']"):native.index("    if name.endswith('billie')")]
+for expected in c['requested']['evaluations']:
+    directory=r/'output'/expected['name']
+    scope=dict(directory=directory,name=expected['name'],prep=m.load(directory/'preparation/preparation.json'),
+        inventory=m.load(directory/'cold/inventory-final.json'),row=m.load(directory/'cold/records.json')[0],
+        load=m.load,json=json,hashlib=m.hashlib)
+    exec('if True:\\n'+checks,scope)
+` : ''}print(json.dumps(checked))`, root], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
   };
   const resizedResponse = (c, size) => {
     c.responseBytes = response + ' '.repeat(size - Buffer.byteLength(response));
     const hash = sha(c.responseBytes);
-    c.publicPlan = c.receipt.bindings.modelRehearsalPlan;
-    c.publicPlan.offlineResponse.sha256 = hash;
-    c.receipt.bindings.modelRehearsal.offlineResponse.sha256 = hash;
-    c.receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(c.publicPlan));
+    if (!owner) {
+      c.publicPlan = c.receipt.bindings.modelRehearsalPlan;
+      c.publicPlan.offlineResponse.sha256 = hash;
+      c.receipt.bindings.modelRehearsal.offlineResponse.sha256 = hash;
+      c.receipt.bindings.sourcesAndTools[0].sha256 = sha(JSON.stringify(c.publicPlan));
+      c.files['selection.json'].modelRehearsalPlan.offlineResponse.sha256 = hash;
+      for (const [file, value] of Object.entries(c.files)) if (file.endsWith('/session.json')) value.model_rehearsal.offlineResponse.sha256 = hash;
+    }
     c.receipt.bindings.sourcesAndTools.at(-1).sha256 = hash;
-    c.files['selection.json'].modelRehearsalPlan.offlineResponse.sha256 = hash;
-    for (const [file, value] of Object.entries(c.files)) if (file.endsWith('/session.json')) value.model_rehearsal.offlineResponse.sha256 = hash;
     Object.assign(c.receipt.operations['single-model'].response, { sha256: hash, bytes: size });
     c.files['assistance-crowd/native-model-observations.json']['single-model'] = structuredClone(c.receipt.operations['single-model']);
     Object.assign(c.files['offline-http-observation.json'], { responseSha256: hash, responseBytes: size });
@@ -494,6 +837,89 @@ print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])
     }
     const valid = check(); assert.equal(valid.status, 0, valid.stderr);
     assert.equal(JSON.parse(valid.stdout).liveAuthority, false);
+    if (owner) {
+      assert.equal(JSON.parse(valid.stdout).http.transport, 'offline_local_http');
+      assert.equal(JSON.parse(valid.stdout).responseEvidence, custom
+        ? 'public_offline_fixture_bytes_not_remote_response_evidence'
+        : 'deterministic_default_fixture_reconstruction_not_retained_raw_bytes');
+      assert.deepEqual(JSON.parse(valid.stdout).http.projection, http.projection);
+      if (custom) {
+        const boundary = check(c => resizedResponse(c, 65536));
+        assert.equal(boundary.status, 0, boundary.stderr);
+        const reordered = check(c => c.receipt.bindings.sourcesAndTools.reverse());
+        assert.equal(reordered.status, 0, reordered.stderr);
+      } else {
+        // An unlisted nearby file is not a response selector, even if invalid
+        // or oversized. Historical owner source paths remain accepted.
+        fs.writeFileSync(responseFile, '{' + ' '.repeat(65536));
+        const unlisted = check(); assert.equal(unlisted.status, 0, unlisted.stderr);
+        assert.equal(JSON.parse(unlisted.stdout).responseEvidence,
+          'deterministic_default_fixture_reconstruction_not_retained_raw_bytes');
+        const otherSibling = check(c => {
+          c.files['response-fixture.json'] = Buffer.from('{');
+          c.receipt.bindings.sourcesAndTools.push({ path: path.relative(process.cwd(), path.join(output, 'response-fixture.json')), sha256: sha('{') });
+        });
+        assert.equal(otherSibling.status, 0, otherSibling.stderr);
+        assert.equal(JSON.parse(otherSibling.stdout).responseEvidence,
+          'deterministic_default_fixture_reconstruction_not_retained_raw_bytes');
+      }
+      const damage = [
+        c => c.receipt.bindings.modelRehearsalPlan.offlineHttp = true,
+        c => c.receipt.bindings.modelRehearsalPlan.offlineHosted = {},
+        c => c.receipt.bindings.modelRehearsalPlan.offlineResponse = { sha256: sha(response), status },
+        c => c.receipt.bindings.modelRehearsal.offlineFixture = true,
+        c => c.receipt.bindings.modelRehearsal.verifierSha256 = 'a'.repeat(64),
+        c => c.files['selection.json'].modelRehearsalPlan.nativePrepared = 1,
+        c => c.files['disabled-enya/cold/session.json'].model_rehearsal.nativePrepared = 1,
+        c => c.receipt.counters.model = true,
+        c => c.receipt.credentialLookups = true,
+        c => c.receipt.operations['single-model'].send_admitted = false,
+        c => c.receipt.operations['single-model'].arrived = true,
+        c => c.receipt.operations['single-model'].request_sha256 = requestSha256,
+        c => c.receipt.operations['single-model'].response.http.transport = 'hosted_https',
+        c => c.receipt.operations['single-model'].response.http.projection.genre = 'Invented',
+        c => delete c.files['offline-http-observation.json'],
+        c => c.files['assistance-crowd/native-model-observations.json'] = {},
+        c => c.files['assistance-crowd/cold/records.json'][0].fieldObservations.tracks[0].genre = 'Invented',
+        c => c.files['assistance-crowd/score.provisional.json'].groundedAssistanceAccuracyCredit = 1,
+        c => c.files['assistance-crowd/score.provisional.json'].groundedAssistanceAccuracyCredit = false,
+        c => c.files['assistance-crowd/score.provisional.json'].acceptedCertificate = 0,
+        c => c.files['assistance-crowd/result.provisional.json'].modelRequests = true,
+        c => c.files['assistance-crowd/cold/records.json'][0].serviceFailureObserved = true,
+        ...(custom ? [
+          ...['missing', 'symlink', 'directory', 'hardlink'].map(responseKind => c => c.responseKind = responseKind),
+          c => c.responseBytes = response + ' ',
+          c => resizedResponse(c, 65537),
+          c => c.planSymlink = true,
+          c => c.receipt.bindings.sourcesAndTools.pop(),
+          c => c.receipt.bindings.sourcesAndTools.push(structuredClone(c.receipt.bindings.sourcesAndTools.at(-1))),
+          c => c.receipt.bindings.sourcesAndTools.push(structuredClone(c.receipt.bindings.sourcesAndTools[0])),
+          c => c.receipt.bindings.sourcesAndTools.at(-1).path = responseFile,
+          c => c.receipt.bindings.sourcesAndTools.at(-1).path = './' + c.receipt.bindings.sourcesAndTools.at(-1).path,
+          c => c.receipt.bindings.sourcesAndTools.at(-1).path = c.receipt.bindings.sourcesAndTools.at(-1).path.replace('/response-fixture.json', '/output/../response-fixture.json'),
+          c => c.receipt.bindings.sourcesAndTools.at(-1).path = path.relative(process.cwd(), planFile),
+          c => c.receipt.bindings.sourcesAndTools.at(-1).sha256 = 'f'.repeat(64),
+          c => {
+            c.files['response-fixture.json'] = Buffer.from(response);
+            c.receipt.bindings.sourcesAndTools.at(-1).path = path.relative(process.cwd(), path.join(output, 'response-fixture.json'));
+          },
+          c => {
+            c.files['public-native-plan.json'] = plan;
+            c.files['response-fixture.json'] = Buffer.from(response);
+            c.receipt.bindings.sourcesAndTools[0].path = path.relative(process.cwd(), path.join(output, 'public-native-plan.json'));
+            c.receipt.bindings.sourcesAndTools.at(-1).path = path.relative(process.cwd(), path.join(output, 'response-fixture.json'));
+          },
+          c => c.receipt.operations['single-model'].response.status = 201,
+          c => c.receipt.operations['single-model'].response.http.projection.usage.promptTokens++,
+          c => c.receipt.operations['single-model'].response.remoteArrivalVerified = true,
+          c => c.receipt.operations['single-model'].response.identityClaimsVerified = true,
+          c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.genre = 'MOCK_ACCEPTED_GENRE_CANARY',
+        ] : []),
+      ];
+      for (const [i, mutate] of damage.entries()) assert.notEqual(check(mutate).status, 0, `accepted owner damage ${i}`);
+      console.log(`${mode}: exact ${custom ? 'public response bytes' : 'default fixture'} join and ${damage.length} corruption controls; not a completion test`);
+      return;
+    }
     if (custom) {
       assert.equal(JSON.parse(valid.stdout).http.validation, withheld ? 'withheld' : 'accepted');
       assert.deepEqual(JSON.parse(valid.stdout).http.projection, http.projection);
@@ -618,6 +1044,14 @@ print(json.dumps(m.model_rehearsal_audit(r/'output',c['receipt'],c['requested'])
       ]),
       c => c.receipt.operations.extra = structuredClone(c.receipt.operations['single-model']),
       c => c.files['disabled-billie/cold/inventory-final.json'].modelRequests.push({}),
+      ...(owner ? [
+        c => c.files['assistance-crowd/cold/records.json'][0].reviewPendingAfterRestart = withheld,
+        c => c.files['assistance-crowd/cold/records.json'][0].actionableReviewAfterRestart = withheld,
+        c => {
+          const row = c.files['assistance-crowd/cold/records.json'][0];
+          row.reviewPendingAfterRestart = row.actionableReviewAfterRestart = withheld;
+        },
+      ] : []),
       ...(!withheld ? [c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.assisted_genre.model = plan.observedTarget] : [
         c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.assisted_genre = { value: 'Invented' },
         c => c.files['assistance-crowd/cold/records.json'][0].native.candidate.genre = 'Invented',
@@ -716,7 +1150,8 @@ print(json.dumps(dict(responseAdaptations=3,durableSha256=hashlib.sha256(source.
   console.log(result.stdout.trim());
 });
 
-for (const offlineHttp of [false, true]) test(`${offlineHttp ? 'HTTP' : 'hosted'} retained auditor adaptations reconcile 497 settled operations with only 496 fixture arrivals`, () => {
+for (const transport of ['hosted', 'HTTP', 'owner offline', 'owner withheld']) test(`${transport} retained auditor adaptations reconcile 497 settled operations with only 496 fixture arrivals`, () => {
+  const offlineHttp = transport !== 'hosted', owner = transport.startsWith('owner ');
   const { spawnSync } = require('node:child_process');
   const result = spawnSync('python3', ['-B', '-c', `
 import pathlib,sys,json,importlib,tempfile,hashlib,copy
@@ -726,7 +1161,10 @@ offline_http=${offlineHttp ? 'True' : 'False'}
 assert hashlib.sha256(m.retained_auditor_source()[1].encode()).hexdigest()=='540699a2153af67f86f845eebecaed879164908fdc35644284be6043aee3a0f1'
 assert hashlib.sha256(m.retained_auditor_source(True)[1].encode()).hexdigest()=='319be49ed4c0156723624b1934aac9256b4185f3c0af820ba6e875cb1c31f67a'
 assert hashlib.sha256(m.retained_auditor_source(True,True)[1].encode()).hexdigest()=='f719b608d79b08c76c42006dee7f9dc0caec4c4716fda41372416ab9595eb680'
-original,source=m.retained_auditor_source(True,offline_http=True) if offline_http else m.retained_auditor_source(True)
+plan=dict(model='~deepseek/alias',input=dict(artist='public artist'))
+genre=${transport === 'owner withheld' ? "''" : "'Jazz'"}
+rehearsal=dict(model=plan['model'],http=dict(validation='withheld' if not genre else 'accepted',projection=dict(genre=genre)))
+original,source=m.owner_offline_retained_auditor_source(rehearsal,plan) if ${owner ? 'True' : 'False'} else (m.retained_auditor_source(True,offline_http=True) if offline_http else m.retained_auditor_source(True))
 compile(source,'adapted-durable','exec')
 # Obtain the exact nested native adaptation without executing either auditor.
 ns={}
@@ -749,6 +1187,7 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
     model={'category':'model','session':'assistance-crowd-execution','dispatched':True,'arrived':False,'completed':True,
         'request_sha256':hashlib.sha256(json.dumps(['POST','/model/chat/completions',request_sha],separators=(',',':')).encode()).hexdigest(),
         'response':{'observation':'native_http_response' if offline_http else 'offline_injected_native_response','remoteArrivalVerified':False}}
+    if ${owner ? 'True' : 'False'}: model.update(send_admitted=True)
     receipt['operations']['model']=model
     for index,name in enumerate(names):
         directory=run/name
@@ -778,7 +1217,10 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
         audit=[]
         for name in names:
             directory=run/name;prep=load(directory/'preparation/preparation.json');inventory=load(directory/'cold/inventory-final.json')
-            row=dict(reviewPendingAfterRestart=True,actionableReviewAfterRestart=True,persistedEvidence={'assistedGenre':None},native={'candidate':{'assisted_genre':None}},outcome='test',pairedMock={'matchedEvents':[]},elapsedMs=0)
+            assisted=dict(model=plan['model'],input_sha256=hashlib.sha256(json.dumps(plan['input'],ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest(),value=genre) if genre and ${owner ? 'True' : 'False'} else None
+            review=bool(genre) if ${owner ? 'True' : 'False'} else True
+            row=dict(reviewPendingAfterRestart=review,actionableReviewAfterRestart=review,persistedEvidence={'assistedGenre':assisted},native={'candidate':{'assisted_genre':assisted} if assisted else {}},outcome='test',pairedMock={'matchedEvents':[]},elapsedMs=0)
+            if not ${owner ? 'True' : 'False'}: row['native']['candidate']['assisted_genre']=None
             prep['plan']['variant']='test'
             context=dict(directory=directory,name=name,prep=prep,inventory=inventory,row=row,load=load,json=json,hashlib=hashlib,audit=audit,inv_file=directory/'cold/inventory-final.json')
             exec('if True:\\n'+request_checks,context);exec('if True:\\n'+summary,context)
@@ -792,6 +1234,10 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
         else: raise AssertionError('accepted corrupted hosted wire evidence')
         finally: restore()
     rejected(lambda:model.update(arrived=True),lambda:model.update(arrived=False))
+    if ${owner ? 'True' : 'False'}:
+        rejected(lambda:model.update(send_admitted=False),lambda:model.update(send_admitted=True))
+        reserved_sha=model['request_sha256']
+        rejected(lambda:model.update(request_sha256=request_sha),lambda:model.update(request_sha256=reserved_sha))
     rejected(lambda:receipt['counters'].update(arrived=497),lambda:receipt['counters'].update(arrived=496))
     rejected(lambda:receipt['operations'].update(extra=copy.deepcopy(model)),lambda:receipt['operations'].pop('extra'))
     observation=model['response']['observation']
@@ -803,7 +1249,72 @@ with tempfile.TemporaryDirectory(dir='.amp/in/artifacts',prefix='hosted-wire-aud
     invfile=run/'assistance-crowd/cold/inventory-final.json';snapshot=run/'assistance-crowd/cold-fixture-ingress.json';inv=load(invfile)
     invented=copy.deepcopy(inv);invented['modelRequests']=[{}];invented['wireArrivals'].append(dict(operation='model',method='POST',route='/model/chat/completions'))
     rejected(lambda:(put(invfile,invented),put(snapshot,invented)),lambda:(put(invfile,inv),put(snapshot,inv)))
-print(('HTTP' if offline_http else 'hosted')+' counted native/durable adaptations and 7 corruption controls passed')
+print('${transport} counted native/durable adaptations and ${owner ? 9 : 7} corruption controls passed')
+`], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /corruption controls passed/);
+  console.log(result.stdout.trim());
+});
+
+test('completed owner retained native checks derive strict review and provenance from the audited response', () => {
+  const { spawnSync } = require('node:child_process');
+  const result = spawnSync('python3', ['-B', '-c', `
+import pathlib,sys,json,importlib,hashlib,copy
+sys.path.insert(0,'scripts/auto-tag-eval-replay')
+m=importlib.import_module('audit-supervised')
+plan=dict(model='~deepseek/alias',input=dict(artist='public artist',album='public album'))
+canonical=lambda v:json.dumps(v,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
+sha=lambda b:hashlib.sha256(b).hexdigest()
+body=dict(model=plan['model'])
+class Directory:
+    def __truediv__(self, name): return self
+    def read_bytes(self): return canonical(body)
+directory=Directory()
+operation=dict(request_sha256=sha(json.dumps(['POST','/model/chat/completions',sha(canonical(body))],separators=(',',':')).encode()))
+accepted=0;rejected=0
+for genre,confidence in [('',0.59),('',0.8),('Jazz',0.8),('Soul',0.91)]:
+    rehearsal=dict(model=plan['model'],http=dict(validation='accepted' if genre else 'withheld',projection=dict(genre=genre,confidence=confidence)))
+    _,source=m.owner_offline_retained_auditor_source(rehearsal,plan)
+    ns={};sys.argv=['audit',str(pathlib.Path('.amp/in/artifacts').resolve())]
+    exec(source[:source.index('native = json.loads')],ns)
+    native=ns['adapted']
+    checks=native[native.index("    requests = [e['body']"):native.index("    if name.endswith('billie')")]
+    assisted=dict(model=plan['model'],input_sha256=sha(canonical(plan['input'])),value=genre) if genre else None
+    row=dict(reviewPendingAfterRestart=bool(genre),actionableReviewAfterRestart=bool(genre),
+        persistedEvidence=dict(assistedGenre=assisted),native=dict(candidate=dict(assisted_genre=assisted) if genre else {}))
+    def check(value):
+        scope=dict(directory=directory,name='assistance-crowd',prep=dict(plan=dict(events=[dict(kind='request',body=body)])),
+            inventory=dict(modelRequests=[]),row=value,load=lambda p:{'one':operation},json=json,hashlib=hashlib)
+        exec('if True:\\n'+checks,scope)
+    check(row);accepted+=1
+    if not genre:
+        explicit_null=copy.deepcopy(row);explicit_null['native']['candidate']['assisted_genre']=None
+        check(explicit_null);accepted+=1
+    def deny(value):
+        global rejected
+        try: check(value)
+        except (AssertionError,KeyError): rejected+=1
+        else: raise AssertionError('accepted inconsistent completed owner review/provenance')
+    for pending,actionable in [(False,False),(False,True),(True,False),(True,True),(0,0),(1,1),(None,None)]:
+        if type(pending) is bool and pending is actionable is bool(genre): continue
+        deny(dict(row,reviewPendingAfterRestart=pending,actionableReviewAfterRestart=actionable))
+    for key in ('reviewPendingAfterRestart','actionableReviewAfterRestart'):
+        changed=copy.deepcopy(row);del changed[key];deny(changed)
+    for provenance in (None,dict(model=plan['model'],input_sha256='0'*64,value='Invented'),
+        dict(model='observed target',input_sha256=sha(canonical(plan['input'])),value=genre),
+        dict(model=plan['model'],input_sha256=sha(canonical(plan['input'])),value=genre,extra=True)):
+        if provenance==assisted: continue
+        changed=copy.deepcopy(row)
+        changed['persistedEvidence']['assistedGenre']=provenance
+        changed['native']['candidate']['assisted_genre']=provenance
+        deny(changed)
+    changed=copy.deepcopy(row);del changed['persistedEvidence']['assistedGenre'];deny(changed)
+    if genre:
+        changed=copy.deepcopy(row);del changed['native']['candidate']['assisted_genre'];deny(changed)
+try: m.owner_offline_retained_auditor_source(dict(model=plan['model'],http=dict(validation='rejected',projection=None)),plan)
+except AssertionError: rejected+=1
+else: raise AssertionError('rejected response admitted to completed owner adaptations')
+print(f'completed owner response-derived checks: {accepted} valid variants and {rejected} corruption controls passed')
 `], { env: { PATH: process.env.PATH }, encoding: 'utf8' });
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /corruption controls passed/);

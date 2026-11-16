@@ -37,6 +37,16 @@ function main(output, executable, rehearsalPlan) {
     // Native exit and the receiver outcome, never captured output, decide it.
     stdio: 'ignore',
   });
+  const outcome = archiveReceiverOutcome(output, executable, status);
+  if (outcome.state !== 'complete') process.exitCode = 1;
+  console.log(JSON.stringify(outcome));
+}
+
+// Internal launcher helper: main supplies spawnSync's observed exit, never argv.
+// The native owner archives its own waited Child directly in Rust.
+function archiveReceiverOutcome(output, executable, observedStatus) {
+  output = path.resolve(output);
+  const status = observedStatus;
   let outcome = { state: 'incomplete', requestedFieldSlots: 216, liveAuthority: false,
     receiverExit: status.status, receiverSignal: status.signal, recovery: 'no_staging_promotion_no_resume',
     validatedFieldSlots: 0, unavailableFieldSlots: 216, interruptedEffects: 'unknown' };
@@ -49,7 +59,7 @@ function main(output, executable, rehearsalPlan) {
       receiverOutcomeSha256: crypto.createHash('sha256').update(bytes).digest('hex'),
       authority: accepted.authority, actualReceiverExitObserved: true,
       validatedFieldSlots: 216, unavailableFieldSlots: 0 };
-  } catch { process.exitCode = 1; }
+  } catch { /* Invalid or unavailable evidence remains incomplete. */ }
   if (fs.existsSync(output)) {
     try {
       const config = JSON.parse(readSmall(path.join(output, 'native-supervision.json')));
@@ -58,13 +68,14 @@ function main(output, executable, rehearsalPlan) {
       // No unmetered fallback. Lost recording remains incomplete, including
       // when a receiver accepted but its archival acknowledgment cannot fit.
       outcome = { ...outcome, state: 'incomplete', validatedFieldSlots: 0, unavailableFieldSlots: 216 };
-      process.exitCode = 1;
     }
   }
-  console.log(JSON.stringify(outcome));
+  return outcome;
 }
-module.exports = { validateOutcome };
+module.exports = { validateOutcome, archiveReceiverOutcome };
 if (require.main === module) {
-  try { main(...process.argv.slice(2)); }
+  try {
+    main(...process.argv.slice(2));
+  }
   catch { console.error('mock supervised launch failed; incomplete, never resume'); process.exitCode = 1; }
 }

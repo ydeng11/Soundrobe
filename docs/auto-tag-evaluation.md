@@ -20,7 +20,53 @@ The current inventory contains 378 cases and 3,506 tracks. The maintained checkp
 
 Offline v1 does not require labeling all 325 unscored cases, collecting new provider evidence, or proving acoustic or genuine hosted-model quality. If all 53 positives are eligible for every profile, each implementation requires 318 case evaluations across three profiles and cold/warm phases; a baseline/candidate pair requires 636. These are planned counts, not measured runtimes. Further general receipt-hardening passes are out of scope unless a concrete defect blocks this loop.
 
-Implementation and native execution are deferred. The current scope is the revised plan, documentation, and shipment of existing work. Historical evidence remains preserved under Git-ignored `.amp/in/artifacts/`; it is not included in a fresh clone. The [offline eval handoff](../.planning/handoffs/offline-eval-v1-20261116.md) distinguishes completed fixture work from planned loop implementation.
+The baseline/candidate command remains planned. The owner-offline component below does not complete that command. Historical evidence remains preserved under Git-ignored `.amp/in/artifacts/`; it is not included in a fresh clone. The [offline eval handoff](../.planning/handoffs/offline-eval-v1-20261116.md) distinguishes completed fixture work from planned loop implementation.
+
+## Owner-authorized offline evaluation
+
+The test-only owner entry runs one supervised six-job rehearsal with disposable
+signing keys, a fixed fake credential, loopback fixtures, and disposable media.
+It does not enable hosted dispatch or award real-model quality credit.
+This is a component of the planned feedback loop, not the baseline/candidate
+comparison command described above.
+
+The explicit ignored native test is
+`infra::mock_run_authority::supervisor::ownership::owner_launch::native_owner_process`,
+built with `--no-default-features --features server` on macOS.
+`SOUNDROBE_OFFLINE_OWNER_REQUEST` selects a bounded public JSON request with
+`offlineCustody`, `disposableRunRoot`, `proposal`, `intent`, `planFile`, and
+`bindings`. The run root must be fresh. Proposal generation does not start a run.
+The proposal binds the evaluator, six-job membership, public native plan,
+request, verifier, pricing context, and ordered source locks.
+
+The owner supplies explicit signed `offlineRehearsal` intent before launch.
+Native code claims its nonce once, checks disposable custody, then starts the
+receiver and independent supervision. At the frozen checkpoint, owner code
+checks the current checkpoint against that intent before issuing and publishing
+approval. Approval work cannot suspend the heartbeat loop or extend the native
+deadline. Ordinary native-prepared runs without this intent still stop before
+execution. Hosted intent is rejected by this offline launcher.
+
+Public `response-fixture.json` and `response-wire.json` siblings can select a
+locked response or a premature-body-disconnect control. A withheld answer can
+finish an observation with no accepted genre and no actionable genre review.
+A disconnected response is incomplete. Neither outcome becomes a successful tag
+fill or real-model quality evidence. The native owner archives completion only
+after observing successful exit of its owned receiver child and validating its
+receipt. A public PID and claimed exit code cannot supply that observation.
+Missing or ambiguous completion evidence cannot be resumed or promoted.
+
+The independent Python API is
+`owner_offline_completed_audit(run, *, proposal, intent, approval, public_key,
+expected_verifier_sha256, verified_at, trusted_executable)` in
+`scripts/auto-tag-eval-replay/audit-supervised.py`. This is a function, not a CLI
+mode. Its caller supplies duplicate-free parsed public JSON, the raw 32-byte
+public key, an independently pinned verifier SHA-256, integer verification time,
+and the independently selected canonical evaluator path. The auditor checks
+signatures, actual source bytes, bootstrap and consumed approval bindings before
+completion, storage, readback, and scoring checks. An execute bit or signed
+source declaration cannot make a private file eligible for reading.
+Signatures do not prove human presence, private nonce custody, or live authority.
 
 ## Existing replay tools and checkpoints
 

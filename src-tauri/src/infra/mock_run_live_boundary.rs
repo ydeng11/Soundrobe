@@ -256,13 +256,15 @@ impl PreparedBootstrap {
 }
 impl Rehearsal {
     // Explicit owner-side call only; never reached by broker IPC or the launcher.
-    #[cfg(feature = "server")]
     pub(in super::super) fn sign_owner_payload(
         &self,
         directory: &std::path::Path,
         payload: Value,
     ) -> Result<Approval, String> {
         use ring::signature::{Ed25519KeyPair, KeyPair};
+        if super::super::storage::is_scoped() {
+            return Err("approval_signing_owner_process_required".into());
+        }
         require(
             self.disabled_hosted()
                 && !self.offline_fixture

@@ -321,7 +321,6 @@ impl Rehearsal {
         }
         binding
     }
-    #[cfg(feature = "server")]
     pub(super) fn request_body(&self, input: &GenreInput) -> Result<Vec<u8>, String> {
         let body = Self::body(input, &self.model, &self.route)?;
         require(body == self.body)?;

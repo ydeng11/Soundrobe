@@ -217,7 +217,7 @@ function createService(manifestPath, authority) {
 
 // Import only raw provider payloads. Normalized ProviderAlbum candidates are
 // deliberately excluded: they are not valid upstream API responses.
-function importPools(poolPath, outputPath) {
+function readPools(poolPath, outputPath) {
   const pools = readJson(poolPath);
   const records = new Map();
   const skipped = [];
@@ -261,9 +261,14 @@ function importPools(poolPath, outputPath) {
       addImportedRecord(records, record, 'discovery');
     }
   }
+  return { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
+    records: [...records.values()], skipped };
+}
+
+function importPools(poolPath, outputPath) {
+  const manifest = readPools(poolPath, outputPath);
   fs.mkdirSync(path.dirname(path.resolve(outputPath)), { recursive: true });
-  fs.writeFileSync(outputPath, JSON.stringify({ schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
-    records: [...records.values()], skipped }, null, 2) + '\n');
+  fs.writeFileSync(outputPath, JSON.stringify(manifest, null, 2) + '\n');
 }
 
 function addImportedRecord(records, record, sourceLabel) {
@@ -297,7 +302,7 @@ function addImportedRecord(records, record, sourceLabel) {
   records.set(key, record);
 }
 
-module.exports = { createService, importPools };
+module.exports = { createService, importPools, readPools };
 
 if (require.main === module) {
   try {

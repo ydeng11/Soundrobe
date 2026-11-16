@@ -1,5 +1,7 @@
 //! Process-level wiring for the explicitly selected, isolated mock runner.
 
+#[path = "mock_run_owner_launch.rs"]
+pub(crate) mod owner_launch;
 #[path = "mock_run_receiver.rs"]
 pub(crate) mod receiver;
 
@@ -169,6 +171,7 @@ fn child(
             command.env(key, value);
         }
     }
+    owner_launch::forward_command(&mut command, role);
     let raw: Vec<_> = fds
         .iter()
         .map(|(key, stream)| {
@@ -736,6 +739,7 @@ struct OwnedChildren {
 #[test]
 #[ignore = "explicit native mock ownership process entry; never application code"]
 fn native_supervision_process() {
+    owner_launch::capture_inherited().expect("private native owner channel");
     let role = std::env::var("SOUNDROBE_NATIVE_ROLE").expect("explicit native role");
     let start = number("SOUNDROBE_NATIVE_START", monotonic_ms());
     let preparation = number("SOUNDROBE_NATIVE_PREPARATION_MS", 300_000);
@@ -1067,6 +1071,110 @@ if(process.env.SOUNDROBE_NATIVE_CONTROL==='retirement-descendant') {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn rejected_ipc_persists_stop_before_notifying_containment() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "infra::mock_run_authority::supervisor::ownership::tests::rejected_ipc_stop_process", "--ignored", "--nocapture"])
+            .env_clear()
+            .env("PATH", "/opt/homebrew/bin:/usr/bin:/bin")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[ignore = "isolated broker containment-order control"]
+    async fn rejected_ipc_stop_process() {
+        use super::*;
+        use crate::infra::mock_run_authority::{self as authority, broker::Broker};
+        use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+        let monitor = Arc::new(Monitor {
+            stopped: Arc::new(AtomicBool::new(false)),
+            control: String::new(),
+            managed: true,
+            staged: AtomicBool::new(false),
+            payload_exited: AtomicBool::new(false),
+            quiescent: AtomicBool::new(false),
+            candidate: OnceLock::new(),
+            execution_requested: AtomicBool::new(false),
+            executing: AtomicBool::new(false),
+            deadline: AtomicU64::new(monotonic_ms() + 10_000),
+        });
+        BROKER.set(monitor.clone()).ok().unwrap();
+        let (_root, journal, owner) = authority::tests::setup();
+        let broker = Broker::start(journal.clone(), owner.clone()).await.unwrap();
+        let mut socket =
+            tokio::net::UnixStream::connect(broker.descriptor["socket"].as_str().unwrap())
+                .await
+                .unwrap();
+        // Invalid IPC must still stop admission, but must not signal process
+        // containment before its stop transaction has returned.
+        socket
+            .write_all(b"{\"handle\":\"invalid\",\"command\":{\"op\":\"unknown\"}}\n")
+            .await
+            .unwrap();
+        let mut response = String::new();
+        BufReader::new(socket)
+            .read_line(&mut response)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&response).unwrap()["ok"],
+            false
+        );
+        assert!(
+            !monitor.stopped.load(Ordering::SeqCst),
+            "admission stop prematurely signaled containment"
+        );
+        assert_eq!(journal.report().unwrap()["state"], "terminal");
+        assert!(journal
+            .command(
+                &owner,
+                authority::Command::Register {
+                    job: "disabled-crowd".into(),
+                    stage: authority::Stage::Preparation,
+                    endpoint: "http://127.0.0.1:1234".into(),
+                    manifest_sha256: authority::sha(b"fixture"),
+                }
+            )
+            .is_err());
+        let (_second_root, second, second_owner) = authority::tests::setup();
+        let second_broker = Broker::start(second.clone(), second_owner.clone())
+            .await
+            .unwrap();
+        monitor.stopped.store(true, Ordering::SeqCst);
+        let mut socket =
+            tokio::net::UnixStream::connect(second_broker.descriptor["socket"].as_str().unwrap())
+                .await
+                .unwrap();
+        let request = serde_json::json!({"handle":second_owner,"command":{"op":"register","job":"disabled-crowd",
+            "stage":"preparation","endpoint":"http://127.0.0.1:1234","manifest_sha256":authority::sha(b"fixture")}});
+        socket
+            .write_all(format!("{request}\n").as_bytes())
+            .await
+            .unwrap();
+        let mut response = String::new();
+        BufReader::new(socket)
+            .read_line(&mut response)
+            .await
+            .unwrap();
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&response).unwrap()["ok"],
+            false
+        );
+        assert!(
+            second.report().unwrap()["sessions"]
+                .as_object()
+                .unwrap()
+                .is_empty(),
+            "native containment stop did not revoke new admission"
+        );
+    }
     use std::os::unix::process::CommandExt;
     use std::process::{Command, Stdio};
     use std::time::{Duration, Instant};
@@ -1075,6 +1183,8 @@ mod tests {
     fn receiver_installs_storage_before_bootstrap_and_retains_generation() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.amp/in/artifacts/bounded-storage-20261112")
+            .canonicalize()
+            .unwrap()
             .join(format!("native-bootstrap-{}", uuid::Uuid::new_v4()));
         let status = Command::new(std::env::current_exe().unwrap())
             .args(["--exact", super::ENTRY, "--ignored", "--nocapture"])
@@ -1118,6 +1228,8 @@ mod tests {
     fn maintained_driver_bootstraps_the_real_broker_under_native_ownership() {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.amp/in/artifacts/mock-supervision-20261112")
+            .canonicalize()
+            .unwrap()
             .join(format!("maintained-bootstrap-{}", uuid::Uuid::new_v4()));
         let log = std::fs::File::create(root.with_extension("log")).unwrap();
         let mut child = Command::new(std::env::current_exe().unwrap())
@@ -1204,6 +1316,8 @@ mod tests {
         ] {
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../.amp/in/artifacts/mock-supervision-20261112")
+                .canonicalize()
+                .unwrap()
                 .join(format!("receiver-{control}-{}", uuid::Uuid::new_v4()));
             let log = std::fs::File::create(root.with_extension("log")).unwrap();
             let mut child = Command::new(std::env::current_exe().unwrap())

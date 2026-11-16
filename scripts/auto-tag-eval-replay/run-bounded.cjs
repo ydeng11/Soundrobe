@@ -66,7 +66,256 @@ function offlineResponseFixture(plan, planFile) {
       || binding(file).sha256 !== metadata.sha256) throw Error('Invalid public offline response fixture');
   return binding(file);
 }
-module.exports = { pairedColdJobs, failureEnvelope, offlineResponseFixture };
+function selectionSourceLocks({ binary, output, rehearsalFile, responseFixture, wireFixture, credentialFixture,
+  userBindings, userLabels, jobs, supervised }, beforeLaunch = false) {
+  const runtime = path.join(output, 'native-supervision.json');
+  const files = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []),
+    ...(responseFixture ? [responseFixture.path] : []), ...(wireFixture ? [wireFixture.path] : []),
+    ...(credentialFixture ? [credentialFixture] : []),
+    'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
+    'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
+    'scripts/auto-tag-eval-replay/audit-supervised.py',
+    ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
+      'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json', runtime] : []),
+    ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
+    'scripts/review_auto_tag_subset.py', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
+    '.planning/research/bounded-assistance-machine-labels-20261111.json',
+    '.planning/research/bounded-assistance-label-review-20261111.json',
+    ...execFileSync('rg', ['--files', 'src-tauri/src'], { encoding: 'utf8' }).trim().split('\n').sort(),
+    ...jobs.flatMap(j => [path.join(root, '.amp/in/eval-dummies', j.population, 'corpus.json'),
+      path.join(fixtures, j.review)])];
+  return [...new Set(files.map(p => path.resolve(p)))].map(file => beforeLaunch && file === runtime
+    ? { path: path.relative(root, file), runtime: 'nativeSupervision' } : binding(file));
+}
+
+function appendSourceLocks(locks, additions) {
+  const known = new Map(locks.map(lock => [lock.path, lock.sha256]));
+  for (const lock of additions) {
+    if (known.has(lock.path)) {
+      if (known.get(lock.path) !== lock.sha256) throw Error('Changed duplicate source binding');
+    } else { locks.push(lock); known.set(lock.path, lock.sha256); }
+  }
+}
+
+function readPublicOwnerFile(file, limit, label) {
+  let fd;
+  try {
+    if (!path.isAbsolute(file) || !file.startsWith(path.join(root, '.amp/in/artifacts') + path.sep)
+        || fs.realpathSync(file) !== file || !fs.lstatSync(file).isFile()) throw Error();
+    fd = fs.openSync(file, 'r');
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > limit) throw Error();
+    const bytes = Buffer.alloc(limit + 1); let used = 0, count;
+    while (used < bytes.length && (count = fs.readSync(fd, bytes, used, bytes.length - used, null)) > 0) used += count;
+    if (used > limit) throw Error();
+    return bytes.subarray(0, used);
+  } catch { throw Error(`Invalid public owner ${label}`); }
+  finally { if (fd !== undefined) fs.closeSync(fd); }
+}
+
+// A signed public source lock selects bytes, never an endpoint or authority.
+// Native independently reads the same fixed sibling and always serves HTTP 200.
+function ownerResponseFixture(file, planFile) {
+  if (path.basename(planFile) !== 'public-native-plan.json'
+      || file !== path.join(path.dirname(planFile), 'response-fixture.json')
+      || fs.lstatSync(file).nlink !== 1) throw Error('Invalid public owner response');
+  const bytes = readPublicOwnerFile(file, 65536, 'response');
+  return { path: path.relative(root, file), sha256: sha(bytes) };
+}
+
+function ownerWireFixture(file, planFile, responseFile) {
+  try {
+    if (fs.realpathSync(planFile) !== planFile
+        || file !== path.join(path.dirname(planFile), 'response-wire.json')
+        || fs.lstatSync(file).nlink !== 1) throw Error();
+    ownerResponseFixture(responseFile, planFile);
+    const bytes = readPublicOwnerFile(file, 1024, 'wire');
+    const text = bytes.toString('utf8'), value = JSON.parse(text);
+    // Counting keys also rejects duplicates which JSON.parse would discard.
+    if (!exactKeys(value, ['version', 'truncateAfterBytes'])
+        || (text.match(/"(?:[^"\\]|\\.)*"\s*:/g) ?? []).length !== 2
+        || value.version !== 1 || !Number.isInteger(value.truncateAfterBytes)
+        || value.truncateAfterBytes < 1 || value.truncateAfterBytes >= fs.statSync(responseFile).size) throw Error();
+    return { path: path.relative(root, file), sha256: sha(bytes) };
+  } catch { throw Error('Invalid public owner wire'); }
+}
+
+function ownerResponseFixturesFromSources(planFile, sources) {
+  if (!Array.isArray(sources)) throw Error('Invalid native owner response locks');
+  const selected = (name, validate) => {
+    const file = path.join(path.dirname(planFile), name);
+    const locks = sources.filter(lock => lock?.path === path.relative(root, file));
+    if (locks.length > 1) throw Error(`Invalid native owner ${name} lock`);
+    if (!locks.length) return null;
+    const actual = validate(file);
+    if (canonical(actual) !== canonical(locks[0])) throw Error(`Invalid native owner ${name} lock`);
+    return actual;
+  };
+  const responseFixture = selected('response-fixture.json', file => ownerResponseFixture(file, planFile));
+  const wireFixture = selected('response-wire.json', file => {
+    if (!responseFixture) throw Error('Invalid native owner wire without response');
+    return ownerWireFixture(file, planFile, path.join(root, responseFixture.path));
+  });
+  return { responseFixture, wireFixture };
+}
+
+function offlineCredentialFixture(file, model) {
+  if (typeof model !== 'string' || !model || model.length > 4096 || /[\r\n\0]/.test(model)
+      || path.basename(file) !== '.env.local') throw Error('Invalid public owner credential');
+  const bytes = readPublicOwnerFile(file, 8192, 'credential');
+  if (!bytes.equals(Buffer.from(`LLM_API_KEY=MOCK_ONLY_SECRET_CANARY\nLLM_MODEL=${model}\n`))) {
+    throw Error('Invalid public owner credential');
+  }
+  return { path: path.relative(root, file), sha256: sha(bytes) };
+}
+
+const exactKeys = (value, keys) => value !== null && typeof value === 'object' && !Array.isArray(value)
+  && Object.keys(value).sort().join(',') === [...keys].sort().join(',');
+const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const uuid4 = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+const sourcePath = value => typeof value === 'string' && value.length > 0 && value.length <= 4096
+  && !/[\x00-\x1f\x7f\\]/.test(value) && !path.isAbsolute(value)
+  && value.split('/').every(part => part && part !== '.' && part !== '..');
+
+function ownerCredentialFromBootstrap(packet, model) {
+  const lock = packet?.offlineCredential;
+  if (!exactKeys(lock, ['path', 'sha256']) || !sourcePath(lock.path) || !digest(lock.sha256)) {
+    throw Error('Invalid native owner credential lock');
+  }
+  const actual = offlineCredentialFixture(path.join(root, lock.path), model);
+  if (canonical(actual) !== canonical(lock)) throw Error('Invalid native owner credential lock');
+  return actual;
+}
+
+// Native has verified signatures and durable claim custody. Node joins only
+// public evidence to its independently produced membership, plan and locks.
+function validateOwnerBootstrap(packet, output, plan, membership, bindings) {
+  const deny = () => { throw Error('Invalid native owner bootstrap'); };
+  if (!exactKeys(packet, ['version', 'proposal', 'intent', 'ownerExecution', 'offlineCredential']) || packet.version !== 1) deny();
+  const { proposal: p, intent: i, ownerExecution: o } = packet;
+  const digests = ['executableSha256', 'membershipSha256', 'nativePlanSha256', 'requestSha256',
+    'verifierSha256', 'boundaryPricingSha256', 'contextSha256'];
+  if (!exactKeys(p, ['version', 'proposalId', 'executionKind', ...digests, 'sourcesAndTools'])
+      || p.version !== 1 || !uuid4(p.proposalId) || p.executionKind !== 'offlineRehearsal'
+      || !digests.every(key => digest(p[key])) || !Array.isArray(p.sourcesAndTools)
+      || !exactKeys(i, ['version', 'proposalId', 'proposalSha256', 'executionKind', 'nonce', 'issuedUnixSeconds',
+        'expiresUnixSeconds', 'hostedEstimateRiskAccepted', 'signature'])
+      || i.version !== 1 || i.executionKind !== 'offlineRehearsal' || i.hostedEstimateRiskAccepted !== false
+      || !uuid4(i.nonce) || !Array.isArray(i.signature) || i.signature.length !== 64
+      || !i.signature.every(byte => Number.isInteger(byte) && byte >= 0 && byte <= 255)
+      || !Number.isSafeInteger(i.issuedUnixSeconds) || i.issuedUnixSeconds <= 0 || i.issuedUnixSeconds > Math.floor(Date.now() / 1000)
+      || !Number.isSafeInteger(i.expiresUnixSeconds) || i.expiresUnixSeconds <= Math.floor(Date.now() / 1000)
+      || i.expiresUnixSeconds <= i.issuedUnixSeconds || i.expiresUnixSeconds - i.issuedUnixSeconds > 1800
+      || !exactKeys(o, ['version', 'proposalId', 'proposalSha256', 'intentSha256', 'executionKind', 'nonce', 'expiresUnixSeconds'])
+      || o.version !== 1 || o.executionKind !== 'offlineRehearsal'
+      || i.proposalId !== p.proposalId || o.proposalId !== p.proposalId
+      || i.proposalSha256 !== sha(canonical(p)) || o.proposalSha256 !== i.proposalSha256
+      || o.intentSha256 !== sha(canonical(i)) || o.nonce !== i.nonce || o.expiresUnixSeconds !== i.expiresUnixSeconds
+      || plan?.nativePrepared !== true || bindings?.disposableRunRoot !== output
+      || !path.isAbsolute(output) || path.resolve(output) !== output
+      || p.executableSha256 !== bindings.executable || p.membershipSha256 !== sha(canonical(membership))
+      || p.nativePlanSha256 !== sha(canonical(plan)) || canonical(bindings.modelRehearsalPlan) !== canonical(plan)
+      || !Array.isArray(bindings.sourcesAndTools) || bindings.sourcesAndTools.length < 1 || bindings.sourcesAndTools.length > 4096) deny();
+  const runtime = path.relative(root, path.join(output, 'native-supervision.json'));
+  const sources = bindings.sourcesAndTools;
+  if (!sources.every(lock => exactKeys(lock, ['path', 'sha256']) && sourcePath(lock.path) && digest(lock.sha256))
+      || new Set(sources.map(lock => lock.path)).size !== sources.length
+      || sources.filter(lock => lock.path === runtime).length !== 1
+      || canonical(p.sourcesAndTools) !== canonical(sources.map(lock => lock.path === runtime
+        ? { path: runtime, runtime: 'nativeSupervision' } : lock))) deny();
+  const credential = ownerCredentialFromBootstrap(packet, plan.model);
+  if (sources.filter(lock => canonical(lock) === canonical(credential)).length !== 1) deny();
+  return o;
+}
+
+function validateOwnerOfflineExecution(plan, ownerExecution, approval) {
+  try {
+    const bound = require('./mock-authority.cjs').validateOwnerOfflineBinding(approval?.bindings);
+    if (!ownerExecution || canonical(bound) !== canonical(ownerExecution)
+        || canonical(approval.bindings.modelRehearsalPlan) !== canonical(plan)
+        || approval.state !== 'executing' || approval.consumptions !== 1 || approval.liveAuthority !== false
+        || approval.testPolicy !== undefined && approval.testPolicy !== approval.bindings.modelRehearsal.policy
+        || approval.credentialLookups !== 0 || approval.actualFakeLookups !== 0 || approval.counters?.model !== 0) throw Error();
+    return true;
+  } catch { throw Error('native_prepared_execution_disabled'); }
+}
+
+function validateOwnerOfflineHttpObservation(report, observation) {
+  const models = Object.values(report.operations ?? {}).filter(o => o.category === 'model');
+  const model = models[0], response = model?.response;
+  if (models.length !== 1 || model.arrived !== false || !model.dispatched || !model.completed
+      || response?.observation !== 'native_http_response' || response.remoteArrivalVerified !== false
+      || response.http?.version !== 1 || response.http.transport !== 'offline_local_http'
+      || observation?.version !== 1 || observation.transport !== 'offline_local_http' || observation.requests !== 1
+      || observation.exactRequest !== true || observation.fakeCredentialPresented !== true || observation.liveAuthority !== false
+      || !digest(observation.requestSha256)
+      || model.request_sha256 !== sha(JSON.stringify(['POST', '/model/chat/completions', observation.requestSha256]))
+      || observation.requestSha256 !== response.http.requestSha256
+      || !Number.isSafeInteger(observation.requestBytes) || observation.requestBytes <= 0 || observation.requestBytes > 32768
+      || !digest(observation.responseSha256) || observation.responseSha256 !== response.sha256
+      || observation.responseBytes !== response.bytes || observation.status !== response.status) {
+    throw Error('Native owner offline HTTP observation reconciliation failed');
+  }
+  return true;
+}
+
+async function waitForOwnerBootstrap(output, checkNativeScope) {
+  if (typeof checkNativeScope !== 'function') throw Error('Native owner scope required');
+  const file = path.join(output, 'owner-execution-bootstrap.json');
+  for (;;) {
+    checkNativeScope();
+    let missing = false;
+    try { fs.lstatSync(file); } catch (error) { if (error.code === 'ENOENT') missing = true; else throw error; }
+    if (!missing) {
+      let packet;
+      try { packet = JSON.parse(readPublicOwnerFile(file, 1024 * 1024, 'bootstrap')); }
+      catch { throw Error('Invalid native owner bootstrap publication'); }
+      checkNativeScope();
+      return packet;
+    }
+    // The already-running native preparation scope bounds this managed
+    // process, including filesystem stalls. Never start/reset a JS run clock.
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+}
+
+// Public metadata/source inspection only. No run directory, native preparation,
+// signing, credential lookup, service or supervision clock starts here.
+function ownerProposalInputs(output, executable, rehearsalFile, userLabelDirectory, fakeCredentialFile, responseFixtureFile, wireFixtureFile) {
+  if (!path.isAbsolute(output) || path.resolve(output) !== output
+      || !output.startsWith(path.join(root, '.amp/in/artifacts') + path.sep)
+      || fs.realpathSync(path.dirname(output)) !== path.dirname(output)) throw Error('Invalid proposal run path');
+  if (fs.existsSync(output)) throw Error('Proposal run already exists');
+  const binary = fs.realpathSync(executable);
+  if (wireFixtureFile !== undefined && fs.realpathSync(rehearsalFile) !== rehearsalFile) throw Error('Invalid public owner wire plan');
+  rehearsalFile = fs.realpathSync(rehearsalFile);
+  if (!rehearsalFile.startsWith(path.join(root, '.amp/in/artifacts') + path.sep)
+      || fs.statSync(rehearsalFile).size > 65536) throw Error('Invalid public proposal plan path');
+  const rehearsal = read(rehearsalFile);
+  offlineResponseFixture(rehearsal, rehearsalFile);
+  if (rehearsal.nativePrepared !== true) throw Error('Owner proposal requires native preparation');
+  if (fakeCredentialFile !== undefined) offlineCredentialFixture(fakeCredentialFile, rehearsal.model);
+  const responseFixture = responseFixtureFile === undefined ? null : ownerResponseFixture(responseFixtureFile, rehearsalFile);
+  const wireFixture = wireFixtureFile === undefined ? null : ownerWireFixture(wireFixtureFile, rehearsalFile, responseFixtureFile);
+  const userBindings = { userAcceptance: binding(path.resolve(userLabelDirectory, 'labels.json')),
+    userAcceptanceSeal: binding(path.resolve(userLabelDirectory, 'SHA256SUMS')) };
+  const userLabels = JSON.parse(execFileSync('python3', ['-B', scorer, 'inspect-user-acceptance',
+    userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
+    userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs }));
+  const sourcesAndTools = selectionSourceLocks({ binary, output, rehearsalFile, responseFixture, wireFixture, credentialFixture: fakeCredentialFile, userBindings,
+    userLabels, jobs: pairedColdJobs(), supervised: true }, true);
+  const pool = require('../mock-provider-service.cjs').readPools(path.join(fixtures, 'candidate-pools.json'),
+    path.join(output, 'providers.json'));
+  appendSourceLocks(sourcesAndTools, [...[...new Set(pool.records.filter(r => r.bodyFile)
+    .map(r => path.resolve(output, r.bodyFile)))].map(binding),
+    binding(path.join(fixtures, 'candidate-pools.json')), binding(path.join(fixtures, 'provider-discovery.json'))]);
+  return { version: 1, membership: read(path.join(fixtures, 'supervised-requested-membership.json')),
+    bindings: { executable: binding(binary).sha256, sourcesAndTools, disposableRunRoot: output,
+      modelRehearsalPlan: rehearsal } };
+}
+module.exports = { pairedColdJobs, failureEnvelope, offlineResponseFixture, ownerProposalInputs,
+  ownerWireFixture, ownerResponseFixturesFromSources,
+  validateOwnerBootstrap, waitForOwnerBootstrap, validateOwnerOfflineExecution, validateOwnerOfflineHttpObservation };
 async function inventoryAt(base, compact = false, session) {
   const response = await fetch(`${base}/__fixtures${compact ? '/compact' : ''}`, { signal: AbortSignal.timeout(orchestration.inventoryTimeoutMs), redirect: 'error',
     headers: session ? { 'x-soundrobe-mock-session': session } : {} });
@@ -109,12 +358,30 @@ async function main(output, executable, userLabelDirectory, mode) {
         || !fs.statSync(rehearsalFile).isFile() || fs.statSync(rehearsalFile).size > 65536) throw Error('Invalid public offline rehearsal plan');
     rehearsal = read(rehearsalFile);
   }
-  const responseFixture = rehearsal ? offlineResponseFixture(rehearsal, rehearsalFile) : null;
+  let responseFixture = rehearsal ? offlineResponseFixture(rehearsal, rehearsalFile) : null, wireFixture = null;
   const nativePrepared = rehearsal?.nativePrepared === true;
+  let ownerBootstrap;
+  if (nativePrepared) {
+    const parent = process.ppid;
+    if (!supervised || supervision.preparationMs !== 300000 || supervision.executionMs !== 600000
+        || supervision.control !== '' || parent <= 1) throw Error('Native owner preparation scope required');
+    ownerBootstrap = await waitForOwnerBootstrap(output, () => {
+      // The native supervisor already owns the absolute preparation deadline
+      // and forcibly retires this process on expiry/loss. This check neither
+      // converts Darwin clock domains nor starts a replacement relative clock.
+      if (process.ppid !== parent || canonical(read(path.join(output, 'native-supervision.json'))) !== canonical(supervision)) {
+        throw Error('Native owner preparation scope lost');
+      }
+      process.kill(parent, 0);
+    });
+    ({ responseFixture, wireFixture } = ownerResponseFixturesFromSources(rehearsalFile, ownerBootstrap.proposal?.sourcesAndTools));
+  }
   const hosted = !nativePrepared && rehearsal?.offlineHosted !== undefined;
   const offlineHttp = Object.hasOwn(rehearsal ?? {}, 'offlineHttp');
   if (offlineHttp && (!hosted || rehearsal.offlineHttp !== true)) throw Error('Invalid offline HTTP fixture mode');
-  const credentialFixture = hosted ? path.join(path.dirname(path.resolve(rehearsalFile)), 'credential-fixture/.env.local') : null;
+  const credentialFixture = nativePrepared
+    ? path.join(root, ownerCredentialFromBootstrap(ownerBootstrap, rehearsal.model).path)
+    : hosted ? path.join(path.dirname(path.resolve(rehearsalFile)), 'credential-fixture/.env.local') : null;
   if (hosted && (!rehearsal.offlineHosted || typeof rehearsal.offlineHosted !== 'object'
       || path.dirname(path.resolve(rehearsalFile)) !== path.dirname(output)
       || fs.realpathSync(credentialFixture) !== credentialFixture
@@ -145,19 +412,8 @@ async function main(output, executable, userLabelDirectory, mode) {
     userBindings.userAcceptance.path, userBindings.userAcceptance.sha256,
     userBindings.userAcceptanceSeal.path, userBindings.userAcceptanceSeal.sha256], { timeout: orchestration.pythonTimeoutMs })) : null;
   const matchesUserLabels = job => userLabels && job.caseId === userLabels.caseId && job.profile === userLabels.profile;
-  const lockedFiles = [binary, __filename, scorer, ...(rehearsalFile ? [rehearsalFile] : []), ...(responseFixture ? [responseFixture.path] : []), ...(credentialFixture ? [credentialFixture] : []), 'scripts/mock-provider-service.cjs', 'scripts/auto-tag-eval-replay/mock-authority.cjs',
-    'scripts/auto-tag-eval-replay/bounded-storage.cjs', 'scripts/bounded_storage.py',
-    'scripts/auto-tag-eval-replay/audit-supervised.py',
-    ...(supervised ? ['scripts/auto-tag-eval-replay/run-supervised.cjs',
-      'test/fixtures/tauri/auto-tag-eval/supervised-requested-membership.json', path.join(output, 'native-supervision.json')] : []),
-    ...Object.values(userBindings).map(b => b.path), ...(userLabels?.lockedPaths ?? []),
-    'scripts/review_auto_tag_subset.py', 'src-tauri/Cargo.toml', 'src-tauri/Cargo.lock',
-    '.planning/research/bounded-assistance-machine-labels-20261111.json',
-    '.planning/research/bounded-assistance-label-review-20261111.json',
-    ...execFileSync('rg', ['--files', 'src-tauri/src'], { encoding: 'utf8' }).trim().split('\n'),
-    ...jobs.flatMap(j => [path.join(root, '.amp/in/eval-dummies', j.population, 'corpus.json'),
-      path.join(fixtures, j.review)])];
-  const locks = [...new Set(lockedFiles.map(p => path.resolve(p)))].map(binding);
+  const locks = selectionSourceLocks({ binary, output, rehearsalFile, responseFixture, wireFixture,
+    credentialFixture, userBindings, userLabels, jobs, supervised });
   save(path.join(output, 'source-and-tool-locks.json'), locks);
   const checkLocks = () => { for (const lock of locks) {
     if (binding(path.join(root, lock.path)).sha256 !== lock.sha256) throw Error(`Changed frozen source/tool: ${lock.path}`);
@@ -198,17 +454,22 @@ async function main(output, executable, userLabelDirectory, mode) {
   const records = pool.records.map(record => ({ ...record,
     ...(record.bodyFile ? { bodyFile: path.resolve(output, record.bodyFile) } : {}) }));
   const fixtureLocks = [...new Set(records.filter(r => r.bodyFile).map(r => r.bodyFile))].map(binding);
-  locks.push(...fixtureLocks, binding(path.join(fixtures, 'candidate-pools.json')), binding(path.join(fixtures, 'provider-discovery.json')));
+  appendSourceLocks(locks, [...fixtureLocks, binding(path.join(fixtures, 'candidate-pools.json')),
+    binding(path.join(fixtures, 'provider-discovery.json'))]);
   save(path.join(output, 'fixture-source-locks.json'), fixtureLocks);
   const executions = [];
   const pending = [], preparations = [];
+  const ownerExecution = ownerBootstrap ? validateOwnerBootstrap(ownerBootstrap, output, rehearsal,
+    read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256,
+      sourcesAndTools: locks, disposableRunRoot: output, modelRehearsalPlan: rehearsal }) : null;
   if (durable) activeAuthority = await require('./mock-authority.cjs').start(binary, output,
     read(path.join(output, 'requested-membership.json')), { executable: binding(binary).sha256, sourcesAndTools: locks,
       disposableRunRoot: output, sinkPolicy: 'offline-retained-evidence-v1',
+      ...(ownerExecution ? { ownerExecution } : {}),
       ...(rehearsal ? { modelRehearsalPlan: rehearsal } : {}),
       sinks: ['candidate', 'disposable-media-and-staging', 'typed-worker-review', 'typed-observation-scoring',
-        ...(offlineHttp ? ['typed-native-http-response'] : [])],
-      transport: { endpoint: nativePrepared ? 'disabled-native-prepared/no-network' : offlineHttp ? 'native-owned-loopback-http/api/v1/chat/completions' : hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
+        ...(offlineHttp || ownerExecution ? ['typed-native-http-response'] : [])],
+      transport: { endpoint: ownerExecution ? 'native-owned-loopback-http/api/v1/chat/completions' : nativePrepared ? 'disabled-native-prepared/no-network' : offlineHttp ? 'native-owned-loopback-http/api/v1/chat/completions' : hosted ? 'offline-injected-native-response/no-network' : 'registered-loopback-only/model/chat/completions', model: rehearsal?.model ?? 'scripted/genre-v1', provider: rehearsal?.provider ?? 'scripted-loopback-v1',
         attempts: 1, retries: 0, repairs: 0, requestBytes: 32768, responseBytes: 65536, requestMs: 5000,
         retention: 'retain-authorized-local-test-evidence;no-deletion-duration-consent', liveAuthority: false },
       ...(supervised ? { supervision } : {}) }, undefined, supervision);
@@ -382,7 +643,7 @@ async function main(output, executable, userLabelDirectory, mode) {
         const plan = read(preparationFile).plan;
         const requestEvents = plan.events.filter(e => e.kind === 'request');
         let nativeModels = {};
-        if (hosted) {
+        if (hosted || ownerExecution) {
           const report = await authority.command({ op: 'report' });
           nativeModels = Object.fromEntries(Object.entries(report.operations).filter(([,operation]) =>
             operation.category === 'model' && report.sessions[operation.session]?.job === job.name
@@ -548,9 +809,9 @@ async function main(output, executable, userLabelDirectory, mode) {
     await authority.command({ op: 'freeze' });
     const frozenReport = await authority.command({ op: 'report' });
     save(path.join(output, 'frozen-checkpoint.json'), frozenReport);
-    await require('./mock-authority.cjs').approveFrozen(authority, frozenReport,
+    const approval = await require('./mock-authority.cjs').approveFrozen(authority, frozenReport,
       (filename, value) => save(path.join(output, filename), value));
-    if (nativePrepared) throw Error('native_prepared_execution_disabled');
+    if (nativePrepared) validateOwnerOfflineExecution(rehearsal, ownerExecution, approval);
     if (privacyControl) {
       await pending[jobs.findIndex(job => job.name === 'assistance-crowd')]();
       throw Error('privacy_control_intentionally_incomplete');
@@ -565,11 +826,12 @@ async function main(output, executable, userLabelDirectory, mode) {
     }
     const inventories = [...preparations.map(p => p.inventory), ...jobs.map(j => read(path.join(output, j.name, 'cold', 'inventory-final.json')))];
     const wires = inventories.flatMap(i => i.wireArrivals), ids = wires.map(w => w.operation);
-    const nativeModels = hosted ? Object.entries(report.operations).filter(([,o]) => o.category === 'model') : [];
-    if (hosted && (nativeModels.length > 1 || nativeModels.some(([id,o]) => ids.includes(id)
+    const nativeModels = hosted || ownerExecution ? Object.entries(report.operations).filter(([,o]) => o.category === 'model') : [];
+    if ((hosted || ownerExecution) && (nativeModels.length > 1 || nativeModels.some(([id,o]) => ids.includes(id)
         || !o.dispatched || o.arrived || !o.completed
-        || o.response?.observation !== (offlineHttp ? 'native_http_response' : 'offline_injected_native_response')
+        || o.response?.observation !== (offlineHttp || ownerExecution ? 'native_http_response' : 'offline_injected_native_response')
         || o.response.remoteArrivalVerified !== false))) throw Error('Native offline observation reconciliation failed');
+    if (ownerExecution) validateOwnerOfflineHttpObservation(report, read(path.join(output, 'offline-http-observation.json')));
     if (new Set(ids).size !== ids.length || ids.some(id => !report.operations[id]?.arrived)
         || ids.length !== report.counters.arrived || report.counters.reserved !== report.counters.completed
         || report.counters.inventory !== wires.filter(w => w.route === '/__fixtures/compact').length
@@ -579,7 +841,7 @@ async function main(output, executable, userLabelDirectory, mode) {
         || report.credentialLookups !== report.counters.model || report.actualFakeLookups !== report.counters.model) throw Error('Durable wire reconciliation failed');
     save(path.join(output, 'wire-reconciliation.json'), { counts: report.counters, actualWireArrivals: wires.length,
       uniqueOperations: new Set([...ids,...nativeModels.map(([id])=>id)]).size,
-      ...(hosted ? { nativeModelObservations: nativeModels.length } : {}),
+      ...(hosted || ownerExecution ? { nativeModelObservations: nativeModels.length } : {}),
       actualFakeLookups: report.actualFakeLookups, durableLookupAdmissions: report.credentialLookups });
     if (!supervised) {
       await authority.command({ op: 'publish' });

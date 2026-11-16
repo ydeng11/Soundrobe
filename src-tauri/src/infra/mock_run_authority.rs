@@ -2,6 +2,12 @@
 #[cfg(all(feature = "server", unix))]
 #[path = "mock_run_broker.rs"]
 pub(crate) mod broker;
+#[cfg(unix)]
+#[path = "mock_run_owner.rs"]
+pub(crate) mod owner;
+#[cfg(unix)]
+#[path = "mock_run_owner_checkpoint.rs"]
+pub(crate) mod owner_checkpoint;
 #[path = "mock_run_policy.rs"]
 pub(crate) mod policy;
 #[cfg(unix)]
@@ -189,6 +195,8 @@ struct Operation {
     dispatched: bool,
     arrived: bool,
     completed: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    send_admitted: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     response: Option<Value>,
 }
@@ -546,10 +554,11 @@ impl Run {
                     operation.category == "model"
                         && operation.dispatched
                         && !operation.arrived
-                        && !operation.completed,
+                        && !operation.completed
+                        && !operation.send_admitted,
                 )?;
-                // Only the trusted broker can request this post-supplier check.
-                // Its one-shot reserve/lookup cannot be reused for retry/repair.
+                // Burn the send before transport. A missing response never refunds it.
+                operation.send_admitted = true;
                 Ok(json!({"admitted":true}))
             }
             Command::Consume {
@@ -642,6 +651,7 @@ impl Run {
                         dispatched: false,
                         arrived: false,
                         completed: false,
+                        send_admitted: false,
                         response: None,
                     },
                 );
@@ -1327,11 +1337,15 @@ impl Journal {
         c.busy_timeout(Duration::from_millis(100))
             .map_err(|_| "mock_registry_unavailable")?;
         let (run, _) = Self::read_run(&c)?;
-        Ok(
-            json!({"runId":run.run_id,"state":run.state,"membership":run.membership,"bindings":run.bindings,
-            "checkpoint":run.checkpoint,"preparations":run.preparations,"sessions":run.sessions,"counters":run.counters(),"operations":run.operations,
-            "approvalSha256":run.approval_sha256,"approvalExpires":run.approval_expires,"credentialLookups":run.credential_lookups,"testPolicy":policy::name(&run),"consumptions":run.consumptions,"denied":run.denied,"ingressDenials":run.ingress_denials,"ownerLive":run.owner_live,"mutationAdmissions":run.mutation_admissions,"resultSha256":run.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"}),
-        )
+        Ok(run.report())
+    }
+}
+
+impl Run {
+    fn report(&self) -> Value {
+        json!({"runId":self.run_id,"state":self.state,"membership":self.membership,"bindings":self.bindings,
+            "checkpoint":self.checkpoint,"preparations":self.preparations,"sessions":self.sessions,"counters":self.counters(),"operations":self.operations,
+            "approvalSha256":self.approval_sha256,"approvalExpires":self.approval_expires,"credentialLookups":self.credential_lookups,"testPolicy":policy::name(self),"consumptions":self.consumptions,"denied":self.denied,"ingressDenials":self.ingress_denials,"ownerLive":self.owner_live,"mutationAdmissions":self.mutation_admissions,"resultSha256":self.result_sha256,"liveAuthority":false,"recovery":"read_only_incomplete_no_resume"})
     }
 }
 
@@ -1597,6 +1611,10 @@ pub(super) mod tests {
         freeze_request(j, owner, None)
     }
     pub(super) fn freeze_request(j: &Journal, owner: &str, request: Option<String>) -> String {
+        let executable = j.report().unwrap()["bindings"]["executable"]
+            .as_str()
+            .unwrap()
+            .to_owned();
         for job in [
             "disabled-crowd",
             "disabled-billie",
@@ -1609,7 +1627,7 @@ pub(super) mod tests {
             j.command(
                 session["client"].as_str().unwrap(),
                 Command::Attach {
-                    executable_sha256: digest("test executable"),
+                    executable_sha256: executable.clone(),
                     preparation_sha256: None,
                 },
             )

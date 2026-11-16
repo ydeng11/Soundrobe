@@ -36,6 +36,55 @@ function validateReceipt(receipt, expected, state) {
       || operations.length !== receipt.counters?.reserved || receipt.counters?.model !== 1)) {
     throw Error('offline native observation missing or ambiguous');
   }
+  return validateTerminalReceipt(receipt, expected, state, operations, native);
+}
+
+function validateOwnerOfflineBinding(bindings) {
+  const plan = bindings?.modelRehearsalPlan, context = bindings?.modelRehearsal;
+  const owner = bindings?.ownerExecution;
+  const policy = 'disabled-hosted-boundary-v1;native-file;native-response-observation;no-live;no-retry;no-repair';
+  const digest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const uuid = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(value);
+  if (plan?.nativePrepared !== true || !owner || Array.isArray(owner)
+      || Object.keys(owner).sort().join(',') !== 'executionKind,expiresUnixSeconds,intentSha256,nonce,proposalId,proposalSha256,version'
+      || owner.version !== 1 || owner.executionKind !== 'offlineRehearsal'
+      || !uuid(owner.proposalId) || !uuid(owner.nonce) || !digest(owner.proposalSha256) || !digest(owner.intentSha256)
+      || !Number.isSafeInteger(owner.expiresUnixSeconds) || owner.expiresUnixSeconds <= 0
+      || !bindings.supervision?.generation || context?.policy !== policy || context.liveAuthority !== false
+      || ['offlineFixture', 'offlineHosted', 'offlineHttp', 'offlineResponse'].some(key =>
+        Object.hasOwn(plan, key) || Object.hasOwn(context, key))
+      || context.boundary?.allowanceUsdCents !== 500
+      || ['hardBillingCap', 'billingRiskAccepted', 'liveDispatchAvailable', 'readyForExecution']
+        .some(key => context.boundary?.[key] !== false)) throw Error('native owner offline binding invalid');
+  return owner;
+}
+
+// Separate from fixture receipt admission: native signatures/custody remain
+// native-owned, and this joins the consumed owner scope to offline evidence.
+function validateOwnerOfflineReceipt(receipt, expected, state = 'provisional_complete') {
+  validateOwnerOfflineBinding(receipt?.bindings);
+  const operations = Object.values(receipt.operations ?? {});
+  const native = operations.filter(o => o.category === 'model');
+  const jobs = ['disabled-crowd', 'disabled-billie', 'disabled-enya', 'assistance-billie', 'assistance-enya', 'assistance-crowd'];
+  const sessions = Object.values(receipt.sessions ?? {});
+  if (!['complete', 'provisional_complete'].includes(state)
+      || receipt.testPolicy !== receipt.bindings.modelRehearsal.policy
+      || receipt.membership?.requestedFieldSlots !== 216
+      || !/^[a-f0-9]{64}$/.test(receipt.resultSha256 ?? '') || receipt.resultSha256 !== expected?.resultSha256
+      || receipt.credentialLookups !== 1 || receipt.actualFakeLookups !== 1
+      || receipt.counters?.model !== 1 || operations.length !== receipt.counters?.reserved || native.length !== 1
+      || native[0].arrived !== false || native[0].response?.observation !== 'native_http_response'
+      || native[0].response.remoteArrivalVerified !== false
+      || native[0].response.http?.version !== 1 || native[0].response.http.transport !== 'offline_local_http'
+      || sessions.length !== 12 || sessions.some(s => s.closed !== true)
+      || jobs.some(job => ['preparation', 'execution'].some(stage =>
+        sessions.filter(s => s.job === job && s.stage === stage).length !== 1))) {
+    throw Error('native owner offline receipt invalid');
+  }
+  return validateTerminalReceipt(receipt, expected, state, operations, native);
+}
+
+function validateTerminalReceipt(receipt, expected, state, operations, native) {
   if (!receipt || !expected || receipt.state !== state || receipt.consumptions !== 1
       || receipt.denied !== 0 || receipt.ownerLive !== false || receipt.liveAuthority !== false
       || !expected.checkpoint || !expected.runId
@@ -152,7 +201,12 @@ async function start(binary, output, membership, bindings, fault, supervision) {
       if (supervision) {
         if (releaseError) throw releaseError;
         const receipt = await rpc(descriptor.socket, descriptor.owner, { op: 'report' });
-        return failed ? receipt : validateProvisionalReceipt(receipt, expected);
+        if (failed) return receipt;
+        if (bindings.modelRehearsalPlan?.nativePrepared === true) {
+          if (!isDeepStrictEqual(receipt.bindings?.ownerExecution, bindings.ownerExecution)) throw Error('native owner binding drifted');
+          return validateOwnerOfflineReceipt(receipt, expected);
+        }
+        return validateProvisionalReceipt(receipt, expected);
       }
       let timer;
       let status;
@@ -260,4 +314,5 @@ async function approveFrozen(authority, report, retain) {
   await retain('owner-approval-coordination.json', receipt);
   return receipt;
 }
-module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt, testApproval, approveFrozen };
+module.exports = { rpc, lease, start, validateCompleteReceipt, validateProvisionalReceipt,
+  validateOwnerOfflineBinding, validateOwnerOfflineReceipt, testApproval, approveFrozen };

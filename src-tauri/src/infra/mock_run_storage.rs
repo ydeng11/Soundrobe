@@ -23,6 +23,48 @@ struct Used {
 
 const MIB: u64 = 1024 * 1024;
 const LAUNCHER_RECEIPT: u64 = 64 * 1024;
+// Shared with the native owner after it waits for its receiver Child. This is
+// only the prepaid storage sink; callers retain responsibility for exit proof.
+pub(crate) fn write_launcher_outcome(
+    root: &Path,
+    generation: uuid::Uuid,
+    bytes: &[u8],
+) -> io::Result<()> {
+    if bytes.len() as u64 > LAUNCHER_RECEIPT {
+        return Err(io::Error::other("launcher receipt ceiling"));
+    }
+    let root = root.canonicalize()?;
+    let account = Account {
+        failed: account_latch(&root, generation),
+        root,
+        generation,
+        owner_slot: u8::MAX,
+        owner_pid: std::process::id(),
+        revocation: None,
+    };
+    let ledger = OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW)
+        .open(account.root.join(ACCOUNT_NAME))?;
+    {
+        let _lock = FileLock::exclusive(&ledger)?;
+        if !account.state(&ledger)?.terminal_issued {
+            return Err(io::Error::other("launcher terminal unavailable"));
+        }
+    }
+    let claim = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(account.root.join(".storage-launcher-claim"))?;
+    claim.sync_all()?;
+    File::open(&account.root)?.sync_all()?;
+    let allowance = Allowance::new(&account.root, LAUNCHER_RECEIPT, LAUNCHER_RECEIPT);
+    let mut output = BoundedFile::create(&account.root.join("launcher-outcome.json"), &allowance)?;
+    output.write_all(bytes)?;
+    output.file.sync_all()?;
+    File::open(&account.root)?.sync_all()
+}
+
 const TERMINAL: Used = Used {
     growth: 2 * MIB,
     writes: 8 * MIB,
@@ -2217,6 +2259,31 @@ mod tests {
             statuses.iter().filter(|status| status.success()).count() <= 1,
             "processes independently replenished allowance"
         );
+        let late = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "infra::mock_run_authority::storage::tests::storage_sink_process",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env("SOUNDROBE_STORAGE_REQUIRED", "1")
+            .env("SOUNDROBE_NATIVE_OUTPUT", &root)
+            .env("SOUNDROBE_NATIVE_GENERATION", generation.to_string())
+            .env(
+                "SOUNDROBE_STORAGE_TARGET",
+                root.join("late-must-not-create"),
+            )
+            .env("SOUNDROBE_STORAGE_ACTION", "create")
+            .output()
+            .unwrap();
+        assert_eq!(
+            late.status.code(),
+            Some(78),
+            "attachment after peer revocation must fail closed, not panic: {}",
+            String::from_utf8_lossy(&late.stderr)
+        );
+        assert!(!root.join("late-must-not-create").exists());
         let state = account.snapshot().unwrap();
         // Scoped helpers notify by immediate exit, before stop persistence.
         // This standalone control proves shared nonrenewable capacity, not
@@ -2349,8 +2416,10 @@ mod tests {
         // Terminal attachment is read-only and cannot issue ordinary tickets.
         // The launcher invokes it only after observing actual receiver exit.
         // A stopped generation may archive one incomplete receipt, never resume.
-        if action != "terminal_launcher" {
-            attach_from_env().unwrap();
+        if action != "terminal_launcher" && attach_from_env().is_err() {
+            // A peer may revoke before this helper attaches. Use the same
+            // fail-closed process result as an already-attached storage denial.
+            std::process::exit(78);
         }
         match action.as_str() {
             "quota_control" => {
@@ -2372,44 +2441,13 @@ mod tests {
                 let generation =
                     uuid::Uuid::parse_str(&std::env::var("SOUNDROBE_NATIVE_GENERATION").unwrap())
                         .unwrap();
-                let account = Account {
-                    failed: account_latch(&root, generation),
-                    root,
-                    generation,
-                    owner_slot: u8::MAX,
-                    owner_pid: std::process::id(),
-                    revocation: None,
-                };
-                let ledger = OpenOptions::new()
-                    .read(true)
-                    .custom_flags(libc::O_NOFOLLOW)
-                    .open(account.root.join(ACCOUNT_NAME))
-                    .unwrap();
-                {
-                    let _lock = FileLock::exclusive(&ledger).unwrap();
-                    assert!(account.state(&ledger).unwrap().terminal_issued);
-                }
-                assert_eq!(path, account.root.join("launcher-outcome.json"));
+                assert_eq!(path, root.join("launcher-outcome.json"));
                 let mut bytes = Vec::new();
                 io::stdin()
                     .take(LAUNCHER_RECEIPT + 1)
                     .read_to_end(&mut bytes)
                     .unwrap();
-                assert!(bytes.len() as u64 <= LAUNCHER_RECEIPT);
-                // Static disjoint partition of the original terminal grant,
-                // not a post-retirement ordinary grant or a renewed cap.
-                let claim = OpenOptions::new()
-                    .write(true)
-                    .create_new(true)
-                    .open(account.root.join(".storage-launcher-claim"))
-                    .unwrap();
-                claim.sync_all().unwrap();
-                File::open(&account.root).unwrap().sync_all().unwrap();
-                let allowance = Allowance::new(&account.root, LAUNCHER_RECEIPT, LAUNCHER_RECEIPT);
-                let mut output = BoundedFile::create(&path, &allowance).unwrap();
-                output.write_all(&bytes).unwrap();
-                output.file.sync_all().unwrap();
-                File::open(&account.root).unwrap().sync_all().unwrap();
+                write_launcher_outcome(&root, generation, &bytes).unwrap();
             }
             "mkdir" => files::create_dir(&path).unwrap(),
             "mkdir_all" => files::create_dir_all(&path).unwrap(),

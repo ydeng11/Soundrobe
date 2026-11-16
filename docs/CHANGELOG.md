@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Offline native-prepared evaluations can publish an already signed owner approval without overwriting existing files, observe pending/readiness and coordinate one durable consumption. The launcher still stops before execution; no live calls or real-model quality claims are enabled.
-- Offline owner-signing controls bind approvals to the current frozen evaluation and independently pinned owner key. A separate signature audit checks the checkpoint and signed scope without claiming human presence, completed execution or model quality. Automatic signing and hosted calls remain disabled.
+- Owner-authorized offline evaluations can complete supervised preparation, tagging, readback and scoring with disposable keys and fake credentials. A withheld answer can complete an observation without accepting a tag; a disconnected response remains incomplete. Completion requires observed receiver exit, and independent auditing rejects non-public source substitutions before reading them. Hosted calls remain disabled, and scripted results receive no real-model quality credit.
+- Offline owner-signing controls bind approvals to the current frozen evaluation and independently pinned owner key. A separate signature audit checks the checkpoint and signed scope without claiming human presence, completed execution or model quality. Disposable-key offline checkpoint signing requires explicit signed execution intent; automatic hosted signing and hosted calls remain disabled.
 - Native-prepared evaluation controls can load owner-only bootstrap and signed approval files without exposing signing material or reading credentials before admission. Public fixture signing and mock success validation reject native-prepared runs; hosted calls remain disabled even after approval.
 - Offline supervised evaluations can bind a different public response to native HTTP, worker provenance, media readback and independent scoring checks. A native approval-verifier file check rejects known fixture keys without provisioning real approval trust or enabling hosted calls.
 - Offline hosted-transport controls exercise a single bounded HTTP attempt and independently audit accepted, withheld and rejected response receipts without retaining raw replies in general logs. Explicit native-loopback rehearsals can carry these receipts through supervised workers, readback and mock scoring. Live dispatch remains disabled, and these controls do not establish real-model quality or billing safety.
@@ -165,6 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Offline owner-evaluation audits reject non-public source files before reading their contents, even when their paths are signed. The shared offline transport remains available to Linux server tests; owner-only launch support stays macOS-only and hosted calls stay disabled.
 - Mock-only evaluation revokes new admissions when stop is requested, even while journal work is stalled, and withholds grants whose commits return after stop. Consumed operations are not rolled back or refunded.
 - Offline runtime-diagnostic comparison rejects altered original primary claims, duplicate primary comments, and missing, duplicated or misattributed diagnostic rows before excluding observations. Matching, eligibility and tag writes are unchanged.
 - Album-content tagging retains a preserved collaborator display and artist list even when multiple performers share one list entry, rather than replacing them with the album-artist presentation.

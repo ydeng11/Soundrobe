@@ -20,11 +20,39 @@ function decimal(value) {
 
 function preflight(envText, modelSnapshot, endpointSnapshot) {
   requireValue(typeof envText === 'string' && Buffer.byteLength(envText) <= 65536, 'preflight_config_invalid');
-  // parseEnv does not execute shell substitutions or mutate process.env.
+  // parseEnv does not execute shell substitutions or mutate process.env. Limit
+  // accepted input to the same single-line literal subset as CredentialFile.
   const env = parseEnv(envText);
+  const seen = new Set();
+  for (let line of envText.split(/\r?\n/)) {
+    line = line.trim();
+    if (!line || line.startsWith('#')) continue;
+    if (line.startsWith('export ')) line = line.slice(7).trimStart();
+    const equals = line.indexOf('=');
+    requireValue(equals >= 0, 'preflight_config_invalid');
+    const name = line.slice(0, equals).trim();
+    if (!['LLM_API_KEY', 'LLM_MODEL', 'LLM_PROVIDER', 'LLM_BASE_URL'].includes(name)) continue;
+    requireValue(!seen.has(name), 'preflight_config_invalid');
+    seen.add(name);
+    let value = line.slice(equals + 1).trim();
+    if (value.startsWith("'") || value.startsWith('"')) {
+      const end = value.indexOf(value[0], 1);
+      requireValue(end >= 1, 'preflight_config_invalid');
+      const trailing = value.slice(end + 1).trim();
+      requireValue(!trailing || trailing.startsWith('#'), 'preflight_config_invalid');
+      value = value.slice(1, end);
+      requireValue(!value.includes('\\'), 'preflight_config_invalid');
+    } else {
+      value = value.split('#', 1)[0].trim();
+      requireValue(!/["'`\\]/.test(value), 'preflight_config_invalid');
+    }
+    requireValue(!/[\u0000-\u001f\u007f-\u009f]/.test(value) && env[name] === value,
+      'preflight_config_invalid');
+  }
+  requireValue(seen.has('LLM_API_KEY') && seen.has('LLM_MODEL'), 'preflight_config_invalid');
   const model = env.LLM_MODEL;
   requireValue(modelId(model), 'preflight_model_invalid');
-  requireValue(typeof env.LLM_API_KEY === 'string' && env.LLM_API_KEY.trim().length > 0
+  requireValue(typeof env.LLM_API_KEY === 'string' && /^[!-~]{1,4096}$/.test(env.LLM_API_KEY)
     && !env.LLM_API_KEY.startsWith('****'), 'preflight_credential_missing');
   requireValue(!env.LLM_PROVIDER || env.LLM_PROVIDER === 'openrouter', 'preflight_provider_unsupported');
   const endpoint = env.LLM_BASE_URL || 'https://openrouter.ai/api/v1';
