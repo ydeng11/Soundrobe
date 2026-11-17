@@ -1,4 +1,83 @@
-# Offline eval handoff, 2026-11-16
+# Offline feedback-loop handoff, updated 2026-11-17
+
+The bounded provider-only baseline/candidate comparison is implemented, reviewed, and shipped to `origin/main` in [b16c8084](https://github.com/ydeng11/Soundrobe/commit/b16c8084bf854ae82a6054932da6285638b722a7). It completed a five-case comparison with six improvements and no regressions or wrong matches. The broader unified provider-and-assistance feedback loop is not complete. This section supersedes the older checkout-state and next-implementation instructions below.
+
+## Resume the existing local checkout
+
+Use `/Users/ihelio/code/auto_tagger` on runner `soundrobe-local`. The implementation shipped at `b16c8084bf854ae82a6054932da6285638b722a7`; local and remote `main` matched after that push. The final fetch/rebase found no changes or conflicts, and the remote tree matched the tested tree. This handoff is a documentation-only follow-up. Inspect current Git state and resume the latest main, which may include later documentation commits.
+
+The intentional `ios-native-probe-0d104d95-source.tgz` and four files in `scripts/__pycache__/` remain untracked and unchanged. The reconciled original edits remain backed up in `.amp/in/artifacts/reconcile-original-20261116/`, including `original-uncommitted-files.tar.gz`, `tracked-edits.patch`, `backup.json`, and `result.json`. The former shipping checkout at `.amp/in/owner-eval-commit-20261116/` remains detached at `3d041679` with its evidence intact. Do not reapply its superseded source edits or delete it to clean up test discovery.
+
+A fresh cloud checkout does not contain the retained executables, dummy media, or historical receipts. Continue locally or explicitly transfer the required inputs. Do not silently substitute a fresh clone. Read `AGENTS.md`, `docs/auto-tag-evaluation.md`, and `scripts/auto-tag-eval-replay/README.md` before implementation.
+
+## Confirm exact-head CI before further implementation
+
+At this refresh, [CodeQL](https://github.com/ydeng11/Soundrobe/actions/runs/44013604108) for `b16c8084` passed; [Tests](https://github.com/ydeng11/Soundrobe/actions/runs/44013604179) is still in progress. Do not infer green Tests from local checks or earlier commits. This thread has active exact-commit CI subscription `0f450d6d-8b2e-403c-82df-5e1142bceee9`. Inspect the final results and resolve any demonstrated blocker caused by these changes.
+
+The owner authorized the completed direct push. GitHub accepted it while required checks were pending. That shipment does not authorize future pushes, deployments, releases, or hosted execution.
+
+## What this thread completed
+
+- Added `scripts/auto-tag-eval-replay/run-paired.cjs` with `freeze` and `compare` commands, an independent `audit-paired.py`, reviewed selections, and regression tests wired into `npm run test:review-eval`.
+- Froze both native executable identities, source snapshots, identical inputs, scoring rules, and budgets. Every case runs under `folder_filename`, `assisted_without_ids`, and `tagged_recovery`, with separate cold caches and warm caches inherited only from their own cold phase. The assisted profile uses existing tags, not a model.
+- Closed the observed Bellyache year-annotation defect with a failing regression, targeted matcher fix, and paired rerun. Comparison ignores only top-level bracketed bare years. Canonical provider titles replace filename year pollution; nested live-performance years and named remix/remaster years remain meaningful.
+- Expanded from two single-track controls to five cases and twenty-two physical files. The added cases cover two-track Guitar Songs, distinct Remix/LP Version mappings in Storms In Africa, and sixteen-track Paint The Sky With Stars. Unsupported remaster claims require unchanged no-write abstentions.
+- Corrected demonstrated report failures through successive red/green review cycles. Incomplete or misbound exports cannot pass no-write controls. Malformed ancillary fields retain both reports and every requested row. Observed wrong writes remain counted despite process or fixture failures. Null/count/binding diagnostics do not invent wrong matches. Partial errors grade independently observed changed files, including excluded MusicBrainz and Discogs IDs, without counting unchanged bad input as a new wrong match. Optional `skipped` status must be Boolean.
+- The final independent standards and specification reviews found no new substantive findings in the latest three fixes. The specification reviewer exercised twenty-five current-versus-archived scenarios. Those probes simulate native-supported exports or malformed diagnostic inputs; they are not induced filesystem faults.
+
+Use the [comparison report](https://ampcode.com/artifacts/offline-tagging-pair-51263e1c-5b73-40db-a048-a2f29e899bf1) and [review history](https://ampcode.com/artifacts/offline-comparison-review-e15528f2-ee00-4fec-a9b1-3488b905cf84) for the detailed iterations rather than reconstructing them from older handoff sections. The implementation thread is [the offline comparison continuation](https://ampcode.com/threads/T-01a1e634-6657-725f-a4bd-74c89e65df48).
+
+## Latest executed comparison
+
+The final pair is `.amp/in/artifacts/paired-safety-classification-20261117/`. All thirty native processes and sixty evaluations completed, retaining 264 physical-file slots. Baseline recovered 18/30 evaluations and abstained twelve times; candidate recovered 24/30 and abstained six times. Each profile improved from 6/10 to 8/10. There were six improvements, zero regressions, and zero wrong matches.
+
+Unavailable evaluations, missing fixtures, skips, process failures, independent metadata-readback failures, and write-safety failures were separately zero for both builds. Both passed all six required no-write controls. Each retained 132 physical-file slots, including 96 unchanged no-write file slots. `validation-summary.json` confirms all 1,622 locks, equal initial media, isolated caches, zero model requests, unchanged protected files, and unchanged reconciliation archive/patch hashes. No required local dependency was missing.
+
+The frozen builds both use base revision `3d04167955ee1b9bc57ffa784459669290ce24b1`. Baseline source is clean; candidate source was dirty and archived before shipping. Do not relabel these historical binaries as builds of the later shipping commit.
+
+- Baseline: `.amp/in/artifacts/paired-baseline-20261116/`, executable SHA-256 `a318fe98d51e5e9d444d9cd9959e2818db283216f6c474ae933b81b12c42ce01`.
+- Candidate: `.amp/in/artifacts/paired-candidate-reviewed-20261117/`, executable SHA-256 `edd052b0b68e9efbabd2815e237aef714ef368e760d4671c2cb73e784700db3e`.
+- Shared limits: 600 seconds per native folder, 1,300 seconds per process, zero model requests. Fixtures, selection, expectations, and limits were identical between builds. The final auditor was archived in the run's `harness.tgz` before execution.
+
+To repeat that exact pair, choose a new output directory and use the existing command. Never rerun into a historical directory.
+
+```sh copy Copy Paired Comparison
+node scripts/auto-tag-eval-replay/run-paired.cjs compare \
+  .amp/in/artifacts/NEW_SAFETY_PAIR \
+  .amp/in/artifacts/paired-baseline-20261116 \
+  .amp/in/artifacts/paired-candidate-reviewed-20261117 \
+  scripts/auto-tag-eval-replay/paired-safety-selection.json
+```
+
+The README declares all local dependencies, including `.amp/in/eval-dummies/original/{corpus.json,media/}`, retained provider fixtures, Python 3, Node, FFmpeg, and cached Rust build dependencies for a new freeze. Missing dependencies must remain explicit. A new candidate requires a new frozen executable and source snapshot; never overwrite either retained build.
+
+## Shipping verification and the baseline exception
+
+Ran `just --no-dotenv check` before pushing. Desktop Rust passed 1,388 tests with 39 explicitly ignored. Server Rust passed 907 unit tests with 34 ignored, plus nineteen integration tests with twelve ignored. All seventeen Python report contracts and both Node CLI controls passed. Mock-provider and review/suite checks passed; detached-checkout duplicates are not extra current-source coverage. Typecheck, the renderer production build, and an explicitly selected offline background-tagging smoke also passed. Credentialed, real-display, and other gated tests were not enabled.
+
+The full gate exited one because Vitest discovered the preserved nested checkout and loaded a second React installation. A temporary unmodified `origin/main` control reproduced all 523 failed-test identifiers exactly; all belonged to the nested checkout. The owner explicitly allowed ignoring failures only after that baseline demonstration. With `.amp` evidence excluded from discovery, the current renderer suite passed all 858 tests in 49 files. No test expectations or tracked test configuration were weakened. The temporary control worktree was removed; the historical worktree was not changed or deleted.
+
+Shipping evidence is `.amp/in/artifacts/ship-offline-comparison-20261117/`, especially `validation-summary.json`, `check.log`, `origin-main-web-control-copied.log`, `current-web-isolated.log`, `background-smoke.log`, and `build-web.log`. No source changed after testing. The paired comparison was not rerun merely for shipment.
+
+## Preserve evidence and keep the remaining scope explicit
+
+The latest correction evidence is `.amp/in/artifacts/report-classification-fixes-20261117/`, including red/intermediate/green logs, the exact auditor diff, and copied review-probe results. Earlier corrections remain in `paired-review-fixes-20261117/` and `three-gap-fixes-20261117/`; the original final-review probes remain in `three-fixes-review-20261117/`. Superseded and incomplete runs are historical evidence, not current success. The source tree contains the portable command, not the ignored execution archive.
+
+The provider-only loop is usable. The broader unified provider-and-assistance comparison, persisted per-field assisted review/highlight checks, real-model quality, acoustic identity, exact-edition proof, multi-disc/duplicate-file expansion, and the full 53-positive matrix remain outside this result. The five cases are inspected development evidence, not blind generalization. At 53 eligible positives, 636 paired evaluations remains a planned count, not an executed run or measured runtime.
+
+When further implementation is requested, first resolve exact-head CI if necessary, then extend this working comparison for the requested bounded case or unified-workflow behavior. Reuse the native coordinator, WriteQueue, retained replay, and owner-offline components. Do not rebuild the comparison command, start another inventory, or reopen general receipt hardening without a demonstrated blocker. Retain the unsupported-remaster no-write expectation.
+
+Hosted/model calls remain disabled. Use retained responses, loopback endpoints, fake credentials, disposable keys, and disposable media. Never write to the original music library or rewrite historical receipts. The graph index references retired Electron code; use current native source when it is stale.
+
+## Suggested skills for continuation
+
+Use `systematic-debugging` for a demonstrated CI or product failure, `test-driven-development` for code changes, and `verification-before-completion` for result claims. Use `graphify` for ownership questions with the stale-index caveat above. For unified behavior, read the existing combined-workflow design before using `brainstorming` or `writing-plans`. Use `writing-prompts`, `pstack:technical-writing`, and `handoff` when updating continuation instructions.
+
+---
+
+## Historical handoff, 2026-11-16
+
+The record below preserves the earlier owner-offline and fixture work. Its statements that the paired command is unimplemented, its old checkout instructions, and its pending older CI instructions are superseded by the current section above.
 
 ## Resume from main
 
