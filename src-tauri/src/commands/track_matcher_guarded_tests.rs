@@ -9,6 +9,84 @@ fn track(title: &str) -> TrackCandidate {
 }
 
 #[test]
+fn bare_year_annotation_does_not_change_remix_identity() {
+    use crate::commands::auto_tag::{
+        provider_candidate_credibility, AlbumCandidate, LookupRequest, LookupSource,
+    };
+
+    for (local, remote, accepted) in [
+        ("Song (2017)", "Song", true),
+        (
+            "Song (Marian Hill Remix) (2017)",
+            "Song (Marian Hill Remix)",
+            true,
+        ),
+        (
+            "Song (Marian Hill Remix) [2003]",
+            "Song (Marian Hill Remix)",
+            true,
+        ),
+        (
+            "Song (Marian Hill Remix) (2017)",
+            "Song (Other Remix)",
+            false,
+        ),
+        ("Song (Marian Hill Remix) (2017)", "Song", false),
+        ("Song (2017 Remix)", "Song (2018 Remix)", false),
+        ("Song (Remastered 2017)", "Song (Remastered 2018)", false),
+        ("Song (Remastered 2017)", "Song", false),
+        ("Song (Live (2017))", "Song (Live (2017))", true),
+        ("Song (Live (2017))", "Song (Live (2018))", false),
+        ("Song [Live [2017]]", "Song [Live [2018]]", false),
+        ("Song (Live [2017])", "Song (Live [2018])", false),
+        ("Song [Live (2017)]", "Song [Live (2018)]", false),
+        ("1999", "2000", false),
+    ] {
+        for tagged_title in [None, Some(local)] {
+            let filename = format!("Artist - {local}");
+            let request = LookupRequest {
+                artist_hint: Some("Artist".into()),
+                album_hint: Some("Album".into()),
+                tracks: vec![TrackCandidate {
+                    title: Some(tagged_title.unwrap_or(&filename).into()),
+                    filename: Some(filename),
+                    length: Some(90.0),
+                    ..Default::default()
+                }],
+                ..Default::default()
+            };
+            let candidate = AlbumCandidate {
+                source: LookupSource::Discogs,
+                artist: Some("Artist".into()),
+                album: Some("Album".into()),
+                tracks: vec![track(remote)],
+                ..Default::default()
+            };
+            assert_eq!(
+                provider_candidate_credibility(&request, &candidate).is_ok(),
+                accepted,
+                "{local} -> {remote}, tagged={tagged_title:?}"
+            );
+            if accepted {
+                let aligned = match_remote_candidate_tracks(
+                    &request.tracks,
+                    &[],
+                    &candidate.tracks,
+                    "discogs",
+                    &["Artist".into()],
+                    &[],
+                );
+                assert_eq!(
+                    aligned.tracks[0].title.as_deref(),
+                    Some(remote),
+                    "canonical display: {local}, tagged={tagged_title:?}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
 fn aligned_titles_remove_only_known_artist_prefixes_confirmed_by_provider() {
     for (local, provider, expected) in [
         ("草東沒有派對 - Intro", "Intro", "Intro"),

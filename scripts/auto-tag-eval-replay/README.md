@@ -1,16 +1,135 @@
-# Reproduce the reviewed native checkpoint
+# Offline native auto-tag replay
 
-These are byte-identical copies of the completed 51-case replay driver, expanded
-auditor, and independent title rubric. They preserve the checkpoint method, not
-the proposed unified provider-and-agent feedback loop. Model assistance is
-disabled by default in the native evaluator. The three input profiles describe available
-local metadata, not separate tagging architectures.
+`run-paired.cjs` compares two frozen native implementations on a small reviewed
+selection. The older 51-case replay driver, expanded auditor, and independent
+title rubric remain byte-identical checkpoint copies. Neither replay evaluates
+the complete unified provider-and-agent workflow. Model assistance stays disabled.
+The three input profiles describe available local metadata, not separate tagging
+architectures.
 
 Run commands from the repository root. Install the normal repository dependencies,
 Python 3, `just`, and FFmpeg first. No original music, provider credentials, or
 model credentials are needed. The replay writes only disposable silent FLACs
 and uses frozen loopback HTTP responses. It does not test acoustic recognition
 or establish local mastering identity.
+
+## Compare a baseline and candidate offline
+
+Use this procedure in the existing checkout. The default `paired-selection.json`
+selects ordinary Bellyache and its Marian Hill remix from the maintained review.
+Both are inspected development cases, not blind holdouts. Each implementation
+runs two cases under `folder_filename`, `assisted_without_ids`, and
+`tagged_recovery`, each cold and warm. That is twelve evaluations per implementation,
+twenty-four in a pair. `assisted_without_ids` uses existing tags, not a model.
+
+The local dependencies are Node with built-in `fetch`, Python 3, FFmpeg, the Rust
+toolchain with cached Cargo dependencies, the retained provider fixtures, and
+`.amp/in/eval-dummies/original/{corpus.json,media/}`. The CLI does not install or
+download dependencies. Missing dependencies stop execution and remain in the
+report. If Python itself is unavailable, stderr names the missing auditor and
+`comparison-inputs.json` retains the requested membership instead of a scored report.
+For absent dummy populations, use the existing dummy-generation procedure below,
+never the original music library. Do not replace existing evidence to rerun setup.
+
+Run from the repository root and choose new output-directory names. Freeze the
+baseline before editing native source:
+
+```sh
+node scripts/auto-tag-eval-replay/run-paired.cjs freeze .amp/in/artifacts/NEW_BASELINE
+```
+
+After implementing and testing a candidate, freeze its executable too:
+
+```sh
+node scripts/auto-tag-eval-replay/run-paired.cjs freeze .amp/in/artifacts/NEW_CANDIDATE
+```
+
+Run the paired comparison with one command:
+
+```sh
+node scripts/auto-tag-eval-replay/run-paired.cjs compare \
+    .amp/in/artifacts/NEW_PAIR \
+    .amp/in/artifacts/NEW_BASELINE .amp/in/artifacts/NEW_CANDIDATE
+```
+
+An optional final argument selects another reviewed selection JSON with the same
+schema. A case needs maintained scored membership, a verified match in its named
+review manifest, local dummy bytes, and unambiguous provider credits. Unsupported
+or missing setup remains unavailable in the full requested denominator. Expanding
+the selection does not independently review new truth.
+
+For a small multi-track/version safety expansion, pass
+`scripts/auto-tag-eval-replay/paired-safety-selection.json` as that final argument.
+It keeps the two Bellyache controls and adds Guitar Songs (two tracks), Storms In
+Africa (Remix and LP Version siblings), and Paint The Sky With Stars (sixteen
+tracks with unsupported filename remaster claims). This requests thirty
+evaluations per implementation, sixty paired evaluations and 264 physical-file
+slots. It uses the same dummy population and reviewed snapshots, not new truth.
+
+```sh
+node scripts/auto-tag-eval-replay/run-paired.cjs compare \
+    .amp/in/artifacts/NEW_SAFETY_PAIR \
+    .amp/in/artifacts/NEW_BASELINE .amp/in/artifacts/NEW_CANDIDATE \
+    scripts/auto-tag-eval-replay/paired-safety-selection.json
+```
+
+The remaster case declares `"requireNoWrite": true`: compatible track content does
+not establish its filename mastering claims. Any write is a wrong match and a
+safety failure, even if independent content readback agrees. A completed unchanged
+abstention passes this control but earns no recovery. Missing, skipped or failed
+work cannot pass it. The report counts required and passed no-write controls
+separately; its six controls per implementation remain in the full denominator.
+
+`freeze` records the Git revision, dirty-source flag, source hashes, source archive,
+diff, executable hash, and tool versions. `compare` copies both executables and
+locks the shared selection, suite inputs, expectations, provider bodies, dummy
+bytes, and comparison scripts. It rejects changed provider-client or album-discovery
+sources between builds rather than silently comparing their different allowances.
+The two arms have identical 600-second native folder limits, 1,300-second outer
+process limits, and zero model requests. Configuration comes from native offline
+defaults, with no inherited credentials or `.env.local` loading.
+
+Every implementation, case, and profile has a new loopback service and a new native
+cache. Warm reuses only its own cold cache and receives fresh disposable media.
+Native request inventories, process exits, phase exports, and source-media hashes
+remain beside the report. A timeout or missing fixture is incomplete work, not an
+abstention or recovery. Never resume into an existing output directory.
+
+Read `comparison.md` for the compact report and `comparison.json` for per-evaluation
+findings. Both retain improvements, regressions, correct recoveries, wrong matches,
+abstentions, missing fixtures, skips, and process failures. Counts of missing fixtures
+and failed processes describe affected evaluation slots, not distinct requests.
+Independent title, performer-credit, album, and physical-file checks determine
+content recovery. Native readback, numbering, payload preservation, no-write
+invariance, and cache isolation are separate checks. Reviewed representative and
+layout counts do not prove acoustic or exact pressing identity.
+
+Both written and no-write results require complete physical-file membership in
+the before/after track lists and all three phase hash exports. Omitted, duplicated,
+or substituted files cannot pass a no-write control. Missing or malformed ancillary
+exports make execution unavailable, but the auditor still emits both reports with
+every requested slot. An observed wrong write remains a wrong match even when its
+process fails or fixtures are missing. Incomplete execution earns no recovery credit.
+Null native readback remains unavailable without discarding known prohibited
+writes. A partial-write error without native completion still grades readable
+files whose full-file hashes changed; unchanged bad input tags are not new wrong
+matches. Ancillary checks validate miss counts, request arrays, execution status,
+and complete source-file sizes and SHA-256 values, not merely JSON syntax.
+Missing, misbound, or incomplete readback is unavailable evidence, not itself an
+observed wrong match. Only observed content/identity mismatches or established
+prohibited writes count as wrong matches. Changed-file readback also rejects
+reviewed hard-negative release IDs when native completion is missing. The optional
+execution `skipped` status must be Boolean; invalid values retain incomplete reports.
+
+The command exits zero only for a complete comparison with no new regressions,
+wrong candidate matches, or candidate readback or safety failures. Abstentions
+remain visible and do not by themselves fail the gate. These are local consistency
+checks of trusted frozen builds, not executable attestation or a hostile-code
+sandbox. Do not rerun the auditor into historical output directories.
+
+`npm run test:review-eval` includes the paired-report and missing-dependency CLI
+contracts. It does not build or run the native matrix. The older checkpoint
+reproduction instructions below remain available for the larger historical suite.
 
 ## Check the disabled hosted HTTP transport offline
 

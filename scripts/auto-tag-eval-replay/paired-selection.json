@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "description": "Inspected development regressions, not blind holdouts. Reviewed content and mapping do not prove acoustic or pressing identity.",
+  "cases": [
+    { "caseId": "e61daee1518d", "population": "original", "manifest": "reviewed-billie-20261108.json" },
+    { "caseId": "0e7c8a578cea", "population": "original", "manifest": "reviewed-billie-20261108.json" }
+  ]
+}

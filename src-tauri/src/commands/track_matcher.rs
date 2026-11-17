@@ -839,8 +839,8 @@ fn aligned_track(
         }
     }
 
-    // Comparison may omit these descriptors, but a proven provider row must
-    // not lose them merely because the local spelling lacks the suffix.
+    // Comparison may omit bare years and these descriptors. Display must still
+    // discard filename year pollution and retain proven provider descriptors.
     static DESCRIPTOR: OnceLock<Regex> = OnceLock::new();
     let descriptor = DESCRIPTOR.get_or_init(|| {
         Regex::new(r"(?i)\s*[\[(](?:skit|instrumental)[\])]\s*$")
@@ -848,9 +848,11 @@ fn aligned_track(
     });
     if api_source && evidence.is_some_and(|value| value != MatchEvidence::Position) {
         if let (Some(display), Some(provider)) = (&result.title, &remote.title) {
-            if descriptor.is_match(provider)
-                && !descriptor.is_match(display)
-                && guarded_title(&descriptor.replace(provider, "")) == guarded_title(display)
+            if (without_year_annotations(display) != *display
+                && normalize_title(display) == normalize_title(provider))
+                || (descriptor.is_match(provider)
+                    && !descriptor.is_match(display)
+                    && guarded_title(&descriptor.replace(provider, "")) == guarded_title(display))
             {
                 result.title = Some(provider.clone());
             }
@@ -965,7 +967,7 @@ fn normalize_title(value: &str) -> String {
     PUNCTUATION
         .get_or_init(|| Regex::new(r"[\p{P}\p{S}]+").expect("valid title punctuation regex"))
         .replace_all(
-            &crate::infra::text::comparison_text(value)
+            &without_year_annotations(&crate::infra::text::comparison_text(value))
                 .nfkc()
                 .collect::<String>()
                 .to_lowercase()
@@ -975,6 +977,39 @@ fn normalize_title(value: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+// Comparison only: a separately bracketed bare year is metadata, not a named
+// performance. Keep years inside remix/remaster labels and unbracketed titles.
+fn without_year_annotations(value: &str) -> String {
+    static YEAR: OnceLock<Regex> = OnceLock::new();
+    let year =
+        YEAR.get_or_init(|| Regex::new(r"^(?:\((?:19|20)\d{2}\)|\[(?:19|20)\d{2}\])").unwrap());
+    let mut brackets = Vec::new();
+    let mut result = String::with_capacity(value.len());
+    let mut skip_until = 0;
+    for (index, character) in value.char_indices() {
+        if index < skip_until {
+            continue;
+        }
+        if matches!(character, '(' | '[') {
+            if brackets.is_empty() {
+                if let Some(annotation) = year.find(&value[index..]) {
+                    result.push(' ');
+                    skip_until = index + annotation.end();
+                    continue;
+                }
+            }
+            brackets.push(character);
+        } else if matches!(
+            (brackets.last(), character),
+            (Some('('), ')') | (Some('['), ']')
+        ) {
+            brackets.pop();
+        }
+        result.push(character);
+    }
+    result
 }
 
 // Word boundaries are comparison-only, and only under the complete-list
@@ -1068,7 +1103,7 @@ pub(super) fn track_versions_compatible(
     });
     let qualifiers = |title: &str| {
         brackets
-            .captures_iter(&version_delimiters(title))
+            .captures_iter(&without_year_annotations(&version_delimiters(title)))
             .filter_map(|capture| {
                 let value = remaster.replace_all(&capture[1], "");
                 let value =

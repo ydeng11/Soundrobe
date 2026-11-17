@@ -203,7 +203,7 @@ describe("package scripts", () => {
     expect(scripts.test).toBe("npm run test:web && npm run test:rust && npm run test:mock-provider && npm run test:review-eval");
     expect(scripts["test:rust"]).toBe("cargo test --manifest-path src-tauri/Cargo.toml");
     expect(scripts["test:mock-provider"]).toBe("vitest run test/scripts/mock-provider-service.test.ts");
-    expect(scripts["test:review-eval"]).toBe("vitest run test/scripts/review-auto-tag-subset.test.ts test/scripts/build-auto-tag-eval-suite.test.ts");
+    expect(scripts["test:review-eval"]).toBe("vitest run test/scripts/review-auto-tag-subset.test.ts test/scripts/build-auto-tag-eval-suite.test.ts && python3 -B scripts/auto-tag-eval-replay/test_paired.py && node --test scripts/auto-tag-eval-replay/test_paired_cli.cjs");
     expect(scripts["test:native-node"]).toBeUndefined();
   });
 

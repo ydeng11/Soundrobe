@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "description": "Small inspected development safety set: Bellyache controls, two-track Guitar Songs, sibling Remix/LP Storms In Africa mappings, and unsupported Remastered 1997 claims that must not write. Reviewed content does not prove mastering or pressing identity.",
+  "cases": [
+    { "caseId": "e61daee1518d", "population": "original", "manifest": "reviewed-billie-20261108.json" },
+    { "caseId": "0e7c8a578cea", "population": "original", "manifest": "reviewed-billie-20261108.json" },
+    { "caseId": "60ebec7ffadb", "population": "original", "manifest": "reviewed-billie-20261108.json" },
+    { "caseId": "f8d9f037f888", "population": "original", "manifest": "reviewed-subset.json" },
+    { "caseId": "f7756354af37", "population": "original", "manifest": "reviewed-expansion-2-20261108.json", "requireNoWrite": true }
+  ]
+}
