@@ -3,7 +3,7 @@
 `run-paired.cjs` compares two frozen native implementations on a small reviewed
 selection. The older 51-case replay driver, expanded auditor, and independent
 title rubric remain byte-identical checkpoint copies. Neither replay evaluates
-the complete unified provider-and-agent workflow. Model assistance stays disabled.
+the complete unified provider-and-agent workflow. Model assistance is disabled by default.
 The three input profiles describe available local metadata, not separate tagging
 architectures.
 
@@ -85,9 +85,33 @@ diff, executable hash, and tool versions. `compare` copies both executables and
 locks the shared selection, suite inputs, expectations, provider bodies, dummy
 bytes, and comparison scripts. It rejects changed provider-client or album-discovery
 sources between builds rather than silently comparing their different allowances.
-The two arms have identical 600-second native folder limits, 1,300-second outer
-process limits, and zero model requests. Configuration comes from native offline
+The two arms have identical 600-second native folder limits and 1,300-second
+outer process limits. The default mode allows zero model requests. Configuration comes from native offline
 defaults, with no inherited credentials or `.env.local` loading.
+
+For the scripted genre control, use the same frozen executables with a fresh
+output directory:
+
+```sh
+node scripts/auto-tag-eval-replay/run-paired.cjs compare \
+    .amp/in/artifacts/NEW_ASSISTED_PAIR \
+    .amp/in/artifacts/NEW_BASELINE .amp/in/artifacts/NEW_CANDIDATE \
+    --scripted-genre-assistance
+```
+
+This selects the complete five-case safety set and adds one supplemental
+Guitar Songs failure job. Across cold and warm phases there are 32 evaluations
+and 136 physical-file slots per implementation. The assisted Guitar Songs
+profile uses counterfactual loopback responses so the matched Discogs release
+has a structured source note and no competing provider genre. The other two
+profiles check the unmodified provider genre. The model fixture allows two
+requests per job in either arm and returns a terminal HTTP 400 in the failure
+control. The candidate must fill the two blank genres and retain open per-file
+review obligations when it has a fresh source. When the warm cache supplies no
+fresh capture, the candidate must preserve provider metadata and leave the
+genres blank. The report separately counts model failures observed and cached
+sources withheld. This is deterministic workflow evidence from a synthetic
+source and scripted responses.
 
 Every implementation, case, and profile has a new loopback service and a new native
 cache. Warm reuses only its own cold cache and receives fresh disposable media.

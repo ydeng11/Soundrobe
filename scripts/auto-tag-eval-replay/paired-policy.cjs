@@ -100,7 +100,33 @@ function rebaseManifestBodyFiles(manifest, sourceManifestPath, targetManifestPat
   }) };
 }
 
-function pairedGenreServiceManifest(base, fixture, job) {
+function isolateGenreSource(record, fixture, readBody) {
+  const query = new URLSearchParams(record.query ?? {});
+  const musicbrainzList = record.provider === 'musicbrainz' && record.path === '/release';
+  const musicbrainzSearch = musicbrainzList && query.get('query')?.includes(`release:"${fixture.album}"`);
+  const discogsSearch = record.provider === 'discogs' && record.path === '/database/search'
+    && query.get('release_title')?.toLowerCase() === fixture.album.toLowerCase();
+  if (!musicbrainzList && !discogsSearch) return record;
+  const body = record.body ?? (record.bodyFile && readBody?.(record.bodyFile));
+  if (!body) return record;
+  let replacement;
+  if (musicbrainzSearch && Array.isArray(body.releases)) {
+    replacement = { ...body, releases: [], 'release-count': 0 };
+  } else if (musicbrainzList && body.releases?.some(release => release.title?.toLowerCase() === fixture.album.toLowerCase())) {
+    // Keep the page shape so the existing browse offsets still apply.
+    replacement = { ...body, releases: body.releases.map(release =>
+      release.title?.toLowerCase() === fixture.album.toLowerCase()
+        ? { ...release, title: 'Withheld in synthetic genre control', 'release-group': undefined } : release) };
+  } else if (discogsSearch && Array.isArray(body.results)) {
+    const results = body.results.filter(result => String(result.id) === String(fixture.releaseId));
+    replacement = { ...body, results, pagination: { ...body.pagination, items: results.length, pages: 1 } };
+  }
+  if (!replacement) return record;
+  const { bodyFile, sha256, ...original } = record;
+  return { ...original, body: replacement };
+}
+
+function pairedGenreServiceManifest(base, fixture, job, readBody) {
   if (!fixture || fixture.label !== 'synthetic_loopback_counterfactual'
       || !job || job.caseId !== fixture.caseId) return base;
   const releaseId = String(fixture.releaseId);
@@ -117,7 +143,8 @@ function pairedGenreServiceManifest(base, fixture, job) {
   }
   const expectedQuery = querySignature(expectedRoute.query);
   const records = (base.records ?? []).filter(record => !(record.provider === expectedRoute.provider
-    && record.path === expectedRoute.path && querySignature(record.query) === expectedQuery));
+    && record.path === expectedRoute.path && querySignature(record.query) === expectedQuery))
+    .map(record => assisted ? isolateGenreSource(record, fixture, readBody) : record);
   records.push({ ...expectedRoute, status: 200, body });
   if (!assisted) return { ...base, records };
   if (job.scenario && job.scenario !== 'assistance_failure') {
@@ -135,7 +162,7 @@ function pairedGenreServiceManifest(base, fixture, job) {
       text: fixture.sourceText,
       genre: fixture.genre,
     },
-    ...(job.scenario === 'assistance_failure' ? { status: 503 } : {}),
+    ...(job.scenario === 'assistance_failure' ? { status: 400 } : {}),
     response: { genre: fixture.genre, confidence: 0.8 },
   } };
 }

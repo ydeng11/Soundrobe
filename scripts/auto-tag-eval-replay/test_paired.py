@@ -27,9 +27,9 @@ class PairedReportTests(unittest.TestCase):
         fixture = dict(label='synthetic_loopback_counterfactual', releaseId='42',
                        route=dict(provider='discogs', path='/releases/42', query={}),
                        successReleaseResponse=body, sourceText=body['notes'], genre='Dream pop')
-        route = dict(provider='discogs', path='/releases/42', query={}, status=200, sha256=body_sha)
+        route = dict(provider='discogs', path='/releases/42', query='[]', status=200, sha256=body_sha)
         inventory = dict(records=[route], requests=[dict(provider='discogs', path='/releases/42',
-                                                           query={}, status=200)])
+                                                           query=[], status=200)])
         request_tracks = [dict(title='Song', filename='01 Song')]
         mapping = dict(coverage=1, remoteIndices=[0], evidence=['TagTitle'], providerTracks=[
             dict(title='Song', track_number=1), dict(title='Other', track_number=2)])
@@ -136,7 +136,7 @@ class PairedReportTests(unittest.TestCase):
                             trackMappingSha256='b' * 64)
                     payloads.append(dict(payload=payload))
                 self.save(supplemental / 'inventory.json', dict(misses=[],
-                    modelRequests=[dict(status=503, payloadClass=payload_class)] * 2,
+                    modelRequests=[dict(status=400, payloadClass=payload_class)] * 2,
                     modelPayloads=payloads))
             report = self.report(root, expected_exit=0)
             self.assertEqual(report['requestedEvaluationsPerImplementation'], 4)
@@ -185,6 +185,23 @@ class PairedReportTests(unittest.TestCase):
                                  if row.get('scenario') == 'assistance_failure' and row['phase'] == 'cold')
             self.assertTrue(candidate_row['unavailable'])
             self.assertEqual(candidate_row['reason'], 'missing, duplicate or misbound native phase')
+
+    def test_cached_source_withholding_checks_readback_and_obligations(self):
+        path = '/tmp/warm/TV.flac'
+        record = dict(beforeTracks=[dict(path=path, genre=None)],
+                      readbackTracks=[dict(path=path, genre=None)],
+                      fieldReviewObligationsAfterRestart={path: []}, native=dict(written=1))
+        self.assertEqual(paired.cached_source_withholding_failures(record), [])
+        for patch in [
+            dict(readbackTracks=[dict(path=path, genre='Dream pop')]),
+            dict(fieldReviewObligationsAfterRestart={path: [dict(field='genre')]}),
+            dict(fieldReviewObligationsAfterRestart={'/unrelated/TV.flac': []}),
+            *(dict(fieldReviewObligationsAfterRestart={path: item})
+              for item in [None, {}, False, 0, '']),
+            dict(native=dict(candidate=dict(assisted_genre={'value': 'Dream pop'}))),
+            dict(serviceFailureObserved=True),
+        ]:
+            self.assertTrue(paired.cached_source_withholding_failures(record | patch))
 
     def test_required_candidate_fill_rejects_empty_readback_and_no_obligations(self):
         record = dict(phase='cold', caseId='case', native=dict(candidate=dict(assisted_genre=dict(
@@ -287,9 +304,9 @@ class PairedReportTests(unittest.TestCase):
             native=dict(written=2, candidate=dict(discogs_release_id=fixture['releaseId'])),
             fieldReviewObligationsAfterRestart={track['path']: [] for track in tracks})
         inventory = dict(records=[dict(provider='discogs', path=fixture['route']['path'],
-            query={}, status=200, sha256=hashlib.sha256(json.dumps(body, ensure_ascii=False,
+            query='[]', status=200, sha256=hashlib.sha256(json.dumps(body, ensure_ascii=False,
                 separators=(',', ':')).encode()).hexdigest())],
-            requests=[dict(provider='discogs', path=fixture['route']['path'], query={}, status=200)],
+            requests=[dict(provider='discogs', path=fixture['route']['path'], query=[], status=200)],
             modelRequests=[], modelPayloads=[], wireArrivals=[])
 
         def audit(mutated=record, observed=inventory):

@@ -114,7 +114,16 @@ test('paired synthetic source fixture keeps one route and one model allowance ac
   const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'synthetic-genre-source.json'), 'utf8'));
   const base = { schemaVersion: 1, records: [
     { provider: 'discogs', path: `/releases/${fixture.releaseId}`, query: {}, body: { id: Number(fixture.releaseId) } },
-    { provider: 'musicbrainz', path: '/release', query: {}, body: {} },
+    { provider: 'musicbrainz', path: '/release', query: {}, body: {
+      'release-count': 2, releases: [{ title: fixture.album }, { title: 'Unrelated' }],
+    } },
+    { provider: 'musicbrainz', path: '/release',
+      query: { query: `artist:"${fixture.artist}" AND release:"${fixture.album}"` },
+      body: { 'release-count': 1, releases: [{ title: fixture.album }] } },
+    { provider: 'discogs', path: '/database/search', query: { release_title: fixture.album }, body: {
+      results: [{ id: Number(fixture.releaseId) }, { id: 25304182, genre: ['Rock'] }],
+      pagination: { items: 2, pages: 1 },
+    } },
   ] };
   const job = { caseId: fixture.caseId, profile: fixture.profile };
   const assisted = pairedGenreServiceManifest(base, fixture, job);
@@ -122,6 +131,11 @@ test('paired synthetic source fixture keeps one route and one model allowance ac
     && record.path === `/releases/${fixture.releaseId}`).length, 1);
   assert.deepEqual(assisted.records.find(record => record.provider === 'discogs'
     && record.path === `/releases/${fixture.releaseId}`).body, fixture.successReleaseResponse);
+  assert.deepEqual(assisted.records.find(record => record.provider === 'musicbrainz').body.releases,
+    [{ title: 'Withheld in synthetic genre control', 'release-group': undefined }, { title: 'Unrelated' }]);
+  assert.deepEqual(assisted.records.find(record => record.query?.query).body.releases, []);
+  assert.deepEqual(assisted.records.find(record => record.path === '/database/search').body.results,
+    [{ id: Number(fixture.releaseId) }]);
   assert.equal(assisted.scriptedModel.maxRequests, 2);
   assert.deepEqual(assisted.scriptedModel.pairedGenre.tracks,
     fixture.successReleaseResponse.tracklist.map(track => track.title));
@@ -130,7 +144,7 @@ test('paired synthetic source fixture keeps one route and one model allowance ac
   const failure = pairedGenreServiceManifest(base, fixture,
     { ...job, scenario: 'assistance_failure' });
   assert.equal(failure.scriptedModel.maxRequests, assisted.scriptedModel.maxRequests);
-  assert.equal(failure.scriptedModel.status, 503);
+  assert.equal(failure.scriptedModel.status, 400);
   assert.deepEqual(failure.records, assisted.records);
 
   const precedence = pairedGenreServiceManifest(base, fixture,

@@ -214,7 +214,9 @@ async function compare(output, baseline, candidate, selectionFile, assistance) {
         const suffix = job.scenario ? `-${job.scenario}` : '';
         const serviceManifest = path.join(fixtureDirectory, `${job.caseId}-${job.profile}${suffix}.json`);
         const jobManifest = rebaseManifestBodyFiles(
-          pairedGenreServiceManifest(baseManifest, sourceFixture, job), manifest, serviceManifest, providerFixtureRoot);
+          pairedGenreServiceManifest(baseManifest, sourceFixture, job,
+            bodyFile => read(approvedManifestBodyPath(manifest, bodyFile, providerFixtureRoot))),
+          manifest, serviceManifest, providerFixtureRoot);
         save(serviceManifest, jobManifest);
         lock(serviceManifest);
         for (const record of jobManifest.records) if (record.bodyFile) {

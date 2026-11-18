@@ -16,7 +16,7 @@ sha = lambda file: hashlib.sha256(Path(file).read_bytes()).hexdigest()
 def audit_phase(context, records, case, truth, review, expected, require_no_write=False,
                 source_fixture=None, inventory=None, require_assisted_write=False,
                 require_no_assisted_obligation=False, expected_run_id=None,
-                allow_legacy_scenario=False):
+                allow_legacy_scenario=False, withhold_cached_source=False):
     row = dict(**context, recovery='unavailable', readbackFailures=[], safetyFailures=[],
                missingFixtures=0, processFailure=False, skipped=False, unavailable=False,
                requiredNoWrite=require_no_write, providerPrecedenceControl=False,
@@ -37,6 +37,11 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
                reopenedFieldReviewObligations=record.get('fieldReviewObligationsAfterRestart'),
                jobScriptedModelPayloads=(inventory or {}).get('modelPayloads', []))
     native = record.get('native') or {}
+    if withhold_cached_source:
+        failures = cached_source_withholding_failures(record)
+        row['safetyFailures'].extend(failures)
+        row['unavailable'] = bool(failures)
+        row['cachedSourceWithheld'] = not failures
     precedence_control, precedence_genre, precedence_genre_failures, precedence_safety_failures, precedence_unavailable = provider_precedence_check(
         record, context, case, source_fixture, inventory, require_no_assisted_obligation)
     precedence_failures = precedence_genre_failures + precedence_safety_failures + precedence_unavailable
@@ -174,15 +179,32 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
     row['recovery'] = ('wrong_match' if content_failures or row['providerPrecedenceGenreFailures']
                        or (require_no_write and (native.get('written') or changed_files))
                        else 'correct' if native.get('written') and not row['unavailable'] else 'unavailable')
-    if expected_failure_control:
+    if expected_failure_control and not withhold_cached_source:
         requests = inventory.get('modelRequests', []) if isinstance(inventory, dict) else []
-        if not requests or any(request.get('status') != 503 for request in requests) or not native.get('written'):
+        if not requests or any(request.get('status') != 400 for request in requests) or not native.get('written'):
             row['safetyFailures'].append('scripted model failure did not preserve a provider metadata write')
             row['unavailable'] = True
             row['recovery'] = 'unavailable'
         else:
             row['assistanceFailureObserved'] = True
     return row
+
+
+def cached_source_withholding_failures(record):
+    before = record.get('beforeTracks')
+    after = record.get('readbackTracks')
+    obligations = record.get('fieldReviewObligationsAfterRestart')
+    if not before or not isinstance(after, list) or len(before) != len(after) \
+            or not isinstance(obligations, dict):
+        return ['cached-source control lacks physical readback or reopened review evidence']
+    paths = [track['path'] for track in before]
+    candidate = (record.get('native') or {}).get('candidate') or {}
+    if (candidate.get('assisted_genre') is not None or record.get('serviceFailureObserved')
+            or set(obligations) != set(paths) or any(value != [] for value in obligations.values())
+            or [(t['path'], t.get('genre')) for t in before] !=
+               [(t['path'], t.get('genre')) for t in after]):
+        return ['cached-source control did not withhold assistance for every physical file']
+    return []
 
 
 def provider_precedence_check(record, context, case, source_fixture, inventory,
@@ -224,10 +246,10 @@ def provider_precedence_check(record, context, case, source_fixture, inventory,
             separators=(',', ':')).encode()).hexdigest() if isinstance(body, dict) else None
         routes = [item for item in inventory.get('records', [])
                   if item.get('provider') == 'discogs' and item.get('path') == expected_route['path']
-                  and item.get('query', {}) == {}]
+                  and item.get('query') in ({}, [], '[]')]
         requests = [item for item in inventory.get('requests', [])
                     if item.get('provider') == 'discogs' and item.get('path') == expected_route['path']
-                    and item.get('query', {}) == {}]
+                    and item.get('query') in ({}, [], '[]')]
         if len(routes) != 1 or routes[0].get('status') != 200 or routes[0].get('sha256') != expected_sha:
             unavailable.append('provider-precedence fixture response differs from the locked source body')
         if not requests or any(item.get('status') != 200 for item in requests):
@@ -290,7 +312,14 @@ def scripted_model_failures(record, inventory, job, arm, source_fixture):
     failures = []
     if not isinstance(requests, list) or not 1 <= len(requests) <= 2 or len(payloads) != len(requests):
         return ['source case model requests do not match the cold/warm allowance']
-    expected_status = 503 if failure_control else 200
+    expected_status = 400 if failure_control else 200
+    cached_source_control = arm == 'candidate' and source_fixture.get('candidateWarmAssistance') == 'withhold_cached_source'
+    if cached_source_control and len(requests) != 1:
+        failures.append('cached-source job must make exactly one cold model request')
+    if cached_source_control and record.get('phase') == 'warm':
+        return failures
+    if cached_source_control and failure_control and not record.get('serviceFailureObserved'):
+        failures.append('cold failure control did not observe model failure')
     if any(item.get('status') != expected_status for item in requests):
         failures.append('scripted model status differs from declared scenario')
     expected_class = 'title_only_baseline' if arm == 'baseline' else 'synthetic_discogs_source'
@@ -380,10 +409,10 @@ def source_mapping_failures(record, case, truth, source_fixture, inventory):
         route = f'/releases/{release_id}'
         route_records = [item for item in inventory.get('records', [])
                          if item.get('provider') == 'discogs' and item.get('path') == route
-                         and item.get('query', {}) == {}]
+                         and item.get('query') in ({}, [], '[]')]
         route_requests = [item for item in inventory.get('requests', [])
                           if item.get('provider') == 'discogs' and item.get('path') == route
-                          and item.get('query', {}) == {} and item.get('status') == 200]
+                          and item.get('query') in ({}, [], '[]') and item.get('status') == 200]
         if len(route_records) != 1 or route_records[0].get('sha256') != response_sha or not route_requests:
             failures.append('loopback inventory does not contain the locked source route/body')
         request_json = json.loads(record.get('fieldObservations', {}).get('requestJson', 'null'))
@@ -559,6 +588,8 @@ def summarize(before, after):
                     sourceBoundAssistanceWithOpenObligation=sum(r.get('reviewPersistence') == 'open_per_file_obligations'
                         and not r['unavailable'] for r in rows),
                     sourceFreeAssistanceObservations=sum(r.get('reviewPersistence') == 'source_free_assistance' for r in rows),
+                    cachedSourceWithheld=sum(r.get('cachedSourceWithheld', False)
+                        and not r['unavailable'] and not r['safetyFailures'] for r in rows),
                     assistanceFailureControls=sum(r.get('scenario') == 'assistance_failure' for r in rows),
                     passedAssistanceFailureControls=sum(bool(r.get('scenario') == 'assistance_failure'
                         and r.get('assistanceFailureObserved') and r.get('written', 0) > 0
@@ -700,17 +731,22 @@ def audit(root):
                         arm == 'baseline' and job.get('supplemental') is True
                         and job.get('scenario') and not runner_context_failures
                         and 'scenario' not in record)
-                    require_assisted_write = (arm == 'candidate' and not job.get('scenario')
-                        and isinstance(snapshot.get('syntheticGenreSource'), dict)
-                        and job.get('caseId') == snapshot['syntheticGenreSource'].get('caseId')
-                        and job.get('profile') == snapshot['syntheticGenreSource'].get('profile'))
+                    source_fixture = snapshot.get('syntheticGenreSource') or {}
+                    assisted_candidate = (arm == 'candidate'
+                        and job.get('caseId') == source_fixture.get('caseId')
+                        and job.get('profile') == source_fixture.get('profile'))
+                    withhold_cached_source = (assisted_candidate and phase == 'warm'
+                        and source_fixture.get('candidateWarmAssistance') == 'withhold_cached_source')
+                    require_assisted_write = (assisted_candidate and not job.get('scenario')
+                        and not withhold_cached_source)
                     row = audit_phase(context, phases[phase], job['case'], job['truth'], job['review'], job['expected'],
                                       require_no_write=job.get('requireNoWrite', False),
                                       source_fixture=snapshot.get('syntheticGenreSource'), inventory=inventory,
                                       require_assisted_write=require_assisted_write,
                                       require_no_assisted_obligation=arm == 'candidate',
                                       expected_run_id=expected_run_id,
-                                      allow_legacy_scenario=allow_legacy_scenario)
+                                      allow_legacy_scenario=allow_legacy_scenario,
+                                      withhold_cached_source=withhold_cached_source)
                 except (KeyError, TypeError, ValueError, IndexError) as error:
                     row = audit_phase(context, [], {}, {}, {}, {}, job.get('requireNoWrite', False)) | dict(
                         reason=f'invalid phase export: {error}')
@@ -721,9 +757,7 @@ def audit(root):
                     phases[phase][0], inventory, job, arm, snapshot.get('syntheticGenreSource')) \
                     if len(phases[phase]) == 1 else ['missing or duplicate model-observation phase']
                 row['safetyFailures'].extend(model_failures)
-                expected_model_failure = job.get('scenario') == 'assistance_failure'
-                row['missingFixtures'] = sum(m.get('count', 1) for m in inventory.get('misses', [])
-                    if not (expected_model_failure and m.get('provider') == 'scripted_model' and m.get('status') == 503))
+                row['missingFixtures'] = sum(m.get('count', 1) for m in inventory.get('misses', []))
                 row['safetyFailures'].extend(evidence_failures)
                 row['safetyFailures'].extend(runner_context_failures)
                 if evidence_failures or model_failures or row['processFailure'] or row['skipped'] or row['missingFixtures'] or not inventory:
@@ -741,12 +775,19 @@ def audit(root):
                         or cold.get('profileBaseline') != warm.get('profileBaseline')):
                     for row in result[-2:]:
                         row['safetyFailures'].append('cold/warm cache or initial media isolation')
+                # An accepted fresh source can fill genre and open review on cold only.
+                # The warm-phase oracle separately verifies unchanged genre and zero obligations.
+                expected_genre_delta = (not job.get('scenario') and result[-1].get('cachedSourceWithheld')
+                    and result[-2].get('reviewPersistence') == 'open_per_file_obligations'
+                    and cold.get('outcome') == 'needs_review' and warm.get('outcome') == 'applied')
                 def portable(record):
                     tracks = record.get('readbackTracks')
                     if not isinstance(tracks, list) or not all(isinstance(t, dict) for t in tracks):
                         return None
-                    return [{k: v for k, v in t.items() if k not in ['path', 'sizeBytes', 'bitrate']} for t in tracks]
-                if cold.get('outcome') != warm.get('outcome') or portable(cold) != portable(warm):
+                    return [{k: v for k, v in t.items() if k not in ['path', 'sizeBytes', 'bitrate']
+                             and not (expected_genre_delta and k == 'genre')} for t in tracks]
+                if ((not expected_genre_delta and cold.get('outcome') != warm.get('outcome'))
+                        or portable(cold) != portable(warm)):
                     for row in result[-2:]:
                         row['safetyFailures'].append('cold/warm output drift')
             if execution and (not source_before or not source_after or source_before != source_after):

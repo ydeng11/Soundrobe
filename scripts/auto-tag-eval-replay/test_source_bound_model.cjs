@@ -14,7 +14,7 @@ test('scripted source response binds the expected case and observation envelope 
   const fixturePath = path.join(__dirname, 'synthetic-genre-source.json');
   const fixture = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   assert.equal(fixture.label, 'synthetic_loopback_counterfactual');
-  assert.equal(sha(fs.readFileSync(fixturePath)), '2b12dc376d19b33f62d15f2703733af574c12c8551e00e754cd1fa5437e24aa4');
+  assert.equal(sha(fs.readFileSync(fixturePath)), '4d242f7af8d86be308487c00a27fd93105c33a5cdd541b2fb1af4ab85ba5f127');
   const text = fixture.sourceText;
   const body = fixture.successReleaseResponse;
   const responseBody = JSON.stringify(body);

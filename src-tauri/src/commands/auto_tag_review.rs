@@ -1035,7 +1035,7 @@ mod tests {
                     }
                 }
                 let request = String::from_utf8(bytes[..request_end].to_vec()).unwrap();
-                let (status, body) = if request.starts_with("GET /releases/42 ") {
+                let (status, body) = if request.starts_with("GET /discogs/releases/42 ") {
                     ("200 OK", json!({
                         "id":42,
                         "title":"Synthetic Album",
@@ -1092,7 +1092,9 @@ mod tests {
         };
         let candidate =
             crate::commands::auto_tag::capture_runtime_assisted_genre_candidate_for_test(
-                &request, &base, &base,
+                &request,
+                &format!("{base}/discogs"),
+                &base,
             )
             .await
             .unwrap();

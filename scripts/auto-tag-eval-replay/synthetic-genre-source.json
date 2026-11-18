@@ -4,6 +4,7 @@
   "description": "Counterfactual source body for offline workflow only. Derived from a retained Discogs response; genre/style removed and notes inserted for the scripted scenario. It is not independent real-world evidence or a quality label.",
   "caseId": "60ebec7ffadb",
   "profile": "assisted_without_ids",
+  "candidateWarmAssistance": "withhold_cached_source",
   "route": {
     "provider": "discogs",
     "path": "/releases/23956340",

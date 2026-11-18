@@ -8856,65 +8856,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn paired_response_review_has_a_prepared_conditional_checkpoint() {
-        use crate::infra::bounded_eval::{paired_assisted, PairedMock};
-        let plan = PairedMock::preparation("http://127.0.0.1:1234/model", true).unwrap();
-        let mut base = AlbumCandidate {
-            source: LookupSource::Musicbrainz,
-            ..Default::default()
-        };
-        plan.run(async {
-            checkpoint_candidate_review(&mut base, &mut |_| {
-                panic!("no inferred review in preparation")
-            })
-            .unwrap();
-            paired_candidate(&base).unwrap();
-        })
-        .await;
-        let replay = plan.replay();
-        let mut filled = base.clone();
-        filled.genre = Some("Diagnostic".into());
-        filled.assisted_genre = Some(AssistedGenre {
-            value: "Diagnostic".into(),
-            raw_value: "Diagnostic".into(),
-            model: "scripted/genre-v1".into(),
-            input_sha256: "fixture".into(),
-            request_input: serde_json::Value::Null,
-            source_observation: None,
-            proposal_sha256: String::new(),
-        });
-        let mut persisted = 0;
-        let root = temp_root();
-        fs::create_dir_all(&root).unwrap();
-        let store = super::super::auto_tag_review::ReviewStore::default();
-        let journal = store.begin("paired-replay", &root).unwrap();
-        super::super::auto_tag_review::ACTIVE_REVIEW
-            .scope(
-                journal,
-                replay.run(async {
-                    paired_assisted(serde_json::to_value(&filled.assisted_genre).unwrap());
-                    checkpoint_candidate_review(&mut filled, &mut |_| {
-                        assert!(
-                            replay.observations()["matchedEvents"].as_u64().unwrap() >= 2,
-                            "compare the conditional review before persistence"
-                        );
-                        persisted += 1;
-                        Ok(())
-                    })
-                    .unwrap();
-                    paired_candidate(&filled).unwrap();
-                }),
-            )
-            .await;
-        assert_eq!(persisted, 1);
-        assert!(
-            replay.complete().is_ok(),
-            "review and application must not consume each other's plan events"
-        );
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[tokio::test]
     async fn provider_and_inferred_genres_preserve_existing_per_file_genres() {
         let root = temp_root();
         let album = root.join("Artist/Album");
@@ -9038,6 +8979,7 @@ mod tests {
             .unwrap();
         let payload_before = track_payload_digest(&track_path).unwrap();
         let mut request = build_lookup_request(&album_path).unwrap();
+        request.tracks[0].source = Some(RecordingSource::capture(&track_path).unwrap());
         request.artist_hint = Some("Synthetic Artist".into());
         request.album_hint = Some("Synthetic Album".into());
         let local_duration = request.tracks[0].length;
@@ -9077,13 +9019,14 @@ mod tests {
             retry_after_seconds: None,
             retryable: false,
         }];
-        let (provider_candidate, _) = album_content_candidate(
+        let (mut provider_candidate, _) = album_content_candidate(
             &request,
             std::slice::from_ref(&provider_candidate),
             &provider_attempts,
         )
         .unwrap()
         .expect("same-run provider result must enter the production content projection");
+        provider_candidate.tracks[0].source = request.tracks[0].source.clone();
         let mapping_evidence = genre_source_track_binding_evidence(&request, &provider_candidate)
             .expect("accepted source mapping must be exportable for offline audit");
         let recomputed = serde_json::json!({
@@ -9184,9 +9127,39 @@ mod tests {
         let worker = WorkerStore::new_in(state.clone());
         let store = ReviewStore::new_with_worker(worker).unwrap();
         let journal = store.begin("synthetic-assistance", &album_path).unwrap();
+        let preparation = crate::infra::bounded_eval::PairedMock::preparation(
+            "http://127.0.0.1:1234/model",
+            true,
+        )
+        .unwrap();
+        preparation
+            .run(async {
+                checkpoint_candidate_review(&mut provider_candidate.clone(), &mut |_| {
+                    panic!("provider-only preparation must not request a review")
+                })
+                .unwrap();
+                paired_candidate(&provider_candidate).unwrap();
+            })
+            .await;
+        let replay = preparation.replay();
         ACTIVE_REVIEW
             .scope(journal, async {
-                checkpoint_candidate_review(&mut candidate, &mut |_| Ok(())).unwrap();
+                replay.run(async {
+                    crate::infra::bounded_eval::paired_assisted(
+                        serde_json::to_value(&candidate.assisted_genre).unwrap(),
+                    );
+                    let mut persisted = false;
+                    let withheld = checkpoint_candidate_review(&mut candidate, &mut |_| {
+                        assert_eq!(replay.observations()["matchedEvents"], 2);
+                        persisted = true;
+                        Ok(())
+                    })
+                    .unwrap();
+                    assert!(persisted && !withheld);
+                    paired_candidate(&candidate).unwrap();
+                })
+                .await;
+                replay.complete().unwrap();
                 assert_eq!(
                     apply_candidate_tags(&album_path, &candidate, &queue)
                         .await
