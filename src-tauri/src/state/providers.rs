@@ -484,7 +484,189 @@ pub struct DiscogsReleaseReceipt {
     pub response_status: u16,
     pub response_sha256: String,
     pub response_body: String,
+    // BEGIN PAIRED_PROVIDER_RECEIPT_FIELD
+    #[serde(skip)]
+    retrieval_origin: Option<DiscogsReceiptCapture>,
+    // END PAIRED_PROVIDER_RECEIPT_FIELD
 }
+// BEGIN PAIRED_PROVIDER_RECEIPT_HELPERS
+#[cfg(test)]
+pub(crate) const OFFLINE_DISCOGS_PATH_PREFIX: &str = "/discogs";
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DiscogsReceiptOrigin {
+    OfficialDiscogs,
+    #[cfg(test)]
+    SyntheticLoopback,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct DiscogsReceiptCapture {
+    origin: DiscogsReceiptOrigin,
+    request_method: String,
+    request_path: String,
+    request_url: String,
+    response_url: String,
+    resource_kind: String,
+    resource_id: String,
+    response_status: u16,
+    response_sha256: String,
+}
+
+pub(crate) struct DiscogsGenreNotesObservation {
+    resource_id: String,
+    response_sha256: String,
+    text_sha256: String,
+    text: String,
+    origin: DiscogsReceiptOrigin,
+}
+
+impl DiscogsGenreNotesObservation {
+    pub(crate) fn resource_id(&self) -> &str {
+        &self.resource_id
+    }
+
+    pub(crate) fn response_sha256(&self) -> &str {
+        &self.response_sha256
+    }
+
+    pub(crate) fn text_sha256(&self) -> &str {
+        &self.text_sha256
+    }
+
+    pub(crate) fn text(&self) -> &str {
+        &self.text
+    }
+
+    pub(crate) fn selector(&self) -> &'static str {
+        "/notes"
+    }
+
+    pub(crate) fn origin_label(&self) -> &'static str {
+        match self.origin {
+            DiscogsReceiptOrigin::OfficialDiscogs => "discogs",
+            #[cfg(test)]
+            DiscogsReceiptOrigin::SyntheticLoopback => "synthetic_loopback",
+        }
+    }
+}
+
+impl DiscogsReleaseReceipt {
+    /// Return bounded release notes only when this process captured and bound
+    /// the response itself. Deserialized receipts intentionally have no origin.
+    pub(crate) fn genre_notes_observation(
+        &self,
+        expected_release_id: &str,
+    ) -> Option<DiscogsGenreNotesObservation> {
+        use sha2::{Digest, Sha256};
+
+        let capture = self.retrieval_origin.as_ref()?;
+        let request_path = format!("/releases/{expected_release_id}");
+        let response_path = match capture.origin {
+            DiscogsReceiptOrigin::OfficialDiscogs => request_path.clone(),
+            #[cfg(test)]
+            DiscogsReceiptOrigin::SyntheticLoopback => {
+                format!("{OFFLINE_DISCOGS_PATH_PREFIX}{request_path}")
+            }
+        };
+        if self.request_method != capture.request_method
+            || self.request_path != capture.request_path
+            || self.request_url != capture.request_url
+            || self.response_url != capture.response_url
+            || self.resource_kind != capture.resource_kind
+            || self.resource_id != capture.resource_id
+            || self.response_status != capture.response_status
+            || self.response_sha256 != capture.response_sha256
+            || self.request_method != "GET"
+            || self.request_path != request_path
+            || self.resource_kind != "release"
+            || self.resource_id != expected_release_id
+            || expected_release_id
+                .parse::<u64>()
+                .ok()
+                .is_none_or(|id| id == 0)
+            || self.response_status != 200
+            || format!("{:x}", Sha256::digest(self.response_body.as_bytes()))
+                != capture.response_sha256
+        {
+            return None;
+        }
+        let request_url = reqwest::Url::parse(&self.request_url).ok()?;
+        let response_url = reqwest::Url::parse(&self.response_url).ok()?;
+        if self.request_url != self.response_url
+            || [request_url.as_str(), response_url.as_str()]
+                .iter()
+                .any(|url| url.contains('?') || url.contains('#'))
+            || request_url.path() != response_path
+            || response_url.path() != response_path
+            || !request_url.username().is_empty()
+            || request_url.password().is_some()
+        {
+            return None;
+        }
+        match capture.origin {
+            DiscogsReceiptOrigin::OfficialDiscogs
+                if request_url.scheme() == "https"
+                    && request_url.host_str() == Some("api.discogs.com") => {}
+            #[cfg(test)]
+            DiscogsReceiptOrigin::SyntheticLoopback
+                if numeric_loopback_url(&request_url)
+                    && numeric_loopback_url(&response_url)
+                    && request_url.scheme() == "http" => {}
+            _ => return None,
+        }
+        let raw: serde_json::Value = serde_json::from_str(&self.response_body).ok()?;
+        if positive_integer(raw.get("id"))
+            .map(|id| id.to_string())
+            .as_deref()
+            != Some(expected_release_id)
+            || merge_genre_style(raw.get("genres"), raw.get("styles")).is_some()
+        {
+            return None;
+        }
+        let text = raw.get("notes")?.as_str()?.trim();
+        if text.is_empty() || text.len() > 4096 {
+            return None;
+        }
+        Some(DiscogsGenreNotesObservation {
+            resource_id: expected_release_id.to_string(),
+            response_sha256: self.response_sha256.clone(),
+            text_sha256: format!("{:x}", Sha256::digest(text.as_bytes())),
+            text: text.to_string(),
+            origin: capture.origin,
+        })
+    }
+}
+
+#[cfg(test)]
+fn numeric_loopback_url(url: &reqwest::Url) -> bool {
+    url.host_str() == Some("127.0.0.1")
+}
+
+fn discogs_receipt_origin(request_url: &str, response_url: &str) -> Option<DiscogsReceiptOrigin> {
+    if request_url != response_url {
+        return None;
+    }
+    let request = reqwest::Url::parse(request_url).ok()?;
+    let response = reqwest::Url::parse(response_url).ok()?;
+    if request.path() != response.path()
+        || !request.username().is_empty()
+        || request.password().is_some()
+    {
+        return None;
+    }
+    if request.scheme() == "https" && request.host_str() == Some("api.discogs.com") {
+        return Some(DiscogsReceiptOrigin::OfficialDiscogs);
+    }
+    #[cfg(test)]
+    if request.scheme() == "http"
+        && numeric_loopback_url(&request)
+        && numeric_loopback_url(&response)
+    {
+        return Some(DiscogsReceiptOrigin::SyntheticLoopback);
+    }
+    None
+}
+// END PAIRED_PROVIDER_RECEIPT_HELPERS
 
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -2704,20 +2886,41 @@ impl DiscogsClient {
                 .as_deref()
                 == Some(release_id)
         {
-            album.discogs_release_receipt = Some(DiscogsReleaseReceipt {
-                request_method: "GET".into(),
-                request_path: format!("/{path}"),
-                request_url: endpoint(
-                    reqwest::Url::parse(&url).map_err(|_| "Invalid Discogs endpoint")?,
-                ),
-                response_url,
-                resource_kind: "release".into(),
-                resource_id: release_id.into(),
+            // BEGIN PAIRED_PROVIDER_RECEIPT_CAPTURE
+            let request_url =
+                endpoint(reqwest::Url::parse(&url).map_err(|_| "Invalid Discogs endpoint")?);
+            let retrieval_origin = discogs_receipt_origin(&request_url, &response_url);
+            let request_method = "GET".to_string();
+            let request_path = format!("/{path}");
+            let resource_kind = "release".to_string();
+            let resource_id = release_id.to_string();
+            let response_sha256 = format!("{:x}", Sha256::digest(&bytes));
+            let response_body =
+                String::from_utf8(bytes.to_vec()).map_err(|_| "Discogs response is not UTF-8")?;
+            let retrieval_origin = retrieval_origin.map(|origin| DiscogsReceiptCapture {
+                origin,
+                request_method: request_method.clone(),
+                request_path: request_path.clone(),
+                request_url: request_url.clone(),
+                response_url: response_url.clone(),
+                resource_kind: resource_kind.clone(),
+                resource_id: resource_id.clone(),
                 response_status: status,
-                response_sha256: format!("{:x}", Sha256::digest(&bytes)),
-                response_body: String::from_utf8(bytes.to_vec())
-                    .map_err(|_| "Discogs response is not UTF-8")?,
+                response_sha256: response_sha256.clone(),
             });
+            album.discogs_release_receipt = Some(DiscogsReleaseReceipt {
+                request_method,
+                request_path,
+                request_url,
+                response_url,
+                resource_kind,
+                resource_id,
+                response_status: status,
+                response_sha256,
+                response_body,
+                retrieval_origin,
+            });
+            // END PAIRED_PROVIDER_RECEIPT_CAPTURE
         }
         Ok(album)
     }
@@ -5493,6 +5696,123 @@ mod tests {
             );
         }
     }
+    // BEGIN PAIRED_PROVIDER_RECEIPT_TEST
+    #[tokio::test]
+    async fn discogs_genre_notes_require_a_same_run_bound_receipt() {
+        use sha2::{Digest, Sha256};
+
+        fn route(_: &str, _: &str) -> (&'static str, String, &'static str) {
+            (
+                "200 OK",
+                serde_json::json!({
+                    "id":42,
+                    "title":"Synthetic Album",
+                    "artists":[{"id":7,"name":"Synthetic Artist","anv":""}],
+                    "notes":"Synthetic loopback source: this record is described as dream pop.",
+                    "genres":[],
+                    "styles":[],
+                    "tracklist":[{"position":"1","title":"Synthetic Song","duration":"03:00"}]
+                })
+                .to_string(),
+                "application/json",
+            )
+        }
+        let (base, requests) = server(1, route);
+        let providers = crate::commands::auto_tag::eval_tests::offline_eval_providers(&base).unwrap();
+        let client = DiscogsClient::at(providers.http(), None, providers.discogs_base());
+        let album = client.release_metadata_result("42").await.unwrap();
+        let receipt = album.discogs_release_receipt.as_ref().unwrap();
+        let observation = receipt
+            .genre_notes_observation("42")
+            .unwrap_or_else(|| panic!("captured offline receipt rejected: {receipt:#?}"));
+
+        assert_eq!(observation.origin_label(), "synthetic_loopback");
+        assert_eq!(observation.resource_id(), "42");
+        assert_eq!(observation.selector(), "/notes");
+        assert_eq!(
+            observation.text(),
+            "Synthetic loopback source: this record is described as dream pop."
+        );
+        assert_eq!(observation.response_sha256(), receipt.response_sha256);
+        assert_eq!(
+            observation.text_sha256().len(),
+            64,
+            "the exact selected text needs its own digest"
+        );
+        let request = requests.recv().unwrap();
+        assert!(request.contains("/discogs/releases/42"), "{request}");
+
+        let mut official = receipt.clone();
+        official.request_url = "https://api.discogs.com/releases/42".into();
+        official.response_url = official.request_url.clone();
+        let capture = official.retrieval_origin.as_mut().unwrap();
+        capture.origin = DiscogsReceiptOrigin::OfficialDiscogs;
+        capture.request_url = official.request_url.clone();
+        capture.response_url = official.response_url.clone();
+        assert!(official.genre_notes_observation("42").is_some());
+        let mut official_with_loopback_prefix = official.clone();
+        official_with_loopback_prefix.request_url =
+            "https://api.discogs.com/discogs/releases/42".into();
+        official_with_loopback_prefix.response_url =
+            official_with_loopback_prefix.request_url.clone();
+        let capture = official_with_loopback_prefix.retrieval_origin.as_mut().unwrap();
+        capture.request_url = official_with_loopback_prefix.request_url.clone();
+        capture.response_url = official_with_loopback_prefix.response_url.clone();
+        assert!(official_with_loopback_prefix
+            .genre_notes_observation("42")
+            .is_none());
+
+        let reloaded: DiscogsReleaseReceipt =
+            serde_json::from_value(serde_json::to_value(receipt).unwrap()).unwrap();
+        assert!(
+            reloaded.genre_notes_observation("42").is_none(),
+            "a serialized or cached receipt has no current-run retrieval authority"
+        );
+        let mut changed = receipt.clone();
+        changed.response_body.push(' ');
+        assert!(
+            changed.genre_notes_observation("42").is_none(),
+            "a caller cannot alter the source text while retaining the trusted retrieval marker"
+        );
+
+        let mut rewritten_capture = receipt.clone();
+        let rewritten_body = serde_json::json!({
+            "id":43,
+            "title":"Rewritten Album",
+            "artists":[{"id":7,"name":"Synthetic Artist","anv":""}],
+            "notes":"Genre: Jazz",
+            "genres":[],
+            "styles":[],
+            "tracklist":[{"position":"1","title":"Synthetic Song","duration":"03:00"}]
+        })
+        .to_string();
+        rewritten_capture.request_path = "/discogs/releases/43".into();
+        rewritten_capture.request_url = format!("{base}/discogs/releases/43");
+        rewritten_capture.response_url = format!("{base}/discogs/releases/43");
+        rewritten_capture.resource_id = "43".into();
+        rewritten_capture.response_body = rewritten_body.clone();
+        rewritten_capture.response_sha256 =
+            format!("{:x}", Sha256::digest(rewritten_body.as_bytes()));
+        assert!(
+            rewritten_capture.genre_notes_observation("43").is_none(),
+            "rewriting the public ID, URLs, body, and body hash cannot transfer capture authority"
+        );
+
+        let (other_base, other_requests) = server(1, route);
+        let other_client = DiscogsClient::at(
+            ProviderState::new().http(),
+            None,
+            &format!("{other_base}/other"),
+        );
+        let other_album = other_client.release_metadata_result("42").await.unwrap();
+        assert!(other_requests.recv().unwrap().contains("/other/releases/42"));
+        assert!(other_album
+            .discogs_release_receipt
+            .unwrap()
+            .genre_notes_observation("42")
+            .is_none());
+    }
+    // END PAIRED_PROVIDER_RECEIPT_TEST
 
     #[tokio::test]
     async fn discogs_runtime_receipt_binds_http_snapshot_candidates_and_cache() {

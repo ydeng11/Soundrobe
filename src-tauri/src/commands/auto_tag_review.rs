@@ -4,6 +4,7 @@ use super::{
     tracks::{read_album, read_track_metadata, try_read_extra_tags},
 };
 use crate::error::ApiError;
+use crate::state::worker::WorkerStore;
 #[cfg(any(feature = "desktop", test))]
 use crate::state::write_queue::WriteQueue;
 #[cfg(feature = "desktop")]
@@ -13,7 +14,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs,
     io::Read,
     path::{Path, PathBuf},
@@ -127,11 +128,13 @@ struct FileChange {
     verified: bool,
     tracked: bool,
     restoring: bool,
+    intent_outcomes: Vec<(String, bool)>,
 }
 struct ReviewData {
     detail: ReviewDetail,
     files: Vec<FileChange>,
     images: HashMap<String, PathBuf>,
+    trusted_assisted_genre_proposals: HashSet<String>,
 }
 struct SessionFiles(PathBuf);
 impl Default for SessionFiles {
@@ -157,11 +160,13 @@ pub struct ReviewStore {
     records: Mutex<Vec<Arc<ReviewJournal>>>,
     files: Arc<SessionFiles>,
     owners: Arc<Mutex<HashMap<PathBuf, Vec<String>>>>,
+    recovery: Option<Arc<WorkerStore>>,
 }
 pub struct ReviewJournal {
     data: Mutex<ReviewData>,
     files: Arc<SessionFiles>,
     owners: Arc<Mutex<HashMap<PathBuf, Vec<String>>>>,
+    recovery: Option<Arc<WorkerStore>>,
 }
 tokio::task_local! { pub static ACTIVE_REVIEW: Arc<ReviewJournal>; }
 pub fn active_review() -> Option<Arc<ReviewJournal>> {
@@ -208,7 +213,7 @@ fn private_directory(path: &Path) -> Result<(), ApiError> {
     }
     Ok(())
 }
-fn track_view(path: &Path) -> Result<Value, ApiError> {
+pub(crate) fn track_view(path: &Path) -> Result<Value, ApiError> {
     let mut track =
         serde_json::to_value(read_track_metadata(path)?).map_err(|e| failure(e.to_string()))?;
     match try_read_extra_tags(path) {
@@ -218,6 +223,19 @@ fn track_view(path: &Path) -> Result<Value, ApiError> {
     Ok(track)
 }
 impl ReviewJournal {
+    pub(crate) fn record_candidate(&self, candidate: &super::auto_tag::AlbumCandidate) -> bool {
+        let trusted_proposal = candidate.validated_assisted_genre_proposal_hash();
+        let candidate = serde_json::to_value(candidate).unwrap_or(Value::Null);
+        let mut data = self.data.lock().unwrap();
+        data.detail.result["candidate"] = candidate;
+        if let Some(proposal) = trusted_proposal {
+            data.trusted_assisted_genre_proposals.insert(proposal);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn evidence(&self, key: &str, value: Value) {
         let mut data = self.data.lock().unwrap();
         data.detail.result[key] = value;
@@ -234,6 +252,117 @@ impl ReviewJournal {
     }
     pub fn report_error(&self, message: String) {
         self.data.lock().unwrap().detail.errors.push(message);
+    }
+    pub(crate) fn is_assisted_genre_patch(&self, genre: &str) -> Result<bool, ApiError> {
+        let data = self.data.lock().unwrap();
+        let Some(assisted) = data.detail.result["candidate"].get("assisted_genre") else {
+            return Ok(false);
+        };
+        if assisted["value"].as_str() != Some(genre) {
+            return Ok(false);
+        }
+        let proposal = assisted["proposal_sha256"]
+            .as_str()
+            .filter(|proposal| proposal.len() == 64)
+            .ok_or_else(|| failure("Assisted genre proposal is not source-validated"))?;
+        if !data.trusted_assisted_genre_proposals.contains(proposal) {
+            return Err(failure("Assisted genre proposal is not source-validated"));
+        }
+        let request_input = assisted
+            .get("request_input")
+            .filter(|input| input.is_object())
+            .ok_or_else(|| failure("Assisted genre request input is unavailable"))?;
+        let expected = assisted["input_sha256"]
+            .as_str()
+            .ok_or_else(|| failure("Assisted genre request hash is unavailable"))?;
+        let observed = format!("{:x}", Sha256::digest(request_input.to_string().as_bytes()));
+        if observed != expected {
+            return Err(failure("Assisted genre request input hash does not match"));
+        }
+        Ok(true)
+    }
+    fn record_assisted_genre_obligation(
+        &self,
+        data: &ReviewData,
+        path: &Path,
+        patch: &Value,
+    ) -> Result<bool, ApiError> {
+        let Some(assisted) = data.detail.result["candidate"].get("assisted_genre") else {
+            return Ok(false);
+        };
+        let Some(genre) = assisted["value"].as_str() else {
+            return Ok(false);
+        };
+        if patch["genre"].as_str() != Some(genre) {
+            return Ok(false);
+        }
+        let proposal = assisted["proposal_sha256"]
+            .as_str()
+            .filter(|proposal| proposal.len() == 64)
+            .ok_or_else(|| failure("Assisted genre proposal is not source-validated"))?;
+        if !data.trusted_assisted_genre_proposals.contains(proposal) {
+            return Err(failure("Assisted genre proposal is not source-validated"));
+        }
+        let request_input = assisted
+            .get("request_input")
+            .filter(|input| input.is_object())
+            .ok_or_else(|| failure("Assisted genre request input is unavailable"))?;
+        let request_input_sha256 = assisted["input_sha256"]
+            .as_str()
+            .ok_or_else(|| failure("Assisted genre request hash is unavailable"))?;
+        let observed_sha256 = format!("{:x}", Sha256::digest(request_input.to_string().as_bytes()));
+        if observed_sha256 != request_input_sha256 {
+            return Err(failure("Assisted genre request input hash does not match"));
+        }
+        let before = track_view(path)?
+            .get("genre")
+            .cloned()
+            .unwrap_or(Value::Null);
+        if before
+            .as_str()
+            .is_some_and(|value| !value.trim().is_empty())
+        {
+            let Some(recovery) = &self.recovery else {
+                return Ok(false);
+            };
+            let obligations = recovery.field_review_obligations(path).map_err(failure)?;
+            return Ok(obligations.iter().any(|obligation| {
+                obligation.field == "genre"
+                    && obligation.revision == data.detail.id
+                    && obligation.after == Value::String(genre.to_string())
+                    && obligation.state == "open"
+            }));
+        }
+        let recovery = self
+            .recovery
+            .as_ref()
+            .ok_or_else(|| failure("Assisted genre writes require durable review storage"))?;
+        recovery
+            .record_field_review_obligation(
+                path,
+                "genre",
+                &data.detail.id,
+                &before,
+                &Value::String(genre.to_string()),
+                &json!({
+                    "kind":"assisted_inference",
+                    "grounded":assisted["source_observation"]["origin"] == "discogs",
+                    "sourceMatch":"exact_phrase_in_source_text",
+                    "sourceObservation":assisted["source_observation"],
+                    "proposalSha256":proposal,
+                    "model":assisted["model"],
+                    "rawValue":assisted["raw_value"],
+                    "appliedValue":genre,
+                    "requestInput":request_input,
+                    "requestInputSha256":request_input_sha256
+                }),
+                &[assisted["source_observation"]["evidenceId"]
+                    .as_str()
+                    .ok_or_else(|| failure("Assisted genre source evidence is unavailable"))?
+                    .to_string()],
+            )
+            .map_err(failure)?;
+        Ok(true)
     }
     fn image(
         &self,
@@ -351,6 +480,27 @@ impl ReviewJournal {
         path: &Path,
         write: impl FnOnce() -> Result<T, ApiError>,
     ) -> Result<T, ApiError> {
+        self.mutate_inner(path, None, write)
+    }
+
+    /// Persists a matching assisted genre obligation and write intent before
+    /// invoking the existing queued writer. Other patches retain session-only
+    /// review recovery.
+    pub fn mutate_with_patch<T>(
+        &self,
+        path: &Path,
+        patch: &Value,
+        write: impl FnOnce() -> Result<T, ApiError>,
+    ) -> Result<T, ApiError> {
+        self.mutate_inner(path, Some(patch), write)
+    }
+
+    fn mutate_inner<T>(
+        &self,
+        path: &Path,
+        patch: Option<&Value>,
+        write: impl FnOnce() -> Result<T, ApiError>,
+    ) -> Result<T, ApiError> {
         let mut data = self.data.lock().unwrap();
         if fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_symlink()) {
             return Err(failure(format!(
@@ -358,11 +508,34 @@ impl ReviewJournal {
                 path.display()
             )));
         }
+        let assisted_genre_write = patch
+            .map(|patch| self.record_assisted_genre_obligation(&data, path, patch))
+            .transpose()?
+            .unwrap_or(false);
         let before = fingerprint(path)?;
+        let durable_intent = if assisted_genre_write {
+            let intent_id = format!("{}::{}", data.detail.id, uuid::Uuid::new_v4());
+            let recovery = self
+                .recovery
+                .as_ref()
+                .ok_or_else(|| failure("Assisted genre writes require durable review storage"))?;
+            let patch = patch.expect("assisted genre write has a patch");
+            let intent = recovery
+                .prepare_write_intent(path, &intent_id, patch)
+                .map_err(failure)?;
+            recovery
+                .supersede_prior_write_intents(path, &format!("{}::", data.detail.id), &intent_id)
+                .map_err(failure)?;
+            Some((intent_id, intent))
+        } else {
+            None
+        };
         let index = if let Some(index) = data.files.iter().position(|f| f.path == path) {
             index
         } else {
-            let backup = if before.is_some() {
+            let backup = if let Some((_, intent)) = durable_intent.as_ref() {
+                intent.backup_path.clone()
+            } else if before.is_some() {
                 let backup = self.files.0.join(uuid::Uuid::new_v4().to_string());
                 fs::copy(path, &backup)?;
                 fs::File::open(&backup)?.sync_all()?;
@@ -433,9 +606,15 @@ impl ReviewJournal {
                 verified: false,
                 tracked: false,
                 restoring: false,
+                intent_outcomes: Vec::new(),
             });
             data.files.len() - 1
         };
+        if let (Some(recovery), Some((intent_id, _))) = (&self.recovery, &durable_intent) {
+            recovery
+                .begin_write_intent(path, intent_id)
+                .map_err(failure)?;
+        }
         let result = write();
         match fingerprint(path) {
             Ok(after) => {
@@ -450,8 +629,9 @@ impl ReviewJournal {
                 return Err(error);
             }
         }
+        let write_succeeded = result.is_ok();
         data.files[index].tracked =
-            result.is_ok() || data.files[index].before != data.files[index].after;
+            write_succeeded || data.files[index].before != data.files[index].after;
         if data.files[index].tracked {
             let mut owners = self.owners.lock().unwrap();
             let history = owners.entry(data.files[index].target.clone()).or_default();
@@ -459,10 +639,43 @@ impl ReviewJournal {
                 history.push(data.detail.id.clone());
             }
         }
+        if let (Some(recovery), Some((intent_id, _))) = (&self.recovery, &durable_intent) {
+            data.files[index]
+                .intent_outcomes
+                .push((intent_id.clone(), write_succeeded));
+            if let Err(error) =
+                recovery.record_write_intent_applied(path, &intent_id, write_succeeded)
+            {
+                data.detail.errors.push(format!(
+                    "Write recovery state could not be persisted for {}: {error}",
+                    path.display()
+                ));
+                return Err(failure(error));
+            }
+        }
         result
     }
 }
 impl ReviewStore {
+    /// Creates a review store that can persist assisted genre writes under the
+    /// app's existing data directory.
+    pub fn new_in(data_dir: PathBuf) -> Result<Self, ApiError> {
+        Self::new_with_worker(WorkerStore::new_in(data_dir))
+    }
+
+    /// Shares the app's initialized worker database for assisted field receipts.
+    pub fn new_with_worker(recovery: WorkerStore) -> Result<Self, ApiError> {
+        if !recovery.initialize() {
+            return Err(failure("Could not initialize durable auto-tag recovery"));
+        }
+        Ok(Self {
+            records: Mutex::new(Vec::new()),
+            files: Arc::new(SessionFiles::default()),
+            owners: Arc::new(Mutex::new(HashMap::new())),
+            recovery: Some(Arc::new(recovery)),
+        })
+    }
+
     /// Results and their recovery journals are scoped to one auto-tag batch.
     /// A running review must finish before its batch can be replaced.
     pub fn clear(&self) -> Result<(), ApiError> {
@@ -513,9 +726,11 @@ impl ReviewStore {
                 },
                 files: vec![],
                 images: HashMap::new(),
+                trusted_assisted_genre_proposals: HashSet::new(),
             }),
             files: Arc::clone(&self.files),
             owners: Arc::clone(&self.owners),
+            recovery: self.recovery.as_ref().map(Arc::clone),
         });
         {
             let mut data = journal.data.lock().unwrap();
@@ -542,13 +757,41 @@ impl ReviewStore {
                 data.detail.result[key] = value.clone();
             }
         }
-        match journal.view(&mut data) {
-            Ok(view) => data.detail.after = view,
-            Err(error) => data
-                .detail
-                .after
-                .errors
-                .push(format!("Readback failed: {error}")),
+        let readback_succeeded = match journal.view(&mut data) {
+            Ok(view) => {
+                data.detail.after = view;
+                true
+            }
+            Err(error) => {
+                data.detail
+                    .after
+                    .errors
+                    .push(format!("Readback failed: {error}"));
+                false
+            }
+        };
+        if readback_succeeded {
+            if let Some(recovery) = &self.recovery {
+                let latest = data
+                    .files
+                    .iter()
+                    .filter_map(|file| {
+                        file.intent_outcomes
+                            .last()
+                            .map(|(run_id, success)| (file.path.clone(), run_id.clone(), *success))
+                    })
+                    .collect::<Vec<_>>();
+                for (path, run_id, success) in latest {
+                    if success {
+                        if let Err(error) = recovery.verify_write_intent(&path, &run_id) {
+                            data.detail.errors.push(format!(
+                                "Independent write readback validation failed for {}: {error}",
+                                path.display()
+                            ));
+                        }
+                    }
+                }
+            }
         }
         data.detail.can_revert = data
             .files
@@ -597,6 +840,11 @@ impl ReviewStore {
             if canonical_target(&file.path)? == file.target
                 && fingerprint(&file.path)? == file.before
             {
+                if let Some(recovery) = &self.recovery {
+                    recovery
+                        .mark_review_write_intents_reverted(&file.path, &format!("{id}::"))
+                        .map_err(failure)?;
+                }
                 file.restored = true;
                 if let Some(history) = owners.get_mut(&file.target) {
                     if history.last().is_some_and(|owner| owner == id) {
@@ -625,6 +873,17 @@ impl ReviewStore {
                 if fingerprint(backup)? != file.before {
                     return Err(failure("Recovery backup is missing or damaged"));
                 }
+            }
+        }
+        if let Some(recovery) = &self.recovery {
+            for file in data
+                .files
+                .iter()
+                .filter(|file| !file.restored && file.tracked)
+            {
+                recovery
+                    .mark_review_write_intents_reverting(&file.path, &format!("{id}::"))
+                    .map_err(failure)?;
             }
         }
         for file in data.files.iter_mut().filter(|f| !f.restored && f.tracked) {
@@ -656,6 +915,11 @@ impl ReviewStore {
                     "Restore readback failed: {}",
                     file.path.display()
                 )));
+            }
+            if let Some(recovery) = &self.recovery {
+                recovery
+                    .mark_review_write_intents_reverted(&file.path, &format!("{id}::"))
+                    .map_err(failure)?;
             }
             file.restored = true;
             if let Some(history) = owners.get_mut(&file.target) {
@@ -732,6 +996,396 @@ pub fn auto_tag_review_artwork(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn synthetic_genre_server(genre: &str) -> (String, std::thread::JoinHandle<()>) {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let genre = genre.to_string();
+        let server = std::thread::spawn(move || {
+            for _ in 0..2 {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut bytes = Vec::new();
+                let mut chunk = [0u8; 4096];
+                let request_end;
+                loop {
+                    let count = stream.read(&mut chunk).unwrap();
+                    assert!(count > 0, "loopback request closed before headers");
+                    bytes.extend_from_slice(&chunk[..count]);
+                    if let Some(header_end) =
+                        bytes.windows(4).position(|value| value == b"\r\n\r\n")
+                    {
+                        let headers = String::from_utf8_lossy(&bytes[..header_end]);
+                        let content_length = headers
+                            .lines()
+                            .find_map(|line| {
+                                let (key, value) = line.split_once(':')?;
+                                key.eq_ignore_ascii_case("content-length")
+                                    .then(|| value.trim().parse::<usize>().ok())
+                                    .flatten()
+                            })
+                            .unwrap_or(0);
+                        let body_end = header_end + 4 + content_length;
+                        if bytes.len() >= body_end {
+                            request_end = body_end;
+                            break;
+                        }
+                    }
+                }
+                let request = String::from_utf8(bytes[..request_end].to_vec()).unwrap();
+                let (status, body) = if request.starts_with("GET /releases/42 ") {
+                    ("200 OK", json!({
+                        "id":42,
+                        "title":"Synthetic Album",
+                        "artists":[{"id":7,"name":"Synthetic Artist","anv":""}],
+                        "notes":format!("Genre: {genre}"),
+                        "genres":[],
+                        "styles":[],
+                        "tracklist":[{"position":"1","title":"Synthetic Track","duration":"03:00"}]
+                    }).to_string())
+                } else {
+                    assert!(
+                        request.starts_with("POST /chat/completions "),
+                        "unexpected route: {request}"
+                    );
+                    (
+                        "200 OK",
+                        json!({
+                            "id":"synthetic-response",
+                            "model":"scripted/genre-v1",
+                            "choices":[{"finish_reason":"stop","message":{"content":
+                                json!({"genre":genre,"confidence":0.99}).to_string()
+                            }}],
+                            "usage":{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14}
+                        })
+                        .to_string(),
+                    )
+                };
+                write!(stream,
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()).unwrap();
+                stream.flush().unwrap();
+            }
+        });
+        (base, server)
+    }
+
+    async fn record_assisted_genre_candidate(
+        journal: &ReviewJournal,
+        album_path: &Path,
+        genre: &str,
+    ) -> (Value, String) {
+        let (base, server) = synthetic_genre_server(genre);
+        let request = crate::commands::auto_tag::LookupRequest {
+            path: album_path.to_string_lossy().into_owned(),
+            artist_hint: Some("Synthetic Artist".into()),
+            album_hint: Some("Synthetic Album".into()),
+            tracks: vec![crate::commands::auto_tag::TrackCandidate {
+                title: Some("Synthetic Track".into()),
+                track_number: Some(1),
+                length: Some(180.0),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        let candidate =
+            crate::commands::auto_tag::capture_runtime_assisted_genre_candidate_for_test(
+                &request, &base, &base,
+            )
+            .await
+            .unwrap();
+        server.join().unwrap();
+        let assisted = candidate.assisted_genre.as_ref().unwrap();
+        let request_input = assisted.request_input.clone();
+        let input_sha256 = assisted.input_sha256.clone();
+        assert!(
+            journal.record_candidate(&candidate),
+            "runtime evidence should register the proposal"
+        );
+        (request_input, input_sha256)
+    }
+
+    fn record_forged_assisted_genre_candidate(journal: &ReviewJournal, genre: &str) {
+        let request_input = json!({
+            "artist":"Synthetic Artist",
+            "album":"Synthetic Album",
+            "tracks":["Synthetic Track"]
+        });
+        let input_sha256 = format!("{:x}", Sha256::digest(request_input.to_string().as_bytes()));
+        journal.evidence(
+            "candidate",
+            json!({
+                "genre":genre,
+                "assisted_genre":{
+                    "value":genre,
+                    "model":"scripted/offline",
+                    "request_input":request_input,
+                    "input_sha256":input_sha256
+                }
+            }),
+        );
+    }
+
+    #[test]
+    fn caller_supplied_genre_hash_does_not_authorize_assisted_write() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let store = ReviewStore::default();
+        let journal = store.begin("forged", &root).unwrap();
+        record_forged_assisted_genre_candidate(&journal, "Dream pop");
+
+        assert!(
+            journal.is_assisted_genre_patch("Dream pop").is_err(),
+            "a matching caller-supplied value and hash cannot create write authority"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn non_assisted_review_mutation_does_not_create_durable_intent() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let state = root.join("state");
+        let file = root.join("01.bin");
+        fs::write(&file, b"before").unwrap();
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        journal
+            .mutate(&file, || {
+                fs::write(&file, b"after")?;
+                Ok(())
+            })
+            .unwrap();
+        drop(journal);
+        drop(store);
+
+        let worker = crate::state::worker::WorkerStore::new_in(state);
+        assert!(worker.initialize());
+        assert!(worker.reconcile_write_intents().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn queued_assisted_genre_write_persists_input_and_readback_after_restart() {
+        use crate::commands::mutations::{write_track_queued, TrackPatch};
+        use crate::state::{worker::WriteRecoveryAction, write_queue::WriteQueue};
+
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let track = root.join("01.flac");
+        let provider_track = root.join("02.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            &track,
+        )
+        .unwrap();
+        fs::copy(&track, &provider_track).unwrap();
+        let payload_before = crate::commands::mutations::track_payload_digest(&track).unwrap();
+        let state = root.join("state");
+        let worker = WorkerStore::new_in(state.clone());
+        assert!(worker.initialize());
+        let store = ReviewStore::new_with_worker(worker.clone()).unwrap();
+        let journal = store.begin("assisted-run", &root).unwrap();
+        let (source_input, _input_sha256) =
+            record_assisted_genre_candidate(&journal, &root, "Acoustic Pop").await;
+
+        ACTIVE_REVIEW
+            .scope(
+                journal,
+                write_track_queued(
+                    &WriteQueue::default(),
+                    track.clone(),
+                    serde_json::from_value::<TrackPatch>(json!({"genre":"Acoustic Pop"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        store.finish("assisted-run", "applied", json!({})).unwrap();
+        let provider_journal = store.begin("provider-run", &root).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                provider_journal,
+                write_track_queued(
+                    &WriteQueue::default(),
+                    provider_track.clone(),
+                    serde_json::from_value::<TrackPatch>(json!({"genre":"Pop"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        store.finish("provider-run", "applied", json!({})).unwrap();
+        assert_eq!(
+            crate::commands::mutations::track_payload_digest(&track).unwrap(),
+            payload_before
+        );
+        drop(store);
+
+        let reopened = crate::state::worker::WorkerStore::new_in(state);
+        assert!(reopened.initialize());
+        let obligations = reopened.field_review_obligations(&track).unwrap();
+        assert_eq!(obligations.len(), 1);
+        assert_eq!(obligations[0].field, "genre");
+        assert_eq!(obligations[0].state, "open");
+        assert_eq!(obligations[0].after, json!("Acoustic Pop"));
+        assert_eq!(obligations[0].evidence_ids.len(), 1);
+        assert_eq!(obligations[0].provenance["grounded"], false);
+        assert_eq!(
+            obligations[0].provenance["sourceObservation"]["origin"],
+            "synthetic_loopback"
+        );
+        assert_eq!(obligations[0].provenance["requestInput"], source_input);
+        assert!(reopened
+            .field_review_obligations(&provider_track)
+            .unwrap()
+            .is_empty());
+        let recovery = reopened.reconcile_write_intents().unwrap();
+        assert_eq!(recovery.len(), 1, "{recovery:#?}");
+        assert_eq!(
+            recovery[0].intent.path,
+            fs::canonicalize(&track).unwrap(),
+            "only the assisted genre write gets a durable recovery intent"
+        );
+        assert_eq!(recovery[0].action, WriteRecoveryAction::ReceiptRecoverable);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn receipt_persistence_failure_keeps_the_changed_file_revertible() {
+        use crate::commands::mutations::{write_track_queued, TrackPatch};
+        use crate::state::write_queue::WriteQueue;
+
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let state = root.join("state");
+        let file = root.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            &file,
+        )
+        .unwrap();
+        let before = fs::read(&file).unwrap();
+        let worker = WorkerStore::new_in(state.clone());
+        assert!(worker.initialize());
+        let store = ReviewStore::new_with_worker(worker).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        record_assisted_genre_candidate(&journal, &root, "Jazz").await;
+        let database = rusqlite::Connection::open(state.join("worker.db")).unwrap();
+        database
+            .execute_batch(
+                "CREATE TRIGGER fail_intent_receipt BEFORE UPDATE OF after_sha256 ON write_intents
+                 BEGIN SELECT RAISE(FAIL, 'injected receipt persistence failure'); END;",
+            )
+            .unwrap();
+        assert!(ACTIVE_REVIEW
+            .scope(
+                journal,
+                write_track_queued(
+                    &WriteQueue::default(),
+                    file.clone(),
+                    serde_json::from_value::<TrackPatch>(json!({"genre":"Jazz"})).unwrap(),
+                ),
+            )
+            .await
+            .is_err());
+        store
+            .finish("run", "failed", json!({"reason":"receipt_failed"}))
+            .unwrap();
+        assert!(
+            store.get("run").unwrap().can_revert,
+            "a successful media mutation remains revertible if receipt persistence fails"
+        );
+        store.revert("run").unwrap();
+        assert_eq!(fs::read(&file).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn writer_error_after_partial_change_needs_recovery_not_a_receipt() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let state = root.join("state");
+        let file = root.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            &file,
+        )
+        .unwrap();
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        record_assisted_genre_candidate(&journal, &root, "Jazz").await;
+        assert!(journal
+            .mutate_with_patch(&file, &json!({"genre":"Jazz"}), || {
+                fs::write(&file, b"partial")?;
+                Err::<(), _>(failure("injected writer error"))
+            })
+            .is_err());
+        drop(journal);
+        drop(store);
+
+        let worker = WorkerStore::new_in(state);
+        assert!(worker.initialize());
+        let recovery = worker.reconcile_write_intents().unwrap();
+        assert_eq!(recovery.len(), 1);
+        assert_eq!(
+            recovery[0].action,
+            crate::state::worker::WriteRecoveryAction::NeedsRecovery,
+            "a post-write hash cannot substitute for a successful write and readback"
+        );
+        assert_eq!(fs::read(&file).unwrap(), b"partial");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn successful_revert_makes_all_repeated_file_intents_terminal() {
+        use crate::commands::mutations::{write_track_queued, TrackPatch};
+        use crate::state::{worker::WriteRecoveryAction, write_queue::WriteQueue};
+
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let state = root.join("state");
+        let file = root.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            &file,
+        )
+        .unwrap();
+        let original = fs::read(&file).unwrap();
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        record_assisted_genre_candidate(&journal, &root, "Jazz").await;
+        for _ in 0..2 {
+            ACTIVE_REVIEW
+                .scope(
+                    Arc::clone(&journal),
+                    write_track_queued(
+                        &WriteQueue::default(),
+                        file.clone(),
+                        serde_json::from_value::<TrackPatch>(json!({"genre":"Jazz"})).unwrap(),
+                    ),
+                )
+                .await
+                .unwrap();
+        }
+        store.finish("run", "applied", json!({})).unwrap();
+        store.revert("run").unwrap();
+        assert_eq!(fs::read(&file).unwrap(), original);
+        drop(store);
+
+        let worker = WorkerStore::new_in(state);
+        assert!(worker.initialize());
+        let recovery = worker.reconcile_write_intents().unwrap();
+        assert_eq!(recovery.len(), 2);
+        assert!(recovery
+            .iter()
+            .all(|entry| entry.action == WriteRecoveryAction::Reverted));
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn recovery_restores_exact_media_and_removes_only_created_artwork() {

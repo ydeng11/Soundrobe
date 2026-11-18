@@ -13,20 +13,61 @@ load = lambda file: json.loads(Path(file).read_text())
 sha = lambda file: hashlib.sha256(Path(file).read_bytes()).hexdigest()
 
 
-def audit_phase(context, records, case, truth, review, expected, require_no_write=False):
+def audit_phase(context, records, case, truth, review, expected, require_no_write=False,
+                source_fixture=None, inventory=None, require_assisted_write=False,
+                require_no_assisted_obligation=False, expected_run_id=None,
+                allow_legacy_scenario=False):
     row = dict(**context, recovery='unavailable', readbackFailures=[], safetyFailures=[],
                missingFixtures=0, processFailure=False, skipped=False, unavailable=False,
-               requiredNoWrite=require_no_write)
-    if len(records) != 1 or any(records[0].get(k) != v for k, v in context.items()):
+               requiredNoWrite=require_no_write, providerPrecedenceControl=False,
+               providerPrecedenceGenre=None, providerPrecedenceFailures=[],
+               providerPrecedenceGenreFailures=[], providerPrecedenceSafetyFailures=[],
+               providerPrecedenceUnavailable=[])
+    if len(records) != 1:
         return row | dict(unavailable=True, reason='missing, duplicate or misbound native phase')
     record = records[0]
+    if any(record.get(key) != value for key, value in context.items()
+           if not (key == 'scenario' and allow_legacy_scenario and key not in record)):
+        return row | dict(unavailable=True, reason='missing, duplicate or misbound native phase')
+    if expected_run_id is not None and record.get('runId') != expected_run_id:
+        return row | dict(unavailable=True, reason='native run ID does not match the runner-owned job')
+    row.update(rawBeforeTracks=record.get('beforeTracks'),
+               rawIndependentMetadataReadback=record.get('readbackTracks'),
+               sourceMappingEvidence=record.get('genreSourceBindingEvidence'),
+               reopenedFieldReviewObligations=record.get('fieldReviewObligationsAfterRestart'),
+               jobScriptedModelPayloads=(inventory or {}).get('modelPayloads', []))
     native = record.get('native') or {}
+    precedence_control, precedence_genre, precedence_genre_failures, precedence_safety_failures, precedence_unavailable = provider_precedence_check(
+        record, context, case, source_fixture, inventory, require_no_assisted_obligation)
+    precedence_failures = precedence_genre_failures + precedence_safety_failures + precedence_unavailable
+    row.update(providerPrecedenceControl=precedence_control,
+               providerPrecedenceGenre=precedence_genre,
+               providerPrecedenceFailures=precedence_failures,
+               providerPrecedenceGenreFailures=precedence_genre_failures,
+               providerPrecedenceSafetyFailures=precedence_safety_failures,
+               providerPrecedenceUnavailable=precedence_unavailable)
+    row['readbackFailures'].extend(precedence_genre_failures)
+    row['safetyFailures'].extend(precedence_safety_failures)
+    if precedence_unavailable:
+        row['unavailable'] = True
+    mapping_failures = source_mapping_failures(record, case, truth, source_fixture, inventory)
+    row['safetyFailures'].extend(mapping_failures)
+    if mapping_failures:
+        row['unavailable'] = True
+    obligation_failures, review_persistence = field_obligation_observation(
+        record, case, require_assisted_write=require_assisted_write)
+    row['safetyFailures'].extend(obligation_failures)
+    row['reviewPersistence'] = review_persistence
+    if obligation_failures:
+        row['unavailable'] = True
     row.update(outcome=record['outcome'], classification=record.get('classification'),
                written=native.get('written', 0), elapsedMs=record.get('elapsedMs'))
     if require_no_write and native.get('written'):
         row['safetyFailures'].append('required no-write control wrote metadata')
         row['recovery'] = 'wrong_match'
-    if record.get('error') or record.get('serviceFailureObserved') or record['outcome'] not in ['applied', 'needs_review']:
+    expected_failure_control = context.get('scenario') == 'assistance_failure'
+    if record.get('error') or (record.get('serviceFailureObserved') and not expected_failure_control) \
+            or record['outcome'] not in ['applied', 'needs_review']:
         row.update(unavailable=True, reason=record.get('error') or 'incomplete provider/resolver work')
     if record.get('providerMode') != 'offline_fixtures' or record.get('mediaMode') != 'synthetic_flac':
         row['safetyFailures'].append('not offline synthetic replay')
@@ -67,11 +108,17 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
                      if isinstance(baseline.get(file), dict) and isinstance(after.get(file), dict)
                      and baseline[file].get('fullSha256') and after[file].get('fullSha256')
                      and baseline[file]['fullSha256'] != after[file]['fullSha256']}
+    if expected_failure_control and not native.get('written'):
+        row['safetyFailures'].append('scripted model failure control did not preserve provider writes')
+        row['unavailable'] = True
+        row['recovery'] = 'unavailable'
     if not native.get('written') and (after != baseline or tracks != record.get('beforeTracks')):
         row['safetyFailures'].append('unconfirmed write changed media or metadata')
         row['unavailable'] = True
     if not native.get('written') and not changed_files:
-        if row['recovery'] != 'wrong_match':
+        if row['providerPrecedenceGenreFailures']:
+            row['recovery'] = 'wrong_match'
+        elif row['recovery'] != 'wrong_match':
             row['recovery'] = 'abstention' if not row['unavailable'] else 'unavailable'
         return row
     if changed_files and require_no_write and not native.get('written'):
@@ -124,14 +171,378 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
             track.get(k) for track in tracks for k in ['musicbrainzAlbumId', 'musicbrainzTrackId', 'discogsReleaseId']):
         row['safetyFailures'].append('content-only output asserted edition/recording ID')
     row['readbackFailures'].extend(content_failures)
-    row['recovery'] = ('wrong_match' if content_failures or (require_no_write and (native.get('written') or changed_files))
+    row['recovery'] = ('wrong_match' if content_failures or row['providerPrecedenceGenreFailures']
+                       or (require_no_write and (native.get('written') or changed_files))
                        else 'correct' if native.get('written') and not row['unavailable'] else 'unavailable')
+    if expected_failure_control:
+        requests = inventory.get('modelRequests', []) if isinstance(inventory, dict) else []
+        if not requests or any(request.get('status') != 503 for request in requests) or not native.get('written'):
+            row['safetyFailures'].append('scripted model failure did not preserve a provider metadata write')
+            row['unavailable'] = True
+            row['recovery'] = 'unavailable'
+        else:
+            row['assistanceFailureObserved'] = True
     return row
 
 
+def provider_precedence_check(record, context, case, source_fixture, inventory,
+                              require_no_assisted_obligation):
+    if (not isinstance(source_fixture, dict)
+            or context.get('caseId') != source_fixture.get('caseId')
+            or not isinstance(source_fixture.get('providerPrecedenceReleaseResponse'), dict)
+            or context.get('profile') == source_fixture.get('profile')
+            or context.get('scenario')):
+        return False, None, [], [], []
+    genre_failures, safety_failures, unavailable = [], [], []
+    body = source_fixture.get('providerPrecedenceReleaseResponse')
+    release_id = str(source_fixture.get('releaseId', ''))
+    genre_values = []
+    if not isinstance(body, dict) or str(body.get('id')) != release_id:
+        unavailable.append('locked provider-precedence release body is unavailable or misbound')
+    else:
+        for field in ['genres', 'styles']:
+            values = body.get(field, [])
+            if not isinstance(values, list):
+                unavailable.append('locked provider-precedence genre/style value is malformed')
+                continue
+            for value in values:
+                if not isinstance(value, str):
+                    unavailable.append('locked provider-precedence genre/style value is malformed')
+                    continue
+                value = value.strip()
+                if value and value not in genre_values:
+                    genre_values.append(value)
+    expected_genre = ', '.join(genre_values)
+    route = source_fixture.get('route')
+    expected_route = {'provider': 'discogs', 'path': f'/releases/{release_id}', 'query': {}}
+    if route != expected_route or not expected_genre:
+        unavailable.append('locked provider-precedence route or genre is unavailable')
+    if not isinstance(inventory, dict):
+        unavailable.append('provider-precedence loopback inventory is unavailable')
+    else:
+        expected_sha = hashlib.sha256(json.dumps(body, ensure_ascii=False,
+            separators=(',', ':')).encode()).hexdigest() if isinstance(body, dict) else None
+        routes = [item for item in inventory.get('records', [])
+                  if item.get('provider') == 'discogs' and item.get('path') == expected_route['path']
+                  and item.get('query', {}) == {}]
+        requests = [item for item in inventory.get('requests', [])
+                    if item.get('provider') == 'discogs' and item.get('path') == expected_route['path']
+                    and item.get('query', {}) == {}]
+        if len(routes) != 1 or routes[0].get('status') != 200 or routes[0].get('sha256') != expected_sha:
+            unavailable.append('provider-precedence fixture response differs from the locked source body')
+        if not requests or any(item.get('status') != 200 for item in requests):
+            unavailable.append('provider-precedence release request did not return the locked response')
+        if inventory.get('modelRequests') or inventory.get('modelPayloads') or any(
+                item.get('method') == 'POST' and item.get('route') == '/model/chat/completions'
+                for item in inventory.get('wireArrivals', [])):
+            safety_failures.append('provider-precedence control made an unauthorized model request')
+    candidate = ((record.get('native') or {}).get('candidate') or {})
+    if candidate.get('assisted_genre') is not None:
+        safety_failures.append('provider-precedence control produced an assisted genre proposal')
+    before = record.get('beforeTracks')
+    after = record.get('readbackTracks')
+    if (not isinstance(before, list) or not isinstance(after, list)
+            or len(before) != len(case.get('tracks', []))
+            or len(after) != len(case.get('tracks', []))):
+        unavailable.append('provider-precedence genre cannot be joined to every physical file')
+    else:
+        for index, (case_track, before_track, after_track) in enumerate(zip(case['tracks'], before, after), 1):
+            relative_parts = Path(case_track['relativePath']).parts
+            before_path = before_track.get('path') if isinstance(before_track, dict) else None
+            after_path = after_track.get('path') if isinstance(after_track, dict) else None
+            before_parts = Path(before_path).parts if isinstance(before_path, str) else ()
+            if (not before_parts or before_path != after_path
+                    or len(before_parts) < len(relative_parts)
+                    or before_parts[-len(relative_parts):] != relative_parts):
+                unavailable.append(f'{index}: provider-precedence physical file path is misbound')
+                continue
+            original = before_track.get('genre')
+            expected_value = original if isinstance(original, str) and original.strip() else expected_genre
+            if after_track.get('genre') != expected_value:
+                genre_failures.append(f'{index}: provider-precedence genre readback differs from the locked value')
+    if require_no_assisted_obligation:
+        obligations = record.get('fieldReviewObligationsAfterRestart')
+        if not isinstance(obligations, dict):
+            unavailable.append('candidate provider-precedence control lacks reopened obligation export')
+        else:
+            expected_paths = {track.get('path') for track in before or [] if isinstance(track, dict)}
+            if set(obligations) != expected_paths:
+                unavailable.append('candidate provider-precedence obligation export does not match physical files')
+            if any(not isinstance(values, list) for values in obligations.values()):
+                unavailable.append('candidate provider-precedence obligation export has malformed rows')
+            if any(item.get('field') == 'genre'
+                   for values in obligations.values() if isinstance(values, list)
+                   for item in values if isinstance(item, dict)):
+                safety_failures.append('provider-precedence control created a genre review obligation')
+    return True, expected_genre, genre_failures, safety_failures, unavailable
+
+
+def scripted_model_failures(record, inventory, job, arm, source_fixture):
+    if not isinstance(inventory, dict):
+        return ['scripted model inventory unavailable']
+    requests = inventory.get('modelRequests', [])
+    payloads = inventory.get('modelPayloads', [])
+    target = source_fixture and job.get('caseId') == source_fixture.get('caseId') \
+        and job.get('profile') == source_fixture.get('profile')
+    failure_control = job.get('scenario') == 'assistance_failure'
+    if not target:
+        return ['unexpected scripted model request outside declared source case'] if requests or payloads else []
+    failures = []
+    if not isinstance(requests, list) or not 1 <= len(requests) <= 2 or len(payloads) != len(requests):
+        return ['source case model requests do not match the cold/warm allowance']
+    expected_status = 503 if failure_control else 200
+    if any(item.get('status') != expected_status for item in requests):
+        failures.append('scripted model status differs from declared scenario')
+    expected_class = 'title_only_baseline' if arm == 'baseline' else 'synthetic_discogs_source'
+    if any(item.get('payloadClass') != expected_class for item in requests):
+        failures.append('scripted model payload class differs from implementation arm')
+    expected_tracks = [item['title'] for item in source_fixture['successReleaseResponse']['tracklist']]
+    for item in payloads:
+        payload = item.get('payload')
+        if arm == 'baseline':
+            if (not isinstance(payload, dict) or set(payload) != {'artist', 'album', 'tracks'}
+                    or payload.get('artist') != source_fixture['artist']
+                    or payload.get('album') != source_fixture['album'] or payload.get('tracks') != expected_tracks):
+                failures.append('baseline model payload differs from locked title-only contract')
+        else:
+            source = payload.get('sourceObservation') if isinstance(payload, dict) else None
+            if (not isinstance(payload, dict) or set(payload) != {'artist', 'album', 'tracks', 'sourceObservation'}
+                    or payload.get('artist') != source_fixture['artist']
+                    or payload.get('album') != source_fixture['album'] or payload.get('tracks') != expected_tracks
+                    or not isinstance(source, dict) or source.get('origin') != 'synthetic_loopback'
+                    or source.get('provider') != 'discogs' or source.get('resourceId') != source_fixture['releaseId']
+                    or source.get('responseSha256') != hashlib.sha256(json.dumps(
+                        source_fixture['successReleaseResponse'], ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+                    or source.get('selector') != '/notes' or source.get('text') != source_fixture['sourceText']
+                    or not re.fullmatch(r'[a-f0-9]{64}', source.get('trackMappingSha256', ''))):
+                failures.append('candidate model payload differs from locked source-observation contract')
+    assisted = (((record.get('native') or {}).get('candidate') or {}).get('assisted_genre') or {})
+    if arm == 'candidate' and requests and not failure_control:
+        if assisted.get('request_input') not in [item.get('payload') for item in payloads]:
+            failures.append('candidate output does not retain the exact observed model payload')
+    if not failure_control and inventory.get('misses'):
+        failures.append('successful source scenario has unexpected fixture misses')
+    return failures
+
+
+def source_mapping_failures(record, case, truth, source_fixture, inventory):
+    """Recompute a private runtime binding against locked notes and physical inputs."""
+    native = record.get('native') or {}
+    assisted = ((native.get('candidate') or {}).get('assisted_genre') or {})
+    source = assisted.get('source_observation')
+    exported = record.get('genreSourceBindingEvidence')
+    if not source:
+        return ['orphan source mapping export'] if exported else []
+    failures = []
+    if not isinstance(source_fixture, dict) or not isinstance(inventory, dict):
+        return ['source mapping lacks locked fixture or loopback inventory']
+    if not isinstance(exported, dict):
+        return ['assisted source mapping export missing']
+    try:
+        body = source_fixture['successReleaseResponse']
+        release_id = str(source_fixture['releaseId'])
+        route = source_fixture.get('route')
+        if (source_fixture.get('label') != 'synthetic_loopback_counterfactual'
+                or route != {'provider': 'discogs', 'path': f'/releases/{release_id}', 'query': {}}):
+            failures.append('source fixture route is not the declared synthetic release route')
+        source_tracks = [track for track in body['tracklist'] if track.get('type_', 'track') == 'track']
+        raw_body = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode()
+        response_sha = hashlib.sha256(raw_body).hexdigest()
+        canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                              separators=(',', ':')).encode()
+        digest = lambda value: hashlib.sha256(value).hexdigest()
+        expected_keys = {'releaseId', 'requestTracks', 'mapping', 'mappingSha256'}
+        if set(exported) != expected_keys:
+            failures.append('source mapping export schema mismatch')
+        binding = {key: exported[key] for key in ['releaseId', 'requestTracks', 'mapping']}
+        mapping_sha = digest(canonical(binding))
+        if exported.get('mappingSha256') != mapping_sha:
+            failures.append('source mapping digest mismatch')
+        if exported.get('releaseId') != release_id or source.get('resourceId') != release_id:
+            failures.append('source mapping release identity mismatch')
+        if source.get('provider') != 'discogs' or source.get('origin') != 'synthetic_loopback' \
+                or source.get('selector') != '/notes':
+            failures.append('source mapping route is not the locked synthetic Discogs notes route')
+        if source.get('responseSha256') != response_sha or body.get('id') != int(release_id) \
+                or source.get('text') != body.get('notes'):
+            failures.append('source mapping source body or notes mismatch')
+        if body.get('genres') or body.get('styles') or source.get('text') != source_fixture.get('sourceText'):
+            failures.append('source mapping is not the declared absent-field notes scenario')
+        if digest(str(body.get('notes', '')).encode()) != source.get('textSha256'):
+            failures.append('source notes digest mismatch')
+        source_observation = {key: source.get(key) for key in
+                              ['provider', 'resourceId', 'responseSha256', 'selector',
+                               'textSha256', 'trackMappingSha256']}
+        if source.get('trackMappingSha256') != mapping_sha:
+            failures.append('source observation does not bind exported mapping')
+        if source.get('evidenceId') != digest(canonical(source_observation)):
+            failures.append('source evidence digest mismatch')
+        route = f'/releases/{release_id}'
+        route_records = [item for item in inventory.get('records', [])
+                         if item.get('provider') == 'discogs' and item.get('path') == route
+                         and item.get('query', {}) == {}]
+        route_requests = [item for item in inventory.get('requests', [])
+                          if item.get('provider') == 'discogs' and item.get('path') == route
+                          and item.get('query', {}) == {} and item.get('status') == 200]
+        if len(route_records) != 1 or route_records[0].get('sha256') != response_sha or not route_requests:
+            failures.append('loopback inventory does not contain the locked source route/body')
+        request_json = json.loads(record.get('fieldObservations', {}).get('requestJson', 'null'))
+        request_tracks = exported.get('requestTracks')
+        if not isinstance(request_tracks, list) or request_json.get('tracks') != request_tracks:
+            failures.append('source mapping does not match native preflight tracks')
+        physical_files = [Path(track['relativePath']).stem for track in case.get('tracks', [])]
+        if not isinstance(request_tracks, list) or [track.get('filename') for track in request_tracks] != physical_files:
+            failures.append('source mapping files do not match the frozen physical file order')
+        mapping = exported.get('mapping') or {}
+        indices = mapping.get('remoteIndices')
+        evidence = mapping.get('evidence')
+        provider_tracks = mapping.get('providerTracks')
+        if (not isinstance(indices, list) or not isinstance(evidence, list)
+                or not isinstance(provider_tracks, list) or len(indices) != len(request_tracks or [])
+                or len(evidence) != len(indices) or len(set(indices)) != len(indices)
+                or any(type(index) is not int or index < 0 or index >= len(source_tracks)
+                       or index >= len(provider_tracks) for index in indices)
+                or any(not isinstance(item, str) or item.casefold() == 'position' for item in evidence)):
+            failures.append('source mapping lacks complete unique title evidence')
+        else:
+            expected_mapping = {item['localTrack']: item for item in truth.get('mapping', [])}
+            for local_index, remote_index in enumerate(indices, 1):
+                expected = expected_mapping.get(local_index)
+                source_title = source_tracks[remote_index].get('title')
+                provider_title = provider_tracks[remote_index].get('title')
+                local_title = request_tracks[local_index - 1].get('title')
+                if (not expected or source_title != expected.get('providerTitle')
+                        or provider_title != source_title or local_title != expected.get('localTitle')):
+                    failures.append(f'source mapping disagrees with locked physical/source expectation at track {local_index}')
+        if assisted.get('value') != source_fixture.get('genre'):
+            failures.append('assisted proposal differs from the predeclared synthetic expectation')
+    except (KeyError, TypeError, ValueError, IndexError) as error:
+        failures.append(f'invalid source mapping evidence: {error}')
+    return failures
+
+
+def field_obligation_observation(record, case, require_assisted_write=False):
+    candidate = ((record.get('native') or {}).get('candidate') or {})
+    assisted = candidate.get('assisted_genre') or {}
+    source = assisted.get('source_observation')
+    if not source:
+        if require_assisted_write:
+            return ['required candidate genre fill lacks source-bound proposal evidence'], 'unavailable'
+        return [], 'source_free_assistance' if assisted else 'not_applicable'
+    exported = record.get('fieldReviewObligationsAfterRestart')
+    if not isinstance(exported, dict):
+        return ['source-bound write lacks reopened per-file obligation export'], 'unavailable'
+    binding = record.get('genreSourceBindingEvidence')
+    request_input = assisted.get('request_input')
+    canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                          separators=(',', ':')).encode()
+    digest = lambda value: hashlib.sha256(value).hexdigest()
+    source_fields = ['provider', 'resourceId', 'responseSha256', 'selector',
+                     'textSha256', 'trackMappingSha256']
+    proposal_fields = ['provider', 'resourceId', 'responseSha256', 'selector',
+                       'textSha256', 'trackMappingSha256', 'evidenceId']
+    source_identity = {key: source.get(key) for key in source_fields}
+    source_id = digest(canonical(source_identity))
+    if (source.get('origin') != 'synthetic_loopback' or source.get('provider') != 'discogs'
+            or source.get('selector') != '/notes'
+            or not re.fullmatch(r'[1-9][0-9]*', str(source.get('resourceId', '')))
+            or not re.fullmatch(r'[a-f0-9]{64}', str(source.get('responseSha256', '')))
+            or not re.fullmatch(r'[a-f0-9]{64}', str(source.get('trackMappingSha256', '')))
+            or not isinstance(source.get('text'), str)
+            or digest(source.get('text', '').encode()) != source.get('textSha256')
+            or source.get('evidenceId') != source_id
+            or not isinstance(binding, dict)
+            or binding.get('releaseId') != source.get('resourceId')
+            or binding.get('mappingSha256') != source.get('trackMappingSha256')
+            or not isinstance(request_input, dict)
+            or request_input.get('sourceObservation') != source
+            or digest(canonical(request_input)) != assisted.get('input_sha256')):
+        return ['source-bound obligation lacks matching release, evidence, or request provenance'], 'unavailable'
+    proposal_source = {key: source[key] for key in proposal_fields}
+    expected_proposal = digest(canonical({
+        'rawValue': assisted.get('raw_value', ''),
+        'appliedValue': assisted.get('value'),
+        'requestSha256': assisted.get('input_sha256'),
+        'source': proposal_source,
+    }))
+    if (not isinstance(assisted.get('value'), str) or not assisted.get('value').strip()
+            or assisted.get('proposal_sha256') != expected_proposal):
+        return ['assisted proposal digest does not bind its source and request'], 'unavailable'
+    before = record.get('beforeTracks')
+    after = record.get('readbackTracks')
+    if not isinstance(before, list) or not isinstance(after, list) or len(before) != len(case.get('tracks', [])) \
+            or len(after) != len(case.get('tracks', [])):
+        return ['source-bound obligation cannot be joined to complete readback tracks'], 'unavailable'
+    failures = []
+    eligible_count = 0
+    written_count = 0
+    expected_revision = f"{record.get('phase')}-{record.get('caseId')}"
+    expected_paths = []
+    for track in before:
+        path = track.get('path') if isinstance(track, dict) else None
+        if isinstance(path, str):
+            expected_paths.append(path)
+    if len(expected_paths) != len(case['tracks']) or len(set(expected_paths)) != len(expected_paths) \
+            or set(exported) != set(expected_paths):
+        failures.append('reopened obligation paths do not exactly match physical readback files')
+    for index, case_track in enumerate(case['tracks']):
+        relative = case_track['relativePath']
+        before_track, after_track = before[index], after[index]
+        before_path, after_path = before_track.get('path'), after_track.get('path')
+        relative_parts = Path(relative).parts
+        before_parts = Path(before_path).parts if isinstance(before_path, str) else ()
+        if (not before_parts or Path(before_path).is_absolute() is False
+                or before_path != after_path
+                or len(before_parts) < len(relative_parts)
+                or before_parts[-len(relative_parts):] != relative_parts):
+            failures.append(f'{relative}: field-obligation file order mismatch')
+            continue
+        obligations_for_path = exported.get(before_path)
+        if not isinstance(obligations_for_path, list):
+            failures.append(f'{relative}: missing or duplicate reopened per-file obligation row')
+            continue
+        was_empty = not isinstance(before_track.get('genre'), str) or not before_track['genre'].strip()
+        was_written = was_empty and after_track.get('genre') == assisted.get('value')
+        if not was_empty and after_track.get('genre') != before_track.get('genre'):
+            failures.append(f'{relative}: assisted inference changed a pre-existing genre')
+        eligible_count += int(was_empty)
+        written_count += int(was_written)
+        obligations = [item for item in obligations_for_path
+                       if item.get('field') == 'genre' and item.get('revision') == expected_revision]
+        if len(obligations) != int(was_written):
+            failures.append(f'{relative}: reopened genre obligation does not match the assisted readback')
+        elif was_written:
+            obligation = obligations[0]
+            provenance = obligation.get('provenance')
+            expected_grounded = source.get('origin') == 'discogs'
+            if (obligation.get('path') != before_path or obligation.get('before') != before_track.get('genre')
+                    or obligation.get('after') != after_track.get('genre')
+                    or obligation.get('state') != 'open'
+                    or not isinstance(provenance, dict)
+                    or provenance.get('kind') != 'assisted_inference'
+                    or provenance.get('grounded') is not expected_grounded
+                    or provenance.get('sourceMatch') != 'exact_phrase_in_source_text'
+                    or provenance.get('sourceObservation') != source
+                    or provenance.get('proposalSha256') != assisted.get('proposal_sha256')
+                    or provenance.get('model') != assisted.get('model')
+                    or provenance.get('rawValue') != assisted.get('raw_value', '')
+                    or provenance.get('appliedValue') != assisted.get('value')
+                    or provenance.get('requestInput') != request_input
+                    or provenance.get('requestInputSha256') != assisted.get('input_sha256')
+                    or obligation.get('evidence_ids') != [source.get('evidenceId')]):
+                failures.append(f'{relative}: reopened obligation does not bind the exact before, source, proposal, and evidence')
+        if require_assisted_write and was_empty and not was_written:
+            failures.append(f'{relative}: required assisted genre is absent from independent readback')
+    if require_assisted_write and not eligible_count:
+        failures.append('required assisted-fill scenario had no eligible blank genre fields')
+    if require_assisted_write and not written_count:
+        failures.append('required assisted-fill scenario produced no independent genre write')
+    return failures, 'open_per_file_obligations' if written_count and not failures else 'unavailable'
+
+
 def summarize(before, after):
-    assert [(r['caseId'], r['profile'], r['phase']) for r in before] == [
-        (r['caseId'], r['profile'], r['phase']) for r in after], 'different requested membership'
+    assert [(r['caseId'], r['profile'], r['phase'], r.get('scenario')) for r in before] == [
+        (r['caseId'], r['profile'], r['phase'], r.get('scenario')) for r in after], 'different requested membership'
     def counts(rows):
         return dict(correctRecoveries=sum(r['recovery'] == 'correct' and not r['unavailable'] for r in rows),
                     wrongMatches=sum(r['recovery'] == 'wrong_match' for r in rows),
@@ -145,6 +556,22 @@ def summarize(before, after):
                     requiredNoWriteControls=sum(bool(r.get('requiredNoWrite')) for r in rows),
                     passedNoWriteControls=sum(bool(r.get('requiredNoWrite')) and r['recovery'] == 'abstention'
                         and not r['unavailable'] and not r['safetyFailures'] and not r['readbackFailures'] for r in rows),
+                    sourceBoundAssistanceWithOpenObligation=sum(r.get('reviewPersistence') == 'open_per_file_obligations'
+                        and not r['unavailable'] for r in rows),
+                    sourceFreeAssistanceObservations=sum(r.get('reviewPersistence') == 'source_free_assistance' for r in rows),
+                    assistanceFailureControls=sum(r.get('scenario') == 'assistance_failure' for r in rows),
+                    passedAssistanceFailureControls=sum(bool(r.get('scenario') == 'assistance_failure'
+                        and r.get('assistanceFailureObserved') and r.get('written', 0) > 0
+                        and not r['unavailable'] and not r['safetyFailures'] and not r['readbackFailures'])
+                        for r in rows),
+                    providerPrecedenceControls=sum(r.get('providerPrecedenceControl', False) for r in rows),
+                    passedProviderPrecedenceControls=sum(bool(r.get('providerPrecedenceControl')
+                        and not r.get('providerPrecedenceFailures') and not r['unavailable']
+                        and not r['safetyFailures']) for r in rows),
+                    providerPrecedenceFailures=sum(bool(r.get('providerPrecedenceFailures')) for r in rows),
+                    providerPrecedenceGenreFailures=sum(bool(r.get('providerPrecedenceGenreFailures')) for r in rows),
+                    providerPrecedenceSafetyFailures=sum(bool(r.get('providerPrecedenceSafetyFailures')) for r in rows),
+                    providerPrecedenceUnavailable=sum(bool(r.get('providerPrecedenceUnavailable')) for r in rows),
                     reviewedRepresentatives=sum(r.get('edition') == 'reviewed_representative' for r in rows),
                     unresolvedEditions=sum(r.get('edition') == 'unresolved' for r in rows),
                     reviewedLayouts=sum(bool(r.get('reviewedLayoutMatches')) for r in rows))
@@ -204,6 +631,8 @@ def audit(root):
         result = []
         for job in snapshot['jobs']:
             directory = root / arm / job['profile'] / job['caseId']
+            if job.get('scenario'):
+                directory = directory / 'supplemental' / job['scenario']
             evidence_failures = []
             def export(name):
                 try:
@@ -233,6 +662,25 @@ def audit(root):
                     evidence_failures.append(f'{name}: unavailable export ({error})')
                     return {}
             execution = export('execution.json')
+            expected_run_id = None
+            runner_context_failures = []
+            if job.get('scenario'):
+                scenario = job['scenario']
+                expected_run_id = f"{arm}-{job['profile']}-{job['caseId']}-{scenario}"
+                expected_directory = Path(arm) / job['profile'] / job['caseId'] / 'supplemental' / scenario
+                if job.get('supplemental') is not True:
+                    runner_context_failures.append('supplemental scenario is not declared as a runner-owned job')
+                fixture = snapshot.get('syntheticGenreSource')
+                if (scenario != 'assistance_failure' or not isinstance(fixture, dict)
+                        or job['caseId'] != fixture.get('caseId')
+                        or job['profile'] != fixture.get('profile')):
+                    runner_context_failures.append('supplemental scenario does not match the locked source job')
+                if directory.relative_to(root).as_posix() != expected_directory.as_posix():
+                    runner_context_failures.append('supplemental artifact directory differs from the runner-owned job')
+                if (execution.get('runId') != expected_run_id
+                        or execution.get('artifactDirectory') != expected_directory.as_posix()
+                        or execution.get('scenario') != scenario):
+                    runner_context_failures.append('execution context does not bind the supplemental run and directory')
             inventory = export('inventory.json')
             source_before = export('source-hashes-before.json')
             source_after = export('source-hashes-after.json')
@@ -244,18 +692,45 @@ def audit(root):
                 except (ValueError, OSError):
                     phases[phase] = []
                 context = dict(caseId=job['caseId'], profile=job['profile'], phase=phase)
+                if job.get('scenario'):
+                    context['scenario'] = job['scenario']
                 try:
+                    record = phases[phase][0] if len(phases[phase]) == 1 else {}
+                    allow_legacy_scenario = bool(
+                        arm == 'baseline' and job.get('supplemental') is True
+                        and job.get('scenario') and not runner_context_failures
+                        and 'scenario' not in record)
+                    require_assisted_write = (arm == 'candidate' and not job.get('scenario')
+                        and isinstance(snapshot.get('syntheticGenreSource'), dict)
+                        and job.get('caseId') == snapshot['syntheticGenreSource'].get('caseId')
+                        and job.get('profile') == snapshot['syntheticGenreSource'].get('profile'))
                     row = audit_phase(context, phases[phase], job['case'], job['truth'], job['review'], job['expected'],
-                                      require_no_write=job.get('requireNoWrite', False))
+                                      require_no_write=job.get('requireNoWrite', False),
+                                      source_fixture=snapshot.get('syntheticGenreSource'), inventory=inventory,
+                                      require_assisted_write=require_assisted_write,
+                                      require_no_assisted_obligation=arm == 'candidate',
+                                      expected_run_id=expected_run_id,
+                                      allow_legacy_scenario=allow_legacy_scenario)
                 except (KeyError, TypeError, ValueError, IndexError) as error:
                     row = audit_phase(context, [], {}, {}, {}, {}, job.get('requireNoWrite', False)) | dict(
                         reason=f'invalid phase export: {error}')
                 row['processFailure'] = (bool(execution) and (execution.get('exitCode') != 0 or execution.get('signal') is not None)
                                          or any(f.startswith('execution.json:') for f in evidence_failures))
                 row['skipped'] = not execution or execution.get('skipped', False)
-                row['missingFixtures'] = sum(m.get('count', 1) for m in inventory.get('misses', []))
+                model_failures = scripted_model_failures(
+                    phases[phase][0], inventory, job, arm, snapshot.get('syntheticGenreSource')) \
+                    if len(phases[phase]) == 1 else ['missing or duplicate model-observation phase']
+                row['safetyFailures'].extend(model_failures)
+                expected_model_failure = job.get('scenario') == 'assistance_failure'
+                row['missingFixtures'] = sum(m.get('count', 1) for m in inventory.get('misses', [])
+                    if not (expected_model_failure and m.get('provider') == 'scripted_model' and m.get('status') == 503))
                 row['safetyFailures'].extend(evidence_failures)
-                if evidence_failures or row['processFailure'] or row['skipped'] or row['missingFixtures'] or not inventory or inventory.get('modelRequests'):
+                row['safetyFailures'].extend(runner_context_failures)
+                if evidence_failures or model_failures or row['processFailure'] or row['skipped'] or row['missingFixtures'] or not inventory:
+                    row['unavailable'] = True
+                    if row['recovery'] != 'wrong_match':
+                        row['recovery'] = 'unavailable'
+                if runner_context_failures:
                     row['unavailable'] = True
                     if row['recovery'] != 'wrong_match':
                         row['recovery'] = 'unavailable'
@@ -279,15 +754,29 @@ def audit(root):
                     row['safetyFailures'].append('source-media verification missing or changed')
         rows[arm] = result
     report = summarize(rows['baseline'], rows['candidate'])
+    report['primaryEvaluationsPerImplementation'] = sum(not job.get('supplemental') for job in snapshot['jobs']) * 2
+    report['supplementalAssistanceFailureEvaluationsPerImplementation'] = sum(
+        job.get('scenario') == 'assistance_failure' for job in snapshot['jobs']) * 2
     report.update(setupFailures=failures, implementations=snapshot['implementations'],
                   budget=snapshot['budget'], inputLockCount=len(snapshot.get('locks', {})), rows=rows,
-                  scope='Reviewed metadata content, not acoustic or exact pressing proof; models disabled')
+                  scope=('Reviewed metadata content, not acoustic or exact pressing proof; scripted synthetic source/model only'
+                         if snapshot['budget'].get('assistance') == 'scripted'
+                         else 'Reviewed metadata content, not acoustic or exact pressing proof; models disabled'))
+    report['reviewPersistence'] = {
+        'baselineSourceReviewExport': bool(snapshot.get('implementations', {}).get('baseline', {}).get('pairedReviewExport')),
+        'candidateSourceReviewExport': bool(snapshot.get('implementations', {}).get('candidate', {}).get('pairedReviewExport')),
+        'groundedModelQualityCredit': 0,
+        'interpretation': 'synthetic source-bound workflow evidence; no real-world source truth or model quality claim',
+    }
     if failures:
         report.update(clean=False, comparable=False, improvements=0)
     # No credit for an initial-input mismatch between implementations.
     for job in snapshot['jobs']:
         for phase in ['cold', 'warm']:
             files = [root / arm / job['profile'] / job['caseId'] / f'{phase}.jsonl' for arm in rows]
+            files = [root / implementation / job['profile'] / job['caseId'] / 'supplemental' / job['scenario'] / f'{phase}.jsonl'
+                     if job.get('scenario') else root / implementation / job['profile'] / job['caseId'] / f'{phase}.jsonl'
+                     for implementation in rows]
             if all(f.exists() for f in files):
                 try:
                     records = [json.loads(f.read_text()) for f in files]
@@ -297,8 +786,11 @@ def audit(root):
                     failures.append(f'{job["caseId"]}/{job["profile"]}/{phase}: input mismatch or duplicate record')
                     report.update(clean=False, comparable=False, improvements=0)
     (root / 'comparison.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
+    primary_cases = sum(not job.get('supplemental') for job in snapshot['jobs']) // 3
     lines = ['# Offline paired comparison', '', f'Comparable: {report["comparable"]}; clean candidate gate: {report["clean"]}',
-             f'Requested: {len(snapshot["jobs"]) // 3} cases × 3 profiles × 2 phases = {report["requestedEvaluationsPerImplementation"]} per implementation.',
+             f'Requested: {primary_cases} cases × 3 profiles × 2 phases = {report["primaryEvaluationsPerImplementation"]} primary slots; '
+             f'{report["supplementalAssistanceFailureEvaluationsPerImplementation"]} separately declared supplemental slots; '
+             f'{report["requestedEvaluationsPerImplementation"]} total per implementation.',
              f'Improvements: {report["improvements"]}; regressions: {report["regressions"]}.', '',
              '| Outcome / check | Baseline | Candidate |', '|---|---:|---:|']
     lines += [f'| {key} | {report["baseline"][key]} | {report["candidate"][key]} |' for key in report['baseline']]

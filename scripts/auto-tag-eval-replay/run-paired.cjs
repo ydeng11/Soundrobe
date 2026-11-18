@@ -6,8 +6,12 @@ const crypto = require('node:crypto');
 const { spawn, spawnSync, execFileSync } = require('node:child_process');
 const { once } = require('node:events');
 const { createService, importPools } = require('../mock-provider-service.cjs');
+const { assertProviderSourceCompatible, pairedBudget, pairedNativeInvocation,
+  pairedRunContext, approvedManifestBodyPath, rebaseManifestBodyFiles,
+  pairedGenreServiceManifest, parseCompareOptions } = require('./paired-policy.cjs');
 const root = process.cwd();
 const fixtures = path.join(root, 'test/fixtures/tauri/auto-tag-eval');
+const providerFixtureRoot = path.dirname(fixtures);
 const profiles = ['folder_filename', 'assisted_without_ids', 'tagged_recovery'];
 const read = file => JSON.parse(fs.readFileSync(file));
 const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -54,10 +58,12 @@ async function freeze(output) {
 }
 
 async function runJob(output, arm, job, binary, providerManifest, budget) {
-  const directory = path.join(output, arm, job.profile, job.caseId);
+  const { directory, runId, artifactDirectory } = pairedRunContext(output, arm, job);
+  const executionContext = { runId, artifactDirectory, caseId: job.caseId, profile: job.profile,
+    scenario: job.scenario ?? null };
   fs.mkdirSync(directory, { recursive: true });
   const log = fs.openSync(path.join(directory, 'native.log'), 'wx');
-  const server = createService(providerManifest);
+  const server = createService(job.serviceManifest ?? providerManifest);
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -66,17 +72,22 @@ async function runJob(output, arm, job, binary, providerManifest, budget) {
   try {
     const env = { ...toolEnv(), SOUNDROBE_AUTO_TAG_EVAL_CORPUS: job.corpusFile,
       SOUNDROBE_AUTO_TAG_EVAL_EXPECTATIONS: job.expectations, SOUNDROBE_AUTO_TAG_EVAL_SOURCE_ROOT: job.sourceRoot,
-      SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: directory, SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: `${arm}-${job.profile}-${job.caseId}`,
+      SOUNDROBE_AUTO_TAG_EVAL_ARTIFACT_DIR: directory, SOUNDROBE_AUTO_TAG_EVAL_RUN_ID: runId,
       SOUNDROBE_AUTO_TAG_EVAL_PROFILE: job.profile, SOUNDROBE_AUTO_TAG_EVAL_CASES: job.caseId,
-      SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL: base, SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE: 'disabled' };
-    const child = spawn(binary, ['--exact', 'commands::auto_tag::eval_tests::live_auto_tag_eval', '--ignored', '--nocapture'],
+      SOUNDROBE_AUTO_TAG_EVAL_MOCK_URL: base, SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE: budget.assistance };
+    if (job.scenario) Object.assign(env, { SOUNDROBE_AUTO_TAG_EVAL_SCENARIO: job.scenario });
+    const invocation = budget.assistance === 'scripted'
+      ? pairedNativeInvocation(arm)
+      : { args: ['--exact', 'commands::auto_tag::eval_tests::live_auto_tag_eval', '--ignored', '--nocapture'], env: {} };
+    Object.assign(env, invocation.env);
+    const child = spawn(binary, invocation.args,
       { cwd: root, env, stdio: ['ignore', log, log] });
     let deadline = false;
     timer = setTimeout(() => { deadline = true; child.kill('SIGKILL'); }, budget.processSeconds * 1000);
     const [exitCode, signal] = await once(child, 'exit');
-    execution = { exitCode, signal, deadline, caseId: job.caseId, profile: job.profile };
+    execution = { ...executionContext, exitCode, signal, deadline };
   } catch (error) {
-    execution = { exitCode: null, signal: null, error: error.message, caseId: job.caseId, profile: job.profile };
+    execution = { ...executionContext, exitCode: null, signal: null, error: error.message };
   } finally {
     clearTimeout(timer);
     fs.closeSync(log);
@@ -92,21 +103,35 @@ async function runJob(output, arm, job, binary, providerManifest, budget) {
   console.log(JSON.stringify({ arm, ...execution }));
 }
 
-async function compare(output, baseline, candidate, selectionFile) {
+async function compare(output, baseline, candidate, selectionFile, assistance) {
   const selection = read(selectionFile);
   if (selection.schemaVersion !== 1 || !selection.cases.length || new Set(selection.cases.map(c => c.caseId)).size !== selection.cases.length
       || selection.cases.some(c => !/^[a-f0-9]{12}$/.test(c.caseId) || !/^[a-z-]+$/.test(c.population)
         || path.basename(c.manifest) !== c.manifest)) throw Error('Explicit unique eligible case selection required');
   fs.mkdirSync(output);
-  const snapshot = { schemaVersion: 1, profiles, jobs: profiles.flatMap(profile => selection.cases.map(c => ({ ...c, profile }))),
+  const sourceFixture = assistance === 'scripted'
+    ? read(path.join(__dirname, 'synthetic-genre-source.json')) : null;
+  const jobs = profiles.flatMap(profile => selection.cases.map(c => ({ ...c, profile })));
+  if (assistance === 'scripted') {
+    const required = read(path.join(__dirname, 'paired-safety-selection.json')).cases.map(c => c.caseId).sort();
+    const chosen = selection.cases.map(c => c.caseId).sort();
+    if (JSON.stringify(chosen) !== JSON.stringify(required)) {
+      throw Error('Scripted assistance requires the complete five-case safety selection');
+    }
+    const assisted = selection.cases.find(c => c.caseId === sourceFixture.caseId);
+    if (!assisted) throw Error('Synthetic failure control requires the source-bound assisted case');
+    jobs.push({ ...assisted, profile: sourceFixture.profile, scenario: 'assistance_failure', supplemental: true });
+  }
+  const snapshot = { schemaVersion: 1, profiles, jobs,
     implementations: {}, locks: {}, setupFailures: [],
-    budget: { modelRequests: 0, processSeconds: 1300, nativeFolderSeconds: 600,
+    budget: { ...pairedBudget(assistance, jobs.length), processSeconds: 1300, nativeFolderSeconds: 600,
       cache: 'fresh per implementation/case/profile; warm reuses only its cold cache, with fresh media',
       provider: 'unchanged production policy; equal source-locked provider client and discovery limits' } };
   const lock = file => { snapshot.locks[path.resolve(file)] = hash(file); };
   try {
     lock(selectionFile);
-    const harness = ['run-paired.cjs', 'audit-paired.py', 'score-best-aligned.py', 'bounded-storage.cjs']
+    const harness = ['run-paired.cjs', 'paired-policy.cjs', 'audit-paired.py', 'score-best-aligned.py',
+      'bounded-storage.cjs', 'synthetic-genre-source.json']
       .map(file => path.relative(root, path.join(__dirname, file)))
       .concat(['scripts/mock-provider-service.cjs', 'scripts/review_auto_tag_subset.py']);
     for (const file of harness) lock(file);
@@ -121,9 +146,22 @@ async function compare(output, baseline, candidate, selectionFile) {
       fs.copyFileSync(binary, destination, fs.constants.COPYFILE_EXCL);
       lock(destination); lock(path.join(source, 'frozen.json')); lock(path.join(source, 'source.tgz'));
       snapshot.implementations[arm] = { ...frozen, frozenDirectory: source, executable: destination };
+      const evaluatorSource = exec('tar', ['-xOzf', path.join(source, 'source.tgz'),
+        'src-tauri/src/commands/auto_tag_eval.rs']);
+      snapshot.implementations[arm].pairedReviewExport = evaluatorSource.includes(
+        'SOUNDROBE_AUTO_TAG_EVAL_PAIRED_ASSISTED_REVIEW');
     }
-    for (const file of ['src-tauri/src/state/providers.rs', 'src-tauri/src/commands/album_search.rs']) {
-      if (snapshot.implementations.baseline.sourceLocks[file] !== snapshot.implementations.candidate.sourceLocks[file]) throw Error(`Provider budget policy differs: ${file}`);
+    const providerFile = 'src-tauri/src/state/providers.rs';
+    if (!snapshot.implementations.baseline.sourceLocks[providerFile]
+        || !snapshot.implementations.candidate.sourceLocks[providerFile]) throw Error(`Missing provider policy lock: ${providerFile}`);
+    const providerSource = implementation => exec('tar', ['-xOzf',
+      path.join(implementation.frozenDirectory, 'source.tgz'), providerFile]);
+    assertProviderSourceCompatible(providerSource(snapshot.implementations.baseline),
+      providerSource(snapshot.implementations.candidate));
+    const albumSearchFile = 'src-tauri/src/commands/album_search.rs';
+    if (snapshot.implementations.baseline.sourceLocks[albumSearchFile]
+        !== snapshot.implementations.candidate.sourceLocks[albumSearchFile]) {
+      throw Error(`Provider budget policy differs: ${albumSearchFile}`);
     }
     for (const tool of ['python3', 'ffmpeg']) exec(tool, [tool === 'python3' ? '--version' : '-version']);
     const suite = read(path.join(fixtures, 'batch-suite.json'));
@@ -158,11 +196,35 @@ async function compare(output, baseline, candidate, selectionFile) {
       const expected = JSON.parse(exec('python3', ['-B', auditFile, 'fields', fieldInput, fixtures]));
       prepared.set(selected.caseId, { case: caseData, truth, review, expected, corpusFile, expectations, sourceRoot: path.join(dummy, 'media') });
     }
-    snapshot.jobs = snapshot.jobs.map(job => ({ ...job, ...prepared.get(job.caseId) }));
     const manifest = path.join(output, 'providers.json');
     importPools(path.join(fixtures, 'candidate-pools.json'), manifest);
     lock(manifest);
-    for (const record of read(manifest).records) if (record.bodyFile) lock(path.resolve(output, record.bodyFile));
+    const baseManifest = read(manifest);
+    for (const record of baseManifest.records) if (record.bodyFile) {
+      lock(approvedManifestBodyPath(manifest, record.bodyFile, providerFixtureRoot));
+    }
+    const serviceManifests = new Map();
+    if (assistance === 'scripted') {
+      const sourceFixturePath = path.join(__dirname, 'synthetic-genre-source.json');
+      lock(sourceFixturePath);
+      snapshot.syntheticGenreSource = sourceFixture;
+      const fixtureDirectory = path.join(output, 'job-fixtures');
+      fs.mkdirSync(fixtureDirectory);
+      for (const job of jobs) {
+        const suffix = job.scenario ? `-${job.scenario}` : '';
+        const serviceManifest = path.join(fixtureDirectory, `${job.caseId}-${job.profile}${suffix}.json`);
+        const jobManifest = rebaseManifestBodyFiles(
+          pairedGenreServiceManifest(baseManifest, sourceFixture, job), manifest, serviceManifest, providerFixtureRoot);
+        save(serviceManifest, jobManifest);
+        lock(serviceManifest);
+        for (const record of jobManifest.records) if (record.bodyFile) {
+          lock(approvedManifestBodyPath(serviceManifest, record.bodyFile, providerFixtureRoot));
+        }
+        serviceManifests.set(`${job.caseId}/${job.profile}/${job.scenario ?? 'primary'}`, serviceManifest);
+      }
+    }
+    snapshot.jobs = jobs.map(job => ({ ...job, ...prepared.get(job.caseId),
+      serviceManifest: serviceManifests.get(`${job.caseId}/${job.profile}/${job.scenario ?? 'primary'}`) ?? manifest }));
   } catch (error) { snapshot.setupFailures.push(error.message); }
   save(path.join(output, 'comparison-inputs.json'), snapshot);
   if (!snapshot.setupFailures.length) {
@@ -170,7 +232,8 @@ async function compare(output, baseline, candidate, selectionFile) {
       for (const arm of ['baseline', 'candidate']) {
         try {
           verify(snapshot.locks);
-          await runJob(output, arm, job, snapshot.implementations[arm].executable, path.join(output, 'providers.json'), snapshot.budget);
+          await runJob(output, arm, job, snapshot.implementations[arm].executable,
+            job.serviceManifest ?? path.join(output, 'providers.json'), snapshot.budget);
         } catch (error) {
           console.error(`${arm}/${job.caseId}/${job.profile}: ${error.message}`);
           // Missing execution remains unavailable in the full requested report.
@@ -183,13 +246,18 @@ async function compare(output, baseline, candidate, selectionFile) {
   process.exitCode = result.status ?? 1;
 }
 
-const [operation, outputArg, baselineArg, candidateArg, selectionArg] = process.argv.slice(2);
+const [operation, outputArg, baselineArg, candidateArg, ...compareArgs] = process.argv.slice(2);
+let compareOptions = { selection: null, assistance: 'disabled' };
+try { compareOptions = parseCompareOptions(compareArgs); }
+catch (error) { console.error(error.message); process.exitCode = 1; }
 if (!outputArg || !['freeze', 'compare'].includes(operation) || (operation === 'compare' && (!baselineArg || !candidateArg))) {
-  console.error('Usage: node scripts/auto-tag-eval-replay/run-paired.cjs freeze NEW_BUILD\n       node scripts/auto-tag-eval-replay/run-paired.cjs compare NEW_RUN FROZEN_BASELINE FROZEN_CANDIDATE [SELECTION]');
+  console.error('Usage: node scripts/auto-tag-eval-replay/run-paired.cjs freeze NEW_BUILD\n       node scripts/auto-tag-eval-replay/run-paired.cjs compare NEW_RUN FROZEN_BASELINE FROZEN_CANDIDATE [SELECTION] [--scripted-genre-assistance]');
   process.exitCode = 1;
-} else {
+} else if (!process.exitCode) {
   (operation === 'freeze' ? freeze(path.resolve(outputArg))
     : compare(path.resolve(outputArg), path.resolve(baselineArg), path.resolve(candidateArg),
-      path.resolve(selectionArg ?? path.join(__dirname, 'paired-selection.json'))))
+      path.resolve(compareOptions.selection ?? path.join(__dirname,
+        compareOptions.assistance === 'scripted' ? 'paired-safety-selection.json' : 'paired-selection.json')),
+      compareOptions.assistance))
     .catch(error => { console.error(error.message); process.exitCode = 1; });
 }

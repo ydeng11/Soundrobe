@@ -234,7 +234,11 @@ pub fn run() {
                     )
                     .into());
                 }
+                let reviews =
+                    commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
+                        .map_err(|error| std::io::Error::other(error.to_string()))?;
                 app.manage(worker);
+                app.manage(reviews);
                 app.manage(DebugState::new_in(data_dir.clone(), debug_enabled));
 
                 // Persistent task state for the assistant harness.
@@ -257,13 +261,13 @@ pub fn run() {
                 );
                 let _ = task_state.initialize();
                 app.manage(task_state);
+                app.manage(commands::auto_tag_review::ReviewStore::default());
             }
             app.manage(AssistantRuntimeState::default());
             app.manage(AssistantServicesState::default());
             app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
-            app.manage(commands::auto_tag_review::ReviewStore::default());
             app.manage(WriteQueue::with_concurrency(write_concurrency));
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());

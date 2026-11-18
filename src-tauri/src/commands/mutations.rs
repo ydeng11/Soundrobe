@@ -819,6 +819,10 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     // the shared path so they can still run concurrently.
     let review = super::auto_tag_review::active_review();
     let journaled = review.is_some();
+    let review_genre_patch = match &patch.genre {
+        Patch::Value(genre) => Some(serde_json::json!({"genre":genre})),
+        Patch::Omitted | Patch::Null => None,
+    };
     #[cfg(all(test, unix))]
     if journaled && crate::infra::mock_run_authority::storage::is_scoped() {
         crate::infra::mock_run_authority::storage::stop_unsupported();
@@ -869,7 +873,17 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
             };
             let result = match review {
                 Some(journal) => {
-                    let outcome = journal.mutate(&path, write);
+                    let outcome = match review_genre_patch {
+                        Some(review_patch) => match review_patch["genre"].as_str() {
+                            Some(genre) => match journal.is_assisted_genre_patch(genre) {
+                                Ok(true) => journal.mutate_with_patch(&path, &review_patch, write),
+                                Ok(false) => journal.mutate(&path, write),
+                                Err(error) => Err(error),
+                            },
+                            None => journal.mutate(&path, write),
+                        },
+                        None => journal.mutate(&path, write),
+                    };
                     if let Err(error) = &outcome {
                         journal.report_error(format!(
                             "Track write failed: {}: {error}",

@@ -391,11 +391,13 @@ pub(super) fn scope(run: &super::Run) -> Value {
         "membership":run.membership,"preparations":run.preparations,"policy":name(run)})
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct GenreInput {
     artist: Option<String>,
     album: Option<String>,
     tracks: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source_observation: Option<crate::commands::auto_tag::GenreSourceObservation>,
 }
 impl GenreInput {
     pub(crate) fn body(&self) -> Result<Value, String> {

@@ -1,5 +1,6 @@
 """Contract tests for fixed-denominator paired native reports."""
 import importlib.util
+import hashlib
 import json
 import subprocess
 import sys
@@ -15,6 +16,352 @@ if spec.loader and Path(spec.origin).exists():
 
 
 class PairedReportTests(unittest.TestCase):
+    def test_source_mapping_audit_recomputes_binding_and_joins_locked_source_to_files(self):
+        canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                             separators=(',', ':')).encode()
+        digest = lambda value: hashlib.sha256(value).hexdigest()
+        body = dict(id=42, notes='Genre: Dream pop', tracklist=[
+            dict(position='1', title='Song'), dict(position='2', title='Other')])
+        body_bytes = json.dumps(body, ensure_ascii=False, separators=(',', ':')).encode()
+        body_sha = digest(body_bytes)
+        fixture = dict(label='synthetic_loopback_counterfactual', releaseId='42',
+                       route=dict(provider='discogs', path='/releases/42', query={}),
+                       successReleaseResponse=body, sourceText=body['notes'], genre='Dream pop')
+        route = dict(provider='discogs', path='/releases/42', query={}, status=200, sha256=body_sha)
+        inventory = dict(records=[route], requests=[dict(provider='discogs', path='/releases/42',
+                                                           query={}, status=200)])
+        request_tracks = [dict(title='Song', filename='01 Song')]
+        mapping = dict(coverage=1, remoteIndices=[0], evidence=['TagTitle'], providerTracks=[
+            dict(title='Song', track_number=1), dict(title='Other', track_number=2)])
+        binding = dict(releaseId='42', requestTracks=request_tracks, mapping=mapping)
+        mapping_sha = digest(canonical(binding))
+        source_evidence = dict(provider='discogs', resourceId='42', responseSha256=body_sha,
+                               selector='/notes', textSha256=digest(b'Genre: Dream pop'),
+                               trackMappingSha256=mapping_sha)
+        source_evidence['evidenceId'] = digest(canonical(source_evidence))
+        record = dict(genreSourceBindingEvidence={**binding, 'mappingSha256': mapping_sha},
+                      fieldObservations=dict(requestJson=json.dumps(dict(tracks=request_tracks))),
+                      native=dict(candidate=dict(assisted_genre=dict(value='Dream pop', source_observation={
+                          'origin': 'synthetic_loopback', **source_evidence, 'text': body['notes']}))))
+        case = dict(tracks=[dict(relativePath='01 Song.flac')])
+        truth = dict(mapping=[dict(localTrack=1, localTitle='Song', providerTitle='Song',
+                                   providerTrack='1')])
+        self.assertEqual(paired.source_mapping_failures(record, case, truth, fixture, inventory), [])
+
+        missing = dict(record)
+        missing.pop('genreSourceBindingEvidence')
+        self.assertTrue(paired.source_mapping_failures(missing, case, truth, fixture, inventory))
+
+        swapped = json.loads(json.dumps(record))
+        swapped['genreSourceBindingEvidence']['requestTracks'][0]['filename'] = '02 Other'
+        swapped['fieldObservations']['requestJson'] = json.dumps(dict(
+            tracks=swapped['genreSourceBindingEvidence']['requestTracks']))
+        self.assertTrue(paired.source_mapping_failures(swapped, case, truth, fixture, inventory))
+
+        omitted = json.loads(json.dumps(record))
+        omitted['genreSourceBindingEvidence']['requestTracks'] = []
+        omitted['fieldObservations']['requestJson'] = json.dumps(dict(tracks=[]))
+        self.assertTrue(paired.source_mapping_failures(omitted, case, truth, fixture, inventory))
+
+        forged = json.loads(json.dumps(record))
+        forged_map = forged['genreSourceBindingEvidence']
+        forged_map['mapping']['remoteIndices'] = [1]
+        forged_map['mappingSha256'] = digest(canonical({key: forged_map[key]
+                                                         for key in ['releaseId', 'requestTracks', 'mapping']}))
+        forged_source = forged['native']['candidate']['assisted_genre']['source_observation']
+        forged_source['trackMappingSha256'] = forged_map['mappingSha256']
+        forged_evidence = {key: forged_source[key] for key in ['provider', 'resourceId', 'responseSha256',
+                                                               'selector', 'textSha256', 'trackMappingSha256']}
+        forged_source['evidenceId'] = digest(canonical(forged_evidence))
+        self.assertTrue(paired.source_mapping_failures(forged, case, truth, fixture, inventory))
+
+        changed_source = json.loads(json.dumps(record))
+        changed_fixture = json.loads(json.dumps(fixture))
+        changed_fixture['successReleaseResponse']['notes'] = 'Genre: Noise pop'
+        self.assertTrue(paired.source_mapping_failures(changed_source, case, truth, changed_fixture, inventory))
+
+        changed_route = json.loads(json.dumps(fixture))
+        changed_route['route']['path'] = '/masters/42'
+        self.assertTrue(paired.source_mapping_failures(record, case, truth, changed_route, inventory))
+
+    def test_report_keeps_expected_model_failure_separate_and_retains_provider_write(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.prepare_report(root)
+            inputs = json.loads((root / 'comparison-inputs.json').read_text())
+            fixture = dict(caseId='case', profile='folder_filename', artist='Artist', album='Album',
+                           releaseId='42', sourceText='Genre: Dream pop', genre='Dream pop',
+                           successReleaseResponse=dict(tracklist=[dict(title='First'), dict(title='Second')]))
+            fixture['profile'] = 'assisted_without_ids'
+            job = dict(inputs['jobs'][0], profile=fixture['profile'], scenario='assistance_failure',
+                       supplemental=True, requireNoWrite=False)
+            inputs['jobs'].append(job)
+            inputs['syntheticGenreSource'] = fixture
+            self.save(root / 'comparison-inputs.json', inputs)
+            for arm in ['baseline', 'candidate']:
+                primary = root / arm / 'folder_filename' / 'case'
+                supplemental = root / arm / 'assisted_without_ids' / 'case' / 'supplemental' / 'assistance_failure'
+                supplemental.mkdir(parents=True)
+                for name in ['execution.json', 'source-hashes-before.json', 'source-hashes-after.json']:
+                    (supplemental / name).write_bytes((primary / name).read_bytes())
+                execution = json.loads((supplemental / 'execution.json').read_text())
+                execution['runId'] = f'{arm}-assisted_without_ids-case-assistance_failure'
+                execution['artifactDirectory'] = (
+                    f'{arm}/assisted_without_ids/case/supplemental/assistance_failure')
+                execution['scenario'] = 'assistance_failure'
+                self.save(supplemental / 'execution.json', execution)
+                records = []
+                for phase in ['cold', 'warm']:
+                    record = json.loads((primary / f'{phase}.jsonl').read_text())
+                    record['profile'] = 'assisted_without_ids'
+                    record['runId'] = f'{arm}-assisted_without_ids-case-assistance_failure'
+                    if arm == 'candidate':
+                        record['scenario'] = 'assistance_failure'
+                    else:
+                        record.pop('scenario', None)
+                    record['native']['written'] = 2
+                    record['outcome'] = 'applied'
+                    records.append(json.dumps(record))
+                (supplemental / 'cold.jsonl').write_text(records[0] + '\n')
+                (supplemental / 'warm.jsonl').write_text(records[1] + '\n')
+                payloads = []
+                payload_class = 'title_only_baseline' if arm == 'baseline' else 'synthetic_discogs_source'
+                for _ in range(2):
+                    payload = dict(artist='Artist', album='Album', tracks=['First', 'Second'])
+                    if arm == 'candidate':
+                        body_sha = hashlib.sha256(json.dumps(fixture['successReleaseResponse'],
+                            ensure_ascii=False, separators=(',', ':')).encode()).hexdigest()
+                        payload['sourceObservation'] = dict(origin='synthetic_loopback', provider='discogs',
+                            resourceId='42', responseSha256=body_sha, selector='/notes', text='Genre: Dream pop',
+                            trackMappingSha256='b' * 64)
+                    payloads.append(dict(payload=payload))
+                self.save(supplemental / 'inventory.json', dict(misses=[],
+                    modelRequests=[dict(status=503, payloadClass=payload_class)] * 2,
+                    modelPayloads=payloads))
+            report = self.report(root, expected_exit=0)
+            self.assertEqual(report['requestedEvaluationsPerImplementation'], 4)
+            self.assertEqual(report['baseline']['assistanceFailureControls'], 2)
+            self.assertEqual(report['candidate']['assistanceFailureControls'], 2)
+            self.assertEqual(report['baseline']['passedAssistanceFailureControls'], 2)
+            self.assertEqual(report['candidate']['passedAssistanceFailureControls'], 2)
+            for arm in ['baseline', 'candidate']:
+                failed_rows = [row for row in report['rows'][arm] if row.get('scenario') == 'assistance_failure']
+                self.assertEqual(len(failed_rows), 2)
+                self.assertTrue(all(row['written'] == 2 and not row['unavailable'] for row in failed_rows))
+
+            baseline_supplemental = root / 'baseline' / 'assisted_without_ids' / 'case' / 'supplemental' / 'assistance_failure'
+            baseline_cold = baseline_supplemental / 'cold.jsonl'
+            baseline_record = json.loads(baseline_cold.read_text())
+            baseline_record['runId'] = 'baseline-assisted_without_ids-other-assistance_failure'
+            self.save(baseline_cold, baseline_record)
+            bad_run_id = self.report(root, expected_exit=1)
+            baseline_row = next(row for row in bad_run_id['rows']['baseline']
+                                if row.get('scenario') == 'assistance_failure' and row['phase'] == 'cold')
+            self.assertTrue(baseline_row['unavailable'])
+            self.assertEqual(baseline_row['reason'], 'native run ID does not match the runner-owned job')
+
+            baseline_record['runId'] = 'baseline-assisted_without_ids-case-assistance_failure'
+            self.save(baseline_cold, baseline_record)
+            execution_file = baseline_supplemental / 'execution.json'
+            execution = json.loads(execution_file.read_text())
+            execution['artifactDirectory'] = 'baseline/other-case/supplemental/assistance_failure'
+            self.save(execution_file, execution)
+            bad_directory = self.report(root, expected_exit=1)
+            baseline_rows = [row for row in bad_directory['rows']['baseline']
+                             if row.get('scenario') == 'assistance_failure']
+            self.assertTrue(all(row['unavailable'] for row in baseline_rows))
+            self.assertTrue(all(any('execution context does not bind' in message for message in row['safetyFailures'])
+                                for row in baseline_rows))
+
+            execution['artifactDirectory'] = 'baseline/assisted_without_ids/case/supplemental/assistance_failure'
+            self.save(execution_file, execution)
+            candidate_cold = (root / 'candidate' / 'assisted_without_ids' / 'case' / 'supplemental'
+                              / 'assistance_failure' / 'cold.jsonl')
+            candidate_record = json.loads(candidate_cold.read_text())
+            candidate_record.pop('scenario')
+            self.save(candidate_cold, candidate_record)
+            missing_candidate_scenario = self.report(root, expected_exit=1)
+            candidate_row = next(row for row in missing_candidate_scenario['rows']['candidate']
+                                 if row.get('scenario') == 'assistance_failure' and row['phase'] == 'cold')
+            self.assertTrue(candidate_row['unavailable'])
+            self.assertEqual(candidate_row['reason'], 'missing, duplicate or misbound native phase')
+
+    def test_required_candidate_fill_rejects_empty_readback_and_no_obligations(self):
+        record = dict(phase='cold', caseId='case', native=dict(candidate=dict(assisted_genre=dict(
+            value='Dream pop', source_observation={'evidenceId': 'b' * 64}))),
+            beforeTracks=[dict(path='/tmp/01 Song.flac', genre=None)],
+            readbackTracks=[dict(path='/tmp/01 Song.flac', genre=None)],
+            fieldReviewObligationsAfterRestart={'/tmp/01 Song.flac': []})
+        case = dict(tracks=[dict(relativePath='01 Song.flac')])
+        failures, status = paired.field_obligation_observation(record, case, require_assisted_write=True)
+        self.assertTrue(failures)
+        self.assertEqual(status, 'unavailable')
+
+    def test_reopened_obligation_requires_exact_file_before_and_source_proposal_binding(self):
+        canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
+                                             separators=(',', ':')).encode()
+        digest = lambda value: hashlib.sha256(value).hexdigest()
+        text = 'Genre: Dream pop'
+        source = dict(origin='synthetic_loopback', provider='discogs', resourceId='42',
+                      responseSha256='a' * 64, selector='/notes', textSha256=digest(text.encode()),
+                      trackMappingSha256='b' * 64, text=text)
+        source['evidenceId'] = digest(canonical({key: source[key] for key in
+            ['provider', 'resourceId', 'responseSha256', 'selector', 'textSha256', 'trackMappingSha256']}))
+        request_input = dict(artist='Artist', album='Album', tracks=['Song'], sourceObservation=source)
+        input_sha = digest(canonical(request_input))
+        raw_value = applied_value = 'Dream pop'
+        proposal = dict(rawValue=raw_value, appliedValue=applied_value, requestSha256=input_sha,
+                        source={key: source[key] for key in
+                            ['provider', 'resourceId', 'responseSha256', 'selector', 'textSha256',
+                             'trackMappingSha256', 'evidenceId']})
+        proposal_sha = digest(canonical(proposal))
+        path = '/tmp/eval/case/01 Song.flac'
+        assisted = dict(value=applied_value, raw_value=raw_value, model='scripted/genre-v1',
+                        input_sha256=input_sha, request_input=request_input,
+                        proposal_sha256=proposal_sha, source_observation=source)
+        obligation = dict(path=path, field='genre', revision='cold-case', before=None, after=applied_value,
+            provenance=dict(kind='assisted_inference', grounded=False, sourceMatch='exact_phrase_in_source_text',
+                sourceObservation=source, proposalSha256=proposal_sha, model='scripted/genre-v1',
+                rawValue=raw_value, appliedValue=applied_value, requestInput=request_input,
+                requestInputSha256=input_sha), evidence_ids=[source['evidenceId']], state='open')
+        record = dict(phase='cold', caseId='case', native=dict(candidate=dict(assisted_genre=assisted)),
+            beforeTracks=[dict(path=path, genre=None)],
+            readbackTracks=[dict(path=path, genre=applied_value)],
+            genreSourceBindingEvidence=dict(releaseId='42', mappingSha256='b' * 64),
+            fieldReviewObligationsAfterRestart={path: [obligation]})
+        case = dict(tracks=[dict(relativePath='01 Song.flac')])
+        self.assertEqual(paired.field_obligation_observation(record, case, require_assisted_write=True),
+                         ([], 'open_per_file_obligations'))
+
+        mutations = {
+            'unrelated_path': lambda value: value['fieldReviewObligationsAfterRestart'].__setitem__(
+                '/tmp/elsewhere/01 Song.flac', value['fieldReviewObligationsAfterRestart'].pop(path)),
+            'different_readback_path': lambda value: value['readbackTracks'][0].update(
+                path='/tmp/elsewhere/01 Song.flac'),
+            'wrong_before_value': lambda value: value['fieldReviewObligationsAfterRestart'][path][0].update(
+                before='Jazz'),
+            'wrong_source_id': lambda value: value['native']['candidate']['assisted_genre']['source_observation'].update(
+                resourceId='43'),
+            'wrong_provenance': lambda value: value['fieldReviewObligationsAfterRestart'][path][0][
+                'provenance']['sourceObservation'].update(resourceId='43'),
+            'wrong_proposal_id': lambda value: value['fieldReviewObligationsAfterRestart'][path][0][
+                'provenance'].update(proposalSha256='c' * 64),
+            'wrong_evidence_id': lambda value: value['fieldReviewObligationsAfterRestart'][path][0].update(
+                evidence_ids=['d' * 64]),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(mutation=name):
+                changed = json.loads(json.dumps(record))
+                mutate(changed)
+                failures, status = paired.field_obligation_observation(
+                    changed, case, require_assisted_write=True)
+                self.assertTrue(failures, name)
+                self.assertEqual(status, 'unavailable', name)
+
+    def test_provider_precedence_control_checks_every_genre_and_forbids_assistance(self):
+        fixture = json.loads((Path(__file__).with_name('synthetic-genre-source.json')).read_text())
+        body = fixture['providerPrecedenceReleaseResponse']
+        genres = list(dict.fromkeys(value.strip() for value in body['genres'] + body['styles'] if value.strip()))
+        expected_genre = ', '.join(genres)
+        self.assertEqual(expected_genre, 'Pop, Acoustic, Alt-Pop')
+        relative_files = ['01. Billie Eilish - TV.flac', '02. Billie Eilish - The 30th.flac']
+        titles = ['TV', 'The 30th']
+        case = dict(artist='Billie Eilish', tracks=[dict(relativePath=file) for file in relative_files])
+        truth = dict(mapping=[dict(localTrack=i, localTitle=title, providerTitle=title,
+                                   providerTrack=str(i)) for i, title in enumerate(titles, 1)])
+        review = dict(releaseId=fixture['releaseId'], hardNegativeIds=[])
+        expected = dict(album='Guitar Songs', credits=[['Billie Eilish'], ['Billie Eilish']])
+        file_hashes = {file: dict(bytes=100, fullSha256='a' * 64, payloadSha256='p' * 64)
+                       for file in relative_files}
+        after_hashes = {file: dict(bytes=100, fullSha256='b' * 64, payloadSha256='p' * 64)
+                        for file in relative_files}
+        tracks = [dict(path=f'/tmp/eval/{file}', title=title, artist='Billie Eilish',
+                       artists=['Billie Eilish'], album='Guitar Songs', albumArtist='Billie Eilish',
+                       trackNumber=i, trackTotal=2, discNumber=1, genre=expected_genre)
+                  for i, (file, title) in enumerate(zip(relative_files, titles), 1)]
+        context = dict(caseId=fixture['caseId'], profile='tagged_recovery', phase='cold')
+        record = dict(**context, outcome='applied', providerMode='offline_fixtures',
+            mediaMode='synthetic_flac', readback=True, payloadUnchanged=True, written=2,
+            beforeTracks=[dict(track, genre=None) for track in tracks], readbackTracks=tracks,
+            profileBaseline=file_hashes, after=after_hashes, copiedBeforeProfile=file_hashes,
+            native=dict(written=2, candidate=dict(discogs_release_id=fixture['releaseId'])),
+            fieldReviewObligationsAfterRestart={track['path']: [] for track in tracks})
+        inventory = dict(records=[dict(provider='discogs', path=fixture['route']['path'],
+            query={}, status=200, sha256=hashlib.sha256(json.dumps(body, ensure_ascii=False,
+                separators=(',', ':')).encode()).hexdigest())],
+            requests=[dict(provider='discogs', path=fixture['route']['path'], query={}, status=200)],
+            modelRequests=[], modelPayloads=[], wireArrivals=[])
+
+        def audit(mutated=record, observed=inventory):
+            return paired.audit_phase(context, [mutated], case, truth, review, expected,
+                source_fixture=fixture, inventory=observed, require_no_assisted_obligation=True)
+
+        valid = audit()
+        self.assertEqual(valid['providerPrecedenceGenre'], expected_genre)
+        self.assertEqual(valid['providerPrecedenceFailures'], [])
+        self.assertEqual(valid['providerPrecedenceGenreFailures'], [])
+        self.assertEqual(valid['providerPrecedenceUnavailable'], [])
+        self.assertTrue(valid['providerPrecedenceControl'])
+        self.assertEqual(valid['recovery'], 'correct')
+        self.assertFalse(valid['unavailable'])
+        wrong_genre_row = None
+        for index in range(len(tracks)):
+            for value in ['WRONG PROVIDER GENRE', None]:
+                changed = json.loads(json.dumps(record))
+                changed['readbackTracks'][index]['genre'] = value
+                row = audit(changed)
+                self.assertTrue(row['providerPrecedenceFailures'], (index, value))
+                self.assertTrue(row['providerPrecedenceGenreFailures'], (index, value))
+                self.assertEqual(row['recovery'], 'wrong_match', (index, value))
+                self.assertFalse(row['unavailable'], (index, value))
+                if wrong_genre_row is None:
+                    wrong_genre_row = row
+        summary = paired.summarize([valid], [wrong_genre_row])
+        self.assertEqual(summary['candidate']['wrongMatches'], 1)
+        self.assertEqual(summary['candidate']['providerPrecedenceGenreFailures'], 1)
+        self.assertEqual(summary['candidate']['unavailable'], 0)
+        assisted = json.loads(json.dumps(record))
+        assisted['native']['candidate']['assisted_genre'] = dict(value='Dream pop')
+        assisted_row = audit(assisted)
+        self.assertTrue(assisted_row['providerPrecedenceFailures'])
+        self.assertTrue(assisted_row['providerPrecedenceSafetyFailures'])
+        self.assertFalse(assisted_row['unavailable'])
+        obligation = json.loads(json.dumps(record))
+        obligation['fieldReviewObligationsAfterRestart'] = {
+            track['path']: [dict(field='genre', revision='cold-case', state='open')]
+            for track in tracks}
+        obligation_row = audit(obligation)
+        self.assertTrue(obligation_row['providerPrecedenceFailures'])
+        self.assertTrue(obligation_row['providerPrecedenceSafetyFailures'])
+        self.assertFalse(obligation_row['unavailable'])
+        unauthorized_model = dict(inventory, modelRequests=[dict(status=501)],
+                                  wireArrivals=[dict(method='POST', route='/model/chat/completions')])
+        unauthorized_row = audit(observed=unauthorized_model)
+        self.assertTrue(unauthorized_row['providerPrecedenceFailures'])
+        self.assertTrue(unauthorized_row['providerPrecedenceSafetyFailures'])
+        self.assertFalse(unauthorized_row['unavailable'])
+        missing_readback = json.loads(json.dumps(record))
+        missing_readback.pop('readbackTracks')
+        unavailable_row = audit(missing_readback)
+        self.assertTrue(unavailable_row['providerPrecedenceUnavailable'])
+        self.assertFalse(unavailable_row['providerPrecedenceGenreFailures'])
+        self.assertTrue(unavailable_row['unavailable'])
+
+    def test_phase_report_retains_raw_readback_mapping_and_reopened_obligation(self):
+        context = dict(caseId='case', profile='folder_filename', phase='cold')
+        record = dict(**context, outcome='needs_review', providerMode='offline_fixtures',
+                      mediaMode='synthetic_flac', readback=True, payloadUnchanged=True,
+                      beforeTracks=[dict(path='/tmp/First.flac', genre=None)],
+                      readbackTracks=[dict(path='/tmp/First.flac', genre='Dream pop')],
+                      profileBaseline={}, after={}, copiedBeforeProfile={}, native=dict(written=0),
+                      genreSourceBindingEvidence={'mappingSha256': 'a' * 64},
+                      fieldReviewObligationsAfterRestart={'/tmp/First.flac': [dict(field='genre', state='open')]})
+        row = paired.audit_phase(context, [record], {}, {}, {}, {})
+        self.assertEqual(row['rawIndependentMetadataReadback'], record['readbackTracks'])
+        self.assertEqual(row['sourceMappingEvidence'], record['genreSourceBindingEvidence'])
+        self.assertEqual(row['reopenedFieldReviewObligations'], record['fieldReviewObligationsAfterRestart'])
+        self.assertEqual(row['jobScriptedModelPayloads'], [])
+
     def prepare_report(self, root, written=0):
         tracks = [dict(path=f'/tmp/{name}.flac', title=name, artist='Artist', artists=['Artist'],
                        album='Album', albumArtist='Artist', trackNumber=i, trackTotal=2, discNumber=1)
