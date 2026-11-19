@@ -30,6 +30,10 @@ pub mod cron;
 pub mod events;
 #[cfg(any(feature = "desktop", feature = "server"))]
 pub mod library;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod library_authority;
+#[cfg(any(feature = "desktop", feature = "server"))]
+pub mod authority_io;
 #[cfg(feature = "server")]
 pub mod operation;
 #[cfg(any(feature = "desktop", feature = "server"))]

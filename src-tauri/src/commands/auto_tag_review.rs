@@ -182,6 +182,8 @@ struct ReversalFile {
     backup: Option<PathBuf>,
     original_mode: Option<u32>,
     phase: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    authority: Option<(String, String)>,
 }
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ReversalManifest {
@@ -211,6 +213,16 @@ fn restore_mode(path: &Path, mode: Option<u32>) -> Result<(), ApiError> {
 #[cfg(not(unix))]
 fn restore_mode(_path: &Path, _mode: Option<u32>) -> Result<(), ApiError> {
     Ok(())
+}
+
+fn queue_target_authority(
+    path: &Path,
+) -> Result<Option<Arc<crate::state::library_authority::AuthorityLease>>, ApiError> {
+    crate::state::write_queue::current_write_queue()
+        .map(|queue| queue.admit_write_target(path, true))
+        .transpose()
+        .map(Option::flatten)
+        .map_err(ApiError::LibraryAuthority)
 }
 
 fn verify_reversal_file(file: &ReversalFile) -> Result<(), ApiError> {
@@ -252,6 +264,7 @@ struct ReviewData {
     trusted_assisted_genre_proposals: HashSet<String>,
 }
 pub(crate) struct TargetWriteLease {
+    _authority: Option<Arc<crate::state::library_authority::AuthorityLease>>,
     worker: Arc<WorkerStore>,
     revision: String,
     target: PathBuf,
@@ -388,13 +401,22 @@ pub(crate) fn staged_ordinary_target_lease(
     worker: Arc<WorkerStore>,
     path: &Path,
 ) -> Result<TargetWriteLease, ApiError> {
-    let target = canonical_target(path)?;
+    let authority = queue_target_authority(path)?;
+    register_staged_ordinary_target(worker, canonical_target(path)?, authority)
+}
+
+fn register_staged_ordinary_target(
+    worker: Arc<WorkerStore>,
+    target: PathBuf,
+    authority: Option<Arc<crate::state::library_authority::AuthorityLease>>,
+) -> Result<TargetWriteLease, ApiError> {
     let revision = format!("ordinary-write-{}", uuid::Uuid::new_v4());
     let token = uuid::Uuid::new_v4().to_string();
     let inserted_owner = worker
         .register_ordinary_target(&revision, &target, &token)
         .map_err(failure)?;
     Ok(TargetWriteLease {
+        _authority: authority,
         worker,
         revision,
         target,
@@ -412,13 +434,16 @@ pub(crate) fn stage_ordinary_targets(
     let Some(worker) = worker else {
         return Ok(Vec::new());
     };
-    let targets = paths
-        .iter()
-        .map(|path| canonical_target(path))
-        .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
+    let mut targets = std::collections::BTreeMap::new();
+    for path in paths {
+        let authority = queue_target_authority(path)?;
+        targets.insert(canonical_target(path)?, authority);
+    }
     targets
         .into_iter()
-        .map(|target| staged_ordinary_target_lease(worker.clone(), &target))
+        .map(|(target, authority)| {
+            register_staged_ordinary_target(worker.clone(), target, authority)
+        })
         .collect()
 }
 fn fingerprint(path: &Path) -> Result<Option<String>, ApiError> {
@@ -714,7 +739,7 @@ impl ReviewJournal {
         path: &Path,
         write: impl FnOnce() -> Result<T, ApiError>,
     ) -> Result<T, ApiError> {
-        self.mutate_inner(path, None, write)
+        self.mutate_inner(path, None, None, write)
     }
 
     /// Persists a matching assisted genre obligation and write intent before
@@ -724,15 +749,17 @@ impl ReviewJournal {
         &self,
         path: &Path,
         patch: &Value,
+        authority: Option<&crate::state::library_authority::AuthorityLease>,
         write: impl FnOnce() -> Result<T, ApiError>,
     ) -> Result<T, ApiError> {
-        self.mutate_inner(path, Some(patch), write)
+        self.mutate_inner(path, Some(patch), authority, write)
     }
 
     fn mutate_inner<T>(
         &self,
         path: &Path,
         patch: Option<&Value>,
+        authority: Option<&crate::state::library_authority::AuthorityLease>,
         write: impl FnOnce() -> Result<T, ApiError>,
     ) -> Result<T, ApiError> {
         let mut data = self.data.lock().unwrap();
@@ -742,6 +769,8 @@ impl ReviewJournal {
                 path.display()
             )));
         }
+        let held_authority = queue_target_authority(path)?;
+        let authority = authority.or(held_authority.as_deref());
         let before = fingerprint(path)?;
         let target = canonical_target(path)?;
         if let Some(file) = data.files.iter().find(|file| file.target == target) {
@@ -764,6 +793,7 @@ impl ReviewJournal {
                 .register_review_target(&data.detail.id, &target, &token)
                 .map_err(failure)?;
             Some(TargetWriteLease {
+                _authority: None,
                 worker: Arc::clone(recovery),
                 revision: data.detail.id.clone(),
                 target: target.clone(),
@@ -789,6 +819,21 @@ impl ReviewJournal {
             let intent = recovery
                 .prepare_write_intent(path, &intent_id, patch)
                 .map_err(failure)?;
+            if let Some(lease) = authority {
+                #[cfg(unix)]
+                {
+                    let relative = lease
+                        .relative_file(path)
+                        .map_err(|error| failure(error.to_string()))?;
+                    recovery
+                        .bind_write_authority(path, &intent_id, lease, &relative)
+                        .map_err(failure)?;
+                }
+                #[cfg(not(unix))]
+                lease
+                    .validate()
+                    .map_err(|error| failure(error.to_string()))?;
+            }
             Some((intent_id, intent))
         } else {
             None
@@ -1225,6 +1270,7 @@ impl ReviewStore {
                 return Err(failure("Invalid reversal state"));
             }
         }
+        let mut authorities = Vec::new();
         if existing.is_none() {
             let journal = self.journal(id)?;
             let data = journal.data.lock().unwrap();
@@ -1249,6 +1295,12 @@ impl ReviewStore {
                 {
                     return Err(failure(format!("Cannot revert: {} changed after this auto-tag run, or could not be verified. Undo newer changes first.", file.path.display())));
                 }
+                let lease = queue_target_authority(&file.path)?;
+                let authority = lease.as_ref().map(|lease| {
+                    let (library, owner) = lease.identity();
+                    (library.to_owned(), owner.to_owned())
+                });
+                authorities.extend(lease);
                 let backup = match (&file.before, &file.backup) {
                     (Some(expected), Some(source)) => {
                         if fingerprint(source)?.as_deref() != Some(expected) {
@@ -1271,6 +1323,7 @@ impl ReviewStore {
                     backup,
                     original_mode: file.original_mode,
                     phase: "pending".into(),
+                    authority,
                 });
             }
             if files.is_empty() {
@@ -1310,7 +1363,19 @@ impl ReviewStore {
             }
             let mut manifest: ReversalManifest =
                 serde_json::from_value(value).map_err(|e| failure(e.to_string()))?;
+            let mut authorities = Vec::new();
             for file in &manifest.files {
+                let lease = queue_target_authority(&file.path)?;
+                let expected = file
+                    .authority
+                    .as_ref()
+                    .map(|(library, owner)| (library.as_str(), owner.as_str()));
+                if lease.as_ref().map(|lease| lease.identity()) != expected {
+                    return Err(failure(
+                        "Reversal has no matching library authority binding",
+                    ));
+                }
+                authorities.extend(lease);
                 verify_reversal_file(file)?;
             }
             let mut restored = 0usize;
@@ -2137,6 +2202,78 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn nominated_native_write_persists_recovery_binding_before_media_changes() {
+        use crate::commands::mutations::write_track_queued;
+        use crate::state::library_authority::{acquire, load_or_create_profile_id, nominate};
+        use crate::state::write_queue::WriteQueue;
+
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let library = root.join("library");
+        fs::create_dir_all(&library).unwrap();
+        let file = library.join("track.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+            &file,
+        )
+        .unwrap();
+        let profile = root.join("profile");
+        let queue = WriteQueue::for_profile(&profile, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let owner = load_or_create_profile_id(&profile).unwrap();
+        nominate(&library, owner).unwrap();
+        let worker = WorkerStore::new_in(profile.clone());
+        assert!(worker.initialize());
+        let store = ReviewStore::new_with_worker(worker).unwrap();
+        let journal = store.begin("run", &library).unwrap();
+        record_assisted_genre_candidate(&journal, &library, "Jazz").await;
+        let db = rusqlite::Connection::open(profile.join("worker.db")).unwrap();
+        db.execute_batch(
+            "CREATE TRIGGER lose_receipt BEFORE UPDATE OF after_sha256 ON write_intents
+             BEGIN SELECT RAISE(FAIL, 'injected receipt persistence failure'); END;",
+        )
+        .unwrap();
+        assert!(ACTIVE_REVIEW
+            .scope(
+                journal,
+                write_track_queued(
+                    &queue,
+                    file.clone(),
+                    serde_json::from_value(json!({"genre":"Jazz"})).unwrap()
+                )
+            )
+            .await
+            .is_err());
+        db.execute_batch("DROP TRIGGER lose_receipt").unwrap();
+        drop(store);
+        let reopened = WorkerStore::new_in(profile.clone());
+        assert!(reopened.initialize());
+        reopened.reconcile_writes_at_startup().unwrap();
+        let records = reopened.reconcile_write_intents().unwrap();
+        assert_eq!(records.len(), 1);
+        assert_eq!(
+            records[0].intent.state, "applying",
+            "legacy startup has no authority to settle a bound write"
+        );
+        let reopened_queue = WriteQueue::for_profile(&profile, None).unwrap();
+        let active_owner = acquire(&library, owner).unwrap();
+        reopened_queue.reconcile_at_startup(&reopened).unwrap();
+        assert_eq!(
+            reopened.reconcile_write_intents().unwrap()[0].intent.state,
+            "applying"
+        );
+        drop(active_owner);
+        reopened_queue.reconcile_at_startup(&reopened).unwrap();
+        let records = reopened.reconcile_write_intents().unwrap();
+        assert_eq!(records[0].intent.state, "needs_recovery");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
     async fn writer_error_after_partial_change_needs_recovery_not_a_receipt() {
         let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
         fs::create_dir_all(&root).unwrap();
@@ -2152,7 +2289,7 @@ mod tests {
         let journal = store.begin("run", &root).unwrap();
         record_assisted_genre_candidate(&journal, &root, "Jazz").await;
         assert!(journal
-            .mutate_with_patch(&file, &json!({"genre":"Jazz"}), || {
+            .mutate_with_patch(&file, &json!({"genre":"Jazz"}), None, || {
                 fs::write(&file, b"partial")?;
                 Err::<(), _>(failure("injected writer error"))
             })
@@ -3313,6 +3450,74 @@ mod tests {
         );
         assert_eq!(fs::read(track).unwrap(), before);
         drop(queue);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn marked_album_reversal_refuses_other_profile_before_and_after_restart() {
+        use crate::state::library_authority::{load_or_create_profile_id, nominate};
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("library/album");
+        fs::create_dir_all(&album).unwrap();
+        let state = root.join("profile");
+        let owner = WriteQueue::for_profile(&state, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let other = WriteQueue::for_profile(&root.join("other"), None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        nominate(
+            album.parent().unwrap(),
+            load_or_create_profile_id(&state).unwrap(),
+        )
+        .unwrap();
+        let cover = album.join("cover.jpg");
+        let art = album.join("artist.jpg");
+        fs::write(&art, b"original").unwrap();
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("marked", &album).unwrap();
+        journal
+            .mutate(&cover, || Ok(fs::write(&cover, b"new cover")?))
+            .unwrap();
+        journal
+            .mutate(&art, || Ok(fs::write(&art, b"new artist art")?))
+            .unwrap();
+        store.finish("marked", "applied", json!({})).unwrap();
+        let error = other
+            .run_exclusive_checked(async { store.revert("marked") })
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert_eq!(fs::read(&cover).unwrap(), b"new cover");
+        let error = owner
+            .run_exclusive_checked(async { store.revert_with_limit("marked", Some(1)) })
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(error.to_string().contains("Injected interruption"));
+        assert!(!cover.exists());
+        drop(journal);
+        drop(store);
+        let reopened = ReviewStore::new_in(state).unwrap();
+        let error = other
+            .run_exclusive_checked(async { reopened.revert("marked") })
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert_eq!(fs::read(&art).unwrap(), b"new artist art");
+        owner
+            .run_exclusive_checked(async { reopened.revert("marked") })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fs::read(&art).unwrap(), b"original");
         fs::remove_dir_all(root).unwrap();
     }
 

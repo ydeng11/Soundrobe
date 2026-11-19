@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- On macOS and Linux, libraries stay browse-only until a Soundrobe profile is nominated to write. Other profiles can browse, and interrupted writes and album reversals stay tied to the nominated profile.
 - An interrupted album reversal can be resumed from Results after restart, with original files and artwork restored from a durable recovery manifest.
 
 - Interrupted auto-tag writes can be resolved per file by keeping the reviewed current contents. The recovery backup remains available.

@@ -6,12 +6,13 @@
 //!   - `run_for_folder()`: per-folder lock — used by batch write so tracks in
 //!     *different* album folders can be written concurrently.
 
+use super::library_authority::{self, AuthorityError, AuthorityLease};
 use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock, Weak};
 use tokio::sync::{Mutex, OwnedMutexGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 
 const DEFAULT_FOLDER_CONCURRENCY: usize = 4;
@@ -38,6 +39,12 @@ struct WriteQueueInner {
     active: AtomicUsize,
     profile_lock: Option<PathBuf>,
     recovery: std::sync::OnceLock<Arc<crate::state::worker::WorkerStore>>,
+    authority: OnceLock<ProfileWriteAuthority>,
+}
+
+struct ProfileWriteAuthority {
+    owner: uuid::Uuid,
+    active: std::sync::Mutex<HashMap<PathBuf, Weak<AuthorityLease>>>,
 }
 
 impl Default for WriteQueue {
@@ -59,6 +66,7 @@ impl WriteQueue {
             active: AtomicUsize::new(0),
             profile_lock: None,
             recovery: std::sync::OnceLock::new(),
+            authority: OnceLock::new(),
         }))
     }
 
@@ -81,7 +89,127 @@ impl WriteQueue {
             active: AtomicUsize::new(0),
             profile_lock: Some(lock_path),
             recovery: std::sync::OnceLock::new(),
+            authority: OnceLock::new(),
         })))
+    }
+
+    pub(crate) fn with_library_authority(self) -> Result<Self, AuthorityError> {
+        let profile = self
+            .0
+            .profile_lock
+            .as_deref()
+            .and_then(Path::parent)
+            .ok_or_else(|| AuthorityError::Invalid("write authority requires a profile".into()))?;
+        let owner = library_authority::load_or_create_profile_id(profile)?;
+        self.0
+            .authority
+            .set(ProfileWriteAuthority {
+                owner,
+                active: Default::default(),
+            })
+            .map_err(|_| AuthorityError::Invalid("write authority is already configured".into()))?;
+        Ok(self)
+    }
+
+    pub(crate) fn admit_existing_file(
+        &self,
+        path: &Path,
+    ) -> Result<Option<Arc<AuthorityLease>>, AuthorityError> {
+        self.admit_write_target(path, false)
+    }
+
+    pub(crate) fn admit_write_target(
+        &self,
+        path: &Path,
+        allow_missing: bool,
+    ) -> Result<Option<Arc<AuthorityLease>>, AuthorityError> {
+        self.admit_library(|| library_authority::root_for_write_target(path, allow_missing))
+    }
+
+    pub(crate) fn admit_album(
+        &self,
+        path: &Path,
+    ) -> Result<Option<Arc<AuthorityLease>>, AuthorityError> {
+        self.admit_library(|| library_authority::root_for_directory(path))
+    }
+
+    fn admit_library(
+        &self,
+        root: impl FnOnce() -> Result<PathBuf, AuthorityError>,
+    ) -> Result<Option<Arc<AuthorityLease>>, AuthorityError> {
+        let Some(authority) = self.0.authority.get() else {
+            return Ok(None);
+        };
+        let root = root()?;
+        let mut active = authority
+            .active
+            .lock()
+            .map_err(|_| AuthorityError::Invalid("write authority state is unavailable".into()))?;
+        if let Some(lease) = active.get(&root).and_then(Weak::upgrade) {
+            lease.validate()?;
+            return Ok(Some(lease));
+        }
+        active.retain(|_, lease| lease.strong_count() > 0);
+        let lease = Arc::new(library_authority::acquire(&root, authority.owner)?);
+        active.insert(root, Arc::downgrade(&lease));
+        Ok(Some(lease))
+    }
+
+    pub(crate) fn reconcile_at_startup(
+        &self,
+        worker: &crate::state::worker::WorkerStore,
+    ) -> Result<(), String> {
+        worker.reconcile_writes_at_startup()?;
+        #[cfg(unix)]
+        self.reconcile_marker_writes(worker)?;
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    fn reconcile_marker_writes(
+        &self,
+        worker: &crate::state::worker::WorkerStore,
+    ) -> Result<(), String> {
+        let pending = worker.pending_marker_writes()?;
+        if pending.is_empty() {
+            return Ok(());
+        }
+        let profile = std::fs::canonicalize(worker.data_dir()).map_err(|err| err.to_string())?;
+        let lock_path = self
+            .0
+            .profile_lock
+            .as_deref()
+            .filter(|path| path.parent() == Some(profile.as_path()))
+            .ok_or("marker recovery requires the matching profile queue")?;
+        let Ok(_coordination) = self.0.coordination.try_write() else {
+            tracing::warn!("Marker recovery deferred while the profile queue is active");
+            return Ok(());
+        };
+        let lock = open_profile_lock(lock_path, false).map_err(|err| err.to_string())?;
+        match lock_profile_file(&lock, true, true) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                tracing::warn!(
+                    "Marker recovery deferred while another runtime holds the profile queue"
+                );
+                return Ok(());
+            }
+            Err(error) => return Err(error.to_string()),
+        }
+        let owner = library_authority::load_or_create_profile_id(&profile)
+            .map_err(|error| error.to_string())?;
+        for (run_id, path, relative) in pending {
+            let result = library_authority::root_for_write_target(&path, false)
+                .and_then(|root| library_authority::acquire(&root, owner))
+                .map_err(|error| error.to_string())
+                .and_then(|lease| {
+                    worker.reconcile_write_intent_authorized(&path, &run_id, &lease, &relative)
+                });
+            if let Err(error) = result {
+                tracing::warn!(?path, %run_id, %error, "Marker-bound recovery could not be confirmed");
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn with_recovery_worker(
@@ -99,11 +227,29 @@ impl WriteQueue {
         self.0.recovery.get().cloned()
     }
 
+    #[cfg(test)]
+    pub(crate) fn with_initialized_test_worker(self) -> Self {
+        let profile = self
+            .0
+            .profile_lock
+            .as_deref()
+            .and_then(Path::parent)
+            .unwrap();
+        let worker = crate::state::worker::WorkerStore::new_in(profile.to_owned());
+        assert!(worker.initialize());
+        self.with_recovery_worker(Arc::new(worker)).unwrap()
+    }
+
     async fn profile_guard(
         &self,
         exclusive: bool,
         nonblocking: bool,
     ) -> io::Result<Option<std::fs::File>> {
+        if self.0.authority.get().is_some() && self.0.recovery.get().is_none() {
+            return Err(io::Error::other(
+                "Library write authority requires a recovery worker",
+            ));
+        }
         let Some(path) = self.0.profile_lock.clone() else {
             return Ok(None);
         };
@@ -391,6 +537,30 @@ pub(crate) struct QueueLease {
     _gate: Option<OwnedMutexGuard<()>>,
 }
 
+impl QueueLease {
+    #[cfg(all(test, target_os = "macos"))]
+    pub(crate) fn is_exclusive(&self) -> bool {
+        matches!(&self._coordination, QueueCoordination::Exclusive { .. })
+    }
+
+    #[cfg(all(test, target_os = "macos"))]
+    pub(crate) fn protects_worker(
+        &self,
+        worker: &crate::state::worker::WorkerStore,
+    ) -> io::Result<bool> {
+        let inner = &self._activity.inner;
+        let Some(profile_lock) = &inner.profile_lock else {
+            return Ok(false);
+        };
+        let expected = std::fs::canonicalize(worker.data_dir())?.join("write-queue.lock");
+        Ok(*profile_lock == expected
+            && inner
+                .recovery
+                .get()
+                .is_some_and(|configured| configured.same_store(worker)))
+    }
+}
+
 enum QueueCoordination {
     Shared { _guard: OwnedRwLockReadGuard<()> },
     Exclusive { _guard: OwnedRwLockWriteGuard<()> },
@@ -400,6 +570,12 @@ tokio::task_local! { static ACTIVE_QUEUE_LEASE: Arc<QueueLease>; }
 
 pub(crate) fn current_queue_lease() -> Option<Arc<QueueLease>> {
     ACTIVE_QUEUE_LEASE.try_with(Arc::clone).ok()
+}
+
+pub(crate) fn current_write_queue() -> Option<WriteQueue> {
+    ACTIVE_QUEUE_LEASE
+        .try_with(|lease| WriteQueue(Arc::clone(&lease._activity.inner)))
+        .ok()
 }
 
 pub(crate) fn current_recovery_worker() -> Option<Arc<crate::state::worker::WorkerStore>> {
@@ -425,9 +601,9 @@ where
     T: Send + 'static,
 {
     let lease = current_queue_lease();
-    tokio::task::spawn_blocking(move || {
-        let _lease = lease;
-        operation()
+    tokio::task::spawn_blocking(move || match lease {
+        Some(lease) => ACTIVE_QUEUE_LEASE.sync_scope(lease, operation),
+        None => operation(),
     })
 }
 

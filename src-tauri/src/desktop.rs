@@ -237,9 +237,6 @@ pub fn run() {
                     )
                     .into());
                 }
-                worker
-                    .reconcile_writes_at_startup()
-                    .map_err(std::io::Error::other)?;
                 let reviews =
                     commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
                         .map_err(|error| std::io::Error::other(error.to_string()))?;
@@ -280,9 +277,16 @@ pub fn run() {
                 None => WriteQueue::with_concurrency(write_concurrency),
             };
             let queue = match write_recovery {
-                Some(worker) => queue.with_recovery_worker(worker)?,
+                Some(worker) => {
+                    queue
+                        .reconcile_at_startup(&worker)
+                        .map_err(std::io::Error::other)?;
+                    queue.with_recovery_worker(worker)?
+                }
                 None => queue,
             };
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            let queue = queue.with_library_authority()?;
             app.manage(queue);
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());

@@ -462,6 +462,24 @@ fn start_background_batch(
         return Err("every album already has complete tags".to_string());
     }
 
+    let mut denied = None;
+    let albums: Vec<_> = albums
+        .into_iter()
+        .filter(|album| match state.write_queue.admit_album(album) {
+            Ok(_) => true,
+            Err(error) => {
+                denied = Some(error);
+                false
+            }
+        })
+        .collect();
+    if albums.is_empty() {
+        return Err(format!(
+            "No album is writable: {}",
+            denied.expect("nonempty input was denied")
+        ));
+    }
+
     let token = state
         .operations
         .try_start(OperationKind::AutoTag)
@@ -1900,6 +1918,14 @@ fn media_error(error: crate::error::ApiError) -> Response {
             StatusCode::SERVICE_UNAVAILABLE,
             "write queue lock unavailable",
         ),
+        crate::error::ApiError::LibraryAuthority(error) => {
+            use crate::state::library_authority::AuthorityError;
+            let status = match error {
+                AuthorityError::Busy => StatusCode::CONFLICT,
+                _ => StatusCode::FORBIDDEN,
+            };
+            error_response(status, format!("Library is browse-only: {error}"))
+        }
         crate::error::ApiError::NotImplemented(_)
         | crate::error::ApiError::UnsupportedFormat(_)
         | crate::error::ApiError::Message(_) => {
@@ -2563,7 +2589,9 @@ async fn command(
             request.album_path = resolved.path.to_string_lossy().into_owned();
             match apply_search_candidate(&request, &state.config, &state.write_queue).await {
                 Ok(written) => Json(written).into_response(),
-                Err(error @ ApiError::WriteQueue(_)) => media_error(error),
+                Err(error @ (ApiError::WriteQueue(_) | ApiError::LibraryAuthority(_))) => {
+                    media_error(error)
+                }
                 Err(error) => search_operation_error_response(error.to_string()),
             }
         }
@@ -3467,6 +3495,7 @@ async fn command(
             };
             match result {
                 Ok(removed) => Json(removed).into_response(),
+                Err(error @ ApiError::LibraryAuthority(_)) => media_error(error),
                 Err(ApiError::Message(_)) => {
                     error_response(StatusCode::CONFLICT, "cover target requires recovery")
                 }
@@ -3847,6 +3876,7 @@ async fn upload_cover(
             };
             error_response(StatusCode::BAD_REQUEST, message)
         }
+        Err(error @ ApiError::LibraryAuthority(_)) => media_error(error),
         Err(ApiError::Message(_)) => {
             error_response(StatusCode::CONFLICT, "cover target requires recovery")
         }
@@ -3881,8 +3911,8 @@ fn router_with_runtime_and_events(
     let worker_error = if !worker.initialize() {
         Some("durable background worker store could not be initialized".to_string())
     } else {
-        worker
-            .reconcile_writes_at_startup()
+        write_queue
+            .reconcile_at_startup(&worker)
             .and_then(|()| worker.recover_interrupted())
             .map(|_| None)
             .unwrap_or_else(|error| Some(format!("worker recovery failed: {error}")))
@@ -3942,6 +3972,28 @@ fn router_with_runtime_and_events(
         .layer(middleware::from_fn_with_state(state, security_headers))
 }
 
+pub fn nominate_library(path: &Path) -> anyhow::Result<()> {
+    let config = ServerConfig::from_env()?;
+    nominate_server_library(&config, path)
+}
+
+fn nominate_server_library(config: &ServerConfig, path: &Path) -> anyhow::Result<()> {
+    let root = path.canonicalize()?;
+    let libraries = discover_library_roots(&config.library_root_dir)?;
+    if !libraries
+        .roots()
+        .iter()
+        .any(|library| Path::new(&library.path) == root)
+    {
+        anyhow::bail!("Nominate a mounted Soundrobe library root");
+    }
+    let profile = AppDataPaths::server(config.data_dir.clone());
+    profile.prepare()?;
+    let owner = crate::state::library_authority::load_or_create_profile_id(profile.data_dir())?;
+    crate::state::library_authority::nominate(&root, owner)?;
+    Ok(())
+}
+
 pub async fn run() -> anyhow::Result<()> {
     let config = ServerConfig::from_env()?;
     AppDataPaths::server(config.data_dir.clone()).prepare()?;
@@ -3952,6 +4004,8 @@ pub async fn run() -> anyhow::Result<()> {
     let listener = tokio::net::TcpListener::bind(config.listen_addr).await?;
     let lifecycle = ServerLifecycle::default();
     let write_queue = WriteQueue::for_profile(&config.data_dir, None)?;
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    let write_queue = write_queue.with_library_authority()?;
     axum::serve(
         listener,
         router_with_runtime(config, lifecycle.clone(), write_queue.clone()),
@@ -4766,6 +4820,133 @@ mod tests {
             .unwrap();
         assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
         assert_eq!(std::fs::read(track).unwrap(), before);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn unmarked_library_does_not_start_background_tagging() {
+        let config = isolated_config("background-authority");
+        let album = config.data_dir.join("unmarked-album");
+        std::fs::create_dir_all(&album).unwrap();
+        let mut state = test_server_state(
+            &config,
+            Arc::new(EnvMap::new()),
+            Arc::new(crate::state::providers::ProviderState::default()),
+        );
+        state.write_queue = WriteQueue::for_profile(&config.data_dir, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let result = start_background_batch(&state, RunTrigger::Manual, vec![album]);
+        assert!(result.unwrap_err().contains("not been nominated"));
+        std::fs::remove_dir_all(config.data_dir).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn marked_web_profiles_share_reads_but_only_the_owner_can_write() {
+        use crate::state::library_authority::{acquire, load_or_create_profile_id, MARKER_NAME};
+        let base = std::env::temp_dir().join(format!("soundrobe-marked-server-{}", Uuid::new_v4()));
+        let libraries = base.join("libraries");
+        let library = libraries.join("Music");
+        let album = library.join("Artist/Album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.mp3");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let before = std::fs::read(&track).unwrap();
+        let owner_dir = base.join("owner");
+        let owner_queue = WriteQueue::for_profile(&owner_dir, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap();
+        let owner = load_or_create_profile_id(&owner_dir).unwrap();
+        let other_dir = base.join("other");
+        let other_queue = WriteQueue::for_profile(&other_dir, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap();
+        let mut nomination_config = test_config();
+        nomination_config.library_root_dir = libraries.clone();
+        nomination_config.data_dir = owner_dir.clone();
+        assert!(nominate_server_library(&nomination_config, &album).is_err());
+        assert!(!album.join(MARKER_NAME).exists());
+        nominate_server_library(&nomination_config, &library).unwrap();
+        assert!(library.join(MARKER_NAME).exists());
+        let worker = WorkerStore::new_in(owner_dir.clone());
+        assert!(worker.initialize());
+        worker
+            .prepare_write_intent(&track, "startup", &json!({"title":"Pending"}))
+            .unwrap();
+        let lease = acquire(&library, owner).unwrap();
+        worker
+            .bind_write_authority(&track, "startup", &lease, Path::new("Artist/Album/01.mp3"))
+            .unwrap();
+        worker.begin_write_intent(&track, "startup").unwrap();
+        drop(lease);
+
+        let app = |data_dir, queue| {
+            let mut config = test_config();
+            config.library_root_dir = libraries.clone();
+            config.data_dir = data_dir;
+            router_with_runtime(config, ServerLifecycle::default(), queue)
+        };
+        let other_app = app(other_dir, other_queue);
+        assert_eq!(
+            worker.reconcile_write_intents().unwrap()[0].intent.state,
+            "applying"
+        );
+        let owner_app = app(owner_dir, owner_queue);
+        assert_eq!(
+            worker.reconcile_write_intents().unwrap()[0].intent.state,
+            "retry_safe"
+        );
+        for (app, expected) in [
+            (other_app, StatusCode::FORBIDDEN),
+            (owner_app, StatusCode::OK),
+        ] {
+            let cookie = test_cookie(app.clone(), "correct horse battery staple")
+                .await
+                .headers()[header::SET_COOKIE]
+                .clone();
+            let response = app
+                .clone()
+                .oneshot(origin_request(
+                    Request::builder()
+                        .uri("/api/v1/libraries")
+                        .header(header::COOKIE, cookie.clone())
+                        .body(Body::empty())
+                        .unwrap(),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let response = app
+                .oneshot(origin_request(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v1/commands/track%3Awrite")
+                        .header(header::COOKIE, cookie)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .body(Body::from(
+                            json!({"path":track.canonicalize().unwrap(), "fields":{"title":"Owner edit"}}).to_string(),
+                        ))
+                        .unwrap(),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected);
+            if expected != StatusCode::OK {
+                assert_eq!(std::fs::read(&track).unwrap(), before);
+            }
+        }
+        assert_ne!(std::fs::read(track).unwrap(), before);
         std::fs::remove_dir_all(base).unwrap();
     }
 

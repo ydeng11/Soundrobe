@@ -5065,6 +5065,9 @@ pub(crate) async fn resolve_and_apply_album_with_review_intent(
     progress: impl FnMut(u64, &str),
     report: impl FnMut(&'static str, String, Option<serde_json::Value>),
 ) -> Result<AutoTagRunResult, ApiError> {
+    // Check before provider calls. Each actual mutation reacquires its target
+    // lease under WriteQueue, so a busy library cannot bypass target admission.
+    services.queue.admit_album(album_path)?;
     let request = build_lookup_request(album_path)?;
     checkpoint_evidence(serde_json::json!({"configuration": diagnostic_configuration(config), "localFiles":request.tracks.len()})).map_err(ApiError::Message)?;
     let mut result = resolve_and_apply_album_with_acoustid_override(

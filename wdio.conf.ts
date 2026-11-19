@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import type { Options } from "@wdio/types";
 import { cleanupE2eWorkspace, prepareE2eWorkspace } from "./e2e-tauri/fixtures";
@@ -40,5 +41,12 @@ export const config: Options.Testrunner = {
   framework: "mocha",
   reporters: ["spec"],
   mochaOpts: { ui: "bdd", timeout: 60_000 },
+  onPrepare: () => {
+    if (process.platform === "darwin" || process.platform === "linux") {
+      execFileSync(binary, ["--nominate-library", workspace.manifest.library], {
+        stdio: "inherit",
+      });
+    }
+  },
   onComplete: () => cleanupE2eWorkspace(workspace.root),
 };

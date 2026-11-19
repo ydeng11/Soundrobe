@@ -24,6 +24,10 @@ pub enum ApiError {
     #[error("write queue unavailable: {0}")]
     WriteQueue(#[source] std::io::Error),
 
+    #[cfg(any(feature = "desktop", feature = "server"))]
+    #[error("Library is browse-only for this profile: {0}")]
+    LibraryAuthority(#[from] crate::state::library_authority::AuthorityError),
+
     #[cfg(feature = "desktop")]
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),
