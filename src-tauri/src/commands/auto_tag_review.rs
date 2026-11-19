@@ -961,8 +961,7 @@ impl ReviewJournal {
             data.files[index]
                 .intent_outcomes
                 .push((intent_id.clone(), write_succeeded));
-            if let Err(error) =
-                recovery.record_write_intent_applied(path, &intent_id, write_succeeded)
+            if let Err(error) = recovery.record_write_intent_applied(path, intent_id, write_succeeded)
             {
                 data.detail.errors.push(format!(
                     "Write recovery state could not be persisted for {}: {error}",

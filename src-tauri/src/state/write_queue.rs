@@ -776,7 +776,7 @@ mod tests {
             "A detached disk write still counts as active"
         );
         assert!(
-            second.try_run_exclusive(async { () }).await.is_none(),
+            second.try_run_exclusive(async {}).await.is_none(),
             "Reversal must wait for the disk write"
         );
         release_tx.send(()).unwrap();

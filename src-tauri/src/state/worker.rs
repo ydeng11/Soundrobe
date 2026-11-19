@@ -1076,6 +1076,7 @@ impl WorkerStore {
     /// Persist a field-specific review obligation without changing scheduling.
     /// A revision key is immutable so retries cannot silently rewrite an
     /// already acknowledged decision.
+    #[allow(clippy::too_many_arguments)]
     pub fn record_field_review_obligation(
         &self,
         path: &Path,

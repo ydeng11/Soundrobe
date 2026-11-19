@@ -461,7 +461,7 @@ impl AlbumCandidate {
             &assisted.input_sha256,
             &source,
         );
-        (observed == assisted.proposal_sha256).then(|| observed)
+        (observed == assisted.proposal_sha256).then_some(observed)
     }
 }
 
