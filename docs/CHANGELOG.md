@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- On macOS and Linux, libraries stay browse-only until a Soundrobe profile is nominated to write. Other profiles can browse, and interrupted writes and album reversals stay tied to the nominated profile.
+- An interrupted album reversal can be resumed from Results after restart, with original files and artwork restored from a durable recovery manifest.
+
+- Interrupted auto-tag writes can be resolved per file by keeping the reviewed current contents. The recovery backup remains available.
+
+- Auto-tag Results highlights assisted fields on the exact tracks that changed and keeps pending reviews across restarts. Startup verifies recorded writes without rewriting audio and holds auto-tagging for albums with unresolved writes.
+
 - Offline auto-tag replay can compare frozen baseline and candidate builds on the same reviewed selection across three metadata profiles and cold/warm caches. A small safety selection covers multi-track mappings, sibling versions, and unsupported remaster claims that must not write. Compact reports retain improvements, regressions, wrong matches, abstentions, missing fixtures, skips, and process failures, with separate metadata-readback and write-safety checks. Incomplete physical exports cannot pass no-write controls. Malformed ancillary fields, including skip status, retain incomplete reports. Unavailable readback does not imply a wrong match. Failed partial writes still report independently observed wrong content and excluded release IDs without counting unchanged bad input tags as new wrong matches. Hosted and model calls remain disabled.
 - Owner-authorized offline evaluations can complete supervised preparation, tagging, readback and scoring with disposable keys and fake credentials. A withheld answer can complete an observation without accepting a tag; a disconnected response remains incomplete. Completion requires observed receiver exit, and independent auditing rejects non-public source substitutions before reading them. Hosted calls remain disabled, and scripted results receive no real-model quality credit.
 - Offline owner-signing controls bind approvals to the current frozen evaluation and independently pinned owner key. A separate signature audit checks the checkpoint and signed scope without claiming human presence, completed execution or model quality. Disposable-key offline checkpoint signing requires explicit signed execution intent; automatic hosted signing and hosted calls remain disabled.
@@ -64,6 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Assisted genre fills now require a matching label in one affirmative `Genre:` or `Genres:` line from the same retrieved Discogs release notes; descriptive or conflicting notes leave the field unfilled for review.
+- Assisted genre writes now stop before changing media if recovery-directory synchronization fails.
 - Reviewed, hash-checked catalog title localizations can resolve filename-only tracks while retaining canonical provider display titles and source receipts. Aliases apply only to their reviewed release and track occurrence with compatible durations; conflicting live, mix and remaster claims remain blocked.
 - Auto-tagging retains provider release remaster evidence and recognizes wave-delimited version tags before falling back to filenames. Explicit version conflicts cannot be bypassed by recording IDs or shorter title matches, and a local remaster-year claim requires matching provider evidence. Catalog support still does not verify the local audio's mastering.
 - Auto-tagging searches album-specific Discogs releases and versions before browsing an artist's broader catalog, so crowded catalogs do not consume the lookup budget before a matching album version can be checked.
@@ -166,6 +175,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cancelling a request no longer lets another queued edit overlap its still-running disk write.
+- Later ordinary track, artwork, lyric, audit, and organizer edits now protect earlier review history, including byte-identical writes. On Unix, hard-linked recovery targets are refused rather than risking an edit through an untracked alias.
+- Media edits, artwork and lyrics changes, organizer and audit actions, and update installation now report an unavailable write lock without starting the affected write or consuming a pending update. Background tagging records a failed checkpoint if the lock disappears before completion.
 - Auto-tag matching ignores top-level bracketed bare year annotations when comparing titles, so a filename year no longer blocks the correct remix. Nested live-performance years, named remix/remaster years, and incompatible versions remain distinct.
 - Offline owner-evaluation audits reject non-public source files before reading their contents, even when their paths are signed. The shared offline transport remains available to Linux server tests; owner-only launch support stays macOS-only and hosted calls stay disabled.
 - Mock-only evaluation revokes new admissions when stop is requested, even while journal work is stalled, and withholds grants whose commits return after stop. Consumed operations are not rolled back or refunded.

@@ -3947,6 +3947,15 @@ async fn run_auto_tag_eval(
     let assistance = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_ASSISTANCE").ok();
     configure_eval_assistance(&mut config, mock_url.as_deref(), assistance.as_deref())
         .expect("invalid evaluation assistance mode");
+    let assisted_review_export = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_PAIRED_ASSISTED_REVIEW")
+        .as_deref()
+        == Ok("1");
+    if assisted_review_export {
+        assert!(paired_arm.is_none(), "review export uses the generic evaluator path");
+        assert!(mock_url.is_some(), "review export requires loopback providers");
+        assert_eq!(assistance.as_deref(), Some("scripted"),
+            "review export requires offline scripted assistance");
+    }
     if durable.is_some() {
         // Capability/configuration is not a credential. Only the broker's
         // injected mock supplier can produce one after signed consumption.
@@ -4021,6 +4030,10 @@ async fn run_auto_tag_eval(
     let worker_root = store_root.join("worker");
     let worker = crate::state::worker::WorkerStore::new_in(worker_root.clone());
     assert!(worker.initialize());
+    let review_store = (paired_arm.is_some() || assisted_review_export).then(|| {
+        crate::commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
+            .expect("paired review store must share the durable worker database")
+    });
     let mut records = Vec::new();
     let source_hashes_before = selected
         .iter()
@@ -4286,7 +4299,7 @@ async fn run_auto_tag_eval(
                 .enqueue(std::slice::from_ref(&destination), "manual")
                 .unwrap();
             worker.mark_running(&destination, &attempt_id).unwrap();
-            let result = Box::pin(tokio::time::timeout(
+            let resolver = tokio::time::timeout(
                 PER_FOLDER_TIMEOUT,
                 resolve_and_apply_album_with_review_intent(
                     &destination,
@@ -4321,7 +4334,29 @@ async fn run_auto_tag_eval(
                             .push(json!({"kind": kind, "message": message, "data": data}));
                     },
                 ),
-            ));
+            );
+            let result = Box::pin(async {
+                if let Some(review_store) = &review_store {
+                    let journal = review_store
+                        .begin(&attempt_id, &destination)
+                        .expect("open persistent assisted review journal");
+                    let result = crate::commands::auto_tag_review::ACTIVE_REVIEW
+                        .scope(journal, resolver)
+                        .await;
+                    let review_outcome = match &result {
+                        Ok(Ok(value)) if value.outcome == AutoTagOutcome::Applied => "applied",
+                        Ok(Ok(_)) => "needs_review",
+                        Ok(Err(_)) => "resolver_error",
+                        Err(_) => "timeout",
+                    };
+                    review_store
+                        .finish(&attempt_id, review_outcome, json!({}))
+                        .expect("finish persistent assisted review journal");
+                    result
+                } else {
+                    resolver.await
+                }
+            });
             let execution = async {
                 if trace_donors {
                     DONOR_TRACE
@@ -4462,10 +4497,58 @@ async fn run_auto_tag_eval(
                 .actionable_review_paths()
                 .unwrap()
                 .contains(&destination);
+            let field_obligations = collect_audio_files(&destination)
+                .iter()
+                .map(|path| {
+                    let path = PathBuf::from(path);
+                    reopened
+                        .field_review_obligations(&path)
+                        .map(|obligations| (path, obligations))
+                        .unwrap()
+                })
+                .collect::<Vec<_>>();
+            if let Some(assisted) = native
+                .as_ref()
+                .and_then(|value| value.candidate.as_ref())
+                .and_then(|candidate| candidate.assisted_genre.as_ref())
+                .filter(|assisted| assisted.source_observation.is_some())
+            {
+                let after_tracks = crate::commands::tracks::read_album(&destination).unwrap().tracks;
+                for ((path, obligations), before) in field_obligations.iter().zip(&baseline_tracks) {
+                    let after = after_tracks
+                        .iter()
+                        .find(|track| track.path == path.to_string_lossy())
+                        .expect("paired field readback contains each physical file");
+                    let was_empty = before.genre.as_deref().is_none_or(|value| value.trim().is_empty());
+                    let written = was_empty && after.genre.as_deref() == Some(assisted.value.as_str());
+                    let matching = obligations
+                        .iter()
+                        .filter(|item| item.field == "genre" && item.revision == attempt_id)
+                        .collect::<Vec<_>>();
+                    assert_eq!(matching.len(), usize::from(written),
+                        "reopened per-file genre obligation must track only the assisted write");
+                    if written {
+                        assert_eq!(matching[0].state, "open");
+                        assert_eq!(matching[0].after, json!(assisted.value));
+                    }
+                }
+            }
             let record = sanitise(
                 json!({"runId":run_id,"phase":phase,"caseId":case.case_id,"artist":case.artist,"releaseType":case.release_type,"difficulty":case.difficulty,"sourceRelativeFolder":case.source_relative_folder,"outcome":outcome,"classification":classification.as_str(),"error":error,"elapsedMs":elapsed_ms,"native":native,"selectedTrackEvidence":selected_evidence,"progressEvents":progress_events.into_inner(),"reportEvents":report_events.into_inner(),"cacheBefore":cache_before,"cacheAfter":cache_counts(&cache_path),"copiedBeforeProfile":copied_before,"profileBaseline":baseline,"after":after,"payloadUnchanged":payload_unchanged,"readback":readback,"profile":profile,"mediaMode":"synthetic_flac","syntheticTrackCount":synthetic.track_count,"syntheticBytes":synthetic.bytes,"syntheticPeakBytes":synthetic.peak_bytes,"oracleStatus":case.expectation.status}),
             );
             let mut record = record;
+            if let Ok(scenario) = std::env::var("SOUNDROBE_AUTO_TAG_EVAL_SCENARIO") {
+                record["scenario"] = json!(scenario);
+            }
+            if paired_arm.is_some() || assisted_review_export {
+                record["genreSourceBindingEvidence"] = native
+                    .as_ref()
+                    .and_then(|result| result.candidate.as_ref())
+                    .filter(|candidate| candidate.assisted_genre.as_ref()
+                        .is_some_and(|assisted| assisted.source_observation.is_some()))
+                    .and_then(|candidate| genre_source_track_binding_evidence(&preflight, candidate))
+                    .unwrap_or(Value::Null);
+            }
             record["beforeTracks"] = sanitise(serde_json::to_value(&baseline_tracks).unwrap());
             record["persistedEvidence"] = sanitise(
                 reopened
@@ -4475,6 +4558,13 @@ async fn run_auto_tag_eval(
             );
             record["reviewPendingAfterRestart"] = json!(review_pending);
             record["actionableReviewAfterRestart"] = json!(actionable_review);
+            if review_store.is_some() {
+                let obligations = field_obligations
+                    .iter()
+                    .map(|(path, obligations)| (path.to_string_lossy().into_owned(), obligations))
+                    .collect::<BTreeMap<_, _>>();
+                record["fieldReviewObligationsAfterRestart"] = json!(obligations);
+            }
             record["assistanceMode"] = json!(assistance.as_deref().unwrap_or("disabled"));
             if let Some(paired) = &paired {
                 record["arm"] = json!(paired_arm);
@@ -4818,8 +4908,12 @@ fn mock_privacy_worker_reopen_contains_only_typed_review_values() {
         candidate: Some(AlbumCandidate {
             assisted_genre: Some(AssistedGenre {
                 value: "APPROVED_VALUE_CANARY".into(),
+                raw_value: "APPROVED_VALUE_CANARY".into(),
                 model: "scripted/genre-v1".into(),
                 input_sha256: "a".repeat(64),
+                request_input: serde_json::Value::Null,
+                source_observation: None,
+                proposal_sha256: String::new(),
             }),
             ..Default::default()
         }),
@@ -4952,7 +5046,7 @@ pub(crate) fn offline_eval_providers(base: &str) -> Result<ProviderState, String
     Ok(ProviderState::at(
         http,
         &format!("{base}/musicbrainz/ws/2"),
-        &format!("{base}/discogs"),
+        &format!("{base}{}", crate::state::providers::OFFLINE_DISCOGS_PATH_PREFIX),
     ))
 }
 

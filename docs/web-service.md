@@ -95,6 +95,35 @@ A healthy container proves only that the process answers `/healthz`. It does
 not prove NAS bind-mount permissions, DNS, reverse-proxy routing, HTTPS, or
 public reachability. Verify those separately after each deployment.
 
+## Library write authority
+
+On macOS and Linux, libraries open in browse-only mode until one Soundrobe
+profile is nominated. To let the web service edit a mounted library, run
+`soundrobe-server --nominate-library /libraries/Music` with the same data
+directory and mounts as the service. For desktop, run
+`soundrobe --nominate-library /path/to/Music` as the account that runs
+Soundrobe. Nominate the entire library, rather than an album beneath it.
+All other Soundrobe profiles can still browse it.
+
+Keep the hidden `.soundrobe-library-authority` file with the library and
+the profile data with its nominated writer. Both are required to resume
+marker-bound recovery after a restart. The marker coordinates Soundrobe
+profiles that support this feature.
+
+For a repeatable two-profile check, the server Rust suite runs
+`library_authority_processes` against two local server processes. Run it alone
+with:
+
+```sh
+cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --features server --test library_authority_processes
+```
+
+On macOS and Linux, `npm run test:e2e` also runs the desktop authority
+scenario. To repeat just that scenario after building the embedded WebDriver
+app with `npm run build:e2e`, run `npm run test:e2e:authority`. On headless
+Linux, run it under `xvfb-run`. Both checks use temporary profiles, copied media,
+and seeded interruption checkpoints followed by real app restarts.
+
 ## Background tagging
 
 The service tags unattended as well as on demand. An operator configures it from

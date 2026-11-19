@@ -210,6 +210,8 @@ pub fn run() {
     let app = builder
         .setup(|app| {
             let mut write_concurrency = None;
+            let mut write_data_dir = None;
+            let mut write_recovery = None;
             // Migrate legacy application data before loading the managed
             // config from ~/.soundrobe/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
@@ -221,6 +223,7 @@ pub fn run() {
                     .prepare()
                     .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
                 let data_dir = paths.data_dir().to_path_buf();
+                write_data_dir = Some(data_dir.clone());
                 let config = ConfigState::init_in(data_dir.clone());
                 let raw_config = config.raw();
                 write_concurrency = raw_config.write_concurrency;
@@ -234,7 +237,12 @@ pub fn run() {
                     )
                     .into());
                 }
+                let reviews =
+                    commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
+                        .map_err(|error| std::io::Error::other(error.to_string()))?;
+                write_recovery = Some(std::sync::Arc::new(worker.clone()));
                 app.manage(worker);
+                app.manage(reviews);
                 app.manage(DebugState::new_in(data_dir.clone(), debug_enabled));
 
                 // Persistent task state for the assistant harness.
@@ -257,14 +265,29 @@ pub fn run() {
                 );
                 let _ = task_state.initialize();
                 app.manage(task_state);
+                app.manage(commands::auto_tag_review::ReviewStore::default());
             }
             app.manage(AssistantRuntimeState::default());
             app.manage(AssistantServicesState::default());
             app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
-            app.manage(commands::auto_tag_review::ReviewStore::default());
-            app.manage(WriteQueue::with_concurrency(write_concurrency));
+            let queue = match write_data_dir {
+                Some(path) => WriteQueue::for_profile(&path, write_concurrency)?,
+                None => WriteQueue::with_concurrency(write_concurrency),
+            };
+            let queue = match write_recovery {
+                Some(worker) => {
+                    queue
+                        .reconcile_at_startup(&worker)
+                        .map_err(std::io::Error::other)?;
+                    queue.with_recovery_worker(worker)?
+                }
+                None => queue,
+            };
+            #[cfg(any(target_os = "macos", target_os = "linux"))]
+            let queue = queue.with_library_authority()?;
+            app.manage(queue);
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
             app.manage(UpdaterState::default());
@@ -331,6 +354,7 @@ pub fn run() {
             commands::auto_tag_review::auto_tag_review_get,
             commands::auto_tag_review::auto_tag_review_keep,
             commands::auto_tag_review::auto_tag_review_revert,
+            commands::auto_tag_review::auto_tag_review_keep_recovery_file,
             commands::auto_tag_review::auto_tag_review_artwork,
             commands::lyrics::lyrics_fetch,
             commands::lyrics::album_download_lyrics,

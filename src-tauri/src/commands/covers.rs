@@ -161,7 +161,7 @@ pub async fn cover_set(
     let Some(source) = picked.as_ref().and_then(FilePath::as_path) else {
         return Ok(None);
     };
-    Ok(set_cover_from_path_queued(&queue, PathBuf::from(album_path), source.to_path_buf()).await)
+    Ok(set_cover_from_path_queued(&queue, PathBuf::from(album_path), source.to_path_buf()).await?)
 }
 
 #[cfg(feature = "desktop")]
@@ -170,7 +170,7 @@ pub async fn cover_remove(
     album_path: String,
     queue: State<'_, WriteQueue>,
 ) -> Result<bool, ApiError> {
-    Ok(remove_cover_queued(&queue, PathBuf::from(album_path)).await)
+    Ok(remove_cover_queued(&queue, PathBuf::from(album_path)).await?)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -197,7 +197,7 @@ pub async fn cover_download(
 ) -> Result<Option<String>, ApiError> {
     let remote = remote_client(&providers, &config);
     let Some((bytes, _source, _path)) =
-        download_album_artwork_with_policy(Path::new(&album_path), &remote, &queue, false).await
+        download_album_artwork_with_policy(Path::new(&album_path), &remote, &queue, false).await?
     else {
         return Ok(None);
     };
@@ -219,7 +219,7 @@ pub async fn cover_download_artist_art(
     let remote = remote_client(&providers, &config);
     Ok(
         download_artist_artwork_at(Path::new(&album_path), &remote, &queue)
-            .await
+            .await?
             .map(|(_bytes, source, path)| ArtistArtResult {
                 path: path.to_string_lossy().into_owned(),
                 source: source.to_string(),
@@ -244,96 +244,116 @@ async fn download_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
-) -> Option<ArtworkDownload> {
-    if !album_path.exists() {
-        return None;
-    }
-
-    // When the user has explicitly removed the cover (suppression marker
-    // exists) the Download action must skip leftover local files and go
-    // directly to remote providers.  If a remote provider succeeds it
-    // clears the marker and saves the new cover; if all fail the marker
-    // stays and the function returns None.
-    let suppressed = kind == ArtworkKind::Album && is_cover_suppressed(album_path);
-
-    let local = if suppressed {
-        None
-    } else {
-        let local_album = album_path.to_path_buf();
-        tokio::task::spawn_blocking(move || {
-            read_local_artwork(kind, &local_album).and_then(|bytes| {
-                normalize_jpeg(&bytes, 1000, 90).map(|bytes| RemoteImage {
-                    source: "local",
-                    bytes,
-                    mime: "image/jpeg".to_string(),
-                    url: String::new(),
-                })
-            })
-        })
-        .await
-        .ok()
-        .flatten()
-    };
-
-    let resolved = if let Some(image) = local {
-        // Local artwork found — skip metadata and remote providers entirely.
-        image
-    } else {
-        // No local artwork — try remote providers, which need track metadata.
-        let album_path_owned = album_path.to_path_buf();
-        let metadata =
-            tokio::task::spawn_blocking(move || read_first_track_metadata(&album_path_owned))
-                .await
-                .ok()??;
-        if kind == ArtworkKind::Artist && metadata.artist.is_none() {
+) -> std::io::Result<Option<ArtworkDownload>> {
+    let Some((bytes, source, destination)) = (async {
+        if !album_path.exists() {
             return None;
         }
-        match kind {
-            ArtworkKind::Album => {
-                remote
-                    .album_cover(
-                        metadata.artist.as_deref(),
-                        metadata.album.as_deref(),
-                        metadata.musicbrainz_album_id.as_deref(),
-                        metadata.discogs_artist_id.as_deref(),
-                        metadata.discogs_release_id.as_deref(),
-                    )
-                    .await?
-            }
-            ArtworkKind::Artist => {
-                remote
-                    .artist_image(
-                        metadata.artist.as_deref()?,
-                        metadata.discogs_artist_id.as_deref(),
-                    )
-                    .await?
-            }
-        }
-    };
-    let source = resolved.source;
-    let bytes = tokio::task::spawn_blocking(move || {
-        let first = if source == "local" {
-            resolved.bytes
+
+        // When the user has explicitly removed the cover (suppression marker
+        // exists) the Download action must skip leftover local files and go
+        // directly to remote providers.  If a remote provider succeeds it
+        // clears the marker and saves the new cover; if all fail the marker
+        // stays and the function returns None.
+        let suppressed = kind == ArtworkKind::Album && is_cover_suppressed(album_path);
+
+        let local = if suppressed {
+            None
         } else {
-            normalize_jpeg(&resolved.bytes, 1000, 90)?
+            let local_album = album_path.to_path_buf();
+            tokio::task::spawn_blocking(move || {
+                read_local_artwork(kind, &local_album).and_then(|bytes| {
+                    normalize_jpeg(&bytes, 1000, 90).map(|bytes| RemoteImage {
+                        source: "local",
+                        bytes,
+                        mime: "image/jpeg".to_string(),
+                        url: String::new(),
+                    })
+                })
+            })
+            .await
+            .ok()
+            .flatten()
         };
-        normalize_jpeg(&first, 1000, 90)
+
+        let resolved = if let Some(image) = local {
+            // Local artwork found — skip metadata and remote providers entirely.
+            image
+        } else {
+            // No local artwork — try remote providers, which need track metadata.
+            let album_path_owned = album_path.to_path_buf();
+            let metadata =
+                tokio::task::spawn_blocking(move || read_first_track_metadata(&album_path_owned))
+                    .await
+                    .ok()??;
+            if kind == ArtworkKind::Artist && metadata.artist.is_none() {
+                return None;
+            }
+            match kind {
+                ArtworkKind::Album => {
+                    remote
+                        .album_cover(
+                            metadata.artist.as_deref(),
+                            metadata.album.as_deref(),
+                            metadata.musicbrainz_album_id.as_deref(),
+                            metadata.discogs_artist_id.as_deref(),
+                            metadata.discogs_release_id.as_deref(),
+                        )
+                        .await?
+                }
+                ArtworkKind::Artist => {
+                    remote
+                        .artist_image(
+                            metadata.artist.as_deref()?,
+                            metadata.discogs_artist_id.as_deref(),
+                        )
+                        .await?
+                }
+            }
+        };
+        let source = resolved.source;
+        let bytes = tokio::task::spawn_blocking(move || {
+            let first = if source == "local" {
+                resolved.bytes
+            } else {
+                normalize_jpeg(&resolved.bytes, 1000, 90)?
+            };
+            normalize_jpeg(&first, 1000, 90)
+        })
+        .await
+        .ok()??;
+        let destination = if kind == ArtworkKind::Album {
+            album_path.join("cover.jpg")
+        } else {
+            album_path.parent()?.join("artist.jpg")
+        };
+        Some((bytes, source, destination))
     })
     .await
-    .ok()??;
-    let destination = if kind == ArtworkKind::Album {
-        album_path.join("cover.jpg")
-    } else {
-        album_path.parent()?.join("artist.jpg")
+    else {
+        return Ok(None);
     };
     let destination_for_write = destination.clone();
     let bytes_for_write = bytes.clone();
     let album_for_suppression = album_path.to_path_buf();
     let review = super::auto_tag_review::active_review();
+    let recovery = queue.recovery_worker();
     let written = queue
-        .run_exclusive(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_exclusive_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || -> Result<bool, ApiError> {
                 let journaled = review.is_some();
+                let mut owners = if journaled {
+                    Vec::new()
+                } else {
+                    let mut paths = vec![destination_for_write.clone()];
+                    if kind == ArtworkKind::Album {
+                        paths.push(album_for_suppression.join(COVER_REMOVED_MARKER));
+                    }
+                    super::auto_tag_review::stage_ordinary_targets(recovery, &paths)?
+                };
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 let write = || -> Result<(), ApiError> {
                     if journaled
                         && kind == ArtworkKind::Album
@@ -349,7 +369,7 @@ async fn download_artwork_at(
                     }
                     Ok(())
                 };
-                if let Some(review) = review {
+                let result = if let Some(review) = review {
                     let result = review.mutate(&destination_for_write, write);
                     if let Err(error) = &result {
                         review.report_error(format!(
@@ -360,15 +380,15 @@ async fn download_artwork_at(
                     result
                 } else {
                     write()
-                }
+                };
+                Ok(result.is_ok())
             })
             .await
-            .ok()
-            .and_then(Result::ok)
-            .is_some()
+            .map_err(std::io::Error::other)?
+            .map_err(std::io::Error::other)
         })
-        .await;
-    written.then_some((bytes, source, destination))
+        .await??;
+    Ok(written.then_some((bytes, source, destination)))
 }
 
 async fn download_album_artwork_with_policy(
@@ -376,24 +396,27 @@ async fn download_album_artwork_with_policy(
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
     respect_suppression: bool,
-) -> Option<ArtworkDownload> {
+) -> std::io::Result<Option<ArtworkDownload>> {
     if respect_suppression && is_cover_suppressed(album_path) {
-        return None;
+        return Ok(None);
     }
-    let result = download_artwork_at(ArtworkKind::Album, album_path, remote, queue).await?;
+    let Some(result) = download_artwork_at(ArtworkKind::Album, album_path, remote, queue).await?
+    else {
+        return Ok(None);
+    };
     let url = format!(
         "data:image/jpeg;base64,{}",
         base64::engine::general_purpose::STANDARD.encode(&result.0)
     );
     cover_cache_set(&album_path.to_string_lossy(), Some(url));
-    Some(result)
+    Ok(Some(result))
 }
 
 pub(crate) async fn download_album_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
-) -> Option<ArtworkDownload> {
+) -> std::io::Result<Option<ArtworkDownload>> {
     download_album_artwork_with_policy(album_path, remote, queue, true).await
 }
 
@@ -401,7 +424,7 @@ pub(crate) async fn download_artist_artwork_at(
     album_path: &Path,
     remote: &RemoteArtworkClient,
     queue: &WriteQueue,
-) -> Option<ArtworkDownload> {
+) -> std::io::Result<Option<ArtworkDownload>> {
     download_artwork_at(ArtworkKind::Artist, album_path, remote, queue).await
 }
 
@@ -622,38 +645,83 @@ fn try_embedded_cover(path: &Path) -> Option<String> {
 }
 
 pub fn set_cover_from_path(album_path: &Path, source: &Path) -> Option<String> {
+    let jpeg = prepare_cover_from_path(source)?;
+    set_cover_from_jpeg(album_path, &jpeg)
+}
+
+fn prepare_cover_from_path(source: &Path) -> Option<Vec<u8>> {
     let bytes = fs::read(source).ok()?;
-    let jpeg = normalize_jpeg(&bytes, 500, 90)?;
-    fs::write(album_path.join("cover.jpg"), &jpeg).ok()?;
+    normalize_jpeg(&bytes, 500, 90)
+}
+
+fn set_cover_from_jpeg(album_path: &Path, jpeg: &[u8]) -> Option<String> {
+    fs::write(album_path.join("cover.jpg"), jpeg).ok()?;
     clear_cover_suppression(album_path).ok()?;
-    image_data_url(&jpeg, 500, 85)
+    image_data_url(jpeg, 500, 85)
 }
 
 #[cfg(feature = "desktop")]
-async fn set_cover_from_path_queued(
+pub(crate) async fn set_cover_from_path_queued(
     queue: &WriteQueue,
     album_path: PathBuf,
     source: PathBuf,
-) -> Option<String> {
+) -> std::io::Result<Option<String>> {
     let album_str = album_path.display().to_string();
+    let recovery = queue.recovery_worker();
     let result = queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || set_cover_from_path(&album_path, &source))
-                .await
-                .ok()
-                .flatten()
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(
+                move || -> std::io::Result<Option<String>> {
+                    let Some(jpeg) = prepare_cover_from_path(&source) else {
+                        return Ok(None);
+                    };
+                    let mut cover_owner = recovery
+                        .as_ref()
+                        .map(|worker| {
+                            super::auto_tag_review::staged_ordinary_target_lease(
+                                worker.clone(),
+                                &album_path.join("cover.jpg"),
+                            )
+                        })
+                        .transpose()
+                        .map_err(std::io::Error::other)?;
+                    let mut marker_owner = recovery
+                        .map(|worker| {
+                            super::auto_tag_review::staged_ordinary_target_lease(
+                                worker,
+                                &album_path.join(COVER_REMOVED_MARKER),
+                            )
+                        })
+                        .transpose()
+                        .map_err(std::io::Error::other)?;
+                    if let Some(owner) = &mut cover_owner {
+                        owner.mutation_started();
+                    }
+                    if let Some(owner) = &mut marker_owner {
+                        owner.mutation_started();
+                    }
+                    Ok(set_cover_from_jpeg(&album_path, &jpeg))
+                },
+            )
+            .await
+            .map_err(std::io::Error::other)?
         })
-        .await;
+        .await??;
     if result.is_some() {
         cover_cache_invalidate(&album_str);
     }
-    result
+    Ok(result)
 }
 
 pub fn remove_cover_at(album_path: &Path) -> bool {
+    let selected = find_external_cover(album_path);
+    remove_cover_at_selected(album_path, selected.as_deref())
+}
+
+fn remove_cover_at_selected(album_path: &Path, selected: Option<&Path>) -> bool {
     let album_str = album_path.display().to_string();
     let result = (|| -> std::io::Result<()> {
-        if let Some(path) = find_external_cover(album_path) {
+        if let Some(path) = selected {
             fs::remove_file(path)?;
         }
         fs::write(album_path.join(COVER_REMOVED_MARKER), [])?;
@@ -664,16 +732,43 @@ pub fn remove_cover_at(album_path: &Path) -> bool {
 }
 
 #[cfg(feature = "desktop")]
-async fn remove_cover_queued(queue: &WriteQueue, album_path: PathBuf) -> bool {
-    let album_str = album_path.display().to_string();
-    cover_cache_invalidate(&album_str);
+pub(crate) async fn remove_cover_queued(
+    queue: &WriteQueue,
+    album_path: PathBuf,
+) -> std::io::Result<bool> {
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || remove_cover_at(&album_path))
-                .await
-                .unwrap_or(false)
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || -> std::io::Result<bool> {
+                let selected = find_external_cover(&album_path);
+                let mut cover_owner = match (&recovery, selected.as_ref()) {
+                    (Some(worker), Some(path)) => Some(
+                        super::auto_tag_review::staged_ordinary_target_lease(worker.clone(), path)
+                            .map_err(std::io::Error::other)?,
+                    ),
+                    _ => None,
+                };
+                let mut marker_owner = recovery
+                    .map(|worker| {
+                        super::auto_tag_review::staged_ordinary_target_lease(
+                            worker,
+                            &album_path.join(COVER_REMOVED_MARKER),
+                        )
+                    })
+                    .transpose()
+                    .map_err(std::io::Error::other)?;
+                if let Some(owner) = &mut cover_owner {
+                    owner.mutation_started();
+                }
+                if let Some(owner) = &mut marker_owner {
+                    owner.mutation_started();
+                }
+                Ok(remove_cover_at_selected(&album_path, selected.as_deref()))
+            })
+            .await
+            .map_err(std::io::Error::other)?
         })
-        .await
+        .await?
 }
 
 fn find_external_cover(album_path: &Path) -> Option<PathBuf> {
@@ -799,7 +894,79 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::{Barrier, Notify};
 
+    #[cfg(feature = "desktop")]
+    #[tokio::test]
+    async fn unavailable_queue_preserves_cover_and_cache() {
+        let album = root();
+        let cover = album.join("cover.jpg");
+        fs::write(&cover, b"original").unwrap();
+        let album_key = album.to_string_lossy().into_owned();
+        cover_cache_source(&album_key, "external", &cover.to_string_lossy());
+        let queue = WriteQueue::for_profile(&album.join("state"), None).unwrap();
+        fs::remove_file(album.join("state/write-queue.lock")).unwrap();
+        let child_album = album.clone();
+        let result =
+            tokio::spawn(async move { remove_cover_queued(&queue, child_album).await }).await;
+        assert!(result.expect("lock error must not panic").is_err());
+        assert_eq!(fs::read(&cover).unwrap(), b"original");
+        assert!(cover_source_cached(&album_key).is_some());
+        cover_cache_invalidate(&album_key);
+        fs::remove_dir_all(album).unwrap();
+    }
+
+    #[cfg(feature = "desktop")]
+    #[tokio::test]
+    async fn unavailable_queue_does_not_set_cover() {
+        let album = root();
+        let source = album.join("source.png");
+        fs::write(&source, png(10, 10)).unwrap();
+        let queue = WriteQueue::for_profile(&album.join("state"), None).unwrap();
+        fs::remove_file(album.join("state/write-queue.lock")).unwrap();
+        let child_album = album.clone();
+        let result =
+            tokio::spawn(
+                async move { set_cover_from_path_queued(&queue, child_album, source).await },
+            )
+            .await;
+        assert!(result.expect("lock error must not panic").is_err());
+        assert!(!album.join("cover.jpg").exists());
+        fs::remove_dir_all(album).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_download_local_artwork() {
+        let album = root();
+        let source = album.join("front.png");
+        fs::write(&source, png(10, 10)).unwrap();
+        let queue = WriteQueue::for_profile(&album.join("state"), None).unwrap();
+        fs::remove_file(album.join("state/write-queue.lock")).unwrap();
+        let child_album = album.clone();
+        let result = tokio::spawn(async move {
+            let providers = ProviderState::new();
+            let remote = RemoteArtworkClient::new(providers.http(), None, None);
+            download_album_artwork_at(&child_album, &remote, &queue).await
+        })
+        .await;
+        assert!(result.expect("lock error must not panic").is_err());
+        assert!(!album.join("cover.jpg").exists());
+        fs::remove_dir_all(album).unwrap();
+    }
+
     static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn removal_uses_the_cover_that_was_admitted() {
+        let album = root();
+        let front = album.join("front.png");
+        let newer = album.join("cover.jpg");
+        fs::write(&front, b"front").unwrap();
+        let selected = find_external_cover(&album).unwrap();
+        fs::write(&newer, b"newer").unwrap();
+        assert!(remove_cover_at_selected(&album, Some(&selected)));
+        assert!(!selected.exists());
+        assert_eq!(fs::read(newer).unwrap(), b"newer");
+        fs::remove_dir_all(album).unwrap();
+    }
 
     fn root() -> PathBuf {
         let path = std::env::temp_dir().join(format!(
@@ -986,7 +1153,7 @@ mod tests {
 
         release.notify_one();
         blocker.await.unwrap();
-        assert!(mutation.await.unwrap().is_some());
+        assert!(mutation.await.unwrap().unwrap().is_some());
         assert!(album.join("cover.jpg").exists());
         assert!(!queue.is_active());
         fs::remove_dir_all(root).unwrap();
@@ -1022,7 +1189,7 @@ mod tests {
 
         release.notify_one();
         blocker.await.unwrap();
-        assert!(mutation.await.unwrap());
+        assert!(mutation.await.unwrap().unwrap());
         assert!(!root.join("cover.jpg").exists());
         assert!(root.join(COVER_REMOVED_MARKER).exists());
         assert!(!queue.is_active());
@@ -1041,7 +1208,7 @@ mod tests {
 
         let resolved = download_album_artwork_at(&root, &remote, &WriteQueue::default()).await;
 
-        let (_bytes, source, path) = resolved.expect("local sidecar should resolve");
+        let (_bytes, source, path) = resolved.unwrap().expect("local sidecar should resolve");
         assert_eq!(source, "local");
         assert_eq!(path, root.join("cover.jpg"));
         assert_eq!(fs::read(&sidecar).unwrap(), original);
@@ -1099,7 +1266,9 @@ mod tests {
         let remote = RemoteArtworkClient::new(providers.http(), None, None);
         let queue = WriteQueue::default();
 
-        let result = download_album_artwork_with_policy(&album, &remote, &queue, false).await;
+        let result = download_album_artwork_with_policy(&album, &remote, &queue, false)
+            .await
+            .unwrap();
         if let Some((_bytes, source, _path)) = &result {
             assert_ne!(
                 *source, "local",
@@ -1132,7 +1301,9 @@ mod tests {
         let remote = RemoteArtworkClient::new(providers.http(), None, None);
         let queue = WriteQueue::default();
 
-        let result = download_album_artwork_at(&album, &remote, &queue).await;
+        let result = download_album_artwork_at(&album, &remote, &queue)
+            .await
+            .unwrap();
         assert!(result.is_none(), "auto-tag must respect suppression marker");
         // Marker is preserved (auto-tag does not clear it)
         assert!(album.join(COVER_REMOVED_MARKER).exists());
@@ -1159,6 +1330,7 @@ mod tests {
         let (album_bytes, album_source, album_path) =
             download_artwork_at(ArtworkKind::Album, &album, &remote, &queue)
                 .await
+                .unwrap()
                 .unwrap();
         assert_eq!(album_source, "local");
         assert_eq!(album_path, album.join("cover.jpg"));
@@ -1191,6 +1363,7 @@ mod tests {
         let (artist_bytes, artist_source, artist_path) =
             download_artist_artwork_at(&album, &remote, &queue)
                 .await
+                .unwrap()
                 .unwrap();
         assert_eq!(artist_source, "local");
         assert_eq!(artist_path, artist_dir.join("artist.jpg"));

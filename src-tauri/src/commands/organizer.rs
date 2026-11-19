@@ -52,16 +52,27 @@ pub async fn files_sort_by_album(
     queue: State<'_, WriteQueue>,
 ) -> Result<SortByAlbumResult, ApiError> {
     let copy = options.and_then(|options| options.copy).unwrap_or(true);
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || sort_by_album(Path::new(&source_dir), copy))
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                sort_by_album_guarded(Path::new(&source_dir), copy, recovery)
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await
+        .await?
 }
 
 pub fn sort_by_album(source_dir: &Path, copy: bool) -> Result<SortByAlbumResult, ApiError> {
+    sort_by_album_guarded(source_dir, copy, None)
+}
+
+pub(crate) fn sort_by_album_guarded(
+    source_dir: &Path,
+    copy: bool,
+    recovery: Option<std::sync::Arc<crate::state::worker::WorkerStore>>,
+) -> Result<SortByAlbumResult, ApiError> {
     let audio_files = collect_all_audio_files(source_dir)?;
     let mut result = SortByAlbumResult {
         source_dir: source_dir.to_string_lossy().into_owned(),
@@ -91,18 +102,28 @@ pub fn sort_by_album(source_dir: &Path, copy: bool) -> Result<SortByAlbumResult,
 
     for (album_name, files) in groups {
         let dest_dir = source_dir.join(&album_name);
-        if !dest_dir.exists() {
-            fs::create_dir_all(&dest_dir)?;
-        }
         let mut album_files = Vec::new();
         for source_path in files {
             let file_name = source_path.file_name().unwrap_or_default();
             let dest_path = dest_dir.join(file_name);
-            let operation = if copy {
-                fs::copy(&source_path, &dest_path).map(|_| ())
-            } else {
-                fs::rename(&source_path, &dest_path)
-            };
+            let operation = (|| -> Result<(), ApiError> {
+                let mut targets = vec![dest_path.clone()];
+                if !copy {
+                    targets.push(source_path.clone());
+                }
+                let mut owners =
+                    super::auto_tag_review::stage_ordinary_targets(recovery.clone(), &targets)?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
+                fs::create_dir_all(&dest_dir)?;
+                if copy {
+                    fs::copy(&source_path, &dest_path)?;
+                } else {
+                    fs::rename(&source_path, &dest_path)?;
+                }
+                Ok(())
+            })();
             match operation {
                 Ok(()) => album_files.push(SortByAlbumFile {
                     source_path: source_path.to_string_lossy().into_owned(),

@@ -167,17 +167,25 @@ fn normalize_cover_image(bytes: &[u8]) -> Option<Vec<u8>> {
 }
 
 pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String> {
+    let jpeg = prepare_cover_upload(bytes)?;
+    commit_cover_upload(album_path, &jpeg)
+}
+
+pub(crate) fn prepare_cover_upload(bytes: &[u8]) -> io::Result<Vec<u8>> {
     if bytes.len() > MAX_COVER_UPLOAD_BYTES {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "cover image is too large",
         ));
     }
-    let jpeg = normalize_cover_image(bytes)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid cover image"))?;
+    normalize_cover_image(bytes)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid cover image"))
+}
+
+pub(crate) fn commit_cover_upload(album_path: &Path, jpeg: &[u8]) -> io::Result<String> {
     let temporary = album_path.join(format!(".cover-upload-{}.tmp", uuid::Uuid::new_v4()));
     let destination = album_path.join("cover.jpg");
-    fs::write(&temporary, &jpeg)?;
+    fs::write(&temporary, jpeg)?;
     if let Err(error) = fs::rename(&temporary, &destination) {
         let _ = fs::remove_file(&temporary);
         return Err(error);
@@ -190,11 +198,24 @@ pub fn write_cover_upload(album_path: &Path, bytes: &[u8]) -> io::Result<String>
 }
 
 pub fn remove_cover(album_path: &Path) -> io::Result<bool> {
-    if let Some(candidate) = find_external_cover(album_path) {
+    let candidate = find_external_cover(album_path);
+    remove_cover_selected(album_path, candidate.as_deref())
+}
+
+pub(crate) fn remove_cover_selected(
+    album_path: &Path,
+    candidate: Option<&Path>,
+) -> io::Result<bool> {
+    if let Some(candidate) = candidate {
         fs::remove_file(candidate)?;
     }
     fs::write(album_path.join(COVER_REMOVED_MARKER), [])?;
     Ok(true)
+}
+
+#[cfg(feature = "server")]
+pub(crate) fn cover_removal_target(album_path: &Path) -> Option<std::path::PathBuf> {
+    find_external_cover(album_path)
 }
 
 fn find_external_cover(album_path: &Path) -> Option<std::path::PathBuf> {
@@ -554,6 +575,21 @@ fn detect_external_cover(album_path: &Path) -> Option<String> {
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn cover_removal_uses_the_target_that_was_admitted() {
+        let album = temp_album("cover-target");
+        fs::create_dir_all(&album).unwrap();
+        let front = album.join("front.png");
+        let newer = album.join("cover.jpg");
+        fs::write(&front, b"front").unwrap();
+        let selected = find_external_cover(&album).unwrap();
+        fs::write(&newer, b"newer").unwrap();
+        remove_cover_selected(&album, Some(&selected)).unwrap();
+        assert!(!selected.exists());
+        assert_eq!(fs::read(newer).unwrap(), b"newer");
+        fs::remove_dir_all(album).unwrap();
+    }
 
     fn temp_album(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!("soundrobe-web-{label}-{}", uuid::Uuid::new_v4()))

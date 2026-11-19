@@ -326,6 +326,7 @@ describe("web-adapter command transport", () => {
       "listLibraryRoots",
       "listSessions",
       "markAutoTagReviewed",
+      "keepAutoTagRecoveryFile",
       "onAssistantEvent",
       "onAuditEvent",
       "onAutoTagEvent",

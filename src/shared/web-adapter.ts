@@ -294,6 +294,7 @@ export function createWebDesktopApi(options: WebDesktopApiOptions = {}): Desktop
     getAutoTagReview: async () => unsupportedWebAction("getAutoTagReview"),
     markAutoTagReviewed: async () => unsupportedWebAction("markAutoTagReviewed"),
     revertAutoTagReview: async () => unsupportedWebAction("revertAutoTagReview"),
+    keepAutoTagRecoveryFile: async () => unsupportedWebAction("keepAutoTagRecoveryFile"),
     getAutoTagReviewArtwork: async () => unsupportedWebAction("getAutoTagReviewArtwork"),
     downloadAlbumLyrics: (albumPath) =>
       command("album:download-lyrics", { albumPath }),

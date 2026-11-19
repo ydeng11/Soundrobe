@@ -79,10 +79,16 @@ where
     Fut: Future<Output = Result<(), String>>,
 {
     let update = state.begin_install().await.map_err(str::to_owned)?;
-    let installation = queue.try_run_exclusive(install(update)).await;
-    let result = installation.unwrap_or_else(|| {
-        Err("Cannot install an update while a protected disk operation is active".into())
-    });
+    let installation = queue
+        .try_run_exclusive_checked(async { install(update).await })
+        .await;
+    let result = match installation {
+        Ok(Some(result)) => result,
+        Ok(None) => {
+            Err("Cannot install an update while a protected disk operation is active".into())
+        }
+        Err(error) => Err(format!("Cannot acquire write queue lock: {error}")),
+    };
     state.finish_install(result.is_ok()).await;
     result
 }
@@ -185,6 +191,28 @@ mod tests {
     use crate::state::write_queue::WriteQueue;
     use std::path::Path;
     use std::sync::{Arc, Mutex};
+
+    #[tokio::test]
+    async fn unavailable_queue_preserves_update_and_does_not_invoke_installer() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let queue = WriteQueue::for_profile(&root, None).unwrap();
+        std::fs::remove_file(root.join("write-queue.lock")).unwrap();
+        let state = PendingUpdateState::default();
+        state.replace(Some("v2")).await.unwrap();
+        let result = coordinate_pending_install(&state, &queue, |_| {
+            panic!("installer must not run without the lock");
+            #[allow(unreachable_code)]
+            async {
+                Ok(())
+            }
+        })
+        .await;
+        assert!(result.unwrap_err().contains("write queue lock"));
+        assert!(!state.is_installing());
+        assert_eq!(state.begin_install().await.unwrap(), "v2");
+        state.finish_install(false).await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn updater_is_disabled_for_all_debug_builds() {

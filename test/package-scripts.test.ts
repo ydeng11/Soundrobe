@@ -451,9 +451,13 @@ describe("package scripts", () => {
     );
 
     expect(scripts["build:e2e"]).toContain("--features wdio");
-    expect(scripts["test:e2e"]).toBe("npm run build:e2e && wdio run wdio.conf.ts");
+    expect(scripts["test:e2e"]).toBe(
+      "npm run build:e2e && wdio run wdio.conf.ts && npm run test:e2e:authority",
+    );
+    expect(scripts["test:e2e:authority"]).toContain("e2e-tauri/library-authority.mts");
     expect(wdioConfig).toContain("driverProvider: \"embedded\"");
-    expect(wdioConfig).toContain('specs: ["./e2e-tauri/workflows.spec.ts"]');
+    expect(wdioConfig).toContain("./e2e-tauri/workflows.spec.ts");
+    expect(wdioConfig).toContain("./e2e-tauri/library-authority.spec.ts");
     expect(wdioConfig).toContain("prepareE2eWorkspace");
     expect(workflowSpec).toContain("reveals the native main window after renderer boot");
     expect(workflowSpec).toContain("preserves absolute paths through the native library pipeline");

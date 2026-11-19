@@ -24,6 +24,56 @@ function validateUnavailableEvidence(record) {
   }
 }
 
+function normalizedGenrePhrase(value) {
+  return value.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function explicitGenreLabels(text) {
+  if (typeof text !== 'string' || !text.trim() || /[\r\n\u0000-\u001f\u007f]/u.test(text)) return null;
+  const separator = text.indexOf(':');
+  if (separator < 0 || !['genre', 'genres'].includes(text.slice(0, separator).trim().toLowerCase())) return null;
+  const forbidden = new Set(['not', 'without', 'exclude', 'excluded', 'avoid', 'ignore', 'instruction', 'instructions', 'return']);
+  const labels = new Set();
+  for (const label of text.slice(separator + 1).split(',').map(value => value.trim())) {
+    const normalized = normalizedGenrePhrase(label);
+    const words = normalized.split(' ').filter(Boolean);
+    if (!words.length || words.length > 4
+        || !Array.from(label).every(character => /[\p{L}\p{N}\s\-&/'’]/u.test(character))
+        || words.some(word => forbidden.has(word))) return null;
+    labels.add(normalized);
+  }
+  return labels.size ? labels : null;
+}
+
+function supportedSourceGenrePayload(payload, matcher) {
+  if (!payload || !matcher || Object.keys(payload).sort().join(',')
+      !== 'album,artist,sourceObservation,tracks'
+      || payload.artist !== matcher.artist || payload.album !== matcher.album
+      || !isDeepStrictEqual(payload.tracks, matcher.tracks)) return false;
+  const source = payload.sourceObservation;
+  if (!source || Object.keys(source).sort().join(',')
+      !== 'evidenceId,origin,provider,resourceId,responseSha256,selector,text,textSha256,trackMappingSha256'
+      || source.origin !== 'synthetic_loopback' || source.provider !== 'discogs'
+      || source.resourceId !== matcher.releaseId || source.selector !== '/notes'
+      || source.responseSha256 !== matcher.responseBodySha256 || source.text !== matcher.text
+      || !/^[a-f0-9]{64}$/.test(source.trackMappingSha256)) return false;
+  if (sha256(Buffer.from(source.text)) !== source.textSha256) return false;
+  const evidence = { provider: 'discogs', resourceId: matcher.releaseId,
+    responseSha256: matcher.responseBodySha256, selector: '/notes',
+    textSha256: source.textSha256, trackMappingSha256: source.trackMappingSha256 };
+  if (sha256(Buffer.from(JSON.stringify(evidence))) !== source.evidenceId) return false;
+  const labels = explicitGenreLabels(matcher.text);
+  const genres = typeof matcher.genre === 'string'
+    ? matcher.genre.split(',').map(normalizedGenrePhrase) : [];
+  return genres.length > 0 && genres.every(genre => genre && labels?.has(genre));
+}
+
+function supportedTitleOnlyGenrePayload(payload, matcher) {
+  return !!payload && !!matcher && Object.keys(payload).sort().join(',') === 'album,artist,tracks'
+    && payload.artist === matcher.artist && payload.album === matcher.album
+    && isDeepStrictEqual(payload.tracks, matcher.tracks);
+}
+
 function loadRecords(manifestPath) {
   const manifest = readJson(manifestPath);
   if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.records)) {
@@ -75,9 +125,31 @@ function createService(manifestPath, authority) {
   if (authority && typeof authority.onFatal !== 'function') throw Error('mock fixture requires a fatal lease callback');
   const records = loadRecords(manifestPath);
   const scripted = readJson(manifestPath).scriptedModel;
+  const payloadContracts = scripted && ['payload', 'sourceBoundGenre', 'pairedGenre']
+    .filter(key => scripted[key] !== undefined);
   if (scripted && (!Number.isInteger(scripted.maxRequests) || scripted.maxRequests < 1
-      || scripted.maxRequests > 8 || !scripted.payload || !scripted.response)) {
-    throw new Error('Scripted model requires a payload, response and allowance of 1–8 requests');
+      || scripted.maxRequests > 8 || payloadContracts.length !== 1 || !scripted.response)) {
+    throw new Error('Scripted model requires one payload contract, a response and allowance of 1–8 requests');
+  }
+  if (scripted?.sourceBoundGenre && (!scripted.sourceBoundGenre.artist
+      || !scripted.sourceBoundGenre.album || !Array.isArray(scripted.sourceBoundGenre.tracks)
+      || !/^[1-9][0-9]*$/.test(scripted.sourceBoundGenre.releaseId)
+      || !/^[a-f0-9]{64}$/.test(scripted.sourceBoundGenre.responseBodySha256)
+      || typeof scripted.sourceBoundGenre.text !== 'string' || !scripted.sourceBoundGenre.text
+      || scripted.sourceBoundGenre.text.length > 4096 || typeof scripted.sourceBoundGenre.genre !== 'string')) {
+    throw new Error('Synthetic source response contract is invalid');
+  }
+  if (scripted?.pairedGenre && (!scripted.pairedGenre.artist || !scripted.pairedGenre.album
+      || !Array.isArray(scripted.pairedGenre.tracks)
+      || !/^[1-9][0-9]*$/.test(scripted.pairedGenre.releaseId)
+      || !/^[a-f0-9]{64}$/.test(scripted.pairedGenre.responseBodySha256)
+      || typeof scripted.pairedGenre.text !== 'string' || !scripted.pairedGenre.text
+      || scripted.pairedGenre.text.length > 4096 || typeof scripted.pairedGenre.genre !== 'string')) {
+    throw new Error('Paired genre source contract is invalid');
+  }
+  if (scripted?.capturePayloads !== undefined
+      && (scripted.capturePayloads !== true || !scripted.pairedGenre)) {
+    throw new Error('Payload capture is restricted to the synthetic paired genre fixture');
   }
   const schemaName = scripted?.schemaName ?? 'GenreFillResponse';
   if (scripted && !['GenreFillResponse', 'TagCorrectionResponse'].includes(schemaName)) {
@@ -85,12 +157,13 @@ function createService(manifestPath, authority) {
   }
   const requests = [];
   const modelRequests = [];
+  const modelPayloads = [];
   const wireArrivals = [];
   const misses = new Map();
   const compactInventory = () => {
     const compact = { schemaVersion: 1, compact: true, groundTruth: 'unreviewed_provider_evidence',
       records: records.map(({ bytes, ...record }) => ({ ...record, bytes: bytes.length })),
-      requests, modelRequests,
+      requests, modelRequests, ...(scripted?.capturePayloads ? { modelPayloads } : {}),
       wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] };
     const bytes = Buffer.from(JSON.stringify(compact));
     if (bytes.length > 8388608) throw Error('compact_inventory_ceiling');
@@ -158,12 +231,23 @@ function createService(manifestPath, authority) {
             /^\/private\/tmp\/soundrobe-auto-tag-eval-[0-9a-f-]{36}\/media\/(cold|warm)\//,
             '$EVAL_MEDIA/');
         }
+        const sourceBoundMatch = scripted.sourceBoundGenre
+          && supportedSourceGenrePayload(payload, scripted.sourceBoundGenre);
+        const pairedSourceMatch = scripted.pairedGenre
+          && supportedSourceGenrePayload(payload, scripted.pairedGenre);
+        const pairedBaselineMatch = scripted.pairedGenre
+          && supportedTitleOnlyGenrePayload(payload, scripted.pairedGenre);
+        if (scripted.capturePayloads) modelPayloads.push({ index: modelRequests.length + 1, payload: payload ?? null });
+        const payloadMatch = scripted.pairedGenre ? (pairedSourceMatch || pairedBaselineMatch)
+          : scripted.sourceBoundGenre ? sourceBoundMatch : isDeepStrictEqual(payload, scripted.payload);
+        const payloadClass = pairedSourceMatch || sourceBoundMatch ? 'synthetic_discogs_source'
+          : pairedBaselineMatch ? 'title_only_baseline' : 'exact_payload';
         const allowed = (!authority || request.headers.authorization === 'Bearer MOCK_ONLY_SECRET_CANARY')
           && modelRequests.length < scripted.maxRequests
           && (!scripted.bodySha256 || sha256(Buffer.from(bytes)) === scripted.bodySha256)
           && body.model === (scripted.requestModel ?? 'scripted/genre-v1')
           && body.response_format?.json_schema?.name === schemaName
-          && user?.length === 1 && isDeepStrictEqual(payload, scripted.payload);
+          && user?.length === 1 && payloadMatch;
         const status = allowed ? (scripted.status ?? 200) : 501;
         const result = status === 200 ? {
           model: scripted.responseModel ?? 'scripted/genre-v1', provider: scripted.provider ?? 'scripted-loopback-v1',
@@ -175,6 +259,7 @@ function createService(manifestPath, authority) {
         // including the noncompact diagnostic endpoint and failure cases.
         modelRequests.push({ status, sha256: sha256(Buffer.from(bytes)), bytes: Buffer.byteLength(bytes),
           responseSha256: sha256(Buffer.from(JSON.stringify(result))), responseBytes: Buffer.byteLength(JSON.stringify(result)),
+          ...(allowed ? { payloadClass } : {}),
           ...(authority ? { mockCredentialPresented: request.headers.authorization === 'Bearer MOCK_ONLY_SECRET_CANARY' } : {}) });
         if (!allowed) misses.set(`model-${modelRequests.length}`, { provider: 'scripted_model', status });
         send(status, result, scripted.privacyCanaries === true ? { 'x-private-canary': 'MOCK_HEADER_SECRET_CANARY' } : {});
@@ -190,7 +275,8 @@ function createService(manifestPath, authority) {
       }
       return send(200, { schemaVersion: 1, groundTruth: 'unreviewed_provider_evidence',
         records: records.map(({ bytes, ...record }) => ({ ...record, body: JSON.parse(bytes.toString()) })),
-        requests, modelRequests, wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] });
+        requests, modelRequests, ...(scripted?.capturePayloads ? { modelPayloads } : {}),
+        wireArrivals, upstreamForwardingAvailable: false, misses: [...misses.values()] });
     }
     const provider = Object.keys(prefixes).find((key) => url.pathname.startsWith(`${prefixes[key]}/`));
     const fixturePath = provider ? url.pathname.slice(prefixes[provider].length) : url.pathname;

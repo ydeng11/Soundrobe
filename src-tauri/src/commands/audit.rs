@@ -1312,13 +1312,22 @@ async fn apply_album_fixes(
         .iter()
         .map(|job| (job.path.clone(), job.fields.clone()))
         .collect::<Vec<_>>();
+    let recovery = queue.recovery_worker();
     let successes = queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let paths = writes
+                    .iter()
+                    .map(|(path, _)| path.clone())
+                    .collect::<Vec<_>>();
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(recovery, &paths)?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 writes
                     .into_iter()
-                    .map(
-                        |(path, fields)| match write_track_dispatch(&path, &fields) {
+                    .map(|(path, fields)| -> Result<bool, ApiError> {
+                        Ok(match write_track_dispatch(&path, &fields) {
                             Ok(_) => true,
                             Err(error) => {
                                 tracing::warn!(
@@ -1328,14 +1337,15 @@ async fn apply_album_fixes(
                                 );
                                 false
                             }
-                        },
-                    )
-                    .collect::<Vec<_>>()
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()
             })
             .await
-            .map_err(|error| ApiError::WriteTask(error.to_string()))
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
 
     for (job, success) in jobs.iter().zip(&successes) {
         for finding_index in &job.finding_indices {
@@ -2133,6 +2143,39 @@ mod deterministic_contract_tests {
             .iter()
             .any(|finding| finding.field == "genre" && !finding.auto_fix_eligible));
         assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_apply_audit_fix() {
+        let root = temp_dir("audit-lock");
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let path = album.join("01.mp3");
+        fs::copy(media_fixture("minimal.mp3"), &path).unwrap();
+        let before = fs::read(&path).unwrap();
+        let results: Vec<AuditFinding> = serde_json::from_value(serde_json::json!([{
+            "index": 0, "field": "title", "status": "error", "message": "Fix title",
+            "corrected": {"title":"Changed"}, "source":"deterministic", "confidence": 0.98,
+            "autoFixEligible":true, "autoFixed":false
+        }]))
+        .unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let child_album = album.clone();
+        let result = tokio::spawn(async move {
+            apply_audit_fixes_for_album_results(
+                &queue,
+                vec![AuditAlbumResult {
+                    album_path: child_album.to_string_lossy().into_owned(),
+                    results,
+                }],
+            )
+            .await
+        })
+        .await;
+        assert!(result.expect("lock failure must not panic").is_err());
+        assert_eq!(fs::read(path).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 

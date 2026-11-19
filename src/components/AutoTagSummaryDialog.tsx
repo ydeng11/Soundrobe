@@ -84,10 +84,12 @@ export function AutoTagSummaryDialog({
     null,
   );
   const [reviewActing, setReviewActing] = React.useState(false);
+  const [resolvedReviews, setResolvedReviews] = React.useState<string[]>([]);
   const [tab, setTab] = React.useState<"results" | "review">("results");
   React.useEffect(() => {
     setSelectedReview(null);
     setTab("results");
+    setResolvedReviews([]);
     if (!summary || !window.api?.getAutoTagReview) return;
     void Promise.all(
       summary.items
@@ -97,6 +99,7 @@ export function AutoTagSummaryDialog({
     );
   }, [summary]);
   if (!summary) return null;
+  const visibleSummary = { items: summary.items.filter((item) => !item.reviewId || !resolvedReviews.includes(item.reviewId)) };
 
   return (
     <div
@@ -135,8 +138,8 @@ export function AutoTagSummaryDialog({
               Auto-tag summary
             </h2>
             <p className="mt-0.5 text-[11px] text-text-muted">
-              {summary.items.length} album
-              {summary.items.length === 1 ? "" : "s"} processed
+              {visibleSummary.items.length} album
+              {visibleSummary.items.length === 1 ? "" : "s"} processed
             </p>
           </div>
           <button
@@ -185,6 +188,7 @@ export function AutoTagSummaryDialog({
               onRetry={onRetry ?? (() => {})}
               onSearch={onSearch ?? (() => {})}
               onChanged={onChanged ?? (() => {})}
+              onRecoveryResolved={(id) => setResolvedReviews((current) => [...current, id])}
             />
           </div>
         ) : (
@@ -196,14 +200,14 @@ export function AutoTagSummaryDialog({
                     key={status}
                     className={`px-1.5 py-0.5 rounded-md border ${statusClass[status]}`}
                   >
-                    {statusLabel[status]}: {countStatus(summary, status)}
+                    {statusLabel[status]}: {countStatus(visibleSummary, status)}
                   </span>
                 ),
               )}
             </div>
 
             <div className="overflow-y-auto max-h-[55vh] p-3 space-y-1.5">
-              {summary.items.map((item) => (
+              {visibleSummary.items.map((item) => (
                 <div
                   key={item.reviewId ?? item.albumPath}
                   className="flex items-start gap-3 rounded-lg border border-border/50 px-3 py-2"

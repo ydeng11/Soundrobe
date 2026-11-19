@@ -416,14 +416,14 @@ pub async fn album_download_lyrics(
     queue: State<'_, WriteQueue>,
 ) -> Result<LyricsBatchReport, ApiError> {
     let base_url = resolve_lyrics_base_url(&config.raw());
-    Ok(download_album_lyrics_at(Path::new(&album_path), &base_url, &queue).await)
+    Ok(download_album_lyrics_at(Path::new(&album_path), &base_url, &queue).await?)
 }
 
 pub async fn download_album_lyrics_at(
     album_path: &Path,
     base_url: &str,
     queue: &WriteQueue,
-) -> LyricsBatchReport {
+) -> std::io::Result<LyricsBatchReport> {
     apply_album_lyrics_at(album_path, Some(base_url), queue).await
 }
 
@@ -650,16 +650,17 @@ pub async fn apply_album_lyrics_at(
     album_path: &Path,
     base_url: Option<&str>,
     queue: &WriteQueue,
-) -> LyricsBatchReport {
+) -> std::io::Result<LyricsBatchReport> {
     let resolutions = resolve_album_lyrics(album_path, base_url).await;
     let total = resolutions.len();
     if resolutions.is_empty() {
-        return LyricsBatchReport::default();
+        return Ok(LyricsBatchReport::default());
     }
     let album_path_display = album_path.to_string_lossy().into_owned();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let mut report = LyricsBatchReport {
                     total,
                     ..LyricsBatchReport::default()
@@ -681,7 +682,16 @@ pub async fn apply_album_lyrics_at(
                                 lyrics: Patch::Value(document.clone()),
                                 ..TrackPatch::default()
                             };
-                            let result =
+                            let result = (|| {
+                                let _ordinary_owner = recovery
+                                    .as_ref()
+                                    .map(|worker| {
+                                        super::auto_tag_review::ordinary_target_lease(
+                                            worker.clone(),
+                                            &resolution.path,
+                                        )
+                                    })
+                                    .transpose()?;
                                 write_track_dispatch(&resolution.path, &patch).and_then(|_| {
                                     let readback = read_track_metadata(&resolution.path)?;
                                     if readback.lyrics.as_ref() == Some(&document) {
@@ -692,7 +702,8 @@ pub async fn apply_album_lyrics_at(
                                             .to_string(),
                                     ))
                                     }
-                                });
+                                })
+                            })();
                             match result {
                                 Ok(()) => {
                                     report.written += 1;
@@ -1163,6 +1174,29 @@ pub async fn fetch_lyrics_at(
 #[cfg(all(test, feature = "desktop"))]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_write_lyrics() {
+        let root = temp_root();
+        let track = root.join("01.wav");
+        fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.wav"),
+            &track,
+        )
+        .unwrap();
+        fs::write(track.with_extension("txt"), "Test lyrics").unwrap();
+        let before = fs::read(&track).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("state"), None).unwrap();
+        fs::remove_file(root.join("state/write-queue.lock")).unwrap();
+        let child_root = root.clone();
+        let result =
+            tokio::spawn(async move { apply_album_lyrics_at(&child_root, None, &queue).await })
+                .await;
+        assert!(result.expect("lock error must not panic").is_err());
+        assert_eq!(fs::read(&track).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::path::PathBuf;
@@ -1374,7 +1408,7 @@ mod tests {
         );
         assert_eq!(auto_tag_jobs[0].0, wav);
         let queue = WriteQueue::default();
-        let report = apply_album_lyrics_at(&root, None, &queue).await;
+        let report = apply_album_lyrics_at(&root, None, &queue).await.unwrap();
         assert_eq!(report.total, 2);
         assert_eq!(report.embedded_preserved, 1);
         assert_eq!(report.written, 1);
@@ -1388,8 +1422,9 @@ mod tests {
             "WAV lyrics"
         );
         assert!(!queue.is_active());
-        let missing =
-            download_album_lyrics_at(&root.join("missing"), "http://unused", &queue).await;
+        let missing = download_album_lyrics_at(&root.join("missing"), "http://unused", &queue)
+            .await
+            .unwrap();
         assert_eq!(missing.total, 0);
         fs::remove_dir_all(root).unwrap();
     }
@@ -1401,7 +1436,9 @@ mod tests {
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../test/fixtures/tauri/media-corpus");
         let aiff = root.join("01.aiff");
         fs::copy(fixtures.join("minimal.aiff"), &aiff).unwrap();
-        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default()).await;
+        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default())
+            .await
+            .unwrap();
         assert_eq!(report.total, 1, "unexpected results: {:?}", report.results);
         assert_eq!(report.unsupported, 1);
         assert_eq!(report.results[0].status, LyricsTrackStatus::Unsupported);
@@ -1429,7 +1466,9 @@ mod tests {
             .unwrap();
         let before = fs::read(&aiff).unwrap();
 
-        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default()).await;
+        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default())
+            .await
+            .unwrap();
 
         assert_eq!(report.total, 1);
         assert_eq!(report.embedded_preserved, 1);
@@ -1572,7 +1611,9 @@ mod tests {
         let before = fs::read(&track).unwrap();
         fs::write(track.with_extension("lrc"), [0x81]).unwrap();
         fs::write(track.with_extension("txt"), "safe lower-priority lyrics").unwrap();
-        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default()).await;
+        let report = apply_album_lyrics_at(&root, None, &WriteQueue::default())
+            .await
+            .unwrap();
         assert_eq!(report.failed, 1);
         assert_eq!(report.written, 0);
         assert_eq!(fs::read(&track).unwrap(), before);

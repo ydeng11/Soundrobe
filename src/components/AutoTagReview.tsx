@@ -11,6 +11,7 @@ interface Props {
   onRetry: (albumPath: string) => void;
   onSearch: (albumPath: string) => void;
   onChanged: (review: AutoTagReviewDetail) => void | Promise<void>;
+  onRecoveryResolved?: (reviewId: string) => void;
 }
 const buttonClass =
   "rounded border border-border px-3 py-1.5 text-xs hover:bg-surface-hover disabled:opacity-50";
@@ -130,6 +131,7 @@ export function AutoTagReview({
   onSearch,
   onChanged,
   onActing,
+  onRecoveryResolved,
 }: Props) {
   const [review, setReview] = useState<AutoTagReviewDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +139,7 @@ export function AutoTagReview({
   const [acting, setActing] = useState(false);
   const [allMetadata, setAllMetadata] = useState(false);
   const [artworkOpen, setArtworkOpen] = useState(false);
+  const [recoveryResolved, setRecoveryResolved] = useState(false);
   useEffect(() => {
     let cancelled = false;
     setReview(null);
@@ -178,12 +181,42 @@ export function AutoTagReview({
       await onChanged(updated);
     } catch (err) {
       setError(String(err));
+      if (revert) {
+        try {
+          setReview(await window.api.getAutoTagReview(reviewId));
+        } catch {
+          // Keep the original error and the existing review visible.
+        }
+      }
+    } finally {
+      setActing(false);
+      onActing?.(false);
+    }
+  }
+  async function keepRecoveryFile(path: string, sha256: string) {
+    if (acting || busy || !window.confirm(
+      `Keep the current contents of ${path}? This closes its interrupted-write review and retains the recovery backup.`,
+    )) return;
+    setActing(true);
+    onActing?.(true);
+    setError(null);
+    try {
+      const updated = await window.api.keepAutoTagRecoveryFile(reviewId, path, sha256);
+      if (updated) {
+        setReview(updated);
+      } else {
+        setRecoveryResolved(true);
+        onRecoveryResolved?.(reviewId);
+      }
+    } catch (err) {
+      setError(String(err));
     } finally {
       setActing(false);
       onActing?.(false);
     }
   }
   if (loading) return <p className="p-4">Loading album review…</p>;
+  if (recoveryResolved) return <p className="p-4" role="status">The current file was kept. Its interrupted-write review is closed.</p>;
   if (!review)
     return (
       <p role="alert" className="p-4 text-red-600">
@@ -191,17 +224,18 @@ export function AutoTagReview({
       </p>
     );
   const skipped =
+    !review.recoveryRequired &&
     review.outcome === "needs_review" &&
     !(typeof review.result?.written === "number" && review.result.written > 0);
   const candidate = review.result?.candidate;
   const inferredGenre =
-    candidate && typeof candidate === "object" &&
+    !review.fieldReviews && candidate && typeof candidate === "object" &&
     "assisted_genre" in candidate && candidate.assisted_genre &&
     "genre" in candidate && typeof candidate.genre === "string"
       ? candidate.genre : null;
   const paths = Array.from(
     new Set(
-      [...review.before.tracks, ...review.after.tracks].map(
+      [...review.before.tracks, ...review.after.tracks, ...(review.fieldReviews ?? [])].map(
         (track) => track.path,
       ),
     ),
@@ -218,10 +252,15 @@ export function AutoTagReview({
             No changes written — no authoritative metadata match was available.
           </p>
         )}
-        <p className="text-xs text-text-muted">
-          Review and full undo are available until Soundrobe exits. Keeping
-          changes marks this album reviewed and retains undo.
-        </p>
+        {review.recoveryRequired ? (
+          <p className="text-amber-700">{review.canRevert ? "An album reversal was interrupted. Resume it to restore the remaining files." : "Resolve the interrupted write before running auto-tag again."}</p>
+        ) : review.recovered ? (
+          <p className="text-xs text-text-secondary">This review shows the assisted fields saved by the earlier run.</p>
+        ) : (
+          <p className="text-xs text-text-muted">
+            Full album undo is available until Soundrobe exits.
+          </p>
+        )}
         {inferredGenre && (
           <p className="text-xs font-medium">
             AI-inferred genre is not provider-verified. Keeping changes acknowledges review, not verification.
@@ -240,8 +279,30 @@ export function AutoTagReview({
           </p>
         ),
       )}
+      {review.recoveryRequired && !review.canRevert && (
+        <div className="space-y-2">
+          <p>Only files recorded for recovery are shown. Review the current metadata before deciding.</p>
+          {review.recoveryFiles?.map((file) => (
+            <section key={file.path} className="rounded border border-border p-2">
+              <p className="break-all">{file.path}</p>
+              {file.currentMetadata && (
+                <details>
+                  <summary className="cursor-pointer">Current metadata</summary>
+                  <pre className="whitespace-pre-wrap break-words text-xs">{valueText(file.currentMetadata)}</pre>
+                </details>
+              )}
+              {file.currentSha256 ? (
+                <button type="button" className={buttonClass} disabled={acting || busy}
+                  onClick={() => void keepRecoveryFile(file.path, file.currentSha256!)}>
+                  Keep current file
+                </button>
+              ) : <p>{file.unavailableReason ?? "Current file is unavailable for review."}</p>}
+            </section>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2 flex-wrap">
-        {review.decision !== "reverted" && (
+        {review.decision !== "reverted" && !review.recoveryRequired && (
           <button
             type="button"
             className={buttonClass}
@@ -263,7 +324,7 @@ export function AutoTagReview({
             disabled={acting || busy}
             onClick={() => void decide(true)}
           >
-            Revert album
+            {review.recoveryRequired ? "Resume album reversal" : "Revert album"}
           </button>
         )}
         {skipped && (
@@ -305,7 +366,7 @@ export function AutoTagReview({
           </dl>
         </details>
       )}
-      <div className="flex gap-2">
+      {!review.recovered && <div className="flex gap-2">
         <button
           type="button"
           className={buttonClass}
@@ -322,7 +383,7 @@ export function AutoTagReview({
         >
           All metadata
         </button>
-      </div>
+      </div>}
       {review.decision === "reverted" && (
         <p>
           Restored. The comparison below records what this auto-tag run changed.
@@ -330,12 +391,13 @@ export function AutoTagReview({
       )}
       <div className="space-y-2">
         {paths.map((path) => {
+          const fieldReviews = review.fieldReviews?.filter((field) => field.path === path) ?? [];
           const before: Record<string, unknown> =
             review.before.tracks.find((track) => track.path === path) ?? {};
           const after: Record<string, unknown> =
             review.after.tracks.find((track) => track.path === path) ?? {};
           const keys = Array.from(
-            new Set([...Object.keys(before), ...Object.keys(after)]),
+            new Set([...Object.keys(before), ...Object.keys(after), ...fieldReviews.map((field) => field.field)]),
           ).filter((key) => key !== "path");
           const comparable =
             review.before.tracks.some((track) => track.path === path) &&
@@ -347,11 +409,13 @@ export function AutoTagReview({
                   JSON.stringify(after[key] ?? null),
               )
             : [];
-          const visible = allMetadata ? keys : changed;
+          const visible = allMetadata
+            ? keys
+            : keys.filter((key) => changed.includes(key) || fieldReviews.some((field) => field.field === key));
           return (
             <details
               key={path}
-              open={allMetadata || changed.length > 0}
+              open={visible.length > 0}
               className="rounded border border-border p-2"
             >
               <summary className="cursor-pointer break-all">
@@ -374,28 +438,43 @@ export function AutoTagReview({
                     </tr>
                   </thead>
                   <tbody>
-                    {visible.map((key) => (
-                      <tr
-                        key={key}
-                        className={
-                          changed.includes(key) ? "bg-amber-500/10" : ""
-                        }
-                      >
-                        <th className="text-left align-top p-1 font-normal">
-                          {label(key)}
-                          {key === "genre" && inferredGenre &&
-                            !String(before[key] ?? "").trim() && after[key] === inferredGenre && (
-                            <span className="block font-semibold">AI-inferred · unverified</span>
-                          )}
-                        </th>
-                        <td className="align-top p-1 whitespace-pre-wrap break-words">
-                          {valueText(before[key])}
-                        </td>
-                        <td className="align-top p-1 whitespace-pre-wrap break-words">
-                          {valueText(after[key])}
-                        </td>
-                      </tr>
-                    ))}
+                    {visible.map((key) => {
+                      const fieldReview = fieldReviews.find((field) => field.field === key);
+                      return (
+                        <tr
+                          key={key}
+                          className={
+                            fieldReview?.state === "open"
+                              ? "border-l-2 border-amber-500 bg-amber-500/10"
+                              : changed.includes(key) ? "bg-amber-500/10" : ""
+                          }
+                        >
+                          <th className="text-left align-top p-1 font-normal">
+                            {label(key)}
+                            {key === "genre" && inferredGenre &&
+                              !String(before[key] ?? "").trim() && after[key] === inferredGenre && (
+                              <span className="block font-semibold">AI-inferred · unverified</span>
+                            )}
+                          </th>
+                          <td className="align-top p-1 whitespace-pre-wrap break-words">
+                            {valueText(fieldReview ? fieldReview.before : before[key])}
+                          </td>
+                          <td className="align-top p-1 whitespace-pre-wrap break-words">
+                            {valueText(fieldReview ? fieldReview.after : after[key])}
+                            {fieldReview && (
+                              <>
+                                <span className="mt-1 block font-semibold">
+                                  {fieldReview.state === "open"
+                                    ? "AI-assisted · review pending"
+                                    : "AI-assisted · reviewed"}
+                                </span>
+                                <span className="block">{fieldReview.source}</span>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               ) : (
@@ -405,7 +484,7 @@ export function AutoTagReview({
           );
         })}
       </div>
-      <details onToggle={(event) => setArtworkOpen(event.currentTarget.open)}>
+      {!review.recovered && <details onToggle={(event) => setArtworkOpen(event.currentTarget.open)}>
         <summary className="font-medium cursor-pointer">
           Artwork — before and after ({review.before.artworks.length} /{" "}
           {review.after.artworks.length})
@@ -432,7 +511,7 @@ export function AutoTagReview({
             ))}
           </div>
         )}
-      </details>
+      </details>}
     </section>
   );
 }

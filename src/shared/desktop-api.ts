@@ -138,6 +138,14 @@ export interface AutoTagReviewView {
   artworks: AutoTagReviewArtwork[];
   errors: string[];
 }
+export interface AutoTagReviewField {
+  path: string;
+  field: string;
+  before: unknown;
+  after: unknown;
+  source: string;
+  state: "open" | "acknowledged";
+}
 export interface AutoTagReviewDetail {
   id: string;
   albumPath: string;
@@ -148,6 +156,15 @@ export interface AutoTagReviewDetail {
   after: AutoTagReviewView;
   canRevert: boolean;
   errors: string[];
+  fieldReviews?: AutoTagReviewField[];
+  recovered?: boolean;
+  recoveryRequired?: boolean;
+  recoveryFiles?: Array<{
+    path: string;
+    currentSha256: string | null;
+    currentMetadata?: Record<string, unknown> | null;
+    unavailableReason?: string | null;
+  }>;
 }
 
 export interface TaskProgress {
@@ -656,6 +673,7 @@ export interface DesktopAPI {
   getAutoTagReview: (reviewId: string) => Promise<AutoTagReviewDetail>;
   markAutoTagReviewed: (reviewId: string) => Promise<AutoTagReviewDetail>;
   revertAutoTagReview: (reviewId: string) => Promise<AutoTagReviewDetail>;
+  keepAutoTagRecoveryFile: (reviewId: string, path: string, expectedSha256: string) => Promise<AutoTagReviewDetail | null>;
   getAutoTagReviewArtwork: (reviewId: string, artworkId: string) => Promise<string>;
   downloadAlbumLyrics: (albumPath: string) => Promise<LyricsBatchReport>;
   onAutoTagEvent: (callback: (event: AutoTagEvent) => void) => () => void;

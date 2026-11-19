@@ -111,6 +111,7 @@ it.each([undefined, { prompt_tokens: 7, completion_tokens: 3, total_tokens: 10 }
   expect(JSON.stringify(stats)).not.toContain("CANARY");
 });
 
+
 it("replays metadata rejection controls without accepting arbitrary schemas, paths, or file sets", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "soundrobe-metadata-model-mock-"));
   roots.push(root);

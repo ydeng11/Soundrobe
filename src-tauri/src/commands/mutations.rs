@@ -383,11 +383,40 @@ fn probe_phase(name: &str, result: &std::io::Result<()>) -> WriteProbePhase {
     }
 }
 
+#[cfg(feature = "desktop")]
+async fn run_volume_probe<T: Send + 'static>(
+    queue: &WriteQueue,
+    path: String,
+    probe: impl FnOnce(String) -> T + Send + 'static,
+) -> Result<T, ApiError> {
+    queue
+        .run_checked(async {
+            let probe_queue = queue.clone();
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let _authority = probe_queue
+                    .admit_existing_file(Path::new(&path))
+                    .map_err(ApiError::LibraryAuthority)?;
+                Ok(probe(path))
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
+        })
+        .await?
+}
+
 /// Diagnose why writes to a given path or its parent directory may be failing.
 /// Creates and cleans up temp files but never modifies the target.
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub async fn volume_probe_write(path: String) -> WriteProbeResult {
+pub async fn volume_probe_write(
+    path: String,
+    queue: State<'_, WriteQueue>,
+) -> Result<WriteProbeResult, ApiError> {
+    run_volume_probe(&queue, path, probe_write).await
+}
+
+#[cfg(feature = "desktop")]
+fn probe_write(path: String) -> WriteProbeResult {
     let target = PathBuf::from(&path);
     let parent = target.parent().unwrap_or(&target);
     let mut phases: Vec<WriteProbePhase> = Vec::new();
@@ -517,7 +546,13 @@ pub struct RealWriteProbeResult {
 pub async fn volume_probe_write_real(
     path: String,
     patch_json: serde_json::Value,
-) -> RealWriteProbeResult {
+    queue: State<'_, WriteQueue>,
+) -> Result<RealWriteProbeResult, ApiError> {
+    run_volume_probe(&queue, path, move |path| probe_write_real(path, patch_json)).await
+}
+
+#[cfg(feature = "desktop")]
+fn probe_write_real(path: String, patch_json: serde_json::Value) -> RealWriteProbeResult {
     let target = PathBuf::from(&path);
     let patch: TrackPatch = match serde_json::from_value(patch_json) {
         Ok(p) => p,
@@ -624,7 +659,7 @@ pub async fn track_delete_files(
     file_paths: Vec<String>,
     queue: State<'_, WriteQueue>,
 ) -> Result<Vec<DeleteFileResult>, ApiError> {
-    Ok(delete_files_queued(&queue, file_paths).await)
+    Ok(delete_files_queued(&queue, file_paths).await?)
 }
 
 #[cfg(feature = "desktop")]
@@ -640,41 +675,59 @@ pub async fn track_rename(
 pub(crate) async fn delete_files_queued(
     queue: &WriteQueue,
     file_paths: Vec<String>,
-) -> Vec<DeleteFileResult> {
+) -> std::io::Result<Vec<DeleteFileResult>> {
     let fallback_paths = file_paths.clone();
-    match queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
-                file_paths
-                    .into_iter()
-                    .map(|path| match fs::remove_file(&path) {
-                        Ok(()) => DeleteFileResult {
-                            path,
-                            success: true,
-                            error: None,
-                        },
-                        Err(error) => DeleteFileResult {
-                            path,
-                            success: false,
-                            error: Some(error.to_string()),
-                        },
-                    })
-                    .collect::<Vec<_>>()
+    let recovery = queue.recovery_worker();
+    Ok(
+        match queue
+            .run_checked(async move {
+                crate::state::write_queue::spawn_write_blocking(move || {
+                    file_paths
+                        .into_iter()
+                        .map(|path| {
+                            let result = (|| -> Result<(), ApiError> {
+                                let _ordinary_owner = recovery
+                                    .as_ref()
+                                    .map(|worker| {
+                                        super::auto_tag_review::ordinary_target_lease(
+                                            worker.clone(),
+                                            Path::new(&path),
+                                        )
+                                    })
+                                    .transpose()?;
+                                fs::remove_file(&path)?;
+                                Ok(())
+                            })();
+                            match result {
+                                Ok(()) => DeleteFileResult {
+                                    path,
+                                    success: true,
+                                    error: None,
+                                },
+                                Err(error) => DeleteFileResult {
+                                    path,
+                                    success: false,
+                                    error: Some(error.to_string()),
+                                },
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .await
             })
-            .await
-        })
-        .await
-    {
-        Ok(results) => results,
-        Err(error) => fallback_paths
-            .into_iter()
-            .map(|path| DeleteFileResult {
-                path,
-                success: false,
-                error: Some(format!("background delete task failed: {error}")),
-            })
-            .collect(),
-    }
+            .await?
+        {
+            Ok(results) => results,
+            Err(error) => fallback_paths
+                .into_iter()
+                .map(|path| DeleteFileResult {
+                    path,
+                    success: false,
+                    error: Some(format!("background delete task failed: {error}")),
+                })
+                .collect(),
+        },
+    )
 }
 
 pub(crate) async fn rename_track_queued(
@@ -683,9 +736,17 @@ pub(crate) async fn rename_track_queued(
     new_path: PathBuf,
 ) -> Result<TrackData, ApiError> {
     let readback_path = new_path.clone();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(
+                    recovery,
+                    &[old_path.clone(), new_path.clone()],
+                )?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 if let Some(parent) = new_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
@@ -695,7 +756,8 @@ pub(crate) async fn rename_track_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     read_track_metadata(&readback_path)
 }
 
@@ -819,15 +881,31 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     // the shared path so they can still run concurrently.
     let review = super::auto_tag_review::active_review();
     let journaled = review.is_some();
+    let recovery = queue.recovery_worker();
+    let review_genre_patch = match &patch.genre {
+        Patch::Value(genre) => Some(serde_json::json!({"genre":genre})),
+        Patch::Omitted | Patch::Null => None,
+    };
     #[cfg(all(test, unix))]
     if journaled && crate::infra::mock_run_authority::storage::is_scoped() {
         crate::infra::mock_run_authority::storage::stop_unsupported();
     }
 
+    let authority_queue = queue.clone();
     let operation = async move {
-        tokio::task::spawn_blocking(move || {
+        crate::state::write_queue::spawn_write_blocking(move || {
             #[cfg(test)]
             bounded_guard().map_err(ApiError::Message)?;
+            let authority = authority_queue
+                .admit_existing_file(&path)
+                .map_err(ApiError::LibraryAuthority)?;
+            let _ordinary_owner = if journaled {
+                None
+            } else {
+                recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?
+            };
             let write_start = std::time::Instant::now();
             let write = || {
                 // Bind the dispatcher's consumed bytes to the lookup source,
@@ -869,7 +947,22 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
             };
             let result = match review {
                 Some(journal) => {
-                    let outcome = journal.mutate(&path, write);
+                    let outcome = match review_genre_patch {
+                        Some(review_patch) => match review_patch["genre"].as_str() {
+                            Some(genre) => match journal.is_assisted_genre_patch(genre) {
+                                Ok(true) => journal.mutate_with_patch(
+                                    &path,
+                                    &review_patch,
+                                    authority.as_deref(),
+                                    write,
+                                ),
+                                Ok(false) => journal.mutate(&path, write),
+                                Err(error) => Err(error),
+                            },
+                            None => journal.mutate(&path, write),
+                        },
+                        None => journal.mutate(&path, write),
+                    };
                     if let Err(error) = &outcome {
                         journal.report_error(format!(
                             "Track write failed: {}: {error}",
@@ -902,9 +995,15 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     };
 
     if journaled || exclusive_readback {
-        queue.run_exclusive(operation).await
+        queue
+            .run_exclusive_checked(operation)
+            .await
+            .map_err(ApiError::WriteQueue)?
     } else {
-        queue.run(operation).await
+        queue
+            .run_checked(operation)
+            .await
+            .map_err(ApiError::WriteQueue)?
     }
 }
 
@@ -1003,9 +1102,13 @@ pub(crate) async fn remove_embedded_cover_queued(
     path: PathBuf,
 ) -> Result<(), ApiError> {
     let display_path = path.to_string_lossy().to_string();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let _ordinary_owner = recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?;
                 let write_start = std::time::Instant::now();
                 let result = remove_embedded_cover_at(&path);
                 let elapsed = write_start.elapsed();
@@ -1027,7 +1130,8 @@ pub(crate) async fn remove_embedded_cover_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     Ok(())
 }
 
@@ -1076,8 +1180,19 @@ async fn batch_write_grouped(
     //    supply an explicit override when constructing the queue.
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
+    let parent_lease = crate::state::write_queue::current_queue_lease();
+    let authority_queue = queue
+        .clone()
+        .or_else(crate::state::write_queue::current_write_queue);
+    let recovery = queue
+        .as_ref()
+        .and_then(WriteQueue::recovery_worker)
+        .or_else(crate::state::write_queue::current_recovery_worker);
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
+        let authority_queue = authority_queue.clone();
+        let recovery = recovery.clone();
+        let inherited_lease = parent_lease.clone();
         let accum = Arc::clone(accum);
         let progress = progress.clone();
         let completed = Arc::clone(&completed);
@@ -1085,55 +1200,79 @@ async fn batch_write_grouped(
         // happens since io_quota lives until all spawned tasks complete.
         let permit = io_quota.clone().acquire_owned().await.unwrap();
         handles.push(tokio::spawn(async move {
-            let _permit = permit;
-            let operation = async move {
-                tokio::task::spawn_blocking(move || {
-                    for batch in folder_updates.chunks(SUBBATCH_SIZE) {
-                        for update in batch {
-                            let write_start = std::time::Instant::now();
-                            let path_str = update.path.clone();
-                            match write_track_dispatch(Path::new(&update.path), &update.fields) {
-                                Ok(_) => {
-                                    tracing::debug!(
-                                        path = %update.path,
-                                        elapsed_s = write_start.elapsed().as_secs_f64(),
-                                        "batch track write done"
-                                    );
-                                    let mut acc = accum.lock().expect("accum lock poisoned");
-                                    acc.successes.push(path_str);
+            crate::state::write_queue::with_queue_lease(inherited_lease, async move {
+                let _permit = permit;
+                let operation = async move {
+                    crate::state::write_queue::spawn_write_blocking(move || {
+                        for batch in folder_updates.chunks(SUBBATCH_SIZE) {
+                            for update in batch {
+                                let write_start = std::time::Instant::now();
+                                let path_str = update.path.clone();
+                                let result = (|| {
+                                    let path = Path::new(&update.path);
+                                    let _authority = authority_queue
+                                        .as_ref()
+                                        .map(|queue| queue.admit_existing_file(path))
+                                        .transpose()
+                                        .map_err(ApiError::LibraryAuthority)?;
+                                    let _ordinary_owner = recovery
+                                        .as_ref()
+                                        .map(|worker| {
+                                            super::auto_tag_review::ordinary_target_lease(
+                                                worker.clone(),
+                                                Path::new(&update.path),
+                                            )
+                                        })
+                                        .transpose()?;
+                                    write_track_dispatch(Path::new(&update.path), &update.fields)
+                                })();
+                                match result {
+                                    Ok(_) => {
+                                        tracing::debug!(
+                                            path = %update.path,
+                                            elapsed_s = write_start.elapsed().as_secs_f64(),
+                                            "batch track write done"
+                                        );
+                                        let mut acc = accum.lock().expect("accum lock poisoned");
+                                        acc.successes.push(path_str);
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            path = %update.path,
+                                            elapsed_us = write_start.elapsed().as_micros(),
+                                            error = %e,
+                                            "batch track write failed, continuing"
+                                        );
+                                        accum.lock().expect("accum lock poisoned").failures.push(
+                                            TrackWriteFailure {
+                                                path: path_str,
+                                                error: e.to_string(),
+                                            },
+                                        );
+                                    }
                                 }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        path = %update.path,
-                                        elapsed_us = write_start.elapsed().as_micros(),
-                                        error = %e,
-                                        "batch track write failed, continuing"
-                                    );
-                                    accum.lock().expect("accum lock poisoned").failures.push(
-                                        TrackWriteFailure {
-                                            path: path_str,
-                                            error: e.to_string(),
-                                        },
-                                    );
+                                let mut completed =
+                                    completed.lock().expect("progress lock poisoned");
+                                *completed += 1;
+                                if let Some(progress) = &progress {
+                                    progress(*completed, total);
                                 }
-                            }
-                            let mut completed = completed.lock().expect("progress lock poisoned");
-                            *completed += 1;
-                            if let Some(progress) = &progress {
-                                progress(*completed, total);
                             }
                         }
-                    }
-                    Ok::<(), ApiError>(())
-                })
-                .await
-                .map_err(|e| ApiError::WriteTask(e.to_string()))?
-            };
-            if let Some(q) = q {
-                q.run_for_folder(&folder, operation).await
-            } else {
-                operation.await
-            }
+                        Ok::<(), ApiError>(())
+                    })
+                    .await
+                    .map_err(|e| ApiError::WriteTask(e.to_string()))?
+                };
+                if let Some(q) = q {
+                    q.run_for_folder_checked(&folder, operation)
+                        .await
+                        .map_err(ApiError::WriteQueue)?
+                } else {
+                    operation.await
+                }
+            })
+            .await
         }));
     }
 
@@ -1297,9 +1436,13 @@ pub(crate) async fn write_extra_tags_queued(
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let _ordinary_owner = recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?;
                 let write_start = std::time::Instant::now();
                 let result = write_extra_tags_dispatch(&path, &tags);
                 let elapsed = write_start.elapsed();
@@ -1324,7 +1467,8 @@ pub(crate) async fn write_extra_tags_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     Ok(())
 }
 
@@ -1334,19 +1478,34 @@ pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     tags: Vec<ExtraTagUpdate>,
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
-    tokio::task::spawn_blocking(move || write_extra_tags_dispatch(&path, &tags))
-        .await
-        .map_err(|error| ApiError::WriteTask(error.to_string()))??;
+    let recovery = crate::state::write_queue::current_recovery_worker();
+    crate::state::write_queue::spawn_write_blocking(move || {
+        let _ordinary_owner = recovery
+            .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+            .transpose()?;
+        write_extra_tags_dispatch(&path, &tags)
+    })
+    .await
+    .map_err(|error| ApiError::WriteTask(error.to_string()))??;
     Ok(())
 }
 
-async fn batch_write_extra_tags_queued(
+pub(crate) async fn batch_write_extra_tags_queued(
     queue: &WriteQueue,
     updates: Vec<ExtraTagBatchUpdate>,
 ) -> Result<(), ApiError> {
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
-            tokio::task::spawn_blocking(move || {
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || {
+                let paths = updates
+                    .iter()
+                    .map(|update| PathBuf::from(&update.path))
+                    .collect::<Vec<_>>();
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(recovery, &paths)?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 let mut failures = Vec::new();
                 for update in updates {
                     let write_start = std::time::Instant::now();
@@ -1384,6 +1543,7 @@ async fn batch_write_extra_tags_queued(
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+        .map_err(ApiError::WriteQueue)?
 }
 
 fn validate_extra_tag_extension(path: &Path) -> Result<String, ApiError> {
@@ -4515,6 +4675,292 @@ mod tests {
     use lofty::id3::v2::BinaryFrame;
     use lofty::picture::{MimeType, Picture, PictureInformation, PictureType};
 
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn nominated_library_allows_only_its_profile_to_write_copied_track() {
+        use crate::state::library_authority::{load_or_create_profile_id, nominate};
+        let (root, path) = copy_fixture();
+        let owner_profile = root.join("owner");
+        let other_profile = root.join("other");
+        let owner = WriteQueue::for_profile(&owner_profile, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let other = WriteQueue::for_profile(&other_profile, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let patch =
+            || serde_json::from_value(serde_json::json!({"title":"Nominated edit"})).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error = write_track_queued(&owner, path.clone(), patch())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("not been nominated"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        nominate(&root, load_or_create_profile_id(&owner_profile).unwrap()).unwrap();
+        let error = write_track_queued(&other, path.clone(), patch())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        write_track_queued(&owner, path.clone(), patch())
+            .await
+            .unwrap();
+        assert_ne!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn marked_batch_preserves_foreign_track_and_writes_the_owned_track() {
+        use crate::state::library_authority::{load_or_create_profile_id, nominate};
+        let (root, fixture) = copy_fixture();
+        let owner = root.join("owner");
+        let foreign = root.join("foreign");
+        let own_library = root.join("own-library");
+        let foreign_library = root.join("foreign-library");
+        for path in [&owner, &foreign, &own_library, &foreign_library] {
+            fs::create_dir(path).unwrap();
+        }
+        let own_track = own_library.join("track.mp3");
+        let foreign_track = foreign_library.join("track.mp3");
+        fs::copy(&fixture, &own_track).unwrap();
+        fs::copy(&fixture, &foreign_track).unwrap();
+        let before = fs::read(&foreign_track).unwrap();
+        nominate(&own_library, load_or_create_profile_id(&owner).unwrap()).unwrap();
+        nominate(
+            &foreign_library,
+            load_or_create_profile_id(&foreign).unwrap(),
+        )
+        .unwrap();
+        let queue = WriteQueue::for_profile(&owner, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        let updates = || {
+            [&own_track, &foreign_track]
+                .into_iter()
+                .map(|path| TrackUpdate {
+                    path: path.to_string_lossy().into_owned(),
+                    fields: serde_json::from_value(serde_json::json!({"title":"Batch edit"}))
+                        .unwrap(),
+                })
+                .collect()
+        };
+        let result = batch_write_with_readback(&queue, updates(), None)
+            .await
+            .unwrap();
+        assert_eq!(result.tracks.len(), 1);
+        assert_eq!(result.failures.len(), 1);
+        assert!(result.failures[0]
+            .error
+            .contains("different writer profile"));
+        assert_eq!(fs::read(&foreign_track).unwrap(), before);
+        assert_ne!(fs::read(&own_track).unwrap(), before);
+
+        let result = queue
+            .run_exclusive_checked(batch_write_with_exclusive_queue_held(updates(), None, 2))
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(result.successes, [own_track.to_string_lossy().into_owned()]);
+        assert_eq!(result.failures.len(), 1);
+        assert!(result.failures[0]
+            .error
+            .contains("different writer profile"));
+        assert_eq!(fs::read(&foreign_track).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_returns_error_without_changing_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title":"Changed"})).unwrap();
+        assert!(write_track_queued(&queue, path.clone(), patch)
+            .await
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_returns_batch_lock_error_without_changing_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let updates = vec![TrackUpdate {
+            path: path.to_string_lossy().into_owned(),
+            fields: serde_json::from_value(serde_json::json!({"title":"Changed"})).unwrap(),
+        }];
+        let error = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap_err();
+        assert!(!error.to_string().contains("panicked"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_rename_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let target = root.join("renamed.mp3");
+        assert!(rename_track_queued(&queue, path.clone(), target.clone())
+            .await
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(!target.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_delete_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let moved_queue = queue.clone();
+        let moved_path = path.to_string_lossy().into_owned();
+        let result =
+            tokio::spawn(async move { delete_files_queued(&moved_queue, vec![moved_path]).await })
+                .await;
+        assert!(result.expect("lock failure should not panic").is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn marked_ordinary_write_blocks_foreign_extra_tags_and_rename_destination() {
+        use crate::state::library_authority::{load_or_create_profile_id, nominate};
+        use crate::state::worker::WorkerStore;
+        let (root, fixture) = copy_fixture();
+        let profile = root.join("profile");
+        let own_library = root.join("own");
+        let foreign_library = root.join("foreign");
+        fs::create_dir(&own_library).unwrap();
+        fs::create_dir(&foreign_library).unwrap();
+        let own_track = own_library.join("track.mp3");
+        let foreign_track = foreign_library.join("track.mp3");
+        fs::copy(&fixture, &own_track).unwrap();
+        fs::copy(&fixture, &foreign_track).unwrap();
+        let queue = WriteQueue::for_profile(&profile, None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap();
+        nominate(&own_library, load_or_create_profile_id(&profile).unwrap()).unwrap();
+        nominate(&foreign_library, uuid::Uuid::new_v4()).unwrap();
+        let before = fs::read(&foreign_track).unwrap();
+        let missing_worker = write_extra_tags_queued(&queue, foreign_track.clone(), vec![])
+            .await
+            .unwrap_err();
+        assert!(missing_worker.to_string().contains("recovery worker"));
+        assert_eq!(fs::read(&foreign_track).unwrap(), before);
+        let worker = WorkerStore::new_in(profile.clone());
+        assert!(worker.initialize());
+        let queue = queue.with_recovery_worker(Arc::new(worker)).unwrap();
+        let error = write_extra_tags_queued(&queue, foreign_track.clone(), vec![])
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert_eq!(fs::read(&foreign_track).unwrap(), before);
+        let destination = foreign_library.join("foreign-edit.mp3");
+        let error = rename_track_queued(&queue, own_track.clone(), destination.clone())
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert!(!destination.exists());
+        assert!(own_track.exists());
+        rename_track_queued(
+            &queue,
+            own_track,
+            own_library.join("nested/album/renamed.mp3"),
+        )
+        .await
+        .unwrap();
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    async fn marked_profile_refuses_write_probes_before_any_sibling_changes() {
+        use crate::state::library_authority::nominate;
+        let (root, path) = copy_fixture();
+        let queue = WriteQueue::for_profile(&root.join("own"), None)
+            .unwrap()
+            .with_library_authority()
+            .unwrap()
+            .with_initialized_test_worker();
+        nominate(&root, uuid::Uuid::new_v4()).unwrap();
+        let path_str = path.to_string_lossy().into_owned();
+        let before = fs::read(&path).unwrap();
+        let error = run_volume_probe(&queue, path_str.clone(), probe_write)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        let error = run_volume_probe(&queue, path_str, |path| {
+            probe_write_real(path, serde_json::json!({"title":"Probe edit"}))
+        })
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("different writer profile"));
+        assert_eq!(fs::read(path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_write_extra_tags() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let child_queue = queue.clone();
+        let child_path = path.clone();
+        let result =
+            tokio::spawn(
+                async move { write_extra_tags_queued(&child_queue, child_path, vec![]).await },
+            )
+            .await;
+        assert!(result.expect("lock error must not panic").is_err());
+        let child_queue = queue.clone();
+        let child_path = path.to_string_lossy().into_owned();
+        let result = tokio::spawn(async move {
+            batch_write_extra_tags_queued(
+                &child_queue,
+                vec![ExtraTagBatchUpdate {
+                    path: child_path,
+                    tags: vec![],
+                }],
+            )
+            .await
+        })
+        .await;
+        assert!(result.expect("batch lock error must not panic").is_err());
+        #[cfg(feature = "desktop")]
+        {
+            let child_queue = queue.clone();
+            let child_path = path.clone();
+            let result = tokio::spawn(async move {
+                remove_embedded_cover_queued(&child_queue, child_path).await
+            })
+            .await;
+            assert!(result.expect("cover lock error must not panic").is_err());
+        }
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn media_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus")
@@ -7231,7 +7677,8 @@ mod tests {
                 root.to_string_lossy().into_owned(),
             ],
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(results.len(), 5);
         assert!(results[0].success);
         assert!(!results[1].success);
