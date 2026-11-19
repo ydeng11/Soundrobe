@@ -21,6 +21,9 @@ pub enum ApiError {
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("write queue unavailable: {0}")]
+    WriteQueue(#[source] std::io::Error),
+
     #[cfg(feature = "desktop")]
     #[error("tauri error: {0}")]
     Tauri(#[from] tauri::Error),

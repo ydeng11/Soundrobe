@@ -4605,7 +4605,9 @@ async fn apply_folder_moves(
                     error,
                     rollback.len()
                 );
-                runtime.mark_batch_failed(batch_id, &message);
+                if !completed.is_empty() || !matches!(&error, ApiError::WriteQueue(_)) {
+                    runtime.mark_batch_failed(batch_id, &message);
+                }
                 return serde_json::json!({
                     "success": false,
                     "error": message,
@@ -4675,16 +4677,24 @@ fn preflight_relocation(
 /// Queued relocation with fail-closed containment re-validation immediately
 /// before the rename: the source and the (created) destination parent must both
 /// resolve inside the canonicalized library, otherwise the move is rejected.
-async fn relocate_file_queued(
+pub(crate) async fn relocate_file_queued(
     queue: &WriteQueue,
     source: PathBuf,
     destination: PathBuf,
     library_canonical: &Path,
 ) -> Result<(), ApiError> {
     let library = library_canonical.to_path_buf();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
+        .run_checked(async move {
             crate::state::write_queue::spawn_write_blocking(move || {
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(
+                    recovery,
+                    &[source.clone(), destination.clone()],
+                )?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 if let Some(parent) = destination.parent() {
                     fs::create_dir_all(parent).map_err(ApiError::Io)?;
                     let parent_canonical = parent.canonicalize().map_err(|error| {
@@ -4718,6 +4728,7 @@ async fn relocate_file_queued(
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+        .map_err(ApiError::WriteQueue)?
 }
 
 /// Move a regular media file without ever replacing an existing destination.
@@ -5069,15 +5080,19 @@ async fn apply_action_batch_with_progress(
         batch.kind.as_str(),
         "tag-update" | "extra-tag-update" | "metadata-update"
     ) {
-        return queue
-            .run_exclusive(apply_metadata_action_batch(
+        return match queue
+            .run_exclusive_checked(apply_metadata_action_batch(
                 runtime,
                 &batch,
                 batch_id,
                 progress,
                 queue.max_folder_concurrency(),
             ))
-            .await;
+            .await
+        {
+            Ok(result) => result,
+            Err(error) => serde_json::json!({"success": false, "error": error.to_string()}),
+        };
     }
     match batch.kind.as_str() {
         "folder-move" => apply_folder_moves(runtime, queue, &batch, batch_id).await,
@@ -5849,6 +5864,47 @@ mod apply_contract_tests {
         let error = validated_assistant_batch("session", &input, draft).unwrap_err();
 
         assert!(error.to_string().contains("missing field"));
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_keeps_assistant_batch_pending() {
+        let root = temp_dir();
+        let path = root.join("track.mp3");
+        fs::copy(media_fixture(), &path).unwrap();
+        let before = fs::read(&path).unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "lock-batch".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "tag-update".into(),
+            title: "Update".into(),
+            summary: "one".into(),
+            risk_level: "low".into(),
+            reversible: true,
+            status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
+            library_root: None,
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                track_path: Some(path.to_string_lossy().into_owned()),
+                field: Some("title".into()),
+                new_value: Some("After".into()),
+                ..Default::default()
+            }],
+        }));
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let result = apply_action_batch(&runtime, &queue, "lock-batch").await;
+        assert_eq!(result["success"], false);
+        assert!(result["error"]
+            .as_str()
+            .unwrap()
+            .contains("write queue lock"));
+        assert_eq!(runtime.get_batch("lock-batch").unwrap().status, "pending");
+        assert_eq!(fs::read(path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
@@ -6749,6 +6805,74 @@ mod apply_contract_tests {
         );
         assert!(destination.exists());
         assert!(!source.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_keeps_untouched_folder_move_pending_for_retry() {
+        let root = temp_dir();
+        let source = root.join("source.mp3");
+        let destination = root.join("folder/destination.mp3");
+        fs::write(&source, b"source payload").unwrap();
+        let runtime = AssistantRuntimeState::default();
+        assert!(runtime.initialize());
+        assert!(runtime.add_batch(AssistantActionBatch {
+            id: "lock-move".into(),
+            created_at: "now".into(),
+            session_id: "session".into(),
+            kind: "folder-move".into(),
+            title: "Move".into(),
+            summary: "one".into(),
+            risk_level: "medium".into(),
+            reversible: true,
+            status: "pending".into(),
+            depends_on_batch_ids: Vec::new(),
+            library_root: Some(root.to_string_lossy().into_owned()),
+            completion_contract: None,
+            actions: vec![AssistantAction {
+                source_path: Some(source.to_string_lossy().into_owned()),
+                destination_path: Some(destination.to_string_lossy().into_owned()),
+                ..Default::default()
+            }],
+        }));
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let result = apply_action_batch(&runtime, &queue, "lock-move").await;
+        assert_eq!(result["success"], false);
+        assert_eq!(runtime.get_batch("lock-move").unwrap().status, "pending");
+        assert_eq!(fs::read(&source).unwrap(), b"source payload");
+        assert!(!destination.exists());
+        drop(WriteQueue::for_profile(&root.join("profile"), None).unwrap());
+        let retry = apply_action_batch(&runtime, &queue, "lock-move").await;
+        assert_eq!(retry["success"], true);
+        assert!(destination.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_move_assistant_file() {
+        let root = temp_dir();
+        let source = root.join("source.mp3");
+        let destination = root.join("destination.mp3");
+        fs::write(&source, b"source payload").unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let child_root = root.clone();
+        let child_source = source.clone();
+        let child_destination = destination.clone();
+        let result = tokio::spawn(async move {
+            relocate_file_queued(
+                &queue,
+                child_source,
+                child_destination,
+                &child_root.canonicalize().unwrap(),
+            )
+            .await
+        })
+        .await;
+        assert!(result.expect("lock failure must not panic").is_err());
+        assert_eq!(fs::read(&source).unwrap(), b"source payload");
+        assert!(!destination.exists());
         fs::remove_dir_all(root).unwrap();
     }
 

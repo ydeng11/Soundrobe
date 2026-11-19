@@ -174,6 +174,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Cancelling a request no longer lets another queued edit overlap its still-running disk write.
+- Later ordinary track, artwork, lyric, audit, and organizer edits now protect earlier review history, including byte-identical writes. On Unix, hard-linked recovery targets are refused rather than risking an edit through an untracked alias.
+- Media edits, artwork and lyrics changes, organizer and audit actions, and update installation now report an unavailable write lock without starting the affected write or consuming a pending update. Background tagging records a failed checkpoint if the lock disappears before completion.
 - Auto-tag matching ignores top-level bracketed bare year annotations when comparing titles, so a filename year no longer blocks the correct remix. Nested live-performance years, named remix/remaster years, and incompatible versions remain distinct.
 - Offline owner-evaluation audits reject non-public source files before reading their contents, even when their paths are signed. The shared offline transport remains available to Linux server tests; owner-only launch support stays macOS-only and hosted calls stay disabled.
 - Mock-only evaluation revokes new admissions when stop is requested, even while journal work is stalled, and withholds grants whose commits return after stop. Consumed operations are not rolled back or refunded.

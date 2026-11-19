@@ -12,7 +12,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, OwnedMutexGuard, OwnedRwLockReadGuard, OwnedRwLockWriteGuard, RwLock};
 
 const DEFAULT_FOLDER_CONCURRENCY: usize = 4;
 
@@ -28,15 +28,16 @@ struct WriteQueueInner {
     max_folder_concurrency: usize,
     /// Shared operations may proceed under a read guard; assistant metadata
     /// batches use the write guard to keep preflight, writes, and readback atomic.
-    coordination: RwLock<()>,
+    coordination: Arc<RwLock<()>>,
     /// Global serialisation gate for single-file and extra-tag operations.
-    gate: Mutex<()>,
+    gate: Arc<Mutex<()>>,
     /// Per-folder gates keyed by parent directory.
     /// Each folder gets its own `Mutex<()>` — writes to different
     /// album folders can proceed concurrently.
     folder_gates: Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>,
     active: AtomicUsize,
     profile_lock: Option<PathBuf>,
+    recovery: std::sync::OnceLock<Arc<crate::state::worker::WorkerStore>>,
 }
 
 impl Default for WriteQueue {
@@ -52,11 +53,12 @@ impl WriteQueue {
             .unwrap_or(DEFAULT_FOLDER_CONCURRENCY);
         Self(Arc::new(WriteQueueInner {
             max_folder_concurrency,
-            coordination: RwLock::new(()),
-            gate: Mutex::new(()),
+            coordination: Arc::new(RwLock::new(())),
+            gate: Arc::new(Mutex::new(())),
             folder_gates: Mutex::new(HashMap::new()),
             active: AtomicUsize::new(0),
             profile_lock: None,
+            recovery: std::sync::OnceLock::new(),
         }))
     }
 
@@ -73,12 +75,28 @@ impl WriteQueue {
             .unwrap_or(DEFAULT_FOLDER_CONCURRENCY);
         Ok(Self(Arc::new(WriteQueueInner {
             max_folder_concurrency,
-            coordination: RwLock::new(()),
-            gate: Mutex::new(()),
+            coordination: Arc::new(RwLock::new(())),
+            gate: Arc::new(Mutex::new(())),
             folder_gates: Mutex::new(HashMap::new()),
             active: AtomicUsize::new(0),
             profile_lock: Some(lock_path),
+            recovery: std::sync::OnceLock::new(),
         })))
+    }
+
+    pub(crate) fn with_recovery_worker(
+        self,
+        worker: Arc<crate::state::worker::WorkerStore>,
+    ) -> io::Result<Self> {
+        self.0
+            .recovery
+            .set(worker)
+            .map_err(|_| io::Error::other("write queue recovery is already configured"))?;
+        Ok(self)
+    }
+
+    pub(crate) fn recovery_worker(&self) -> Option<Arc<crate::state::worker::WorkerStore>> {
+        self.0.recovery.get().cloned()
     }
 
     async fn profile_guard(
@@ -89,7 +107,13 @@ impl WriteQueue {
         let Some(path) = self.0.profile_lock.clone() else {
             return Ok(None);
         };
-        let file = open_profile_lock(&path, false)?;
+        let file = open_profile_lock(&path, false).map_err(|error| {
+            if nonblocking && error.kind() == io::ErrorKind::WouldBlock {
+                io::Error::other(format!("Cannot open write queue lock: {error}"))
+            } else {
+                error
+            }
+        })?;
         loop {
             match lock_profile_file(&file, exclusive, true) {
                 Ok(()) => return Ok(Some(file)),
@@ -113,22 +137,38 @@ impl WriteQueue {
     /// `run_for_folder` callers that happen to acquire the *global* gate.
     /// Per-folder operations that use `run_for_folder` do **not** block on
     /// this global gate — they only wait for their folder-specific lock.
+    #[cfg(test)]
     pub async fn run<F, T>(&self, operation: F) -> T
     where
         F: Future<Output = T>,
     {
-        let activity = ActivityGuard::new(Arc::clone(&self.0));
-        let _coordination = self.0.coordination.read().await;
-        let _gate = self.0.gate.lock().await;
-        let profile = self
-            .profile_guard(false, false)
+        self.run_checked(operation)
             .await
-            .expect("Cannot acquire shared write queue lock");
+            .expect("Cannot acquire shared write queue lock")
+    }
+
+    pub async fn run_checked<F, T>(&self, operation: F) -> io::Result<T>
+    where
+        F: Future<Output = T>,
+    {
+        let activity = ActivityGuard::new(Arc::clone(&self.0));
+        let coordination = self.0.coordination.clone().read_owned().await;
+        let gate = self.0.gate.clone().lock_owned().await;
+        let profile = self.profile_guard(false, false).await.map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("Cannot acquire shared write queue lock: {error}"),
+            )
+        })?;
         let lease = Arc::new(QueueLease {
             _profile: profile,
             _activity: activity,
+            _coordination: QueueCoordination::Shared {
+                _guard: coordination,
+            },
+            _gate: Some(gate),
         });
-        ACTIVE_QUEUE_LEASE.scope(lease, operation).await
+        Ok(ACTIVE_QUEUE_LEASE.scope(lease, operation).await)
     }
 
     /// Acquires a lock scoped to a single album folder.
@@ -138,12 +178,22 @@ impl WriteQueue {
     ///
     /// The `active` counter is still incremented so the quit guard sees
     /// in-flight work regardless of which locking mode is used.
+    #[cfg(test)]
     pub async fn run_for_folder<F, T>(&self, folder: &Path, operation: F) -> T
     where
         F: Future<Output = T>,
     {
+        self.run_for_folder_checked(folder, operation)
+            .await
+            .expect("Cannot acquire shared write queue lock")
+    }
+
+    pub async fn run_for_folder_checked<F, T>(&self, folder: &Path, operation: F) -> io::Result<T>
+    where
+        F: Future<Output = T>,
+    {
         let activity = ActivityGuard::new(Arc::clone(&self.0));
-        let _coordination = self.0.coordination.read().await;
+        let coordination = self.0.coordination.clone().read_owned().await;
         let folder_lock = {
             let mut gates = self.0.folder_gates.lock().await;
             gates
@@ -151,21 +201,28 @@ impl WriteQueue {
                 .or_insert_with(|| Arc::new(Mutex::new(())))
                 .clone()
         };
-        let _guard = folder_lock.lock().await;
-        let profile = self
-            .profile_guard(false, false)
-            .await
-            .expect("Cannot acquire shared write queue lock");
+        let gate = folder_lock.lock_owned().await;
+        let profile = self.profile_guard(false, false).await.map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("Cannot acquire shared write queue lock: {error}"),
+            )
+        })?;
         let lease = Arc::new(QueueLease {
             _profile: profile,
             _activity: activity,
+            _coordination: QueueCoordination::Shared {
+                _guard: coordination,
+            },
+            _gate: Some(gate),
         });
-        ACTIVE_QUEUE_LEASE.scope(lease, operation).await
+        Ok(ACTIVE_QUEUE_LEASE.scope(lease, operation).await)
     }
 
     /// Runs a multi-step mutation while excluding every other queued write.
     /// Callers must use the underlying dispatch functions inside this guard,
     /// because calling `run` or `run_for_folder` recursively would deadlock.
+    #[cfg(test)]
     pub async fn run_exclusive<F, T>(&self, operation: F) -> T
     where
         F: Future<Output = T>,
@@ -181,19 +238,20 @@ impl WriteQueue {
         F: Future<Output = T>,
     {
         let activity = ActivityGuard::new(Arc::clone(&self.0));
-        let _coordination = self.0.coordination.write().await;
-        let profile = self
-            .profile_guard(true, false)
-            .await
-            .map_err(|error| {
-                io::Error::new(
-                    error.kind(),
-                    format!("Cannot acquire exclusive write queue lock: {error}"),
-                )
-            })?;
+        let coordination = self.0.coordination.clone().write_owned().await;
+        let profile = self.profile_guard(true, false).await.map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("Cannot acquire exclusive write queue lock: {error}"),
+            )
+        })?;
         let lease = Arc::new(QueueLease {
             _profile: profile,
             _activity: activity,
+            _coordination: QueueCoordination::Exclusive {
+                _guard: coordination,
+            },
+            _gate: None,
         });
         Ok(ACTIVE_QUEUE_LEASE.scope(lease, operation).await)
     }
@@ -201,32 +259,46 @@ impl WriteQueue {
     /// Claim exclusive coordination only when no write is already active.
     /// Used by application replacement, which must reject instead of waiting
     /// behind disk work the user may still expect to complete in this process.
+    #[cfg(test)]
     pub async fn try_run_exclusive<F, T>(&self, operation: F) -> Option<T>
     where
         F: Future<Output = T>,
     {
+        self.try_run_exclusive_checked(operation)
+            .await
+            .expect("Cannot acquire exclusive write queue lock")
+    }
+
+    pub async fn try_run_exclusive_checked<F, T>(&self, operation: F) -> io::Result<Option<T>>
+    where
+        F: Future<Output = T>,
+    {
         if self.is_active() {
-            return None;
+            return Ok(None);
         }
-        let coordination = self.0.coordination.try_write().ok()?;
+        let Ok(coordination) = self.0.coordination.clone().try_write_owned() else {
+            return Ok(None);
+        };
         if self.is_active() {
-            return None;
+            return Ok(None);
         }
         let activity = ActivityGuard::new(Arc::clone(&self.0));
         let profile = match self.profile_guard(true, true).await {
             Ok(guard) => guard,
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return None,
-            Err(error) => panic!("Cannot acquire exclusive write queue lock: {error}"),
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(None),
+            Err(error) => return Err(error),
         };
         let lease = Arc::new(QueueLease {
             _profile: profile,
             _activity: activity,
+            _coordination: QueueCoordination::Exclusive {
+                _guard: coordination,
+            },
+            _gate: None,
         });
         let output = ACTIVE_QUEUE_LEASE.scope(lease, operation).await;
-        drop(coordination);
-        Some(output)
+        Ok(Some(output))
     }
-
 }
 
 fn open_profile_lock(path: &Path, create: bool) -> io::Result<std::fs::File> {
@@ -315,12 +387,26 @@ impl Drop for ActivityGuard {
 pub(crate) struct QueueLease {
     _profile: Option<std::fs::File>,
     _activity: ActivityGuard,
+    _coordination: QueueCoordination,
+    _gate: Option<OwnedMutexGuard<()>>,
+}
+
+enum QueueCoordination {
+    Shared { _guard: OwnedRwLockReadGuard<()> },
+    Exclusive { _guard: OwnedRwLockWriteGuard<()> },
 }
 
 tokio::task_local! { static ACTIVE_QUEUE_LEASE: Arc<QueueLease>; }
 
 pub(crate) fn current_queue_lease() -> Option<Arc<QueueLease>> {
     ACTIVE_QUEUE_LEASE.try_with(Arc::clone).ok()
+}
+
+pub(crate) fn current_recovery_worker() -> Option<Arc<crate::state::worker::WorkerStore>> {
+    ACTIVE_QUEUE_LEASE
+        .try_with(|lease| lease._activity.inner.recovery.get().cloned())
+        .ok()
+        .flatten()
 }
 
 pub(crate) async fn with_queue_lease<F: Future>(
@@ -351,6 +437,31 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
     use tokio::sync::{Barrier, Notify};
+
+    #[tokio::test]
+    async fn unavailable_profile_lock_fails_all_admissions_without_polling() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let queue = WriteQueue::for_profile(&root, None).unwrap();
+        std::fs::remove_file(root.join("write-queue.lock")).unwrap();
+        let written = root.join("media");
+        let error = queue
+            .run_checked(async { std::fs::write(&written, b"x").unwrap() })
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("write queue lock"));
+        let error = queue
+            .run_for_folder_checked(&root, async { std::fs::write(&written, b"x").unwrap() })
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("write queue lock"));
+        assert!(queue
+            .try_run_exclusive_checked(async { std::fs::write(&written, b"x").unwrap() })
+            .await
+            .is_err());
+        assert!(!written.exists());
+        assert!(!queue.is_active());
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     async fn assert_eventually_exclusive(queue: &WriteQueue) {
         // A nonblocking attempt can see transient OS contention after the
@@ -502,6 +613,182 @@ mod tests {
         }
         assert!(!observed.is_active());
         assert_eventually_exclusive(&second).await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    async fn cancelled_write_keeps_gate_until_blocking_work_finishes(mode: u8) {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let queue = if mode >= 2 {
+            WriteQueue::default()
+        } else {
+            WriteQueue::for_profile(&root, None).unwrap()
+        };
+        let first = queue.clone();
+        let first_folder = root.clone();
+        let (started_send, started_receive) = tokio::sync::oneshot::channel();
+        let (release_send, release_receive) = std::sync::mpsc::channel();
+        let (finished_send, finished_receive) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            let operation = async move {
+                spawn_write_blocking(move || {
+                    started_send.send(()).unwrap();
+                    release_receive.recv().unwrap();
+                    finished_send.send(()).unwrap();
+                })
+                .await
+                .unwrap();
+            };
+            match mode {
+                0 => first.run_checked(operation).await,
+                1 => first.run_for_folder_checked(&first_folder, operation).await,
+                2 => first.run_exclusive_checked(operation).await,
+                _ => first
+                    .try_run_exclusive_checked(operation)
+                    .await
+                    .map(|result| result.expect("exclusive admission")),
+            }
+            .unwrap();
+        });
+        started_receive.await.unwrap();
+        task.abort();
+        let _ = task.await;
+        let second = queue.clone();
+        let second_folder = root.clone();
+        let (entered_send, mut entered_receive) = tokio::sync::oneshot::channel();
+        let waiter = tokio::spawn(async move {
+            let operation = async {
+                entered_send.send(()).unwrap();
+            };
+            if mode == 1 {
+                second
+                    .run_for_folder_checked(&second_folder, operation)
+                    .await
+                    .unwrap();
+            } else {
+                second.run_checked(operation).await.unwrap();
+            }
+        });
+        let escaped =
+            tokio::time::timeout(std::time::Duration::from_millis(100), &mut entered_receive)
+                .await
+                .is_ok();
+        release_send.send(()).unwrap();
+        finished_receive.await.unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(3), waiter)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            !escaped,
+            "a second write entered while the cancelled blocking write was still active"
+        );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_write_keeps_same_queue_serialized_until_blocking_work_finishes() {
+        cancelled_write_keeps_gate_until_blocking_work_finishes(0).await;
+    }
+
+    #[tokio::test]
+    async fn cancelled_folder_write_keeps_folder_serialized_until_blocking_work_finishes() {
+        cancelled_write_keeps_gate_until_blocking_work_finishes(1).await;
+    }
+
+    #[tokio::test]
+    async fn cancelled_exclusive_write_keeps_default_queue_exclusive_until_blocking_work_finishes()
+    {
+        cancelled_write_keeps_gate_until_blocking_work_finishes(2).await;
+    }
+
+    #[tokio::test]
+    async fn cancelled_try_exclusive_keeps_default_queue_exclusive_until_blocking_work_finishes() {
+        cancelled_write_keeps_gate_until_blocking_work_finishes(3).await;
+    }
+
+    #[tokio::test]
+    async fn cancelled_native_write_finishes_before_the_next_edit_of_the_same_file() {
+        use crate::commands::mutations::{track_payload_digest, write_track_dispatch, TrackPatch};
+        use crate::commands::tracks::read_track_metadata;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let path = root.join("track.wav");
+        std::fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.wav"),
+            &path,
+        )
+        .unwrap();
+        let payload = track_payload_digest(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        let first = queue.clone();
+        let first_path = path.clone();
+        let (started_send, started_receive) = tokio::sync::oneshot::channel();
+        let (release_send, release_receive) = std::sync::mpsc::channel();
+        let (finished_send, finished_receive) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            first
+                .run_checked(async move {
+                    spawn_write_blocking(move || {
+                        started_send.send(()).unwrap();
+                        release_receive.recv().unwrap();
+                        let patch: TrackPatch =
+                            serde_json::from_value(serde_json::json!({"title":"first"})).unwrap();
+                        let result = write_track_dispatch(&first_path, &patch)
+                            .map(|_| ())
+                            .map_err(|error| error.to_string());
+                        finished_send.send(result).unwrap();
+                    })
+                    .await
+                    .unwrap();
+                })
+                .await
+                .unwrap();
+        });
+        started_receive.await.unwrap();
+        task.abort();
+        let _ = task.await;
+        let second = queue.clone();
+        let second_path = path.clone();
+        let (entered_send, mut entered_receive) = tokio::sync::oneshot::channel();
+        let waiter = tokio::spawn(async move {
+            second
+                .run_checked(async move {
+                    spawn_write_blocking(move || {
+                        entered_send.send(()).unwrap();
+                        let patch: TrackPatch =
+                            serde_json::from_value(serde_json::json!({"title":"second"})).unwrap();
+                        write_track_dispatch(&second_path, &patch)
+                            .map(|_| ())
+                            .map_err(|error| error.to_string())
+                    })
+                    .await
+                    .unwrap()
+                })
+                .await
+                .unwrap()
+        });
+        let escaped =
+            tokio::time::timeout(std::time::Duration::from_millis(100), &mut entered_receive)
+                .await
+                .is_ok();
+        release_send.send(()).unwrap();
+        finished_receive.await.unwrap().unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(3), waiter)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(
+            !escaped,
+            "second write started while the cancelled disk write remained active"
+        );
+        assert_eq!(
+            read_track_metadata(&path).unwrap().title.as_deref(),
+            Some("second")
+        );
+        assert_eq!(track_payload_digest(&path).unwrap(), payload);
         std::fs::remove_dir_all(root).unwrap();
     }
 

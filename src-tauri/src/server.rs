@@ -57,16 +57,18 @@ use crate::commands::mutations::{
     write_extra_tags_batch_with_readback, write_extra_tags_with_readback,
     write_track_with_readback, ExtraTagBatchUpdate, ExtraTagUpdate, TrackPatch, TrackUpdate,
 };
-use crate::commands::organizer::{sort_by_album, SortByAlbumOptions};
+use crate::commands::organizer::{sort_by_album_guarded, SortByAlbumOptions};
 use crate::commands::tracks::{
     read_album, read_extra_tags, read_track_metadata, unreadable_track_data, TrackData,
 };
 use crate::error::ApiError;
 use crate::infra::tag_catalog::suggestions as suggest_tags;
+#[cfg(test)]
+use crate::state::album::write_cover_upload;
 use crate::state::{
     album::{
-        cover_data_url, read_album_with_cancellation, remove_cover, write_cover_upload,
-        MAX_COVER_UPLOAD_BYTES,
+        commit_cover_upload, cover_data_url, cover_removal_target, prepare_cover_upload,
+        read_album_with_cancellation, remove_cover_selected, MAX_COVER_UPLOAD_BYTES,
     },
     audit::AuditState,
     background::{
@@ -399,6 +401,47 @@ fn start_background_run_for(
     start_background_batch(state, trigger, albums)
 }
 
+/// Record a durable failure when queue admission prevents background completion.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn guarded_background_completion<F>(
+    queue: &WriteQueue,
+    worker: &WorkerStore,
+    tasks: &TaskRegistry,
+    task_id: &str,
+    album: &Path,
+    run_id: &str,
+    evidence: &serde_json::Value,
+    operation: F,
+) -> Result<Option<serde_json::Value>, String>
+where
+    F: std::future::Future<Output = Result<Option<serde_json::Value>, String>>,
+{
+    match queue.run_exclusive_checked(operation).await {
+        Ok(result) => result,
+        Err(error) => {
+            let message = format!("write queue lock unavailable: {error}");
+            // Keep the unverified result as diagnostics, not as terminal proof.
+            let diagnostic = serde_json::json!({"partialEvidence": evidence});
+            match tasks.with_running(task_id, |_| {
+                worker.finish_with_evidence(
+                    album,
+                    run_id,
+                    "failed",
+                    Some("write_queue_unavailable"),
+                    None,
+                    &diagnostic,
+                )
+            }) {
+                Ok(Some(_)) => Err(message),
+                Ok(None) => Ok(None),
+                Err(persistence) => Err(format!(
+                    "{message}; failure checkpoint failed: {persistence}"
+                )),
+            }
+        }
+    }
+}
+
 /// Start one background tagging run over already-enqueued `albums` and return
 /// its task id. Exactly one run holds the [`OperationKind::AutoTag`] lock.
 fn start_background_batch(
@@ -694,8 +737,15 @@ fn start_background_batch(
                         .iter()
                         .any(|attempt| attempt.retryable)
             });
-            let completion = queue
-                .run_exclusive(async {
+            let completion = guarded_background_completion(
+                &queue,
+                &worker,
+                &tasks,
+                &task_id_for_work,
+                album,
+                &run_id,
+                &evidence,
+                async {
                     tasks.with_running(&task_id_for_work, |_| {
                         if retryable {
                             let retry_after = result
@@ -725,8 +775,9 @@ fn start_background_batch(
                             )
                         }
                     })
-                })
-                .await;
+                },
+            )
+            .await;
             match completion {
                 Ok(Some(saved)) => evidence = saved,
                 Ok(None) => {
@@ -1845,6 +1896,10 @@ fn scan_path_error(error: PathSecurityError) -> Response {
 
 fn media_error(error: crate::error::ApiError) -> Response {
     match error {
+        crate::error::ApiError::WriteQueue(_) => error_response(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "write queue lock unavailable",
+        ),
         crate::error::ApiError::NotImplemented(_)
         | crate::error::ApiError::UnsupportedFormat(_)
         | crate::error::ApiError::Message(_) => {
@@ -2508,7 +2563,8 @@ async fn command(
             request.album_path = resolved.path.to_string_lossy().into_owned();
             match apply_search_candidate(&request, &state.config, &state.write_queue).await {
                 Ok(written) => Json(written).into_response(),
-                Err(error) => search_operation_error_response(error),
+                Err(error @ ApiError::WriteQueue(_)) => media_error(error),
+                Err(error) => search_operation_error_response(error.to_string()),
             }
         }
         "album:read" | "album:refresh" => {
@@ -2742,7 +2798,13 @@ async fn command(
                 };
                 paths.push(resolved.path.to_string_lossy().into_owned());
             }
-            Json(delete_files_queued(&state.write_queue, paths).await).into_response()
+            match delete_files_queued(&state.write_queue, paths).await {
+                Ok(results) => Json(results).into_response(),
+                Err(_) => error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "write queue lock unavailable",
+                ),
+            }
         }
         "files:sort-by-album" => {
             let request = match decode_command_payload::<OrganizerCommandRequest>(payload) {
@@ -2772,16 +2834,26 @@ async fn command(
                 .and_then(|options| options.copy)
                 .unwrap_or(true);
             let source_dir = resolved.path;
+            let recovery = state.write_queue.recovery_worker();
             let result = state
                 .write_queue
-                .run(async move {
+                .run_checked(async move {
                     crate::state::write_queue::spawn_write_blocking(move || {
-                        sort_by_album(&source_dir, copy)
+                        sort_by_album_guarded(&source_dir, copy, recovery)
                     })
                     .await
                     .map_err(|error| crate::error::ApiError::WriteTask(error.to_string()))?
                 })
                 .await;
+            let result = match result {
+                Ok(result) => result,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "write queue lock unavailable",
+                    )
+                }
+            };
             match result {
                 Ok(result) => Json(result).into_response(),
                 Err(error) => media_error(error),
@@ -3281,9 +3353,13 @@ async fn command(
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
             let base_url = resolve_lyrics_base_url(&state.config.raw());
-            let report =
-                download_album_lyrics_at(&resolved.path, &base_url, &state.write_queue).await;
-            Json(report).into_response()
+            match download_album_lyrics_at(&resolved.path, &base_url, &state.write_queue).await {
+                Ok(report) => Json(report).into_response(),
+                Err(_) => error_response(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "write queue lock unavailable",
+                ),
+            }
         }
         "cover:data-url" => {
             let request = match decode_command_payload::<CoverDataCommandRequest>(payload) {
@@ -3356,19 +3432,44 @@ async fn command(
             if !resolved.path.is_dir() {
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
+            let recovery = state.write_queue.recovery_worker();
             let result = state
                 .write_queue
-                .run(async move {
-                    crate::state::write_queue::spawn_write_blocking(move || {
-                        remove_cover(&resolved.path)
-                    })
+                .run_checked(async move {
+                    crate::state::write_queue::spawn_write_blocking(
+                        move || -> Result<bool, ApiError> {
+                            let selected = cover_removal_target(&resolved.path);
+                            let mut targets = selected.iter().cloned().collect::<Vec<_>>();
+                            targets.push(resolved.path.join(".auto-tagger-cover-removed"));
+                            let mut owners =
+                                crate::commands::auto_tag_review::stage_ordinary_targets(
+                                    recovery, &targets,
+                                )?;
+                            for owner in &mut owners {
+                                owner.mutation_started();
+                            }
+                            Ok(remove_cover_selected(&resolved.path, selected.as_deref())?)
+                        },
+                    )
                     .await
-                    .map_err(|error| io::Error::other(error.to_string()))
+                    .map_err(|error| ApiError::WriteTask(error.to_string()))
                     .and_then(|result| result)
                 })
                 .await;
+            let result = match result {
+                Ok(result) => result,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "write queue lock unavailable",
+                    )
+                }
+            };
             match result {
                 Ok(removed) => Json(removed).into_response(),
+                Err(ApiError::Message(_)) => {
+                    error_response(StatusCode::CONFLICT, "cover target requires recovery")
+                }
                 Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover removal failed"),
             }
         }
@@ -3396,8 +3497,21 @@ async fn command(
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
             let remote = remote_client(state.providers.as_ref(), &state.config);
-            let result =
-                download_album_artwork_at(&resolved.path, &remote, &state.write_queue).await;
+            let result = match download_album_artwork_at(
+                &resolved.path,
+                &remote,
+                &state.write_queue,
+            )
+            .await
+            {
+                Ok(result) => result,
+                Err(_) => {
+                    return error_response(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "write queue lock unavailable",
+                    )
+                }
+            };
             let data_url = result.map(|(bytes, _, _)| {
                 format!(
                     "data:image/jpeg;base64,{}",
@@ -3430,8 +3544,17 @@ async fn command(
                 return error_response(StatusCode::BAD_REQUEST, "album path not found");
             }
             let remote = remote_client(state.providers.as_ref(), &state.config);
-            let result = download_artist_artwork_at(&resolved.path, &remote, &state.write_queue)
-                .await
+            let result =
+                match download_artist_artwork_at(&resolved.path, &remote, &state.write_queue).await
+                {
+                    Ok(result) => result,
+                    Err(_) => {
+                        return error_response(
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            "write queue lock unavailable",
+                        )
+                    }
+                }
                 .map(|(_, source, path)| ArtistArtResult {
                     path: path.to_string_lossy().into_owned(),
                     source: source.to_string(),
@@ -3682,26 +3805,50 @@ async fn upload_cover(
 
     let album_path = resolved.path;
     let bytes = body.to_vec();
+    let recovery = state.write_queue.recovery_worker();
     let result = state
         .write_queue
-        .run(async move {
-            crate::state::write_queue::spawn_write_blocking(move || {
-                write_cover_upload(&album_path, &bytes)
+        .run_checked(async move {
+            crate::state::write_queue::spawn_write_blocking(move || -> Result<String, ApiError> {
+                let jpeg = prepare_cover_upload(&bytes)?;
+                let mut owners = crate::commands::auto_tag_review::stage_ordinary_targets(
+                    recovery,
+                    &[
+                        album_path.join("cover.jpg"),
+                        album_path.join(".auto-tagger-cover-removed"),
+                    ],
+                )?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
+                Ok(commit_cover_upload(&album_path, &jpeg)?)
             })
             .await
-            .map_err(|error| io::Error::other(error.to_string()))
+            .map_err(|error| ApiError::WriteTask(error.to_string()))
             .and_then(|result| result)
         })
         .await;
+    let result = match result {
+        Ok(result) => result,
+        Err(_) => {
+            return error_response(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "write queue lock unavailable",
+            )
+        }
+    };
     match result {
         Ok(data_url) => Json(data_url).into_response(),
-        Err(error) if error.kind() == io::ErrorKind::InvalidInput => {
+        Err(ApiError::Io(error)) if error.kind() == io::ErrorKind::InvalidInput => {
             let message = if error.to_string() == "cover image is too large" {
                 "cover image is too large"
             } else {
                 "invalid cover image"
             };
             error_response(StatusCode::BAD_REQUEST, message)
+        }
+        Err(ApiError::Message(_)) => {
+            error_response(StatusCode::CONFLICT, "cover target requires recovery")
         }
         Err(_) => error_response(StatusCode::INTERNAL_SERVER_ERROR, "cover upload failed"),
     }
@@ -3743,6 +3890,9 @@ fn router_with_runtime_and_events(
     if let Some(error) = &worker_error {
         tracing::error!(%error);
     }
+    let write_queue = write_queue
+        .with_recovery_worker(worker.clone())
+        .expect("write queue recovery must be configured once");
     let background = BackgroundState::init_in(&config.data_dir);
     if let Err(error) = background.recover_interrupted_runs() {
         tracing::error!(%error, "background run history recovery failed");
@@ -4533,6 +4683,93 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn web_track_write_reports_unavailable_queue_without_modifying_audio() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-track-lock-{}", Uuid::new_v4().simple()));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.mp3");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let before = std::fs::read(&track).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config);
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        std::fs::remove_file(base.join("profile/write-queue.lock")).unwrap();
+        let body = serde_json::to_vec(
+            &json!({"path":track.canonicalize().unwrap(), "fields":{"title":"Changed"}}),
+        )
+        .unwrap();
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/track%3Awrite")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(std::fs::read(track).unwrap(), before);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn web_manual_search_reports_unavailable_queue() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-search-lock-{}", Uuid::new_v4().simple()));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.mp3");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let before = std::fs::read(&track).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config);
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        std::fs::remove_file(base.join("profile/write-queue.lock")).unwrap();
+        let body = serde_json::to_vec(&json!({"request":{"albumPath":album.canonicalize().unwrap(),
+            "candidate":{"artists":[], "albumArtists":[], "source":"musicbrainz", "tracks":[{"title":"Changed"}]},
+            "selectedTrackIndices":[0]}})).unwrap();
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/album%3Asearch-apply-candidate")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(std::fs::read(track).unwrap(), before);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
     async fn web_track_mutations_use_shared_writers_and_stay_confined() {
         let base = std::env::temp_dir().join(format!(
             "soundrobe-web-track-write-{}",
@@ -4866,6 +5103,120 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn same_byte_web_cover_upload_supersedes_older_review() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-cover-owner-{}", Uuid::new_v4().simple()));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let cover = album.join("cover.jpg");
+        let mut png = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        write_cover_upload(&album, &png).unwrap();
+        let normalized = std::fs::read(&cover).unwrap();
+        std::fs::write(&cover, b"old cover").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config.clone());
+        let reviews =
+            crate::commands::auto_tag_review::ReviewStore::new_in(config.data_dir.clone()).unwrap();
+        let journal = reviews.begin("cover-review", &album).unwrap();
+        journal
+            .mutate(&cover, || {
+                std::fs::write(&cover, &normalized)?;
+                Ok(())
+            })
+            .unwrap();
+        reviews
+            .finish("cover-review", "applied", json!({}))
+            .unwrap();
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair(
+                "albumPath",
+                &album.canonicalize().unwrap().to_string_lossy(),
+            )
+            .finish();
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/covers?{query}"))
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "image/png")
+                    .body(Body::from(png))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(std::fs::read(&cover).unwrap(), normalized);
+        assert!(
+            reviews.revert("cover-review").is_err(),
+            "the later ordinary cover write supersedes the review"
+        );
+        assert_eq!(std::fs::read(cover).unwrap(), normalized);
+        drop(journal);
+        drop(reviews);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn web_cover_upload_reports_unavailable_queue_without_mutation() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-upload-lock-{}", Uuid::new_v4().simple()));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let mut image = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(
+                &mut std::io::Cursor::new(&mut image),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config);
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        std::fs::remove_file(base.join("profile/write-queue.lock")).unwrap();
+        let query = url::form_urlencoded::Serializer::new(String::new())
+            .append_pair(
+                "albumPath",
+                &album.canonicalize().unwrap().to_string_lossy(),
+            )
+            .finish();
+        let result = tokio::spawn(async move {
+            app.oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/covers?{query}"))
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "image/png")
+                    .body(Body::from(image))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap()
+        })
+        .await;
+        assert_eq!(
+            result.expect("lock failure must not panic").status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert!(!album.join("cover.jpg").exists());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
     async fn web_cover_upload_normalizes_and_writes_inside_the_album() {
         let base = std::env::temp_dir().join(format!(
             "soundrobe-web-cover-upload-{}",
@@ -4910,6 +5261,108 @@ mod tests {
         let data_url: String = serde_json::from_slice(&body).unwrap();
         assert!(data_url.starts_with("data:image/jpeg;base64,"));
         assert!(album.join("cover.jpg").is_file());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn web_cover_remove_respects_pending_reversal_target() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-cover-pending-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let cover = album.join("cover.jpg");
+        std::fs::write(&cover, b"before").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config.clone());
+        let reviews =
+            crate::commands::auto_tag_review::ReviewStore::new_in(config.data_dir.clone()).unwrap();
+        let journal = reviews.begin("pending-cover", &album).unwrap();
+        journal
+            .mutate(&cover, || {
+                std::fs::write(&cover, b"reviewed")?;
+                Ok(())
+            })
+            .unwrap();
+        reviews
+            .finish("pending-cover", "applied", json!({}))
+            .unwrap();
+        let worker = WorkerStore::new_in(config.data_dir.clone());
+        assert!(worker.initialize());
+        worker
+            .create_reversal_manifest(
+                "pending-cover",
+                &album.to_string_lossy(),
+                &json!({"files":[{"target":cover.canonicalize().unwrap()}]}),
+            )
+            .unwrap();
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        let body = serde_json::to_vec(&json!({"albumPath":album.canonicalize().unwrap()})).unwrap();
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/cover%3Aremove")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(std::fs::read(&cover).unwrap(), b"reviewed");
+        assert!(!album.join(".auto-tagger-cover-removed").exists());
+        drop(worker);
+        drop(journal);
+        drop(reviews);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn web_cover_remove_reports_unavailable_queue_without_mutation() {
+        let base =
+            std::env::temp_dir().join(format!("soundrobe-cover-lock-{}", Uuid::new_v4().simple()));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        std::fs::write(album.join("cover.jpg"), b"original").unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config);
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        std::fs::remove_file(base.join("profile/write-queue.lock")).unwrap();
+        let body = format!(
+            r#"{{"albumPath":"{}"}}"#,
+            album.canonicalize().unwrap().display()
+        );
+        let result = tokio::spawn(async move {
+            app.oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/cover%3Aremove")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap()
+        })
+        .await;
+        let response = result.expect("lock failure must not panic");
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(std::fs::read(album.join("cover.jpg")).unwrap(), b"original");
+        assert!(!album.join(".auto-tagger-cover-removed").exists());
         std::fs::remove_dir_all(base).unwrap();
     }
 
@@ -5635,6 +6088,136 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn organizer_respects_pending_reversal_target() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-organizer-pending-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = base.join("library/album");
+        std::fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.mp3");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.join("library");
+        config.data_dir = base.join("profile");
+        let app = router(config.clone());
+        let reviews =
+            crate::commands::auto_tag_review::ReviewStore::new_in(config.data_dir.clone()).unwrap();
+        let journal = reviews.begin("pending-sort", &album).unwrap();
+        let patch: TrackPatch = serde_json::from_value(json!({"title":"Reviewed"})).unwrap();
+        journal
+            .mutate(&track, || {
+                crate::commands::mutations::write_track_dispatch(&track, &patch)?;
+                Ok(())
+            })
+            .unwrap();
+        let original = std::fs::read(&track).unwrap();
+        reviews
+            .finish("pending-sort", "applied", json!({}))
+            .unwrap();
+        let worker = WorkerStore::new_in(config.data_dir.clone());
+        assert!(worker.initialize());
+        worker
+            .create_reversal_manifest(
+                "pending-sort",
+                &album.to_string_lossy(),
+                &json!({"files":[{"target":track.canonicalize().unwrap()}]}),
+            )
+            .unwrap();
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        let body = serde_json::to_vec(
+            &json!({"sourceDir":album.canonicalize().unwrap(),"options":{"copy":false}}),
+        )
+        .unwrap();
+        let response = app
+            .oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/files%3Asort-by-album")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), usize::MAX)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["skippedFiles"], 1);
+        assert_eq!(std::fs::read(&track).unwrap(), original);
+        assert!(!album.join("Corpus Album/01.mp3").exists());
+        drop(worker);
+        drop(journal);
+        drop(reviews);
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
+    async fn organizer_reports_unavailable_queue_without_moving_files() {
+        let base = std::env::temp_dir().join(format!(
+            "soundrobe-organizer-lock-{}",
+            Uuid::new_v4().simple()
+        ));
+        let library = base.join("library");
+        std::fs::create_dir_all(&library).unwrap();
+        let track = library.join("song.mp3");
+        std::fs::copy(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/media-corpus/minimal.mp3"),
+            &track,
+        )
+        .unwrap();
+        let original = std::fs::read(&track).unwrap();
+        let mut config = test_config();
+        config.library_root_dir = base.clone();
+        config.data_dir = base.join("profile");
+        let app = router(config);
+        let cookie = test_cookie(app.clone(), "correct horse battery staple")
+            .await
+            .headers()[header::SET_COOKIE]
+            .clone();
+        std::fs::remove_file(base.join("profile/write-queue.lock")).unwrap();
+        let body = serde_json::to_vec(
+            &json!({"sourceDir": library.canonicalize().unwrap(), "options": {"copy": false}}),
+        )
+        .unwrap();
+        let result = tokio::spawn(async move {
+            app.oneshot(origin_request(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/commands/files%3Asort-by-album")
+                    .header(header::COOKIE, cookie)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            ))
+            .await
+            .unwrap()
+        })
+        .await;
+        assert_eq!(
+            result.expect("lock failure must not panic").status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert_eq!(std::fs::read(&track).unwrap(), original);
+        assert!(!library.join("Corpus Album/song.mp3").exists());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[tokio::test]
     async fn organizer_sort_commands_are_confined_to_mounted_roots() {
         let base = std::env::temp_dir().join(format!("soundrobe-web-organizer-{}", Uuid::new_v4()));
         let library = base.join("library");
@@ -6201,6 +6784,58 @@ mod tests {
         config.data_dir =
             std::env::temp_dir().join(format!("soundrobe-bg-{tag}-{}", Uuid::new_v4().simple()));
         config
+    }
+
+    #[tokio::test]
+    async fn background_lock_failure_persists_failed_owner_without_completion_proof() {
+        let root = std::env::temp_dir().join(format!(
+            "soundrobe-background-lock-{}",
+            Uuid::new_v4().simple()
+        ));
+        let album = root.join("album");
+        std::fs::create_dir_all(&album).unwrap();
+        let worker = WorkerStore::new_in(root.join("state"));
+        assert!(worker.initialize());
+        worker
+            .enqueue(std::slice::from_ref(&album), "test")
+            .unwrap();
+        worker.mark_running(&album, "run").unwrap();
+        let tasks = TaskRegistry::default();
+        let task = tasks.create("background", 1, "Running");
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        std::fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let evidence = json!({"proofVersion":1, "coreReceipts":[], "partial":"preserved"});
+        let result = guarded_background_completion(
+            &queue,
+            &worker,
+            &tasks,
+            &task,
+            &album,
+            "run",
+            &evidence,
+            async {
+                tasks.with_running(&task, |_| {
+                    worker.finish_with_evidence(&album, "run", "completed", None, None, &evidence)
+                })
+            },
+        )
+        .await;
+        assert!(result.is_err());
+        let conn = rusqlite::Connection::open(root.join("state/worker.db")).unwrap();
+        let status: String = conn
+            .query_row(
+                "SELECT status FROM worker_items WHERE run_id='run'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(status, "failed");
+        let stored = worker.evidence(&album, "run").unwrap().unwrap();
+        assert_eq!(stored["partialEvidence"]["partial"], "preserved");
+        assert!(stored.get("proofPublication").is_none());
+        drop(conn);
+        drop(worker);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]

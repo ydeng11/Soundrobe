@@ -251,7 +251,7 @@ struct ReviewData {
     images: HashMap<String, PathBuf>,
     trusted_assisted_genre_proposals: HashSet<String>,
 }
-struct TargetWriteLease {
+pub(crate) struct TargetWriteLease {
     worker: Arc<WorkerStore>,
     revision: String,
     target: PathBuf,
@@ -261,6 +261,9 @@ struct TargetWriteLease {
     active: bool,
 }
 impl TargetWriteLease {
+    pub(crate) fn mutation_started(&mut self) {
+        self.discard_owner = false;
+    }
     fn release(&mut self) -> Result<(), ApiError> {
         self.worker
             .release_review_target(
@@ -324,15 +327,99 @@ fn failure(message: impl Into<String>) -> ApiError {
 }
 fn canonical_target(path: &Path) -> Result<PathBuf, ApiError> {
     if path.exists() {
-        return Ok(fs::canonicalize(path)?);
+        let target = fs::canonicalize(path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let metadata = fs::metadata(&target)?;
+            if metadata.is_file() && metadata.nlink() > 1 {
+                return Err(failure(format!(
+                    "Hard-linked target cannot be safely owned: {}",
+                    target.display()
+                )));
+            }
+        }
+        return Ok(target);
     }
-    let parent = path
-        .parent()
-        .ok_or_else(|| failure("Recovery path has no parent"))?;
-    Ok(fs::canonicalize(parent)?.join(
-        path.file_name()
-            .ok_or_else(|| failure("Recovery path has no filename"))?,
-    ))
+    if path
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(failure(
+            "Recovery path contains unresolved parent traversal",
+        ));
+    }
+    let mut ancestor = path;
+    let mut missing = Vec::new();
+    while !ancestor.exists() {
+        if fs::symlink_metadata(ancestor).is_ok_and(|metadata| metadata.file_type().is_symlink()) {
+            return Err(failure(format!(
+                "Cannot own a dangling symlink: {}",
+                ancestor.display()
+            )));
+        }
+        missing.push(
+            ancestor
+                .file_name()
+                .ok_or_else(|| failure("Recovery path has no filename"))?
+                .to_os_string(),
+        );
+        ancestor = ancestor
+            .parent()
+            .ok_or_else(|| failure("Recovery path has no parent"))?;
+    }
+    let mut canonical = fs::canonicalize(ancestor)?;
+    for name in missing.into_iter().rev() {
+        canonical.push(name);
+    }
+    Ok(canonical)
+}
+
+pub(crate) fn ordinary_target_lease(
+    worker: Arc<WorkerStore>,
+    path: &Path,
+) -> Result<TargetWriteLease, ApiError> {
+    let mut lease = staged_ordinary_target_lease(worker, path)?;
+    lease.mutation_started();
+    Ok(lease)
+}
+
+pub(crate) fn staged_ordinary_target_lease(
+    worker: Arc<WorkerStore>,
+    path: &Path,
+) -> Result<TargetWriteLease, ApiError> {
+    let target = canonical_target(path)?;
+    let revision = format!("ordinary-write-{}", uuid::Uuid::new_v4());
+    let token = uuid::Uuid::new_v4().to_string();
+    let inserted_owner = worker
+        .register_ordinary_target(&revision, &target, &token)
+        .map_err(failure)?;
+    Ok(TargetWriteLease {
+        worker,
+        revision,
+        target,
+        token,
+        inserted_owner,
+        discard_owner: true,
+        active: true,
+    })
+}
+
+pub(crate) fn stage_ordinary_targets(
+    worker: Option<Arc<WorkerStore>>,
+    paths: &[PathBuf],
+) -> Result<Vec<TargetWriteLease>, ApiError> {
+    let Some(worker) = worker else {
+        return Ok(Vec::new());
+    };
+    let targets = paths
+        .iter()
+        .map(|path| canonical_target(path))
+        .collect::<Result<std::collections::BTreeSet<_>, _>>()?;
+    targets
+        .into_iter()
+        .map(|target| staged_ordinary_target_lease(worker.clone(), &target))
+        .collect()
 }
 fn fingerprint(path: &Path) -> Result<Option<String>, ApiError> {
     let mut file = match fs::File::open(path) {
@@ -1586,7 +1673,9 @@ pub async fn auto_tag_review_keep(
     store: State<'_, ReviewStore>,
     queue: State<'_, WriteQueue>,
 ) -> Result<ReviewDetail, ApiError> {
-    queue.run_exclusive_checked(async { store.keep(&review_id) }).await?
+    queue
+        .run_exclusive_checked(async { store.keep(&review_id) })
+        .await?
 }
 #[cfg(feature = "desktop")]
 #[tauri::command]
@@ -1609,7 +1698,9 @@ pub async fn auto_tag_review_keep_recovery_file(
     queue: State<'_, WriteQueue>,
 ) -> Result<Option<ReviewDetail>, ApiError> {
     queue
-        .run_exclusive_checked(async { store.keep_recovery_file(&review_id, &path, &expected_sha256) })
+        .run_exclusive_checked(async {
+            store.keep_recovery_file(&review_id, &path, &expected_sha256)
+        })
         .await?
 }
 #[cfg(feature = "desktop")]
@@ -2418,6 +2509,810 @@ mod tests {
         assert_eq!(fs::read(root.join("first.bin")).unwrap(), b"first before");
         assert_eq!(fs::read(root.join("second.bin")).unwrap(), b"second before");
         assert!(!root.join("cover.jpg").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ordinary_same_byte_write_blocks_older_album_reversal() {
+        use crate::commands::mutations::write_track_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("old-review", &album).unwrap();
+        let patch = || serde_json::from_value(json!({"title":"Reviewed"})).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(&queue, track.clone(), patch()),
+            )
+            .await
+            .unwrap();
+        store.finish("old-review", "applied", json!({})).unwrap();
+        let reviewed = fs::read(&track).unwrap();
+        write_track_queued(&queue, track.clone(), patch())
+            .await
+            .unwrap();
+        assert_eq!(
+            fs::read(&track).unwrap(),
+            reviewed,
+            "the later write must be byte-identical to exercise ownership"
+        );
+        assert!(
+            store.revert("old-review").is_err(),
+            "an ordinary later write must supersede the older review"
+        );
+        assert_eq!(fs::read(track).unwrap(), reviewed);
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "subprocess entry for the ordinary ownership crash test"]
+    fn ordinary_owner_crash_child() {
+        let root = PathBuf::from(std::env::var_os("SOUNDROBE_TEST_ORDINARY_OWNER_ROOT").unwrap());
+        let worker = WorkerStore::new_in(root.join("state"));
+        assert!(worker.initialize());
+        let _owner =
+            ordinary_target_lease(Arc::new(worker), &root.join("album/track.bin")).unwrap();
+        std::process::exit(71);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn dangling_symlink_is_not_treated_as_a_new_target() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let alias = root.join("alias");
+        symlink(root.join("missing"), &alias).unwrap();
+        assert!(canonical_target(&alias).is_err());
+        assert!(canonical_target(&alias.join("child")).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn reviewed_write_rejects_hardlinked_target_before_mutation() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let target = root.join("target.bin");
+        let alias = root.join("alias.bin");
+        fs::write(&target, b"before").unwrap();
+        fs::hard_link(&target, &alias).unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let journal = store.begin("hardlink-review", &root).unwrap();
+        let result = journal.mutate(&target, || {
+            fs::write(&target, b"changed")?;
+            Ok(())
+        });
+        assert!(result.is_err());
+        assert_eq!(fs::read(target).unwrap(), b"before");
+        assert_eq!(fs::read(alias).unwrap(), b"before");
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn ordinary_owner_survives_process_crash_before_write() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("track.bin");
+        fs::write(&track, b"before").unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let journal = store.begin("crash-owner-review", &album).unwrap();
+        journal
+            .mutate(&track, || {
+                fs::write(&track, b"reviewed")?;
+                Ok(())
+            })
+            .unwrap();
+        store
+            .finish("crash-owner-review", "applied", json!({}))
+            .unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "commands::auto_tag_review::tests::ordinary_owner_crash_child",
+                "--ignored",
+            ])
+            .env("SOUNDROBE_TEST_ORDINARY_OWNER_ROOT", &root)
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(71));
+        assert!(store.revert("crash-owner-review").is_err());
+        assert_eq!(fs::read(track).unwrap(), b"reviewed");
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejected_rename_does_not_supersede_untouched_source_review() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let source_album = root.join("source");
+        let destination_album = root.join("destination");
+        fs::create_dir_all(&source_album).unwrap();
+        fs::create_dir_all(&destination_album).unwrap();
+        let source = source_album.join("track.flac");
+        let destination = destination_album.join("track.flac");
+        let sibling = destination_album.join("cover.jpg");
+        fs::write(&source, b"source before").unwrap();
+        fs::write(&destination, b"destination before").unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let first = store.begin("source-review", &source_album).unwrap();
+        first
+            .mutate(&source, || {
+                fs::write(&source, b"source reviewed")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("source-review", "applied", json!({})).unwrap();
+        let second = store
+            .begin("destination-review", &destination_album)
+            .unwrap();
+        second
+            .mutate(&destination, || {
+                fs::write(&destination, b"destination reviewed")?;
+                Ok(())
+            })
+            .unwrap();
+        second
+            .mutate(&sibling, || {
+                fs::write(&sibling, b"cover")?;
+                Ok(())
+            })
+            .unwrap();
+        store
+            .finish("destination-review", "applied", json!({}))
+            .unwrap();
+        assert!(store
+            .revert_with_limit("destination-review", Some(1))
+            .is_err());
+        assert!(crate::commands::mutations::rename_track_queued(
+            &queue,
+            source.clone(),
+            destination
+        )
+        .await
+        .is_err());
+        store
+            .revert("source-review")
+            .expect("an untouched source review remains reversible");
+        assert_eq!(fs::read(source).unwrap(), b"source before");
+        drop(first);
+        drop(second);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(feature = "desktop")]
+    #[tokio::test]
+    async fn invalid_cover_selection_does_not_supersede_review() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let cover = album.join("cover.jpg");
+        let invalid = root.join("invalid.jpg");
+        fs::write(&cover, b"before").unwrap();
+        fs::write(&invalid, b"not an image").unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("cover-invalid", &album).unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, b"reviewed")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("cover-invalid", "applied", json!({})).unwrap();
+        assert!(crate::commands::covers::set_cover_from_path_queued(
+            &queue,
+            album.clone(),
+            invalid
+        )
+        .await
+        .unwrap()
+        .is_none());
+        store
+            .revert("cover-invalid")
+            .expect("an invalid image did not write the cover");
+        assert_eq!(fs::read(cover).unwrap(), b"before");
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn protected_batch_target_reports_failure_and_keeps_other_successes() {
+        use crate::commands::mutations::{
+            batch_write_with_readback, write_track_queued, TrackUpdate,
+        };
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let protected = album.join("02.flac");
+        let cover = album.join("cover.jpg");
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/writer-corpus/padded.flac");
+        fs::copy(&fixture, &protected).unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("pending-batch", &album).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(
+                    &queue,
+                    protected.clone(),
+                    serde_json::from_value(json!({"title":"Reviewed"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, b"cover")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("pending-batch", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("pending-batch", Some(1)).is_err());
+        let protected_before = fs::read(&protected).unwrap();
+        let first = album.join("01.flac");
+        let last = album.join("03.flac");
+        fs::copy(&fixture, &first).unwrap();
+        fs::copy(&fixture, &last).unwrap();
+        let updates = [&first, &protected, &last]
+            .iter()
+            .map(|path| TrackUpdate {
+                path: path.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(json!({"title":"Changed"})).unwrap(),
+            })
+            .collect();
+        let result = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap();
+        assert_eq!(result.tracks.len(), 2);
+        assert_eq!(result.failures.len(), 1);
+        assert_eq!(result.failures[0].path, protected.to_string_lossy());
+        assert!(result.failures[0].error.contains("pending reversal"));
+        assert_eq!(fs::read(&protected).unwrap(), protected_before);
+        assert_eq!(
+            crate::commands::tracks::read_track_metadata(&first)
+                .unwrap()
+                .title
+                .as_deref(),
+            Some("Changed")
+        );
+        assert_eq!(
+            crate::commands::tracks::read_track_metadata(&last)
+                .unwrap()
+                .title
+                .as_deref(),
+            Some("Changed")
+        );
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn audit_target_preflight_preserves_all_files_when_one_is_protected() {
+        use crate::commands::mutations::write_track_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/writer-corpus/padded.flac");
+        let protected = album.join("02.flac");
+        let cover = album.join("cover.jpg");
+        fs::copy(&fixture, &protected).unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("audit-pending", &album).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(
+                    &queue,
+                    protected.clone(),
+                    serde_json::from_value(json!({"title":"Reviewed"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, b"cover")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("audit-pending", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("audit-pending", Some(1)).is_err());
+        let first = album.join("01.flac");
+        fs::copy(&fixture, &first).unwrap();
+        let before = fs::read(&first).unwrap();
+        let findings = serde_json::from_value(json!([
+            {"index":0,"field":"title","status":"error","message":"fix","corrected":{"title":"Other"},"source":"deterministic","confidence":0.99,"autoFixEligible":true,"autoFixed":false},
+            {"index":1,"field":"title","status":"error","message":"fix","corrected":{"title":"Other"},"source":"deterministic","confidence":0.99,"autoFixEligible":true,"autoFixed":false}
+        ])).unwrap();
+        assert!(crate::commands::audit::apply_audit_fixes_for_album_results(
+            &queue,
+            vec![crate::commands::audit::AuditAlbumResult {
+                album_path: album.to_string_lossy().into_owned(),
+                results: findings
+            }]
+        )
+        .await
+        .is_err());
+        assert_eq!(
+            fs::read(first).unwrap(),
+            before,
+            "no earlier file may change before all target admissions succeed"
+        );
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn extra_tag_batch_preflight_preserves_all_files_when_one_is_protected() {
+        use crate::commands::mutations::{
+            batch_write_extra_tags_queued, write_track_queued, ExtraTagBatchUpdate, ExtraTagUpdate,
+        };
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/writer-corpus/padded.flac");
+        let protected = album.join("02.flac");
+        let cover = album.join("cover.jpg");
+        fs::copy(&fixture, &protected).unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("extra-pending", &album).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(
+                    &queue,
+                    protected.clone(),
+                    serde_json::from_value(json!({"title":"Reviewed"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, b"cover")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("extra-pending", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("extra-pending", Some(1)).is_err());
+        let first = album.join("01.flac");
+        fs::copy(&fixture, &first).unwrap();
+        let before = fs::read(&first).unwrap();
+        let updates = [&first, &protected]
+            .iter()
+            .map(|path| ExtraTagBatchUpdate {
+                path: path.to_string_lossy().into_owned(),
+                tags: vec![ExtraTagUpdate {
+                    key: "COMMENT".into(),
+                    value: "Changed".into(),
+                }],
+            })
+            .collect();
+        assert!(batch_write_extra_tags_queued(&queue, updates)
+            .await
+            .is_err());
+        assert_eq!(
+            fs::read(first).unwrap(),
+            before,
+            "no earlier file may change before all target admissions succeed"
+        );
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ordinary_same_byte_batch_blocks_older_album_reversal() {
+        use crate::commands::mutations::{
+            batch_write_with_readback, write_track_queued, TrackUpdate,
+        };
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("old-batch-review", &album).unwrap();
+        let patch = || serde_json::from_value(json!({"title":"Reviewed"})).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(&queue, track.clone(), patch()),
+            )
+            .await
+            .unwrap();
+        store
+            .finish("old-batch-review", "applied", json!({}))
+            .unwrap();
+        let reviewed = fs::read(&track).unwrap();
+        batch_write_with_readback(
+            &queue,
+            vec![TrackUpdate {
+                path: track.to_string_lossy().into_owned(),
+                fields: patch(),
+            }],
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(fs::read(&track).unwrap(), reviewed);
+        assert!(
+            store.revert("old-batch-review").is_err(),
+            "the later batch write must supersede the review"
+        );
+        assert_eq!(fs::read(track).unwrap(), reviewed);
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ordinary_extra_tag_write_blocks_older_album_reversal() {
+        use crate::commands::mutations::write_extra_tags_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let original = fs::read(&track).unwrap();
+        write_extra_tags_queued(&queue, track.clone(), vec![])
+            .await
+            .unwrap();
+        let normalized = fs::read(&track).unwrap();
+        fs::write(&track, original).unwrap();
+        let journal = store.begin("old-extra-review", &album).unwrap();
+        journal
+            .mutate(&track, || {
+                fs::write(&track, &normalized)?;
+                Ok(())
+            })
+            .unwrap();
+        store
+            .finish("old-extra-review", "applied", json!({}))
+            .unwrap();
+        let reviewed = fs::read(&track).unwrap();
+        write_extra_tags_queued(&queue, track.clone(), vec![])
+            .await
+            .unwrap();
+        assert_eq!(fs::read(&track).unwrap(), reviewed);
+        assert!(store.revert("old-extra-review").is_err());
+        assert_eq!(fs::read(track).unwrap(), reviewed);
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn pending_reversal_blocks_ordinary_track_write() {
+        use crate::commands::mutations::write_track_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        let cover = album.join("cover.jpg");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(store.recovery.as_ref().unwrap().clone())
+            .unwrap();
+        let journal = store.begin("pending-review", &album).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(
+                    &queue,
+                    track.clone(),
+                    serde_json::from_value(json!({"title":"Reviewed"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        let mut image_bytes = Vec::new();
+        image::DynamicImage::new_rgb8(2, 2)
+            .write_to(
+                &mut std::io::Cursor::new(&mut image_bytes),
+                image::ImageFormat::Png,
+            )
+            .unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, &image_bytes)?;
+                Ok(())
+            })
+            .unwrap();
+        let cover_before = fs::read(&cover).unwrap();
+        store
+            .finish("pending-review", "applied", json!({}))
+            .unwrap();
+        assert!(store.revert_with_limit("pending-review", Some(1)).is_err());
+        let interrupted = fs::read(&track).unwrap();
+        let source = root.join("spare.flac");
+        fs::copy(&track, &source).unwrap();
+        let alias = album.join("missing/../cover.jpg");
+        let error = crate::commands::mutations::rename_track_queued(&queue, source.clone(), alias)
+            .await
+            .unwrap_err();
+        assert!(
+            error.to_string().contains("unresolved parent traversal"),
+            "{error}"
+        );
+        assert_eq!(
+            fs::read(&cover).unwrap(),
+            cover_before,
+            "path alias must not bypass pending target"
+        );
+        assert!(
+            source.exists(),
+            "rename must be rejected before touching source"
+        );
+        write_track_queued(
+            &queue,
+            source.clone(),
+            serde_json::from_value(json!({"title":"Unrelated"})).unwrap(),
+        )
+        .await
+        .unwrap();
+        let error = write_track_queued(
+            &queue,
+            track.clone(),
+            serde_json::from_value(json!({"title":"Other"})).unwrap(),
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("pending reversal"), "{error}");
+        let providers = crate::state::providers::ProviderState::new();
+        let remote =
+            crate::state::providers::RemoteArtworkClient::new(providers.http(), None, None);
+        let error = crate::commands::covers::download_album_artwork_at(&album, &remote, &queue)
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("pending reversal"), "{error}");
+        assert_eq!(fs::read(&cover).unwrap(), cover_before);
+        #[cfg(all(feature = "desktop", unix))]
+        {
+            let alias_album = root.join("alias");
+            fs::create_dir_all(&alias_album).unwrap();
+            let alias_cover = alias_album.join("cover.jpg");
+            fs::hard_link(&cover, &alias_cover).unwrap();
+            let result = crate::commands::covers::set_cover_from_path_queued(
+                &queue,
+                alias_album,
+                cover.clone(),
+            )
+            .await;
+            assert!(
+                result.is_err(),
+                "hard-linked target must not bypass pending recovery"
+            );
+            assert_eq!(fs::read(&cover).unwrap(), cover_before);
+            fs::remove_file(alias_cover).unwrap();
+        }
+        let error = crate::commands::mutations::batch_write_with_readback(
+            &queue,
+            vec![crate::commands::mutations::TrackUpdate {
+                path: track.to_string_lossy().into_owned(),
+                fields: serde_json::from_value(json!({"title":"Other"})).unwrap(),
+            }],
+            None,
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("pending reversal"), "{error}");
+        #[cfg(feature = "desktop")]
+        {
+            let error =
+                crate::commands::mutations::remove_embedded_cover_queued(&queue, track.clone())
+                    .await
+                    .unwrap_err();
+            assert!(error.to_string().contains("pending reversal"), "{error}");
+            let error = crate::commands::covers::remove_cover_queued(&queue, album.clone())
+                .await
+                .unwrap_err();
+            assert!(error.to_string().contains("pending reversal"), "{error}");
+            let error = crate::commands::covers::set_cover_from_path_queued(
+                &queue,
+                album.clone(),
+                cover.clone(),
+            )
+            .await
+            .unwrap_err();
+            assert!(error.to_string().contains("pending reversal"), "{error}");
+        }
+        let renamed = root.join("new/folder/renamed.flac");
+        let error =
+            crate::commands::mutations::rename_track_queued(&queue, track.clone(), renamed.clone())
+                .await
+                .unwrap_err();
+        assert!(error.to_string().contains("pending reversal"), "{error}");
+        assert!(!renamed.parent().unwrap().exists());
+        #[cfg(feature = "desktop")]
+        {
+            let moved = root.join("assistant/new/track.flac");
+            let error = crate::commands::assistant::relocate_file_queued(
+                &queue,
+                track.clone(),
+                moved.clone(),
+                &root.canonicalize().unwrap(),
+            )
+            .await
+            .unwrap_err();
+            assert!(error.to_string().contains("pending reversal"), "{error}");
+            assert!(!moved.parent().unwrap().exists());
+        }
+        let findings = serde_json::from_value(json!([{"index":0,"field":"title","status":"error","message":"fix","corrected":{"title":"Other"},"source":"deterministic","confidence":0.99,"autoFixEligible":true,"autoFixed":false}])).unwrap();
+        let error = crate::commands::audit::apply_audit_fixes_for_album_results(
+            &queue,
+            vec![crate::commands::audit::AuditAlbumResult {
+                album_path: album.to_string_lossy().into_owned(),
+                results: findings,
+            }],
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("pending reversal"), "{error}");
+        fs::write(track.with_extension("txt"), "Local lyrics").unwrap();
+        let lyrics = crate::commands::lyrics::apply_album_lyrics_at(&album, None, &queue)
+            .await
+            .unwrap();
+        assert!(lyrics.results.iter().any(|result| result
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("pending reversal"))));
+        let deleted = crate::commands::mutations::delete_files_queued(
+            &queue,
+            vec![track.to_string_lossy().into_owned()],
+        )
+        .await
+        .unwrap();
+        assert!(!deleted[0].success);
+        assert!(deleted[0]
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("pending reversal"));
+        assert_eq!(fs::read(track).unwrap(), interrupted);
+        drop(journal);
+        drop(store);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn ordinary_write_without_prior_review_does_not_accumulate_owner_history() {
+        use crate::commands::mutations::write_track_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let track = root.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let worker = WorkerStore::new_in(root.join("state"));
+        assert!(worker.initialize());
+        let queue = WriteQueue::default()
+            .with_recovery_worker(Arc::new(worker))
+            .unwrap();
+        write_track_queued(
+            &queue,
+            track,
+            serde_json::from_value(json!({"title":"Changed"})).unwrap(),
+        )
+        .await
+        .unwrap();
+        let conn = rusqlite::Connection::open(root.join("state/worker.db")).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT count(*) FROM review_target_owners", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(
+            count, 0,
+            "a first ordinary write has no older review to supersede"
+        );
+        drop(conn);
+        drop(queue);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unresolved_write_intent_blocks_ordinary_track_edit() {
+        use crate::commands::mutations::write_track_queued;
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let track = root.join("01.flac");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        let before = fs::read(&track).unwrap();
+        let worker = WorkerStore::new_in(root.join("state"));
+        assert!(worker.initialize());
+        worker
+            .prepare_write_intent(&track, "abandoned::attempt", &json!({"title":"First"}))
+            .unwrap();
+        worker
+            .begin_write_intent(&track, "abandoned::attempt")
+            .unwrap();
+        let queue = WriteQueue::default()
+            .with_recovery_worker(Arc::new(worker))
+            .unwrap();
+        let result = write_track_queued(
+            &queue,
+            track.clone(),
+            serde_json::from_value(json!({"title":"Other"})).unwrap(),
+        )
+        .await;
+        assert!(
+            result.is_err(),
+            "unknown prior write must be resolved before another edit"
+        );
+        assert_eq!(fs::read(track).unwrap(), before);
+        drop(queue);
         fs::remove_dir_all(root).unwrap();
     }
 

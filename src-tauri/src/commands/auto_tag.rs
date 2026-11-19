@@ -6366,7 +6366,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
                 config.theaudiodb_api_key.clone(),
             );
             if let Some((_bytes, source, path)) =
-                download_album_artwork_at(album_path, &remote, services.queue).await
+                download_album_artwork_at(album_path, &remote, services.queue).await?
             {
                 report(
                     "source",
@@ -6379,7 +6379,7 @@ async fn resolve_and_apply_album_with_acoustid_override(
                 );
             }
             if let Some((_bytes, source, path)) =
-                download_artist_artwork_at(album_path, &remote, services.queue).await
+                download_artist_artwork_at(album_path, &remote, services.queue).await?
             {
                 report(
                     "source",
@@ -6493,7 +6493,7 @@ pub(crate) async fn complete_auto_tag_run(
             .unwrap_or_else(|| "Needs review".into())
     };
     let saved = queue
-        .run_exclusive(async {
+        .run_exclusive_checked(async {
             tasks.with_running(run_id, |progress| {
                 data = worker.finish_with_evidence(
                     path,
@@ -6510,7 +6510,7 @@ pub(crate) async fn complete_auto_tag_run(
                 Ok(())
             })
         })
-        .await
+        .await?
         .map_err(|error| ApiError::Message(format!("durable worker completion failed: {error}")))?;
     if saved.is_none() {
         return Err(ApiError::Message(
@@ -6553,13 +6553,15 @@ pub fn album_auto_tag(
         let report_task_id = spawned_task_id.clone();
         let reviews = app.state::<super::auto_tag_review::ReviewStore>();
         let review = match queue
-            .run_exclusive(async {
+            .run_exclusive_checked(async {
                 worker
                     .claim_desktop_run(&path, &spawned_task_id)
                     .map_err(ApiError::Message)?;
                 reviews.begin(&spawned_task_id, &path)
             })
             .await
+            .map_err(ApiError::from)
+            .and_then(|result| result)
         {
             Ok(review) => review,
             Err(error) => {
@@ -6645,10 +6647,12 @@ pub fn album_auto_tag(
             ),
         };
         let review_finished = queue
-            .run_exclusive(async {
+            .run_exclusive_checked(async {
                 reviews.finish(&spawned_task_id, review_outcome, review_result)
             })
-            .await;
+            .await
+            .map_err(ApiError::from)
+            .and_then(|result| result);
         let operation = match operation.and_then(|result| review_finished.map(|()| result)) {
             Ok(result) => {
                 let mut data = serde_json::to_value(&result).unwrap_or_default();
@@ -7385,6 +7389,12 @@ async fn apply_candidate_tags_reported(
             Ok(()) => {
                 written += 1;
                 report_write(&file_path);
+            }
+            Err(ApiError::WriteQueue(error)) => {
+                return Err(ApiError::WriteQueue(std::io::Error::new(
+                    error.kind(),
+                    format!("auto-tag wrote {written} file(s): {error}"),
+                )));
             }
             Err(error) => {
                 tracing::warn!(path = %file_path, %error, "auto-tag write failed");
@@ -8563,7 +8573,8 @@ mod tests {
                 ("404 Not Found".into(), "{}".into())
             }
         });
-        let providers = crate::commands::auto_tag::eval_tests::offline_eval_providers(&base).unwrap();
+        let providers =
+            crate::commands::auto_tag::eval_tests::offline_eval_providers(&base).unwrap();
         let client = crate::state::providers::DiscogsClient::at(
             providers.http(),
             None,
@@ -9009,7 +9020,9 @@ mod tests {
             });
         let providers = super::eval_tests::offline_eval_providers(&provider_url).unwrap();
         let provider = DiscogsClient::at(providers.http(), None, providers.discogs_base())
-            .release_metadata_result("42").await.unwrap();
+            .release_metadata_result("42")
+            .await
+            .unwrap();
         let provider_candidate = discogs_candidate(provider);
         let provider_attempts = [ProviderAttempt {
             provider: "discogs",
@@ -9039,7 +9052,10 @@ mod tests {
             format!("{:x}", Sha256::digest(recomputed.to_string().as_bytes())),
             "auditor must be able to recompute the source mapping digest from exported evidence"
         );
-        assert_eq!(mapping_evidence["mapping"]["providerTracks"][0]["title"], "Synthetic Song");
+        assert_eq!(
+            mapping_evidence["mapping"]["providerTracks"][0]["title"],
+            "Synthetic Song"
+        );
         assert!(provider_candidate.discogs_release_id.is_none());
         assert!(serde_json::to_value(&provider_candidate)
             .unwrap()
@@ -9144,21 +9160,22 @@ mod tests {
         let replay = preparation.replay();
         ACTIVE_REVIEW
             .scope(journal, async {
-                replay.run(async {
-                    crate::infra::bounded_eval::paired_assisted(
-                        serde_json::to_value(&candidate.assisted_genre).unwrap(),
-                    );
-                    let mut persisted = false;
-                    let withheld = checkpoint_candidate_review(&mut candidate, &mut |_| {
-                        assert_eq!(replay.observations()["matchedEvents"], 2);
-                        persisted = true;
-                        Ok(())
+                replay
+                    .run(async {
+                        crate::infra::bounded_eval::paired_assisted(
+                            serde_json::to_value(&candidate.assisted_genre).unwrap(),
+                        );
+                        let mut persisted = false;
+                        let withheld = checkpoint_candidate_review(&mut candidate, &mut |_| {
+                            assert_eq!(replay.observations()["matchedEvents"], 2);
+                            persisted = true;
+                            Ok(())
+                        })
+                        .unwrap();
+                        assert!(persisted && !withheld);
+                        paired_candidate(&candidate).unwrap();
                     })
-                    .unwrap();
-                    assert!(persisted && !withheld);
-                    paired_candidate(&candidate).unwrap();
-                })
-                .await;
+                    .await;
                 replay.complete().unwrap();
                 assert_eq!(
                     apply_candidate_tags(&album_path, &candidate, &queue)
@@ -11383,6 +11400,35 @@ mod tests {
         assert_eq!(first.title.as_deref(), Some("First"));
         assert_eq!(second.title.as_deref(), Some("Second"));
         assert_eq!(second.artist.as_deref(), Some("Album Artist feat. Guest"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_preserves_auto_tag_lock_error() {
+        let root = temp_root();
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        fs::copy(corpus_flac(), &track).unwrap();
+        let before = fs::read(&track).unwrap();
+        let request = LookupRequest {
+            path: album.to_string_lossy().into_owned(),
+            artist_hint: Some("Artist".into()),
+            album_hint: Some("Album".into()),
+            tracks: vec![TrackCandidate {
+                title: Some("Changed".into()),
+                ..TrackCandidate::default()
+            }],
+            ..LookupRequest::default()
+        };
+        let candidate = folder_candidate(&request);
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let error = apply_candidate_tags(&album, &candidate, &queue)
+            .await
+            .unwrap_err();
+        assert!(matches!(error, ApiError::WriteQueue(_)), "{error}");
+        assert_eq!(fs::read(track).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 

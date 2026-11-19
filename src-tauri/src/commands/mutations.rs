@@ -624,7 +624,7 @@ pub async fn track_delete_files(
     file_paths: Vec<String>,
     queue: State<'_, WriteQueue>,
 ) -> Result<Vec<DeleteFileResult>, ApiError> {
-    Ok(delete_files_queued(&queue, file_paths).await)
+    Ok(delete_files_queued(&queue, file_paths).await?)
 }
 
 #[cfg(feature = "desktop")]
@@ -640,41 +640,59 @@ pub async fn track_rename(
 pub(crate) async fn delete_files_queued(
     queue: &WriteQueue,
     file_paths: Vec<String>,
-) -> Vec<DeleteFileResult> {
+) -> std::io::Result<Vec<DeleteFileResult>> {
     let fallback_paths = file_paths.clone();
-    match queue
-        .run(async move {
-            crate::state::write_queue::spawn_write_blocking(move || {
-                file_paths
-                    .into_iter()
-                    .map(|path| match fs::remove_file(&path) {
-                        Ok(()) => DeleteFileResult {
-                            path,
-                            success: true,
-                            error: None,
-                        },
-                        Err(error) => DeleteFileResult {
-                            path,
-                            success: false,
-                            error: Some(error.to_string()),
-                        },
-                    })
-                    .collect::<Vec<_>>()
+    let recovery = queue.recovery_worker();
+    Ok(
+        match queue
+            .run_checked(async move {
+                crate::state::write_queue::spawn_write_blocking(move || {
+                    file_paths
+                        .into_iter()
+                        .map(|path| {
+                            let result = (|| -> Result<(), ApiError> {
+                                let _ordinary_owner = recovery
+                                    .as_ref()
+                                    .map(|worker| {
+                                        super::auto_tag_review::ordinary_target_lease(
+                                            worker.clone(),
+                                            Path::new(&path),
+                                        )
+                                    })
+                                    .transpose()?;
+                                fs::remove_file(&path)?;
+                                Ok(())
+                            })();
+                            match result {
+                                Ok(()) => DeleteFileResult {
+                                    path,
+                                    success: true,
+                                    error: None,
+                                },
+                                Err(error) => DeleteFileResult {
+                                    path,
+                                    success: false,
+                                    error: Some(error.to_string()),
+                                },
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .await
             })
-            .await
-        })
-        .await
-    {
-        Ok(results) => results,
-        Err(error) => fallback_paths
-            .into_iter()
-            .map(|path| DeleteFileResult {
-                path,
-                success: false,
-                error: Some(format!("background delete task failed: {error}")),
-            })
-            .collect(),
-    }
+            .await?
+        {
+            Ok(results) => results,
+            Err(error) => fallback_paths
+                .into_iter()
+                .map(|path| DeleteFileResult {
+                    path,
+                    success: false,
+                    error: Some(format!("background delete task failed: {error}")),
+                })
+                .collect(),
+        },
+    )
 }
 
 pub(crate) async fn rename_track_queued(
@@ -683,9 +701,17 @@ pub(crate) async fn rename_track_queued(
     new_path: PathBuf,
 ) -> Result<TrackData, ApiError> {
     let readback_path = new_path.clone();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
+        .run_checked(async move {
             crate::state::write_queue::spawn_write_blocking(move || {
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(
+                    recovery,
+                    &[old_path.clone(), new_path.clone()],
+                )?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 if let Some(parent) = new_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
@@ -695,7 +721,8 @@ pub(crate) async fn rename_track_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     read_track_metadata(&readback_path)
 }
 
@@ -819,6 +846,7 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     // the shared path so they can still run concurrently.
     let review = super::auto_tag_review::active_review();
     let journaled = review.is_some();
+    let recovery = queue.recovery_worker();
     let review_genre_patch = match &patch.genre {
         Patch::Value(genre) => Some(serde_json::json!({"genre":genre})),
         Patch::Omitted | Patch::Null => None,
@@ -832,6 +860,13 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
         crate::state::write_queue::spawn_write_blocking(move || {
             #[cfg(test)]
             bounded_guard().map_err(ApiError::Message)?;
+            let _ordinary_owner = if journaled {
+                None
+            } else {
+                recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?
+            };
             let write_start = std::time::Instant::now();
             let write = || {
                 // Bind the dispatcher's consumed bytes to the lookup source,
@@ -916,9 +951,15 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     };
 
     if journaled || exclusive_readback {
-        queue.run_exclusive(operation).await
+        queue
+            .run_exclusive_checked(operation)
+            .await
+            .map_err(ApiError::WriteQueue)?
     } else {
-        queue.run(operation).await
+        queue
+            .run_checked(operation)
+            .await
+            .map_err(ApiError::WriteQueue)?
     }
 }
 
@@ -1017,9 +1058,13 @@ pub(crate) async fn remove_embedded_cover_queued(
     path: PathBuf,
 ) -> Result<(), ApiError> {
     let display_path = path.to_string_lossy().to_string();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
+        .run_checked(async move {
             crate::state::write_queue::spawn_write_blocking(move || {
+                let _ordinary_owner = recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?;
                 let write_start = std::time::Instant::now();
                 let result = remove_embedded_cover_at(&path);
                 let elapsed = write_start.elapsed();
@@ -1041,7 +1086,8 @@ pub(crate) async fn remove_embedded_cover_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     Ok(())
 }
 
@@ -1091,8 +1137,13 @@ async fn batch_write_grouped(
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
     let parent_lease = crate::state::write_queue::current_queue_lease();
+    let recovery = queue
+        .as_ref()
+        .and_then(WriteQueue::recovery_worker)
+        .or_else(crate::state::write_queue::current_recovery_worker);
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
+        let recovery = recovery.clone();
         let inherited_lease = parent_lease.clone();
         let accum = Arc::clone(accum);
         let progress = progress.clone();
@@ -1109,8 +1160,19 @@ async fn batch_write_grouped(
                             for update in batch {
                                 let write_start = std::time::Instant::now();
                                 let path_str = update.path.clone();
-                                match write_track_dispatch(Path::new(&update.path), &update.fields)
-                                {
+                                let result = (|| {
+                                    let _ordinary_owner = recovery
+                                        .as_ref()
+                                        .map(|worker| {
+                                            super::auto_tag_review::ordinary_target_lease(
+                                                worker.clone(),
+                                                Path::new(&update.path),
+                                            )
+                                        })
+                                        .transpose()?;
+                                    write_track_dispatch(Path::new(&update.path), &update.fields)
+                                })();
+                                match result {
                                     Ok(_) => {
                                         tracing::debug!(
                                             path = %update.path,
@@ -1149,7 +1211,9 @@ async fn batch_write_grouped(
                     .map_err(|e| ApiError::WriteTask(e.to_string()))?
                 };
                 if let Some(q) = q {
-                    q.run_for_folder(&folder, operation).await
+                    q.run_for_folder_checked(&folder, operation)
+                        .await
+                        .map_err(ApiError::WriteQueue)?
                 } else {
                     operation.await
                 }
@@ -1318,9 +1382,13 @@ pub(crate) async fn write_extra_tags_queued(
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
     let display_path = path.to_string_lossy().to_string();
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
+        .run_checked(async move {
             crate::state::write_queue::spawn_write_blocking(move || {
+                let _ordinary_owner = recovery
+                    .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+                    .transpose()?;
                 let write_start = std::time::Instant::now();
                 let result = write_extra_tags_dispatch(&path, &tags);
                 let elapsed = write_start.elapsed();
@@ -1345,7 +1413,8 @@ pub(crate) async fn write_extra_tags_queued(
             .await
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
-        .await?;
+        .await
+        .map_err(ApiError::WriteQueue)??;
     Ok(())
 }
 
@@ -1355,7 +1424,11 @@ pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     tags: Vec<ExtraTagUpdate>,
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
+    let recovery = crate::state::write_queue::current_recovery_worker();
     crate::state::write_queue::spawn_write_blocking(move || {
+        let _ordinary_owner = recovery
+            .map(|worker| super::auto_tag_review::ordinary_target_lease(worker, &path))
+            .transpose()?;
         write_extra_tags_dispatch(&path, &tags)
     })
     .await
@@ -1363,13 +1436,22 @@ pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     Ok(())
 }
 
-async fn batch_write_extra_tags_queued(
+pub(crate) async fn batch_write_extra_tags_queued(
     queue: &WriteQueue,
     updates: Vec<ExtraTagBatchUpdate>,
 ) -> Result<(), ApiError> {
+    let recovery = queue.recovery_worker();
     queue
-        .run(async move {
+        .run_checked(async move {
             crate::state::write_queue::spawn_write_blocking(move || {
+                let paths = updates
+                    .iter()
+                    .map(|update| PathBuf::from(&update.path))
+                    .collect::<Vec<_>>();
+                let mut owners = super::auto_tag_review::stage_ordinary_targets(recovery, &paths)?;
+                for owner in &mut owners {
+                    owner.mutation_started();
+                }
                 let mut failures = Vec::new();
                 for update in updates {
                     let write_start = std::time::Instant::now();
@@ -1407,6 +1489,7 @@ async fn batch_write_extra_tags_queued(
             .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
+        .map_err(ApiError::WriteQueue)?
 }
 
 fn validate_extra_tag_extension(path: &Path) -> Result<String, ApiError> {
@@ -4538,6 +4621,112 @@ mod tests {
     use lofty::id3::v2::BinaryFrame;
     use lofty::picture::{MimeType, Picture, PictureInformation, PictureType};
 
+    #[tokio::test]
+    async fn unavailable_queue_returns_error_without_changing_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let patch: TrackPatch =
+            serde_json::from_value(serde_json::json!({"title":"Changed"})).unwrap();
+        assert!(write_track_queued(&queue, path.clone(), patch)
+            .await
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_returns_batch_lock_error_without_changing_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let updates = vec![TrackUpdate {
+            path: path.to_string_lossy().into_owned(),
+            fields: serde_json::from_value(serde_json::json!({"title":"Changed"})).unwrap(),
+        }];
+        let error = batch_write_with_readback(&queue, updates, None)
+            .await
+            .unwrap_err();
+        assert!(!error.to_string().contains("panicked"));
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_rename_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let target = root.join("renamed.mp3");
+        assert!(rename_track_queued(&queue, path.clone(), target.clone())
+            .await
+            .is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(!target.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_delete_track() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let moved_queue = queue.clone();
+        let moved_path = path.to_string_lossy().into_owned();
+        let result =
+            tokio::spawn(async move { delete_files_queued(&moved_queue, vec![moved_path]).await })
+                .await;
+        assert!(result.expect("lock failure should not panic").is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_does_not_write_extra_tags() {
+        let (root, path) = copy_fixture();
+        let before = fs::read(&path).unwrap();
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let child_queue = queue.clone();
+        let child_path = path.clone();
+        let result =
+            tokio::spawn(
+                async move { write_extra_tags_queued(&child_queue, child_path, vec![]).await },
+            )
+            .await;
+        assert!(result.expect("lock error must not panic").is_err());
+        let child_queue = queue.clone();
+        let child_path = path.to_string_lossy().into_owned();
+        let result = tokio::spawn(async move {
+            batch_write_extra_tags_queued(
+                &child_queue,
+                vec![ExtraTagBatchUpdate {
+                    path: child_path,
+                    tags: vec![],
+                }],
+            )
+            .await
+        })
+        .await;
+        assert!(result.expect("batch lock error must not panic").is_err());
+        #[cfg(feature = "desktop")]
+        {
+            let child_queue = queue.clone();
+            let child_path = path.clone();
+            let result = tokio::spawn(async move {
+                remove_embedded_cover_queued(&child_queue, child_path).await
+            })
+            .await;
+            assert!(result.expect("cover lock error must not panic").is_err());
+        }
+        assert_eq!(fs::read(&path).unwrap(), before);
+        fs::remove_dir_all(root).unwrap();
+    }
+
     fn media_fixture(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../test/fixtures/tauri/media-corpus")
@@ -7254,7 +7443,8 @@ mod tests {
                 root.to_string_lossy().into_owned(),
             ],
         )
-        .await;
+        .await
+        .unwrap();
         assert_eq!(results.len(), 5);
         assert!(results[0].success);
         assert!(!results[1].success);

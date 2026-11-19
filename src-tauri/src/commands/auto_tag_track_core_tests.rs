@@ -98,11 +98,68 @@ async fn queued_recording_write_rejects_post_guard_source_replacement() {
 }
 
 #[tokio::test]
+#[cfg(feature = "server")]
+async fn background_lock_failure_retains_actual_receipt_without_publishing_it() {
+    use crate::state::worker::WorkerStore;
+    let (root, album, queue) = fixture(1).await;
+    let request = bound_request(&album);
+    let result = apply_recording_resolution(
+        &album,
+        &request,
+        recognized(&request, false),
+        &queue,
+        &mut |_| Ok(()),
+    )
+    .await
+    .unwrap();
+    let evidence = serde_json::to_value(&result).unwrap();
+    assert!(!evidence["coreReceipts"].as_array().unwrap().is_empty());
+    let worker = WorkerStore::new_in(root.join("state"));
+    assert!(worker.initialize());
+    worker
+        .enqueue(std::slice::from_ref(&album), "test")
+        .unwrap();
+    worker.mark_running(&album, "run").unwrap();
+    let tasks = TaskRegistry::default();
+    let task = tasks.create("background", 1, "Running");
+    let locked_queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+    fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+    let outcome = crate::server::guarded_background_completion(
+        &locked_queue,
+        &worker,
+        &tasks,
+        &task,
+        &album,
+        "run",
+        &evidence,
+        async {
+            tasks.with_running(&task, |_| {
+                worker.finish_with_evidence(&album, "run", "completed", None, None, &evidence)
+            })
+        },
+    )
+    .await;
+    assert!(outcome.is_err());
+    let stored = worker.evidence(&album, "run").unwrap().unwrap();
+    assert!(stored.get("proofPublication").is_none());
+    assert!(stored.get("completionBasis").is_none());
+    let receipt = &stored["partialEvidence"]["coreReceipts"][0];
+    assert_eq!(receipt["publishedAt"], serde_json::Value::Null);
+    assert_eq!(
+        receipt["attemptId"],
+        evidence["coreReceipts"][0]["attemptId"]
+    );
+    drop(worker);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[tokio::test]
 async fn desktop_completion_publishes_source_bound_receipts() {
     use crate::commands::auto_tag_review::{ReviewStore, ACTIVE_REVIEW};
     use crate::state::worker::WorkerStore;
-    for fault in ["none", "cancelled", "stale", "database"] {
-        let (root, album, queue) = fixture(1).await;
+    for fault in ["none", "cancelled", "stale", "database", "lock"] {
+        let (root, album, _) = fixture(1).await;
+        let queue = WriteQueue::for_profile(&root.join("queue-profile"), None).unwrap();
         let request = bound_request(&album);
         let reviews = ReviewStore::default();
         let tasks = TaskRegistry::default();
@@ -147,6 +204,9 @@ async fn desktop_completion_publishes_source_bound_receipts() {
             }
             "database" => {
                 rusqlite::Connection::open(root.join("state/worker.db")).unwrap().execute_batch("CREATE TRIGGER reject_proof BEFORE INSERT ON worker_evidence BEGIN SELECT RAISE(FAIL, 'proof unavailable'); END;").unwrap();
+            }
+            "lock" => {
+                fs::remove_file(root.join("queue-profile/write-queue.lock")).unwrap();
             }
             _ => {}
         }

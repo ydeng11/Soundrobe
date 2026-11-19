@@ -1553,6 +1553,25 @@ impl WorkerStore {
         target: &Path,
         token: &str,
     ) -> Result<bool, String> {
+        self.register_target(revision, target, token, false)
+    }
+
+    pub(crate) fn register_ordinary_target(
+        &self,
+        revision: &str,
+        target: &Path,
+        token: &str,
+    ) -> Result<bool, String> {
+        self.register_target(revision, target, token, true)
+    }
+
+    fn register_target(
+        &self,
+        revision: &str,
+        target: &Path,
+        token: &str,
+        ordinary: bool,
+    ) -> Result<bool, String> {
         let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
         let transaction = guard
             .as_mut()
@@ -1560,6 +1579,15 @@ impl WorkerStore {
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
         let key = storage_key(target);
+        if ordinary {
+            let unresolved: bool = transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM write_intents WHERE path=?1 AND state IN ('prepared', 'applying', 'written', 'partial', 'needs_recovery', 'reverting'))",
+                [&key], |row| row.get(0),
+            ).map_err(|e| e.to_string())?;
+            if unresolved {
+                return Err(format!("An unresolved write needs recovery for {key}"));
+            }
+        }
         let writer: Option<u32> = transaction
             .query_row(
                 "SELECT owner_pid FROM review_target_writers WHERE path=?1",
@@ -1609,12 +1637,16 @@ impl WorkerStore {
         if exists && latest.as_deref() != Some(revision) {
             return Err(format!("A newer review owns {key}"));
         }
-        let inserted = transaction
-            .execute(
-                "INSERT OR IGNORE INTO review_target_owners(path, revision) VALUES (?1, ?2)",
-                params![key, revision],
-            )
-            .map_err(|e| e.to_string())?;
+        let inserted = if ordinary && latest.is_none() {
+            0
+        } else {
+            transaction
+                .execute(
+                    "INSERT OR IGNORE INTO review_target_owners(path, revision) VALUES (?1, ?2)",
+                    params![key, revision],
+                )
+                .map_err(|e| e.to_string())?
+        };
         transaction.execute(
             "INSERT INTO review_target_writers(path, revision, owner_pid, owner_token) VALUES (?1, ?2, ?3, ?4)",
             params![key, revision, std::process::id(), token],

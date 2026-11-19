@@ -211,6 +211,7 @@ pub fn run() {
         .setup(|app| {
             let mut write_concurrency = None;
             let mut write_data_dir = None;
+            let mut write_recovery = None;
             // Migrate legacy application data before loading the managed
             // config from ~/.soundrobe/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
@@ -242,6 +243,7 @@ pub fn run() {
                 let reviews =
                     commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
                         .map_err(|error| std::io::Error::other(error.to_string()))?;
+                write_recovery = Some(std::sync::Arc::new(worker.clone()));
                 app.manage(worker);
                 app.manage(reviews);
                 app.manage(DebugState::new_in(data_dir.clone(), debug_enabled));
@@ -276,6 +278,10 @@ pub fn run() {
             let queue = match write_data_dir {
                 Some(path) => WriteQueue::for_profile(&path, write_concurrency)?,
                 None => WriteQueue::with_concurrency(write_concurrency),
+            };
+            let queue = match write_recovery {
+                Some(worker) => queue.with_recovery_worker(worker)?,
+                None => queue,
             };
             app.manage(queue);
             app.manage(QuitGuard::default());

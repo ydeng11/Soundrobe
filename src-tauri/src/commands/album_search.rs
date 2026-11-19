@@ -431,6 +431,12 @@ pub(crate) async fn apply_candidate_tags_reported(
                 written += 1;
                 report_write(&file_path);
             }
+            Err(ApiError::WriteQueue(error)) => {
+                return Err(ApiError::WriteQueue(std::io::Error::new(
+                    error.kind(),
+                    format!("manual search wrote {written} file(s): {error}"),
+                )));
+            }
             Err(error) => {
                 tracing::warn!(path = %file_path, %error, "manual search write failed");
                 failures.push(format!("{file_path}: {error}"));
@@ -921,31 +927,33 @@ pub async fn album_search_apply_candidate(
     config: State<'_, ConfigState>,
     queue: State<'_, WriteQueue>,
 ) -> Result<usize, String> {
-    apply_search_candidate(&request, &config, &queue).await
+    apply_search_candidate(&request, &config, &queue)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 pub(crate) async fn apply_search_candidate(
     request: &ApplyCandidateRequest,
     config: &ConfigState,
     queue: &WriteQueue,
-) -> Result<usize, String> {
+) -> Result<usize, ApiError> {
     let album_path = PathBuf::from(&request.album_path);
     if !album_path.is_dir() {
-        return Err(format!(
+        return Err(ApiError::Message(format!(
             "Album directory does not exist: {}",
             request.album_path
-        ));
+        )));
     }
 
     let local_files = collect_audio_files(&album_path);
     let candidate_track_count = request.candidate.tracks.len();
 
     if local_files.len() != candidate_track_count {
-        return Err(format!(
+        return Err(ApiError::Message(format!(
             "Track count mismatch: album has {} audio files but candidate has {} tracks",
             local_files.len(),
             candidate_track_count,
-        ));
+        )));
     }
 
     if let Some(index) = request
@@ -953,10 +961,10 @@ pub(crate) async fn apply_search_candidate(
         .iter()
         .find(|index| **index >= local_files.len())
     {
-        return Err(format!(
+        return Err(ApiError::Message(format!(
             "Selected track index {index} is out of range for {} audio files",
             local_files.len(),
-        ));
+        )));
     }
 
     let mut candidate = request.candidate.clone();
@@ -974,7 +982,10 @@ pub(crate) async fn apply_search_candidate(
         &request.selected_track_indices,
     )
     .await
-    .map_err(|e| format!("Failed to apply candidate tags: {e}"))
+    .map_err(|error| match error {
+        error @ ApiError::WriteQueue(_) => error,
+        error => ApiError::Message(format!("Failed to apply candidate tags: {error}")),
+    })
 }
 
 #[cfg(all(test, feature = "desktop"))]
@@ -1617,13 +1628,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn manual_release_reuses_auto_tag_genre_fill_when_provider_genre_is_missing() {
+    async fn manual_musicbrainz_release_withholds_genre_without_grounded_source() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         let (send, receive) = std::sync::mpsc::channel();
-        thread::spawn(move || {
-            for _ in 0..2 {
-                let (mut stream, _) = listener.accept().unwrap();
+        let server = thread::spawn(move || {
+            let mut first = true;
+            let mut deadline = None;
+            loop {
+                let (mut stream, _) = match listener.accept() {
+                    Ok(connection) => connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if deadline.is_some_and(|end| std::time::Instant::now() >= end) {
+                            break;
+                        }
+                        thread::sleep(std::time::Duration::from_millis(5));
+                        continue;
+                    }
+                    Err(error) => panic!("mock listener failed: {error}"),
+                };
                 let mut request = [0_u8; 8192];
                 let read = stream.read(&mut request).unwrap();
                 let request = String::from_utf8_lossy(&request[..read]).to_string();
@@ -1663,6 +1686,12 @@ mod tests {
                     body.len()
                 )
                 .unwrap();
+                if first {
+                    first = false;
+                    listener.set_nonblocking(true).unwrap();
+                    deadline =
+                        Some(std::time::Instant::now() + std::time::Duration::from_millis(300));
+                }
             }
         });
         let providers = providers_at(&base);
@@ -1677,20 +1706,19 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(release.genre.as_deref(), Some("Rock, Indie Rock"));
-        let requests = [receive.recv().unwrap(), receive.recv().unwrap()];
+        assert_eq!(release.genre, None);
+        server.join().unwrap();
+        let requests = receive.try_iter().collect::<Vec<_>>();
         assert!(
             requests
                 .iter()
                 .any(|request| request.starts_with("GET /ws/2/release/release-id?")),
             "{requests:?}"
         );
-        assert!(
-            requests.iter().any(|request| {
-                request.starts_with("POST /chat/completions ")
-                    && request.contains("GenreFillResponse")
-            }),
-            "{requests:?}"
+        assert_eq!(
+            requests.len(),
+            1,
+            "ungrounded release must not trigger AI: {requests:?}"
         );
     }
 
@@ -1787,6 +1815,36 @@ mod tests {
         assert_eq!(read.track_number, Some(22));
         assert_eq!(read.disc_number, Some(1));
         assert_eq!(read.album.as_deref(), Some("Canonical Album"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn unavailable_queue_is_reported_as_manual_search_lock_failure() {
+        let root = temp_root();
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        fs::copy(corpus_flac(), &track).unwrap();
+        let before = fs::read(&track).unwrap();
+        let request = renderer_apply_payload(
+            &album,
+            serde_json::json!({
+                "artist":"Artist", "album":"Album", "source":"musicbrainz",
+                "tracks":[{"title":"Changed", "track_number":1}]
+            }),
+            &[0],
+        );
+        let queue = WriteQueue::for_profile(&root.join("profile"), None).unwrap();
+        fs::remove_file(root.join("profile/write-queue.lock")).unwrap();
+        let error = apply_search_candidate(&request, &config_with_chinese_script(None), &queue)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(error, ApiError::WriteQueue(_))
+                && error.to_string().contains("wrote 0 file(s)"),
+            "{error}"
+        );
+        assert_eq!(fs::read(track).unwrap(), before);
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -2083,7 +2141,10 @@ mod tests {
         let error = apply_search_candidate(&request, &config, &WriteQueue::default())
             .await
             .unwrap_err();
-        assert!(error.contains("Track count mismatch"), "{error}");
+        assert!(
+            error.to_string().contains("Track count mismatch"),
+            "{error}"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 }
