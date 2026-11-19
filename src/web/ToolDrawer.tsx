@@ -132,6 +132,7 @@ export function ToolDrawer({
 /** Busy / error / outcome bookkeeping shared by the three tools. */
 export function useToolRun() {
   const [busy, setBusy] = React.useState(false);
+  const running = React.useRef(false);
   const [error, setError] = React.useState<string | null>(null);
   const [failures, setFailures] = React.useState<string[]>([]);
   const [message, setMessage] = React.useState<string | null>(null);
@@ -147,6 +148,8 @@ export function useToolRun() {
         string | { message: string; failures?: string[] } | null | undefined
       >,
     ) => {
+      if (running.current) return;
+      running.current = true;
       setBusy(true);
       setError(null);
       setMessage(null);
@@ -163,6 +166,7 @@ export function useToolRun() {
         // A write path must surface the backend's reason, not swallow it.
         setError(reason instanceof Error ? reason.message : String(reason));
       } finally {
+        running.current = false;
         setBusy(false);
       }
     },

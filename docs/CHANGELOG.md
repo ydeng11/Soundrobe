@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The browser workspace places a track inspector beside the album list on desktop and below it on mobile. You can filter artists and albums, find tracks with missing tags or failed writes, and retry a failed save with the draft still in place. Successful saves update the selected file from the saved tags.
+
 - Reviewed, hash-checked catalog title localizations can resolve filename-only tracks while retaining canonical provider display titles and source receipts. Aliases apply only to their reviewed release and track occurrence with compatible durations; conflicting live, mix and remaster claims remain blocked.
 - Auto-tagging retains provider release remaster evidence and recognizes wave-delimited version tags before falling back to filenames. Explicit version conflicts cannot be bypassed by recording IDs or shorter title matches, and a local remaster-year claim requires matching provider evidence. Catalog support still does not verify the local audio's mastering.
 - Auto-tagging searches album-specific Discogs releases and versions before browsing an artist's broader catalog, so crowded catalogs do not consume the lookup budget before a matching album version can be checked.

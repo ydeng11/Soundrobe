@@ -44,6 +44,8 @@ The metadata pipeline remains: folder hints → exact provider IDs / artist rele
 
 The browser workspace under `src/web/` is a dense utility UI that must match the Music Tag Web V2 reference wherever the reference defines a value. Consistency is held by the token layer and by tests rather than by convention, so this section is short and strict.
 
+Read [docs/browser-ui-guide.md](docs/browser-ui-guide.md) before changing the browser workspace and update it when an approved design decision changes.
+
 `src/web/tokens.css` is the only source of colour, type, and geometry; `src/web/web.css` consumes it. `src/web/columns.ts` is the only source of column widths.
 
 - Do not add a literal colour. The two tolerated literals are the shadow alphas. Prefer a token for any value that repeats or that the reference defines; one-off icon and utility widths are the existing exception.

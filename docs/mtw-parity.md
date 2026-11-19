@@ -1166,3 +1166,23 @@ content to the top and focus its heading. Existing state remains mounted so
 switching categories preserves Lyrics URL and custom schedule drafts without
 saving them. Immediate-save controls and explicit Save/Cancel behavior remain
 unchanged. No palette or geometry token changed.
+
+
+## 29. Browser workspace split-pane layout (2026-11-19)
+
+The selected split-pane design supersedes the bottom editor dock documented in
+section 26. At desktop widths the open folder, track list, and inspector remain
+visible together. At 900px and below the three regions stack. The workspace
+uses the existing palette, type, row-height, and control tokens, with local
+layout geometry for the split.
+
+| Area | Previous | Split-pane |
+| --- | --- | --- |
+| Folder rail | 352px | Up to 256px and 20% of the workspace |
+| Desktop album cover | 240px | 132px |
+| Track editor | Bottom dock capped at 248px | Independent side pane, 274–384px |
+| Default track columns | Ten metadata columns | Track title and filename, tag status, time |
+
+Saved column preferences still determine which metadata columns appear. Their
+widths still come from `columns.ts`, which also defines the two workspace-only
+columns. An existing setting can hide the track inspector.

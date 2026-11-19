@@ -18,7 +18,8 @@ export interface DirectoryTreeProps {
   childrenByPath: Readonly<Record<string, DirEntry[] | undefined>>;
   /** Albums background tagging left needing review, already normalized. */
   reviewPaths?: ReadonlySet<string>;
-  onToggle: (path: string) => void;
+  visiblePaths?: ReadonlySet<string>;
+  onToggle?: (path: string) => void;
   onNavigate: (path: string) => void;
 }
 
@@ -29,6 +30,7 @@ export function DirectoryTree({
   expanded,
   childrenByPath,
   reviewPaths,
+  visiblePaths,
   onToggle,
   onNavigate,
 }: DirectoryTreeProps) {
@@ -43,6 +45,7 @@ export function DirectoryTree({
         expanded={expanded}
         childrenByPath={childrenByPath}
         reviewPaths={reviewPaths}
+        visiblePaths={visiblePaths}
         onToggle={onToggle}
         onNavigate={onNavigate}
       />
@@ -64,10 +67,11 @@ function TreeRow({
   expanded,
   childrenByPath,
   reviewPaths,
+  visiblePaths,
   onToggle,
   onNavigate,
 }: TreeRowProps) {
-  const children = childrenByPath[path];
+  const children = childrenByPath[path]?.filter((child) => !visiblePaths || visiblePaths.has(child.path));
   const isExpanded = expanded.has(path);
   const isActive = activePath === path;
   const needsReview = reviewPaths ? isNeedsReview(reviewPaths, path) : false;
@@ -78,15 +82,15 @@ function TreeRow({
         <button
           type="button"
           className={`sr-tree__node ${isActive ? "is-active" : ""}`}
-          aria-expanded={children ? isExpanded : undefined}
+          aria-expanded={children?.length && onToggle ? isExpanded : undefined}
           aria-current={isActive ? "true" : undefined}
           onClick={() => {
             onNavigate(path);
-            onToggle(path);
+            onToggle?.(path);
           }}
         >
           <span aria-hidden="true" className="sr-tree__twisty">
-            {isExpanded ? "▾" : "▸"}
+            {children?.length ? isExpanded ? "▾" : "▸" : "·"}
           </span>
           <span className="sr-tree__label">{label}</span>
           {needsReview && (

@@ -496,19 +496,22 @@ describe("workspace data flow", () => {
     await waitFor(() => expect(screen.getByTestId("workspace-empty")).toBeTruthy());
   });
 
-  it("writes through the shared writer and reloads the directory", async () => {
+  it("updates the selected row from writer readback", async () => {
     const api = fakeApi();
+    api.writeTrack.mockResolvedValueOnce(track({ title: "Readback title" }));
     render(<WorkspaceView api={api as unknown as Window["api"]} />);
     await waitFor(() => expect(screen.getByTestId("workspace-table")).toBeTruthy());
 
     fireEvent.click(within(screen.getByTestId("workspace-row")).getByRole("button"));
     fireEvent.change(await screen.findByLabelText("Title"), { target: { value: "Renamed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save tags" }));
 
     await waitFor(() => expect(api.writeTrack).toHaveBeenCalledTimes(1));
     expect(api.writeTrack.mock.calls[0][0]).toBe(track().path);
     expect(api.writeTrack.mock.calls[0][1].title).toBe("Renamed");
-    expect(api.readDirectory).toHaveBeenCalledTimes(2);
+    expect(api.readDirectory).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Readback title")).toBeTruthy();
+    expect(screen.getByLabelText("Title")).toHaveProperty("value", "Readback title");
   });
 
   it("surfaces a write failure instead of silently dropping it", async () => {
@@ -519,7 +522,7 @@ describe("workspace data flow", () => {
 
     fireEvent.click(within(screen.getByTestId("workspace-row")).getByRole("button"));
     fireEvent.change(await screen.findByLabelText("Title"), { target: { value: "Renamed" } });
-    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save tags" }));
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByRole("alert").textContent).toContain("readback mismatch");

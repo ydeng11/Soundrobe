@@ -149,6 +149,10 @@
   --sr-gutter: 16px;
   /* Local layout values for the selected album-focus direction; palette, type,
      table columns and reference chrome values remain unchanged. */
+  --sr-workspace-library-max-w: 256px;
+  --sr-workspace-inspector-min-w: 274px;
+  --sr-workspace-inspector-max-w: 384px;
+  --sr-workspace-cover-size: calc(var(--sr-album-art-size-mobile) * 1.5);
   --sr-workspace-filter-w: 240px;
   --sr-workspace-filter-min-w: 120px;
   --sr-album-art-size: 240px;

@@ -36,6 +36,7 @@ export interface TrackToolsProps {
   selectedPaths?: readonly string[];
   /** Reload after a write so the table shows what was actually written. */
   onApplied: () => Promise<void> | void;
+  disabled?: boolean;
   /** Injected for tests; defaults to the installed facade. */
   api?: Window["api"];
 }
@@ -45,6 +46,7 @@ export function TrackTools({
   tracks,
   selectedPaths = [],
   onApplied,
+  disabled: disabledByWorkspace = false,
   api = window.api,
 }: TrackToolsProps) {
   const [open, setOpen] = React.useState<null | "search" | "number" | "convert">(null);
@@ -55,7 +57,7 @@ export function TrackTools({
   // The desktop converts the selection and numbers the album; with no selection
   // Convert falls back to the album so the tool is usable from a plain folder.
   const convertScope = selected.length > 0 ? selected : tracks;
-  const disabled = !albumPath || tracks.length === 0;
+  const disabled = disabledByWorkspace || !albumPath || tracks.length === 0;
 
   return (
     <>
