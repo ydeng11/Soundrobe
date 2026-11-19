@@ -68,6 +68,35 @@ CREATE TABLE IF NOT EXISTS write_intents (
   updated_at INTEGER NOT NULL,
   PRIMARY KEY(run_id, path)
 );
+CREATE TABLE IF NOT EXISTS write_recovery_decisions (
+  revision TEXT NOT NULL,
+  path TEXT NOT NULL,
+  action TEXT NOT NULL,
+  observed_sha256 TEXT NOT NULL,
+  decided_at INTEGER NOT NULL,
+  PRIMARY KEY(revision, path)
+);
+CREATE TABLE IF NOT EXISTS reversal_manifests (
+  revision TEXT PRIMARY KEY,
+  album_path TEXT NOT NULL,
+  manifest TEXT NOT NULL,
+  status TEXT NOT NULL,
+  owner_pid INTEGER,
+  owner_token TEXT,
+  updated_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS review_target_owners (
+  sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+  path TEXT NOT NULL,
+  revision TEXT NOT NULL,
+  UNIQUE(path, revision)
+);
+CREATE TABLE IF NOT EXISTS review_target_writers (
+  path TEXT PRIMARY KEY,
+  revision TEXT NOT NULL,
+  owner_pid INTEGER NOT NULL,
+  owner_token TEXT NOT NULL
+);
 "#;
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -102,6 +131,7 @@ pub enum WriteRecoveryAction {
     NeedsRecovery,
     Superseded,
     Reverted,
+    KeptCurrent,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -296,6 +326,7 @@ impl WorkerStore {
             .ok_or("worker state not initialized")?
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(|e| e.to_string())?;
+        require_clear_write_recovery(&transaction, path)?;
         let key = storage_key(path);
         let previous: Option<(String, Option<String>)> = transaction
             .query_row(
@@ -447,11 +478,7 @@ impl WorkerStore {
         let mut recovered = 0;
         for (path, owner) in candidates {
             if let Some(owner) = owner {
-                let pid = owner
-                    .split_once(':')
-                    .filter(|(runtime, _)| matches!(*runtime, "desktop" | "server"))
-                    .and_then(|(_, pid)| pid.parse::<u32>().ok())
-                    .filter(|pid| *pid > 0 && i32::try_from(*pid).is_ok());
+                let pid = worker_owner_pid(&owner);
                 if pid.is_none_or(crate::commands::auto_tag_review::process_alive) {
                     continue;
                 }
@@ -473,6 +500,7 @@ impl WorkerStore {
         self.ensure_not_halted()?;
         let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
         let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        require_clear_write_recovery(connection, path)?;
         let changed = connection.execute("UPDATE worker_items SET status='running',run_id=?2,owner=?3,reason=NULL,authority=NULL,updated_at=?4 WHERE path=?1 AND status IN ('pending','deferred')",params![storage_key(path),run_id,format!("server:{}",std::process::id()),now_epoch()]).map_err(|e|e.to_string())?;
         if changed != 1 {
             return Err("worker claim lost or album already running".into());
@@ -1101,34 +1129,10 @@ impl WorkerStore {
             )
             .map_err(|e| e.to_string())?;
         let rows = statement
-            .query_map([recovery_key(path)?], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, String>(5)?,
-                    row.get::<_, String>(6)?,
-                    row.get::<_, String>(7)?,
-                ))
-            })
+            .query_map([recovery_key(path)?], row_to_field_review)
             .map_err(|e| e.to_string())?;
-        rows.map(|row| {
-            let (path, field, revision, before, after, provenance, evidence_ids, state) =
-                row.map_err(|e| e.to_string())?;
-            Ok(FieldReviewObligation {
-                path: PathBuf::from(path),
-                field,
-                revision,
-                before: serde_json::from_str(&before).map_err(|e| e.to_string())?,
-                after: serde_json::from_str(&after).map_err(|e| e.to_string())?,
-                provenance: serde_json::from_str(&provenance).map_err(|e| e.to_string())?,
-                evidence_ids: serde_json::from_str(&evidence_ids).map_err(|e| e.to_string())?,
-                state,
-            })
-        })
-        .collect()
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
     }
 
     /// Acknowledges exactly one revision-bound field. It never completes,
@@ -1164,6 +1168,526 @@ impl WorkerStore {
             }
         }
         Ok(())
+    }
+
+    pub(crate) fn verified_field_reviews(
+        &self,
+        revision: Option<&str>,
+    ) -> Result<Vec<FieldReviewObligation>, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        Ok(load_verified_field_reviews(connection, revision)?
+            .into_iter()
+            .map(|(field, _)| field)
+            .collect())
+    }
+
+    pub(crate) fn write_recovery_conflicts(&self) -> Result<Vec<(String, PathBuf)>, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        let mut statement = connection
+            .prepare(
+                "SELECT run_id, path FROM write_intents
+                      WHERE state IN ('needs_recovery', 'reverting') ORDER BY path",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = statement
+            .query_map([], |row| {
+                let run_id: String = row.get(0)?;
+                let path: String = row.get(1)?;
+                Ok((
+                    write_intent_revision(&run_id).to_owned(),
+                    PathBuf::from(path),
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn recovery_file_digest(path: &Path) -> Option<String> {
+        file_sha256(path).ok().flatten()
+    }
+
+    pub(crate) fn recovery_file_can_be_kept(
+        &self,
+        revision: &str,
+        path: &Path,
+    ) -> Result<bool, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        let prefix = format!("{revision}::");
+        connection
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM write_intents WHERE path=?1
+               AND substr(run_id, 1, length(?2))=?2 AND state='needs_recovery')
+             AND NOT EXISTS(SELECT 1 FROM write_intents WHERE path=?1 AND state='reverting')",
+                params![storage_key(path), prefix],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())
+    }
+
+    /// Record an explicit decision to preserve the file the user reviewed.
+    /// The file and its backup remain untouched.
+    pub(crate) fn keep_recovery_file(
+        &self,
+        revision: &str,
+        path: &Path,
+        expected_sha256: &str,
+    ) -> Result<(), String> {
+        if expected_sha256.len() != 64 || !expected_sha256.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err("Invalid recovery file fingerprint".into());
+        }
+        let key = recovery_key(path)?;
+        if Path::new(&key) != path {
+            return Err("Recovery file path changed".into());
+        }
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let owners = {
+            let mut statement = transaction
+                .prepare(
+                    "SELECT DISTINCT i.owner FROM worker_items i JOIN write_intents w
+                 ON substr(w.run_id, 1, length(i.run_id)+2)=i.run_id || '::'
+                 WHERE w.path=?1 AND i.status='running'",
+                )
+                .map_err(|e| e.to_string())?;
+            let rows = statement
+                .query_map([&key], |row| row.get::<_, Option<String>>(0))
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
+        };
+        for owner in owners {
+            if owner
+                .as_deref()
+                .and_then(worker_owner_pid)
+                .is_none_or(crate::commands::auto_tag_review::process_alive)
+            {
+                return Err("Recovery is unavailable while a run may still be active".into());
+            }
+        }
+        if file_sha256(path)?.as_deref() != Some(expected_sha256) {
+            return Err("File changed since it was reviewed; refresh recovery details".into());
+        }
+        let prefix = format!("{revision}::");
+        let reverting: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM write_intents WHERE path=?1 AND state='reverting')",
+                [&key],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if reverting {
+            return Err("An interrupted revert needs further recovery".into());
+        }
+        let changed = transaction
+            .execute(
+                "UPDATE write_intents SET state='kept_current', updated_at=?3
+                 WHERE path=?1 AND substr(run_id, 1, length(?2))=?2
+                   AND state='needs_recovery'",
+                params![key, prefix, now_epoch()],
+            )
+            .map_err(|e| e.to_string())?;
+        if changed == 0 {
+            return Err("Recovery item is no longer available".into());
+        }
+        transaction.execute(
+            "INSERT INTO write_recovery_decisions (revision, path, action, observed_sha256, decided_at)
+             VALUES (?1, ?2, 'kept_current', ?3, ?4)",
+            params![revision, key, expected_sha256, now_epoch()],
+        ).map_err(|e| e.to_string())?;
+        transaction
+            .execute(
+                "UPDATE write_intents SET state='superseded', updated_at=?4
+             WHERE path=?1 AND substr(run_id, 1, length(?2))=?2
+               AND state='verified' AND after_sha256 != ?3",
+                params![key, prefix, expected_sha256, now_epoch()],
+            )
+            .map_err(|e| e.to_string())?;
+        transaction
+            .execute(
+                "UPDATE field_review_obligations SET state='dismissed', acknowledged_at=?3
+                 WHERE path=?1 AND revision=?2 AND state='open'
+                   AND NOT EXISTS (
+                     SELECT 1 FROM write_intents w
+                     WHERE w.path=?1 AND substr(w.run_id, 1, length(?2)+2)=?2 || '::'
+                       AND w.state='verified' AND w.after_sha256=?4
+                   )",
+                params![key, revision, now_epoch(), expected_sha256],
+            )
+            .map_err(|e| e.to_string())?;
+        if file_sha256(path)?.as_deref() != Some(expected_sha256) {
+            return Err("File changed while resolving recovery".into());
+        }
+        transaction.commit().map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn album_for_write_review(&self, revision: &str) -> Result<Option<PathBuf>, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        connection
+            .query_row(
+                "SELECT path FROM worker_items WHERE run_id=?1
+                 UNION SELECT path FROM worker_evidence WHERE run_id=?1 LIMIT 1",
+                [revision],
+                |row| row.get::<_, String>(0).map(PathBuf::from),
+            )
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn reversal_manifest(
+        &self,
+        revision: &str,
+    ) -> Result<Option<(String, Value, String)>, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        connection
+            .query_row(
+                "SELECT album_path, manifest, status FROM reversal_manifests WHERE revision=?1",
+                [revision],
+                |row| Ok((row.get(0)?, parse_sql_json(row, 1)?, row.get(2)?)),
+            )
+            .optional()
+            .map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn copy_reversal_backup(
+        &self,
+        source: &Path,
+        expected: &str,
+    ) -> Result<PathBuf, String> {
+        let directory = self.data_dir().join("reversal-recovery");
+        private_recovery_directory(&directory, sync_directory)?;
+        let backup = directory.join(format!("{}.bak", uuid::Uuid::new_v4()));
+        fs::copy(source, &backup).map_err(|e| e.to_string())?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&backup, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| e.to_string())?;
+        }
+        fs::File::open(&backup)
+            .and_then(|file| file.sync_all())
+            .map_err(|e| e.to_string())?;
+        if file_sha256(&backup)?.as_deref() != Some(expected) {
+            return Err("Reversal backup failed verification".into());
+        }
+        sync_recovery_directory(&directory)?;
+        Ok(backup)
+    }
+
+    pub(crate) fn sync_reversal_parent(path: &Path) -> Result<(), String> {
+        sync_directory(path.parent().ok_or("Reversal target has no parent")?)
+    }
+
+    pub(crate) fn pending_reversals(&self) -> Result<Vec<String>, String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        let mut statement = connection.prepare(
+            "SELECT revision FROM reversal_manifests WHERE status='pending' ORDER BY updated_at, revision"
+        ).map_err(|e| e.to_string())?;
+        let rows = statement
+            .query_map([], |row| row.get(0))
+            .map_err(|e| e.to_string())?;
+        rows.collect::<Result<Vec<_>, _>>()
+            .map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn create_reversal_manifest(
+        &self,
+        revision: &str,
+        album: &str,
+        manifest: &Value,
+    ) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let files = manifest["files"]
+            .as_array()
+            .ok_or("Invalid reversal manifest")?;
+        for file in files {
+            let path = file["target"].as_str().ok_or("Invalid reversal target")?;
+            let writer: Option<u32> = transaction
+                .query_row(
+                    "SELECT owner_pid FROM review_target_writers WHERE path=?1",
+                    [path],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            if writer.is_some_and(crate::commands::auto_tag_review::process_alive) {
+                return Err(format!("A live writer owns {path}"));
+            }
+            if writer.is_some() {
+                transaction
+                    .execute("DELETE FROM review_target_writers WHERE path=?1", [path])
+                    .map_err(|e| e.to_string())?;
+            }
+            let owner: Option<String> = transaction.query_row(
+                "SELECT revision FROM review_target_owners WHERE path=?1 ORDER BY sequence DESC LIMIT 1",
+                [path], |row| row.get(0),
+            ).optional().map_err(|e| e.to_string())?;
+            if owner.as_deref() != Some(revision) {
+                return Err(format!("A newer review owns {path}"));
+            }
+        }
+        transaction.execute(
+            "INSERT INTO reversal_manifests (revision, album_path, manifest, status, updated_at)
+             VALUES (?1, ?2, ?3, 'pending', ?4)",
+            params![revision, album, manifest.to_string(), now_epoch()],
+        ).map_err(|e| e.to_string())?;
+        transaction
+            .execute(
+                "UPDATE write_intents SET state='reverting', updated_at=?2
+             WHERE substr(run_id, 1, length(?1)+2)=?1 || '::'
+               AND state NOT IN ('reverted', 'kept_current')",
+                params![revision, now_epoch()],
+            )
+            .map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn claim_reversal(&self, revision: &str, token: &str) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let (status, owner): (String, Option<u32>) = transaction
+            .query_row(
+                "SELECT status, owner_pid FROM reversal_manifests WHERE revision=?1",
+                [revision],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|e| e.to_string())?;
+        if status != "pending" || owner.is_some_and(crate::commands::auto_tag_review::process_alive)
+        {
+            return Err("Reversal is complete or already owned by a live process".into());
+        }
+        transaction.execute(
+            "UPDATE reversal_manifests SET owner_pid=?2, owner_token=?3, updated_at=?4 WHERE revision=?1",
+            params![revision, std::process::id(), token, now_epoch()],
+        ).map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn update_reversal(
+        &self,
+        revision: &str,
+        token: &str,
+        manifest: &Value,
+        complete: bool,
+    ) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let changed = transaction
+            .execute(
+                "UPDATE reversal_manifests SET manifest=?3, status=?4, updated_at=?5
+             WHERE revision=?1 AND owner_token=?2 AND owner_pid=?6 AND status='pending'",
+                params![
+                    revision,
+                    token,
+                    manifest.to_string(),
+                    if complete { "completed" } else { "pending" },
+                    now_epoch(),
+                    std::process::id()
+                ],
+            )
+            .map_err(|e| e.to_string())?;
+        if changed != 1 {
+            return Err("Reversal ownership was lost".into());
+        }
+        if complete {
+            transaction
+                .execute(
+                    "UPDATE write_intents SET state='reverted', updated_at=?2
+                 WHERE substr(run_id, 1, length(?1)+2)=?1 || '::' AND state='reverting'",
+                    params![revision, now_epoch()],
+                )
+                .map_err(|e| e.to_string())?;
+            transaction
+                .execute(
+                    "DELETE FROM review_target_owners WHERE revision=?1",
+                    [revision],
+                )
+                .map_err(|e| e.to_string())?;
+            transaction.execute(
+                "UPDATE field_review_obligations SET state='reverted', acknowledged_at=?2 WHERE revision=?1 AND state='open'",
+                params![revision, now_epoch()],
+            ).map_err(|e| e.to_string())?;
+        }
+        transaction.commit().map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn release_reversal(&self, revision: &str, token: &str) -> Result<(), String> {
+        let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let connection = guard.as_ref().ok_or("worker state not initialized")?;
+        connection
+            .execute(
+                "UPDATE reversal_manifests SET owner_pid=NULL, owner_token=NULL
+             WHERE revision=?1 AND owner_token=?2 AND owner_pid=?3",
+                params![revision, token, std::process::id()],
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+    }
+
+    pub(crate) fn register_review_target(
+        &self,
+        revision: &str,
+        target: &Path,
+        token: &str,
+    ) -> Result<bool, String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let key = storage_key(target);
+        let writer: Option<u32> = transaction
+            .query_row(
+                "SELECT owner_pid FROM review_target_writers WHERE path=?1",
+                [&key],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if writer.is_some_and(crate::commands::auto_tag_review::process_alive) {
+            return Err(format!("A live writer owns {key}"));
+        }
+        if writer.is_some() {
+            transaction
+                .execute("DELETE FROM review_target_writers WHERE path=?1", [&key])
+                .map_err(|e| e.to_string())?;
+        }
+        let active = {
+            let mut statement = transaction
+                .prepare("SELECT manifest FROM reversal_manifests WHERE status='pending'")
+                .map_err(|e| e.to_string())?;
+            let rows = statement
+                .query_map([], |row| parse_sql_json::<Value>(row, 0))
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
+        };
+        if active.iter().any(|manifest| {
+            manifest["files"].as_array().is_some_and(|files| {
+                files
+                    .iter()
+                    .any(|file| file["target"].as_str() == Some(&key))
+            })
+        }) {
+            return Err(format!("A pending reversal owns {key}"));
+        }
+        let latest: Option<String> = transaction.query_row(
+            "SELECT revision FROM review_target_owners WHERE path=?1 ORDER BY sequence DESC LIMIT 1",
+            [&key], |row| row.get(0),
+        ).optional().map_err(|e| e.to_string())?;
+        let exists: bool = transaction
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM review_target_owners WHERE path=?1 AND revision=?2)",
+                params![key, revision],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
+        if exists && latest.as_deref() != Some(revision) {
+            return Err(format!("A newer review owns {key}"));
+        }
+        let inserted = transaction
+            .execute(
+                "INSERT OR IGNORE INTO review_target_owners(path, revision) VALUES (?1, ?2)",
+                params![key, revision],
+            )
+            .map_err(|e| e.to_string())?;
+        transaction.execute(
+            "INSERT INTO review_target_writers(path, revision, owner_pid, owner_token) VALUES (?1, ?2, ?3, ?4)",
+            params![key, revision, std::process::id(), token],
+        ).map_err(|e| e.to_string())?;
+        transaction.commit().map_err(|e| e.to_string())?;
+        Ok(inserted == 1)
+    }
+
+    pub(crate) fn release_review_target(
+        &self,
+        revision: &str,
+        target: &Path,
+        token: &str,
+        discard_owner: bool,
+    ) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let key = storage_key(target);
+        let removed = transaction.execute(
+            "DELETE FROM review_target_writers WHERE path=?1 AND revision=?2 AND owner_pid=?3 AND owner_token=?4",
+            params![key, revision, std::process::id(), token],
+        ).map_err(|e| e.to_string())?;
+        if removed != 1 {
+            return Err("Target write ownership was lost".into());
+        }
+        if discard_owner {
+            transaction
+                .execute(
+                    "DELETE FROM review_target_owners WHERE path=?1 AND revision=?2",
+                    params![key, revision],
+                )
+                .map_err(|e| e.to_string())?;
+        }
+        transaction.commit().map_err(|e| e.to_string())
+    }
+
+    /// Persist a review decision only if the exact verified files still match.
+    /// This transaction has no effect on worker scheduling or media.
+    pub(crate) fn acknowledge_verified_field_reviews(&self, revision: &str) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        for (review, expected) in load_verified_field_reviews(&transaction, Some(revision))? {
+            if review.state != "open" {
+                continue;
+            }
+            if file_sha256(&review.path)?.as_deref() != Some(&expected) {
+                return Err(format!(
+                    "File changed since auto-tag: {}",
+                    review.path.display()
+                ));
+            }
+            transaction
+                .execute(
+                    "UPDATE field_review_obligations SET state='acknowledged', acknowledged_at=?4
+                     WHERE path=?1 AND field=?2 AND revision=?3 AND state='open'",
+                    params![
+                        storage_key(&review.path),
+                        review.field,
+                        revision,
+                        now_epoch()
+                    ],
+                )
+                .map_err(|e| e.to_string())?;
+        }
+        transaction.commit().map_err(|e| e.to_string())
     }
 
     /// Capture a private, synced before-state and its intent before mutation.
@@ -1274,11 +1798,11 @@ impl WorkerStore {
             return Err("write intent pre-state changed; recovery is required".into());
         }
         match intent.state.as_str() {
-            "prepared" => {
+            "prepared" | "retry_safe" => {
                 connection
                     .execute(
                         "UPDATE write_intents SET state='applying', updated_at=?3
-                         WHERE run_id=?1 AND path=?2 AND state='prepared'",
+                         WHERE run_id=?1 AND path=?2 AND state IN ('prepared', 'retry_safe')",
                         params![run_id, key, now_epoch()],
                     )
                     .map_err(|e| e.to_string())?;
@@ -1318,34 +1842,80 @@ impl WorkerStore {
     }
 
     pub fn verify_write_intent(&self, path: &Path, run_id: &str) -> Result<(), String> {
-        let current = file_sha256(path)?;
         let key = recovery_key(path)?;
         let guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
         let connection = guard.as_ref().ok_or("worker state not initialized")?;
         let mut intent =
             load_write_intent(connection, run_id, &key)?.ok_or("write intent not found")?;
-        let payload_matches = intent
-            .before_payload_sha256
-            .as_ref()
-            .and_then(|before| {
-                crate::commands::mutations::track_payload_digest(path)
-                    .ok()
-                    .map(|after| &after == before)
-            })
-            .unwrap_or(false);
-        let metadata_matches = crate::commands::auto_tag_review::track_view(path)
-            .is_ok_and(|readback| readback_matches(&intent.patch, &readback));
-        if intent.state != "written"
-            || current != intent.after_sha256
-            || !payload_matches
-            || !metadata_matches
-        {
-            intent.state = "needs_recovery".into();
-            save_write_intent(connection, &intent)?;
-            return Err("write intent success/readback validation failed".into());
+        if intent.state != "written" {
+            return Err("write intent is not awaiting validation".into());
         }
-        intent.state = "verified".into();
-        save_write_intent(connection, &intent)
+        intent.state = if valid_write_receipt(&intent) {
+            "verified"
+        } else {
+            "needs_recovery"
+        }
+        .into();
+        save_write_intent(connection, &intent)?;
+        if intent.state == "verified" {
+            Ok(())
+        } else {
+            Err("write intent success/readback validation failed".into())
+        }
+    }
+
+    /// Settle abandoned intent states before accepting new auto-tag work.
+    /// Known post-state can be verified, while an unknown write or reversal
+    /// requires review. The transaction only updates SQLite.
+    pub fn reconcile_writes_at_startup(&self) -> Result<(), String> {
+        let mut guard = self.inner.lock().map_err(|_| "worker state unavailable")?;
+        let transaction = guard
+            .as_mut()
+            .ok_or("worker state not initialized")?
+            .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
+            .map_err(|e| e.to_string())?;
+        let intents = {
+            let mut statement = transaction
+                .prepare("SELECT run_id, path, before_sha256, before_payload_sha256, after_sha256,
+                                 backup_path, patch, state FROM write_intents
+                          WHERE state IN ('prepared', 'applying', 'written', 'partial', 'needs_recovery')")
+                .map_err(|e| e.to_string())?;
+            let rows = statement
+                .query_map([], row_to_write_intent)
+                .map_err(|e| e.to_string())?;
+            rows.collect::<Result<Vec<_>, _>>()
+                .map_err(|e| e.to_string())?
+        };
+        for mut intent in intents {
+            let revision = write_intent_revision(&intent.run_id);
+            let owner: Option<Option<String>> = transaction
+                .query_row(
+                    "SELECT owner FROM worker_items WHERE run_id=?1 AND status='running'",
+                    [revision],
+                    |row| row.get(0),
+                )
+                .optional()
+                .map_err(|e| e.to_string())?;
+            if let Some(owner) = owner {
+                let pid = owner.as_deref().and_then(worker_owner_pid);
+                if pid.is_none_or(crate::commands::auto_tag_review::process_alive) {
+                    continue;
+                }
+            }
+            intent.state = match intent.state.as_str() {
+                "written" if valid_write_receipt(&intent) => "verified",
+                _ if intent.before_sha256.is_some()
+                    && file_sha256(&intent.path).is_ok_and(|hash| hash == intent.before_sha256) =>
+                {
+                    "retry_safe"
+                }
+                "needs_recovery" => continue,
+                _ => "needs_recovery",
+            }
+            .into();
+            save_write_intent(&transaction, &intent)?;
+        }
+        transaction.commit().map_err(|e| e.to_string())
     }
 
     pub fn supersede_prior_write_intents(
@@ -1433,6 +2003,7 @@ impl WorkerStore {
                 let (action, error) = match intent.state.as_str() {
                     "superseded" => (WriteRecoveryAction::Superseded, None),
                     "reverted" => (WriteRecoveryAction::Reverted, None),
+                    "kept_current" => (WriteRecoveryAction::KeptCurrent, None),
                     state => match file_sha256(&intent.path) {
                         Err(error) => (WriteRecoveryAction::NeedsRecovery, Some(error)),
                         Ok(current) => {
@@ -1440,9 +2011,12 @@ impl WorkerStore {
                                 "verified" if current == intent.after_sha256 => {
                                     WriteRecoveryAction::ReceiptRecoverable
                                 }
-                                "prepared" | "applying" if current == intent.before_sha256 => {
+                                "prepared" | "applying" | "retry_safe"
+                                    if current == intent.before_sha256 =>
+                                {
                                     WriteRecoveryAction::RetrySafe
                                 }
+                                "retry_safe" => WriteRecoveryAction::Superseded,
                                 _ => WriteRecoveryAction::NeedsRecovery,
                             };
                             let error = if action == WriteRecoveryAction::NeedsRecovery {
@@ -1611,6 +2185,94 @@ fn recovery_key(path: &Path) -> Result<String, String> {
     Ok(storage_key(&canonical))
 }
 
+fn worker_owner_pid(owner: &str) -> Option<u32> {
+    let (runtime, pid) = owner.split_once(':')?;
+    if !matches!(runtime, "desktop" | "server") {
+        return None;
+    }
+    pid.parse()
+        .ok()
+        .filter(|pid| *pid > 0 && i32::try_from(*pid).is_ok())
+}
+
+fn write_intent_revision(run_id: &str) -> &str {
+    run_id
+        .split_once("::")
+        .map_or(run_id, |(revision, _)| revision)
+}
+
+fn require_clear_write_recovery(connection: &Connection, album: &Path) -> Result<(), String> {
+    let album = fs::canonicalize(album).unwrap_or_else(|_| album.to_path_buf());
+    {
+        let mut statement = connection
+            .prepare("SELECT album_path, manifest FROM reversal_manifests WHERE status='pending'")
+            .map_err(|e| e.to_string())?;
+        let rows = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, parse_sql_json::<Value>(row, 1)?))
+            })
+            .map_err(|e| e.to_string())?;
+        for row in rows {
+            let (recorded_album, manifest) = row.map_err(|e| e.to_string())?;
+            let recorded_album =
+                fs::canonicalize(&recorded_album).unwrap_or_else(|_| PathBuf::from(recorded_album));
+            let shares_target = manifest["files"].as_array().is_some_and(|files| {
+                files.iter().any(|file| {
+                    file["target"].as_str().is_some_and(|target| {
+                        let target = Path::new(target);
+                        target.starts_with(&album)
+                            || (target.parent() == album.parent()
+                                && matches!(
+                                    target.file_name().and_then(|name| name.to_str()),
+                                    Some("artist.jpg" | "artist.png")
+                                ))
+                    })
+                })
+            });
+            if recorded_album == album || shares_target {
+                return Err(format!(
+                    "Album reversal needs recovery: {}",
+                    album.display()
+                ));
+            }
+        }
+    }
+    let mut statement = connection
+        .prepare("SELECT path FROM write_intents WHERE state IN ('needs_recovery', 'reverting')")
+        .map_err(|e| e.to_string())?;
+    let paths = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if paths.is_empty() {
+        return Ok(());
+    }
+    for path in paths {
+        let path = PathBuf::from(path);
+        if path.starts_with(&album) {
+            return Err(format!("Auto-tag write needs recovery: {}", path.display()));
+        }
+    }
+    Ok(())
+}
+
+fn valid_write_receipt(intent: &WriteIntent) -> bool {
+    let path = &intent.path;
+    let matches_post_state = || {
+        intent.after_sha256.is_some()
+            && file_sha256(path).is_ok_and(|hash| hash == intent.after_sha256)
+    };
+    matches_post_state()
+        && intent.before_payload_sha256.as_ref().is_some_and(|before| {
+            crate::commands::mutations::track_payload_digest(path)
+                .is_ok_and(|after| &after == before)
+        })
+        && crate::commands::auto_tag_review::track_view(path)
+            .is_ok_and(|readback| readback_matches(&intent.patch, &readback))
+        && matches_post_state()
+}
+
 fn readback_matches(patch: &Value, readback: &Value) -> bool {
     let Some(fields) = patch.as_object() else {
         return false;
@@ -1619,6 +2281,63 @@ fn readback_matches(patch: &Value, readback: &Value) -> bool {
         && fields
             .iter()
             .all(|(field, expected)| readback.get(field).is_some_and(|actual| actual == expected))
+}
+
+fn load_verified_field_reviews(
+    connection: &Connection,
+    revision: Option<&str>,
+) -> Result<Vec<(FieldReviewObligation, String)>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT f.path, f.field, f.revision, f.before_value, f.after_value, f.provenance,
+                    f.evidence_ids, f.state, w.patch, w.after_sha256
+             FROM field_review_obligations f JOIN write_intents w ON f.path=w.path
+               AND substr(w.run_id, 1, length(f.revision)+2)=f.revision || '::'
+             WHERE w.state='verified' AND w.after_sha256 IS NOT NULL
+               AND f.state IN ('open', 'acknowledged')
+               AND (f.revision=?1 OR (?1 IS NULL AND f.state='open'))
+             ORDER BY f.revision, f.path, f.field",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = statement
+        .query_map([revision], |row| {
+            let field = row_to_field_review(row)?;
+            let patch: Value = parse_sql_json(row, 8)?;
+            let hash = row.get(9)?;
+            Ok((patch.get(&field.field) == Some(&field.after)).then_some((field, hash)))
+        })
+        .map_err(|e| e.to_string())?;
+    let rows = rows
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().flatten().collect())
+}
+
+fn row_to_field_review(row: &rusqlite::Row<'_>) -> rusqlite::Result<FieldReviewObligation> {
+    Ok(FieldReviewObligation {
+        path: PathBuf::from(row.get::<_, String>(0)?),
+        field: row.get(1)?,
+        revision: row.get(2)?,
+        before: parse_sql_json(row, 3)?,
+        after: parse_sql_json(row, 4)?,
+        provenance: parse_sql_json(row, 5)?,
+        evidence_ids: parse_sql_json(row, 6)?,
+        state: row.get(7)?,
+    })
+}
+
+fn parse_sql_json<T: serde::de::DeserializeOwned>(
+    row: &rusqlite::Row<'_>,
+    index: usize,
+) -> rusqlite::Result<T> {
+    let text: String = row.get(index)?;
+    serde_json::from_str(&text).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index,
+            rusqlite::types::Type::Text,
+            Box::new(error),
+        )
+    })
 }
 
 fn file_sha256(path: &Path) -> Result<Option<String>, String> {
@@ -2065,7 +2784,7 @@ mod tests {
         let file = root.join("01.flac");
         fs::copy(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../test/fixtures/tauri/media-corpus/minimal.flac"),
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
             &file,
         )
         .unwrap();
@@ -2085,14 +2804,16 @@ mod tests {
         store
             .record_write_intent_applied(&file, "run", true)
             .unwrap();
-        store.verify_write_intent(&file, "run").unwrap();
+        let written_bytes = fs::read(&file).unwrap();
         drop(store);
 
         let reopened = WorkerStore::new_in(root.join("state"));
         assert!(reopened.initialize());
+        reopened.reconcile_writes_at_startup().unwrap();
         let recovery = reopened.reconcile_write_intents().unwrap();
         assert_eq!(recovery.len(), 1);
         assert_eq!(recovery[0].action, WriteRecoveryAction::ReceiptRecoverable);
+        assert_eq!(fs::read(&file).unwrap(), written_bytes);
         assert_eq!(
             recovery[0]
                 .intent
@@ -2102,6 +2823,255 @@ mod tests {
                 .len(),
             64
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn startup_recovery_holds_unknown_changes_and_retires_untouched_abandoned_attempts() {
+        let root = root();
+        let untouched = root.join("untouched.bin");
+        let failed_without_changes = root.join("failed.bin");
+        let changed = root.join("changed.bin");
+        let live = root.join("live.bin");
+        let other_album = root.join("other-album");
+        fs::create_dir(&other_album).unwrap();
+        let store = WorkerStore::new_in(root.join("state"));
+        assert!(store.initialize());
+        store.claim_desktop_run(&root, "live").unwrap();
+        for (path, id) in [
+            (&untouched, "untouched"),
+            (&failed_without_changes, "failed"),
+            (&changed, "changed"),
+            (&live, "live::operation"),
+        ] {
+            fs::write(path, b"before").unwrap();
+            store
+                .prepare_write_intent(path, id, &serde_json::json!({"genre":"Jazz"}))
+                .unwrap();
+            store.begin_write_intent(path, id).unwrap();
+        }
+        fs::write(&changed, b"external change").unwrap();
+        fs::write(&live, b"in flight").unwrap();
+        store
+            .record_write_intent_applied(&failed_without_changes, "failed", false)
+            .unwrap();
+
+        store.reconcile_writes_at_startup().unwrap();
+        assert!(store
+            .reconcile_write_intents()
+            .unwrap()
+            .iter()
+            .any(|entry| {
+                entry.intent.run_id == "failed" && entry.action == WriteRecoveryAction::RetrySafe
+            }));
+        store.reconcile_writes_at_startup().unwrap();
+        let recovery = store.reconcile_write_intents().unwrap();
+        let intent = |id| {
+            &recovery
+                .iter()
+                .find(|entry| entry.intent.run_id == id)
+                .unwrap()
+                .intent
+        };
+        assert_eq!(intent("untouched").state, "retry_safe");
+        assert_eq!(intent("changed").state, "needs_recovery");
+        assert_eq!(intent("live::operation").state, "applying");
+        assert_eq!(fs::read(&changed).unwrap(), b"external change");
+        assert_eq!(
+            fs::read(intent("changed").backup_path.as_ref().unwrap()).unwrap(),
+            b"before"
+        );
+        assert!(store
+            .claim_desktop_run(&root, "fresh")
+            .unwrap_err()
+            .contains("recovery"));
+        assert!(store.claim_desktop_run(&other_album, "unaffected").is_ok());
+        fs::write(&untouched, b"new legitimate attempt").unwrap();
+        fs::write(&changed, b"before").unwrap();
+        store.reconcile_writes_at_startup().unwrap();
+        let reconciled = store.reconcile_write_intents().unwrap();
+        assert!(reconciled.iter().any(|entry| {
+            entry.intent.run_id == "changed" && entry.action == WriteRecoveryAction::RetrySafe
+        }));
+        assert!(reconciled.iter().any(|entry| {
+            entry.intent.run_id == "untouched" && entry.action == WriteRecoveryAction::Superseded
+        }));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn keeping_one_recovery_file_preserves_siblings_backups_and_live_owners() {
+        let root = root();
+        let album = root.join("album");
+        fs::create_dir_all(&album).unwrap();
+        let first = album.join("one.bin");
+        let second = album.join("two.bin");
+        let store = WorkerStore::new_in(root.join("state"));
+        assert!(store.initialize());
+        for (path, attempt) in [(&first, "run::one"), (&second, "run::two")] {
+            fs::write(path, b"original").unwrap();
+            store
+                .prepare_write_intent(path, attempt, &serde_json::json!({"genre":"Jazz"}))
+                .unwrap();
+            store.begin_write_intent(path, attempt).unwrap();
+            fs::write(path, b"changed").unwrap();
+        }
+        store.reconcile_writes_at_startup().unwrap();
+        let first = fs::canonicalize(first).unwrap();
+        let second = fs::canonicalize(second).unwrap();
+        let digest = WorkerStore::recovery_file_digest(&first).unwrap();
+        let backups: Vec<_> = store
+            .reconcile_write_intents()
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.intent.backup_path.unwrap())
+            .collect();
+        {
+            let guard = store.inner.lock().unwrap();
+            let connection = guard.as_ref().unwrap();
+            connection
+                .execute(
+                    "INSERT INTO worker_items (path, trigger, status, run_id, owner, updated_at)
+                 VALUES (?1, 'desktop', 'running', 'run', ?2, 1)",
+                    params![
+                        storage_key(&album),
+                        format!("desktop:{}", std::process::id())
+                    ],
+                )
+                .unwrap();
+        }
+        assert!(store.keep_recovery_file("run", &first, &digest).is_err());
+        {
+            let guard = store.inner.lock().unwrap();
+            guard
+                .as_ref()
+                .unwrap()
+                .execute("UPDATE worker_items SET status='failed'", [])
+                .unwrap();
+        }
+        let second_connection = WorkerStore::new_in(root.join("state"));
+        assert!(second_connection.initialize());
+        store.keep_recovery_file("run", &first, &digest).unwrap();
+        {
+            let guard = store.inner.lock().unwrap();
+            let stored: (String, String) = guard.as_ref().unwrap().query_row(
+                "SELECT action, observed_sha256 FROM write_recovery_decisions WHERE revision='run' AND path=?1",
+                [storage_key(&first)],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            ).unwrap();
+            assert_eq!(stored, ("kept_current".to_owned(), digest.clone()));
+        }
+        assert!(second_connection
+            .keep_recovery_file("run", &first, &digest)
+            .is_err());
+        assert_eq!(fs::read(&first).unwrap(), b"changed");
+        assert_eq!(fs::read(&second).unwrap(), b"changed");
+        assert!(backups
+            .iter()
+            .all(|path| fs::read(path).unwrap() == b"original"));
+        assert!(second_connection
+            .claim_desktop_run(&album, "next")
+            .unwrap_err()
+            .contains("recovery"));
+        second_connection
+            .keep_recovery_file("run", &second, &digest)
+            .unwrap();
+        assert!(second_connection.claim_desktop_run(&album, "next").is_ok());
+        drop(store);
+        drop(second_connection);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn recovery_rejects_retargeted_file_and_legacy_reverting_intents() {
+        use std::os::unix::fs::symlink;
+        let root = root();
+        let file = root.join("track.bin");
+        let replacement = root.join("replacement.bin");
+        fs::write(&file, b"original").unwrap();
+        fs::write(&replacement, b"changed").unwrap();
+        let store = WorkerStore::new_in(root.join("state"));
+        assert!(store.initialize());
+        store
+            .prepare_write_intent(&file, "run::one", &serde_json::json!({"genre":"Jazz"}))
+            .unwrap();
+        store.begin_write_intent(&file, "run::one").unwrap();
+        fs::write(&file, b"changed").unwrap();
+        store.reconcile_writes_at_startup().unwrap();
+        let path = fs::canonicalize(&file).unwrap();
+        let digest = WorkerStore::recovery_file_digest(&path).unwrap();
+        fs::remove_file(&path).unwrap();
+        symlink(&replacement, &path).unwrap();
+        assert!(store.keep_recovery_file("run", &path, &digest).is_err());
+        assert_eq!(fs::read(&replacement).unwrap(), b"changed");
+        fs::remove_file(&path).unwrap();
+        fs::write(&path, b"changed").unwrap();
+        store
+            .mark_review_write_intents_reverting(&path, "run::")
+            .unwrap();
+        assert!(!store.recovery_file_can_be_kept("run", &path).unwrap());
+        assert!(store.keep_recovery_file("run", &path, &digest).is_err());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn startup_requires_known_post_state_metadata_and_unchanged_audio() {
+        use crate::commands::mutations::{track_payload_digest, write_track_queued};
+        use crate::state::write_queue::WriteQueue;
+
+        let root = root();
+        let store = WorkerStore::new_in(root.join("state"));
+        assert!(store.initialize());
+        let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../test/fixtures/tauri/writer-corpus/padded.flac");
+        let expected = serde_json::json!({"genre":"Jazz"});
+        let queue = WriteQueue::default();
+        for (id, genre) in [
+            ("unknown", "Jazz"),
+            ("different-tag", "Pop"),
+            ("different-audio", "Jazz"),
+        ] {
+            let path = root.join(format!("{id}.flac"));
+            fs::copy(&fixture, &path).unwrap();
+            let intent = store.prepare_write_intent(&path, id, &expected).unwrap();
+            store.begin_write_intent(&path, id).unwrap();
+            write_track_queued(
+                &queue,
+                path.clone(),
+                serde_json::from_value(serde_json::json!({"genre":genre})).unwrap(),
+            )
+            .await
+            .unwrap();
+            if id == "different-audio" {
+                let mut bytes = fs::read(&path).unwrap();
+                *bytes.last_mut().unwrap() ^= 1;
+                fs::write(&path, bytes).unwrap();
+                assert_ne!(
+                    Some(track_payload_digest(&path).unwrap()),
+                    intent.before_payload_sha256
+                );
+                assert_eq!(
+                    crate::commands::auto_tag_review::track_view(&path).unwrap()["genre"],
+                    "Jazz"
+                );
+            }
+            if id != "unknown" {
+                store.record_write_intent_applied(&path, id, true).unwrap();
+            }
+            let current = fs::read(&path).unwrap();
+            store.reconcile_writes_at_startup().unwrap();
+            assert_eq!(fs::read(&path).unwrap(), current);
+            assert_eq!(
+                fs::read(intent.backup_path.unwrap()).unwrap(),
+                fs::read(&fixture).unwrap()
+            );
+        }
+        let recovered = store.reconcile_write_intents().unwrap();
+        assert_eq!(recovered.len(), 3);
+        assert!(recovered
+            .iter()
+            .all(|entry| entry.intent.state == "needs_recovery"));
         fs::remove_dir_all(root).unwrap();
     }
 

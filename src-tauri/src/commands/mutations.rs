@@ -644,7 +644,7 @@ pub(crate) async fn delete_files_queued(
     let fallback_paths = file_paths.clone();
     match queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 file_paths
                     .into_iter()
                     .map(|path| match fs::remove_file(&path) {
@@ -685,7 +685,7 @@ pub(crate) async fn rename_track_queued(
     let readback_path = new_path.clone();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 if let Some(parent) = new_path.parent() {
                     fs::create_dir_all(parent)?;
                 }
@@ -829,7 +829,7 @@ pub(crate) async fn write_track_queued_guarded<T: Send + 'static, G: Send + 'sta
     }
 
     let operation = async move {
-        tokio::task::spawn_blocking(move || {
+        crate::state::write_queue::spawn_write_blocking(move || {
             #[cfg(test)]
             bounded_guard().map_err(ApiError::Message)?;
             let write_start = std::time::Instant::now();
@@ -1019,7 +1019,7 @@ pub(crate) async fn remove_embedded_cover_queued(
     let display_path = path.to_string_lossy().to_string();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let write_start = std::time::Instant::now();
                 let result = remove_embedded_cover_at(&path);
                 let elapsed = write_start.elapsed();
@@ -1090,8 +1090,10 @@ async fn batch_write_grouped(
     //    supply an explicit override when constructing the queue.
     let io_quota = Arc::new(tokio::sync::Semaphore::new(max_concurrency));
     let mut handles = Vec::new();
+    let parent_lease = crate::state::write_queue::current_queue_lease();
     for (folder, folder_updates) in folder_groups {
         let q = queue.clone();
+        let inherited_lease = parent_lease.clone();
         let accum = Arc::clone(accum);
         let progress = progress.clone();
         let completed = Arc::clone(&completed);
@@ -1099,55 +1101,60 @@ async fn batch_write_grouped(
         // happens since io_quota lives until all spawned tasks complete.
         let permit = io_quota.clone().acquire_owned().await.unwrap();
         handles.push(tokio::spawn(async move {
-            let _permit = permit;
-            let operation = async move {
-                tokio::task::spawn_blocking(move || {
-                    for batch in folder_updates.chunks(SUBBATCH_SIZE) {
-                        for update in batch {
-                            let write_start = std::time::Instant::now();
-                            let path_str = update.path.clone();
-                            match write_track_dispatch(Path::new(&update.path), &update.fields) {
-                                Ok(_) => {
-                                    tracing::debug!(
-                                        path = %update.path,
-                                        elapsed_s = write_start.elapsed().as_secs_f64(),
-                                        "batch track write done"
-                                    );
-                                    let mut acc = accum.lock().expect("accum lock poisoned");
-                                    acc.successes.push(path_str);
+            crate::state::write_queue::with_queue_lease(inherited_lease, async move {
+                let _permit = permit;
+                let operation = async move {
+                    crate::state::write_queue::spawn_write_blocking(move || {
+                        for batch in folder_updates.chunks(SUBBATCH_SIZE) {
+                            for update in batch {
+                                let write_start = std::time::Instant::now();
+                                let path_str = update.path.clone();
+                                match write_track_dispatch(Path::new(&update.path), &update.fields)
+                                {
+                                    Ok(_) => {
+                                        tracing::debug!(
+                                            path = %update.path,
+                                            elapsed_s = write_start.elapsed().as_secs_f64(),
+                                            "batch track write done"
+                                        );
+                                        let mut acc = accum.lock().expect("accum lock poisoned");
+                                        acc.successes.push(path_str);
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            path = %update.path,
+                                            elapsed_us = write_start.elapsed().as_micros(),
+                                            error = %e,
+                                            "batch track write failed, continuing"
+                                        );
+                                        accum.lock().expect("accum lock poisoned").failures.push(
+                                            TrackWriteFailure {
+                                                path: path_str,
+                                                error: e.to_string(),
+                                            },
+                                        );
+                                    }
                                 }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        path = %update.path,
-                                        elapsed_us = write_start.elapsed().as_micros(),
-                                        error = %e,
-                                        "batch track write failed, continuing"
-                                    );
-                                    accum.lock().expect("accum lock poisoned").failures.push(
-                                        TrackWriteFailure {
-                                            path: path_str,
-                                            error: e.to_string(),
-                                        },
-                                    );
+                                let mut completed =
+                                    completed.lock().expect("progress lock poisoned");
+                                *completed += 1;
+                                if let Some(progress) = &progress {
+                                    progress(*completed, total);
                                 }
-                            }
-                            let mut completed = completed.lock().expect("progress lock poisoned");
-                            *completed += 1;
-                            if let Some(progress) = &progress {
-                                progress(*completed, total);
                             }
                         }
-                    }
-                    Ok::<(), ApiError>(())
-                })
-                .await
-                .map_err(|e| ApiError::WriteTask(e.to_string()))?
-            };
-            if let Some(q) = q {
-                q.run_for_folder(&folder, operation).await
-            } else {
-                operation.await
-            }
+                        Ok::<(), ApiError>(())
+                    })
+                    .await
+                    .map_err(|e| ApiError::WriteTask(e.to_string()))?
+                };
+                if let Some(q) = q {
+                    q.run_for_folder(&folder, operation).await
+                } else {
+                    operation.await
+                }
+            })
+            .await
         }));
     }
 
@@ -1313,7 +1320,7 @@ pub(crate) async fn write_extra_tags_queued(
     let display_path = path.to_string_lossy().to_string();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let write_start = std::time::Instant::now();
                 let result = write_extra_tags_dispatch(&path, &tags);
                 let elapsed = write_start.elapsed();
@@ -1348,9 +1355,11 @@ pub(crate) async fn write_extra_tags_with_exclusive_queue_held(
     tags: Vec<ExtraTagUpdate>,
 ) -> Result<(), ApiError> {
     validate_extra_tag_extension(&path)?;
-    tokio::task::spawn_blocking(move || write_extra_tags_dispatch(&path, &tags))
-        .await
-        .map_err(|error| ApiError::WriteTask(error.to_string()))??;
+    crate::state::write_queue::spawn_write_blocking(move || {
+        write_extra_tags_dispatch(&path, &tags)
+    })
+    .await
+    .map_err(|error| ApiError::WriteTask(error.to_string()))??;
     Ok(())
 }
 
@@ -1360,7 +1369,7 @@ async fn batch_write_extra_tags_queued(
 ) -> Result<(), ApiError> {
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let mut failures = Vec::new();
                 for update in updates {
                     let write_start = std::time::Instant::now();

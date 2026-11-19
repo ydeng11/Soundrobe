@@ -61,6 +61,7 @@ const CHANNEL_PARITY: Array<{
   { method: "getAutoTagReview", command: "auto_tag_review_get", args: { reviewId: "run" } },
   { method: "markAutoTagReviewed", command: "auto_tag_review_keep", args: { reviewId: "run" } },
   { method: "revertAutoTagReview", command: "auto_tag_review_revert", args: { reviewId: "run" } },
+  { method: "keepAutoTagRecoveryFile", command: "auto_tag_review_keep_recovery_file", args: { reviewId: "run", path: "/t", expectedSha256: "a".repeat(64) } },
   { method: "getAutoTagReviewArtwork", command: "auto_tag_review_artwork", args: { reviewId: "run", artworkId: "image" } },
   { method: "autoTagAlbum", command: "album_auto_tag", args: { albumPath: "/a" } },
   { method: "downloadAlbumLyrics", command: "album_download_lyrics", args: { albumPath: "/a" } },

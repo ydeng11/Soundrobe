@@ -83,7 +83,7 @@ html-escape = "0.2"
 #   futures    = "0.3"                                           # provider/blocking task orchestration
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem", "Win32_System_IO", "Win32_System_Threading"] }
 
 [dev-dependencies]
 # Offline test-only approval fixture; no application trust root is provisioned.

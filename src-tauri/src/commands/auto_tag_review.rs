@@ -4,17 +4,17 @@ use super::{
     tracks::{read_album, read_track_metadata, try_read_extra_tags},
 };
 use crate::error::ApiError;
-use crate::state::worker::WorkerStore;
+use crate::state::worker::{FieldReviewObligation, WorkerStore};
 #[cfg(any(feature = "desktop", test))]
 use crate::state::write_queue::WriteQueue;
 #[cfg(feature = "desktop")]
 use base64::Engine;
 use lofty::file::TaggedFileExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     io::Read,
     path::{Path, PathBuf},
@@ -117,6 +117,48 @@ pub struct ReviewDetail {
     pub after: ReviewView,
     pub can_revert: bool,
     pub errors: Vec<String>,
+    pub field_reviews: Vec<ReviewField>,
+    pub recovered: bool,
+    pub recovery_required: bool,
+    pub recovery_files: Vec<RecoveryFile>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecoveryFile {
+    pub path: PathBuf,
+    pub current_sha256: Option<String>,
+    pub current_metadata: Option<Value>,
+    pub unavailable_reason: Option<&'static str>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewField {
+    pub path: PathBuf,
+    pub field: String,
+    pub before: Value,
+    pub after: Value,
+    pub source: &'static str,
+    pub state: String,
+}
+
+impl From<FieldReviewObligation> for ReviewField {
+    fn from(field: FieldReviewObligation) -> Self {
+        let source = match field.provenance["sourceObservation"]["origin"].as_str() {
+            Some("discogs") => "Discogs release notes",
+            Some("synthetic_loopback") => "Synthetic release notes",
+            _ => "Source evidence",
+        };
+        Self {
+            path: field.path,
+            field: field.field,
+            before: field.before,
+            after: field.after,
+            source,
+            state: field.state,
+        }
+    }
 }
 struct FileChange {
     path: PathBuf,
@@ -129,12 +171,117 @@ struct FileChange {
     tracked: bool,
     restoring: bool,
     intent_outcomes: Vec<(String, bool)>,
+    original_mode: Option<u32>,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ReversalFile {
+    path: PathBuf,
+    target: PathBuf,
+    before: Option<String>,
+    after: Option<String>,
+    backup: Option<PathBuf>,
+    original_mode: Option<u32>,
+    phase: String,
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ReversalManifest {
+    files: Vec<ReversalFile>,
+}
+
+#[cfg(unix)]
+fn file_mode(path: &Path) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(path)
+        .ok()
+        .map(|metadata| metadata.permissions().mode())
+}
+#[cfg(not(unix))]
+fn file_mode(_path: &Path) -> Option<u32> {
+    None
+}
+
+#[cfg(unix)]
+fn restore_mode(path: &Path, mode: Option<u32>) -> Result<(), ApiError> {
+    use std::os::unix::fs::PermissionsExt;
+    if let Some(mode) = mode {
+        fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
+    }
+    Ok(())
+}
+#[cfg(not(unix))]
+fn restore_mode(_path: &Path, _mode: Option<u32>) -> Result<(), ApiError> {
+    Ok(())
+}
+
+fn verify_reversal_file(file: &ReversalFile) -> Result<(), ApiError> {
+    if canonical_target(&file.path)? != file.target
+        || fs::symlink_metadata(&file.path).is_ok_and(|metadata| metadata.file_type().is_symlink())
+    {
+        return Err(failure(format!(
+            "Reversal target changed: {}",
+            file.path.display()
+        )));
+    }
+    let current = fingerprint(&file.path)?;
+    let valid = match file.phase.as_str() {
+        "pending" => current == file.after,
+        "restoring" => current == file.after || current == file.before,
+        "restored" => current == file.before,
+        _ => false,
+    };
+    if !valid {
+        return Err(failure(format!(
+            "Reversal target changed: {}",
+            file.path.display()
+        )));
+    }
+    match (&file.before, &file.backup) {
+        (Some(expected), Some(backup))
+            if fs::symlink_metadata(backup)
+                .is_ok_and(|m| m.is_file() && !m.file_type().is_symlink())
+                && fingerprint(backup)?.as_deref() == Some(expected) => {}
+        (None, None) => {}
+        _ => return Err(failure("Reversal backup is missing or damaged")),
+    }
+    Ok(())
 }
 struct ReviewData {
     detail: ReviewDetail,
     files: Vec<FileChange>,
     images: HashMap<String, PathBuf>,
     trusted_assisted_genre_proposals: HashSet<String>,
+}
+struct TargetWriteLease {
+    worker: Arc<WorkerStore>,
+    revision: String,
+    target: PathBuf,
+    token: String,
+    inserted_owner: bool,
+    discard_owner: bool,
+    active: bool,
+}
+impl TargetWriteLease {
+    fn release(&mut self) -> Result<(), ApiError> {
+        self.worker
+            .release_review_target(
+                &self.revision,
+                &self.target,
+                &self.token,
+                self.inserted_owner && self.discard_owner,
+            )
+            .map_err(failure)?;
+        self.active = false;
+        Ok(())
+    }
+}
+impl Drop for TargetWriteLease {
+    fn drop(&mut self) {
+        if self.active {
+            if let Err(error) = self.release() {
+                tracing::error!(%error, "failed to release review target ownership");
+            }
+        }
+    }
 }
 struct SessionFiles(PathBuf);
 impl Default for SessionFiles {
@@ -508,11 +655,43 @@ impl ReviewJournal {
                 path.display()
             )));
         }
+        let before = fingerprint(path)?;
+        let target = canonical_target(path)?;
+        if let Some(file) = data.files.iter().find(|file| file.target == target) {
+            if !file.verified
+                || file.after != before
+                || self
+                    .owners
+                    .lock()
+                    .unwrap()
+                    .get(&target)
+                    .and_then(|history| history.last())
+                    .is_some_and(|owner| owner != &data.detail.id)
+            {
+                return Err(failure("File changed or belongs to a newer review"));
+            }
+        }
+        let mut target_lease = if let Some(recovery) = &self.recovery {
+            let token = uuid::Uuid::new_v4().to_string();
+            let inserted_owner = recovery
+                .register_review_target(&data.detail.id, &target, &token)
+                .map_err(failure)?;
+            Some(TargetWriteLease {
+                worker: Arc::clone(recovery),
+                revision: data.detail.id.clone(),
+                target: target.clone(),
+                token,
+                inserted_owner,
+                discard_owner: true,
+                active: true,
+            })
+        } else {
+            None
+        };
         let assisted_genre_write = patch
             .map(|patch| self.record_assisted_genre_obligation(&data, path, patch))
             .transpose()?
             .unwrap_or(false);
-        let before = fingerprint(path)?;
         let durable_intent = if assisted_genre_write {
             let intent_id = format!("{}::{}", data.detail.id, uuid::Uuid::new_v4());
             let recovery = self
@@ -523,14 +702,11 @@ impl ReviewJournal {
             let intent = recovery
                 .prepare_write_intent(path, &intent_id, patch)
                 .map_err(failure)?;
-            recovery
-                .supersede_prior_write_intents(path, &format!("{}::", data.detail.id), &intent_id)
-                .map_err(failure)?;
             Some((intent_id, intent))
         } else {
             None
         };
-        let index = if let Some(index) = data.files.iter().position(|f| f.path == path) {
+        let index = if let Some(index) = data.files.iter().position(|f| f.target == target) {
             index
         } else {
             let backup = if let Some((_, intent)) = durable_intent.as_ref() {
@@ -598,7 +774,7 @@ impl ReviewJournal {
             }
             data.files.push(FileChange {
                 path: path.to_path_buf(),
-                target: canonical_target(path)?,
+                target: target.clone(),
                 backup,
                 before: before.clone(),
                 after: before.clone(),
@@ -607,13 +783,20 @@ impl ReviewJournal {
                 tracked: false,
                 restoring: false,
                 intent_outcomes: Vec::new(),
+                original_mode: file_mode(path),
             });
             data.files.len() - 1
         };
         if let (Some(recovery), Some((intent_id, _))) = (&self.recovery, &durable_intent) {
             recovery
+                .supersede_prior_write_intents(path, &format!("{}::", data.detail.id), intent_id)
+                .map_err(failure)?;
+            recovery
                 .begin_write_intent(path, intent_id)
                 .map_err(failure)?;
+        }
+        if let Some(lease) = &mut target_lease {
+            lease.discard_owner = false;
         }
         let result = write();
         match fingerprint(path) {
@@ -630,6 +813,9 @@ impl ReviewJournal {
             }
         }
         let write_succeeded = result.is_ok();
+        if let Some(lease) = &mut target_lease {
+            lease.discard_owner = !write_succeeded && before == data.files[index].after;
+        }
         data.files[index].tracked =
             write_succeeded || data.files[index].before != data.files[index].after;
         if data.files[index].tracked {
@@ -652,6 +838,9 @@ impl ReviewJournal {
                 ));
                 return Err(failure(error));
             }
+        }
+        if let Some(lease) = &mut target_lease {
+            lease.release()?;
         }
         result
     }
@@ -723,6 +912,10 @@ impl ReviewStore {
                     after: ReviewView::default(),
                     can_revert: false,
                     errors: vec![],
+                    field_reviews: vec![],
+                    recovered: false,
+                    recovery_required: false,
+                    recovery_files: vec![],
                 },
                 files: vec![],
                 images: HashMap::new(),
@@ -740,13 +933,16 @@ impl ReviewStore {
         Ok(journal)
     }
     fn journal(&self, id: &str) -> Result<Arc<ReviewJournal>, ApiError> {
+        self.find_journal(id)
+            .ok_or_else(|| failure("Review is unavailable in this session"))
+    }
+    fn find_journal(&self, id: &str) -> Option<Arc<ReviewJournal>> {
         self.records
             .lock()
             .unwrap()
             .iter()
             .find(|r| r.data.lock().unwrap().detail.id == id)
             .cloned()
-            .ok_or_else(|| failure("Review is unavailable in this session"))
     }
     pub fn finish(&self, id: &str, outcome: &str, result: Value) -> Result<(), ApiError> {
         let journal = self.journal(id)?;
@@ -800,27 +996,357 @@ impl ReviewStore {
         Ok(())
     }
     pub fn get(&self, id: &str) -> Result<ReviewDetail, ApiError> {
-        Ok(self.journal(id)?.data.lock().unwrap().detail.clone())
+        let journal = self.find_journal(id);
+        let Some(worker) = &self.recovery else {
+            return Ok(self.journal(id)?.data.lock().unwrap().detail.clone());
+        };
+        if let Some((album, _, status)) = worker.reversal_manifest(id).map_err(failure)? {
+            let pending = status == "pending";
+            if pending || journal.is_none() {
+                return Ok(ReviewDetail {
+                    id: id.into(),
+                    album_path: album,
+                    outcome: if pending { "needs_review" } else { "applied" }.into(),
+                    decision: if pending { "pending" } else { "reverted" }.into(),
+                    result: Value::Null,
+                    before: ReviewView::default(),
+                    after: ReviewView::default(),
+                    can_revert: pending,
+                    errors: vec![],
+                    field_reviews: vec![],
+                    recovered: true,
+                    recovery_required: pending,
+                    recovery_files: vec![],
+                });
+            }
+        }
+        let fields = worker.verified_field_reviews(Some(id)).map_err(failure)?;
+        let conflicts = worker
+            .write_recovery_conflicts()
+            .map_err(failure)?
+            .into_iter()
+            .filter_map(|(revision, path)| (revision == id).then_some(path))
+            .collect::<Vec<_>>();
+        if let Some(journal) = journal {
+            let data = journal.data.lock().unwrap();
+            let mut detail = data.detail.clone();
+            detail.field_reviews = fields
+                .into_iter()
+                .map(|field| {
+                    let mut field = ReviewField::from(field);
+                    if let Some(file) = data.files.iter().find(|file| file.target == field.path) {
+                        field.path = file.path.clone();
+                    }
+                    field
+                })
+                .collect();
+            add_recovery_conflicts(worker, &mut detail, conflicts)?;
+            return Ok(detail);
+        }
+        recovered_review(worker, id, fields, conflicts)?
+            .ok_or_else(|| failure("Review is unavailable in this session"))
     }
-    pub fn list(&self) -> Vec<ReviewDetail> {
-        self.records
+    pub fn list(&self) -> Result<Vec<ReviewDetail>, ApiError> {
+        let mut reviews: Vec<_> = self
+            .records
             .lock()
             .unwrap()
             .iter()
             .rev()
             .map(|r| r.data.lock().unwrap().detail.clone())
-            .collect()
+            .collect();
+        let Some(worker) = &self.recovery else {
+            return Ok(reviews);
+        };
+        let mut recovered = BTreeMap::<String, (Vec<_>, Vec<_>)>::new();
+        for field in worker.verified_field_reviews(None).map_err(failure)? {
+            recovered
+                .entry(field.revision.clone())
+                .or_default()
+                .0
+                .push(field);
+        }
+        for (revision, path) in worker.write_recovery_conflicts().map_err(failure)? {
+            recovered.entry(revision).or_default().1.push(path);
+        }
+        for (id, (fields, conflicts)) in recovered {
+            if let Some(detail) = reviews.iter_mut().find(|detail| detail.id == id) {
+                add_recovery_conflicts(worker, detail, conflicts)?;
+            } else if let Some(detail) = recovered_review(worker, &id, fields, conflicts)? {
+                reviews.push(detail);
+            }
+        }
+        for id in worker.pending_reversals().map_err(failure)? {
+            let detail = self.get(&id)?;
+            if let Some(existing) = reviews.iter_mut().find(|review| review.id == id) {
+                *existing = detail;
+            } else {
+                reviews.push(detail);
+            }
+        }
+        Ok(reviews)
     }
     pub fn keep(&self, id: &str) -> Result<ReviewDetail, ApiError> {
-        let journal = self.journal(id)?;
-        let mut data = journal.data.lock().unwrap();
-        if data.detail.outcome == "running" || data.detail.decision == "reverted" {
+        let review = self.get(id)?;
+        if review.outcome == "running" || review.decision == "reverted" || review.recovery_required
+        {
             return Err(failure("This review cannot be marked kept"));
         }
-        data.detail.decision = "kept".into();
-        Ok(data.detail.clone())
+        if let Some(worker) = &self.recovery {
+            worker
+                .acknowledge_verified_field_reviews(id)
+                .map_err(failure)?;
+        }
+        if let Some(journal) = self.find_journal(id) {
+            journal.data.lock().unwrap().detail.decision = "kept".into();
+        }
+        self.get(id)
+    }
+    pub fn keep_recovery_file(
+        &self,
+        id: &str,
+        path: &Path,
+        expected_sha256: &str,
+    ) -> Result<Option<ReviewDetail>, ApiError> {
+        let worker = self
+            .recovery
+            .as_ref()
+            .ok_or_else(|| failure("Recovery storage unavailable"))?;
+        worker
+            .keep_recovery_file(id, path, expected_sha256)
+            .map_err(failure)?;
+        if self.find_journal(id).is_some() || self.list()?.iter().any(|detail| detail.id == id) {
+            Ok(Some(self.get(id)?))
+        } else {
+            Ok(None)
+        }
     }
     pub fn revert(&self, id: &str) -> Result<ReviewDetail, ApiError> {
+        self.revert_with_limit(id, None)
+    }
+
+    fn revert_with_limit(&self, id: &str, limit: Option<usize>) -> Result<ReviewDetail, ApiError> {
+        let Some(worker) = &self.recovery else {
+            return self.revert_session(id);
+        };
+        let existing = worker.reversal_manifest(id).map_err(failure)?;
+        if let Some((_, _, status)) = &existing {
+            if status == "completed" {
+                return self.get(id);
+            }
+            if status != "pending" {
+                return Err(failure("Invalid reversal state"));
+            }
+        }
+        if existing.is_none() {
+            let journal = self.journal(id)?;
+            let data = journal.data.lock().unwrap();
+            if data.detail.outcome == "running" || !data.detail.can_revert {
+                return Err(failure("No completed changes to revert"));
+            }
+            let owners = self.owners.lock().unwrap();
+            let mut files = Vec::new();
+            for file in data
+                .files
+                .iter()
+                .filter(|file| !file.restored && (file.tracked || !file.verified))
+            {
+                if canonical_target(&file.path)? != file.target
+                    || fs::symlink_metadata(&file.path).is_ok_and(|m| m.file_type().is_symlink())
+                    || !file.verified
+                    || fingerprint(&file.path)? != file.after
+                    || owners
+                        .get(&file.target)
+                        .and_then(|history| history.last())
+                        .is_some_and(|owner| owner != id)
+                {
+                    return Err(failure(format!("Cannot revert: {} changed after this auto-tag run, or could not be verified. Undo newer changes first.", file.path.display())));
+                }
+                let backup = match (&file.before, &file.backup) {
+                    (Some(expected), Some(source)) => {
+                        if fingerprint(source)?.as_deref() != Some(expected) {
+                            return Err(failure("Recovery backup is missing or damaged"));
+                        }
+                        Some(
+                            worker
+                                .copy_reversal_backup(source, expected)
+                                .map_err(failure)?,
+                        )
+                    }
+                    (None, None) => None,
+                    _ => return Err(failure("Recovery backup is missing or damaged")),
+                };
+                files.push(ReversalFile {
+                    path: file.path.clone(),
+                    target: file.target.clone(),
+                    before: file.before.clone(),
+                    after: file.after.clone(),
+                    backup,
+                    original_mode: file.original_mode,
+                    phase: "pending".into(),
+                });
+            }
+            if files.is_empty() {
+                return Err(failure("No completed changes to revert"));
+            }
+            let manifest = ReversalManifest { files };
+            worker
+                .create_reversal_manifest(
+                    id,
+                    &data.detail.album_path,
+                    &serde_json::to_value(&manifest).map_err(|e| failure(e.to_string()))?,
+                )
+                .map_err(failure)?;
+        }
+        self.resume_reversal(id, limit, || {})
+    }
+
+    fn resume_reversal(
+        &self,
+        id: &str,
+        limit: Option<usize>,
+        before_completion: impl FnOnce(),
+    ) -> Result<ReviewDetail, ApiError> {
+        let worker = self
+            .recovery
+            .as_ref()
+            .ok_or_else(|| failure("Recovery storage unavailable"))?;
+        let token = uuid::Uuid::new_v4().to_string();
+        worker.claim_reversal(id, &token).map_err(failure)?;
+        let result = (|| -> Result<(), ApiError> {
+            let (_, value, status) = worker
+                .reversal_manifest(id)
+                .map_err(failure)?
+                .ok_or_else(|| failure("Reversal is unavailable"))?;
+            if status != "pending" {
+                return Err(failure("Reversal is already complete"));
+            }
+            let mut manifest: ReversalManifest =
+                serde_json::from_value(value).map_err(|e| failure(e.to_string()))?;
+            for file in &manifest.files {
+                verify_reversal_file(file)?;
+            }
+            let mut restored = 0usize;
+            for index in 0..manifest.files.len() {
+                if manifest.files[index].phase == "restored" {
+                    continue;
+                }
+                let file = &manifest.files[index];
+                let already_restored =
+                    file.phase == "restoring" && fingerprint(&file.path)? == file.before;
+                if !already_restored {
+                    manifest.files[index].phase = "restoring".into();
+                    worker
+                        .update_reversal(
+                            id,
+                            &token,
+                            &serde_json::to_value(&manifest).map_err(|e| failure(e.to_string()))?,
+                            false,
+                        )
+                        .map_err(failure)?;
+                    let file = &manifest.files[index];
+                    verify_reversal_file(file)?;
+                    if file.before != file.after {
+                        if let Some(backup) = &file.backup {
+                            let staging = file.path.with_file_name(format!(
+                                ".soundrobe-restore-{}",
+                                uuid::Uuid::new_v4()
+                            ));
+                            let operation = (|| -> Result<(), ApiError> {
+                                let mut input = fs::File::open(backup)?;
+                                let mut output = fs::OpenOptions::new()
+                                    .write(true)
+                                    .create_new(true)
+                                    .open(&staging)?;
+                                std::io::copy(&mut input, &mut output)?;
+                                restore_mode(&staging, file.original_mode)?;
+                                output.sync_all()?;
+                                if fingerprint(&staging)? != file.before {
+                                    return Err(failure("Restore staging validation failed"));
+                                }
+                                verify_reversal_file(file)?;
+                                replace_file_atomic(&staging, &file.path)?;
+                                Ok(())
+                            })();
+                            if staging.exists() {
+                                let _ = fs::remove_file(staging);
+                            }
+                            operation?;
+                        } else {
+                            fs::remove_file(&file.path)?;
+                        }
+                    }
+                }
+                restored += 1;
+                if limit == Some(restored) {
+                    #[cfg(test)]
+                    if std::env::var_os("SOUNDROBE_TEST_REVERSAL_CRASH").is_some() {
+                        std::process::exit(70);
+                    }
+                    return Err(failure("Injected interruption after media replacement"));
+                }
+                let file = &manifest.files[index];
+                if fingerprint(&file.path)? != file.before {
+                    return Err(failure(format!(
+                        "Restore readback failed: {}",
+                        file.path.display()
+                    )));
+                }
+                WorkerStore::sync_reversal_parent(&file.path).map_err(failure)?;
+                manifest.files[index].phase = "restored".into();
+                worker
+                    .update_reversal(
+                        id,
+                        &token,
+                        &serde_json::to_value(&manifest).map_err(|e| failure(e.to_string()))?,
+                        false,
+                    )
+                    .map_err(failure)?;
+            }
+            before_completion();
+            for file in &manifest.files {
+                verify_reversal_file(file)?;
+            }
+            worker
+                .update_reversal(
+                    id,
+                    &token,
+                    &serde_json::to_value(&manifest).map_err(|e| failure(e.to_string()))?,
+                    true,
+                )
+                .map_err(failure)?;
+            Ok(())
+        })();
+        let released = worker.release_reversal(id, &token).map_err(failure);
+        match (result, released) {
+            (Err(error), Err(release)) => {
+                return Err(failure(format!(
+                    "{error}; reversal ownership could not be released: {release}"
+                )))
+            }
+            (Err(error), _) | (_, Err(error)) => return Err(error),
+            _ => {}
+        }
+        if let Some(journal) = self.find_journal(id) {
+            let mut data = journal.data.lock().unwrap();
+            data.detail.decision = "reverted".into();
+            data.detail.can_revert = false;
+            let mut owners = self.owners.lock().unwrap();
+            for file in &mut data.files {
+                file.restored = true;
+                if let Some(history) = owners.get_mut(&file.target) {
+                    if history.last().is_some_and(|owner| owner == id) {
+                        history.pop();
+                    }
+                }
+            }
+        }
+        let detail = self.get(id)?;
+        super::covers::cover_cache_invalidate(&detail.album_path);
+        Ok(detail)
+    }
+
+    fn revert_session(&self, id: &str) -> Result<ReviewDetail, ApiError> {
         let journal = self.journal(id)?;
         let mut data = journal.data.lock().unwrap();
         if data.detail.decision == "reverted" {
@@ -931,9 +1457,110 @@ impl ReviewStore {
         data.detail.decision = "reverted".into();
         data.detail.can_revert = false;
         super::covers::cover_cache_invalidate(&data.detail.album_path);
-        Ok(data.detail.clone())
+        drop(owners);
+        drop(data);
+        self.get(id)
     }
 }
+
+fn add_recovery_conflicts(
+    worker: &WorkerStore,
+    detail: &mut ReviewDetail,
+    mut paths: Vec<PathBuf>,
+) -> Result<(), ApiError> {
+    paths.sort();
+    paths.dedup();
+    detail.recovery_required = !paths.is_empty();
+    detail.recovery_files = paths
+        .iter()
+        .map(|path| {
+            let digest = WorkerStore::recovery_file_digest(path);
+            let metadata = track_view(path).ok();
+            let stable = digest.is_some() && digest == WorkerStore::recovery_file_digest(path);
+            let can_keep = worker
+                .recovery_file_can_be_kept(&detail.id, path)
+                .map_err(failure)?;
+            Ok(RecoveryFile {
+                path: path.clone(),
+                current_sha256: if stable && can_keep { digest } else { None },
+                current_metadata: if stable { metadata } else { None },
+                unavailable_reason: if !can_keep {
+                    Some("This interrupted revert needs further recovery.")
+                } else if !stable {
+                    Some("Current file is unavailable or changed while loading.")
+                } else {
+                    None
+                },
+            })
+        })
+        .collect::<Result<_, ApiError>>()?;
+    detail.errors.extend(paths.into_iter().map(|path| {
+        format!(
+            "Could not verify the interrupted write to {}",
+            path.display()
+        )
+    }));
+    Ok(())
+}
+
+fn recovered_review(
+    worker: &WorkerStore,
+    id: &str,
+    fields: Vec<FieldReviewObligation>,
+    conflicts: Vec<PathBuf>,
+) -> Result<Option<ReviewDetail>, ApiError> {
+    let Some(path) = fields
+        .first()
+        .map(|field| &field.path)
+        .or_else(|| conflicts.first())
+    else {
+        return Ok(None);
+    };
+    let album = worker
+        .album_for_write_review(id)
+        .map_err(failure)?
+        .unwrap_or_else(|| path.parent().unwrap_or(path).to_path_buf());
+    let pending = !conflicts.is_empty() || fields.iter().any(|field| field.state == "open");
+    let field_reviews: Vec<ReviewField> = fields.into_iter().map(Into::into).collect();
+    let mut tracks = BTreeMap::new();
+    for field in &field_reviews {
+        let (before, after) = tracks
+            .entry(&field.path)
+            .or_insert_with(|| (json!({"path":field.path}), json!({"path":field.path})));
+        before[&field.field] = field.before.clone();
+        after[&field.field] = field.after.clone();
+    }
+    let (before, after) = tracks.into_values().unzip();
+    let mut detail = ReviewDetail {
+        id: id.into(),
+        album_path: album.to_string_lossy().into_owned(),
+        outcome: if conflicts.is_empty() {
+            "applied"
+        } else {
+            "needs_review"
+        }
+        .into(),
+        decision: if pending { "pending" } else { "kept" }.into(),
+        result: Value::Null,
+        before: ReviewView {
+            tracks: before,
+            ..Default::default()
+        },
+        after: ReviewView {
+            tracks: after,
+            ..Default::default()
+        },
+        can_revert: false,
+        errors: vec![],
+        field_reviews,
+        recovered: true,
+        recovery_required: false,
+        recovery_files: vec![],
+    };
+    add_recovery_conflicts(worker, &mut detail, conflicts)?;
+    Ok(Some(detail))
+}
+
 #[cfg(feature = "desktop")]
 #[tauri::command]
 pub fn auto_tag_reviews_clear(store: State<'_, ReviewStore>) -> Result<(), ApiError> {
@@ -941,7 +1568,7 @@ pub fn auto_tag_reviews_clear(store: State<'_, ReviewStore>) -> Result<(), ApiEr
 }
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub fn auto_tag_reviews_list(store: State<'_, ReviewStore>) -> Vec<ReviewDetail> {
+pub fn auto_tag_reviews_list(store: State<'_, ReviewStore>) -> Result<Vec<ReviewDetail>, ApiError> {
     store.list()
 }
 #[cfg(feature = "desktop")]
@@ -954,11 +1581,12 @@ pub fn auto_tag_review_get(
 }
 #[cfg(feature = "desktop")]
 #[tauri::command]
-pub fn auto_tag_review_keep(
+pub async fn auto_tag_review_keep(
     review_id: String,
     store: State<'_, ReviewStore>,
+    queue: State<'_, WriteQueue>,
 ) -> Result<ReviewDetail, ApiError> {
-    store.keep(&review_id)
+    queue.run_exclusive_checked(async { store.keep(&review_id) }).await?
 }
 #[cfg(feature = "desktop")]
 #[tauri::command]
@@ -968,8 +1596,21 @@ pub async fn auto_tag_review_revert(
     queue: State<'_, WriteQueue>,
 ) -> Result<ReviewDetail, ApiError> {
     queue
-        .run_exclusive(async { store.revert(&review_id) })
-        .await
+        .run_exclusive_checked(async { store.revert(&review_id) })
+        .await?
+}
+#[cfg(feature = "desktop")]
+#[tauri::command]
+pub async fn auto_tag_review_keep_recovery_file(
+    review_id: String,
+    path: PathBuf,
+    expected_sha256: String,
+    store: State<'_, ReviewStore>,
+    queue: State<'_, WriteQueue>,
+) -> Result<Option<ReviewDetail>, ApiError> {
+    queue
+        .run_exclusive_checked(async { store.keep_recovery_file(&review_id, &path, &expected_sha256) })
+        .await?
 }
 #[cfg(feature = "desktop")]
 #[tauri::command]
@@ -1206,6 +1847,10 @@ mod tests {
             .await
             .unwrap();
         store.finish("assisted-run", "applied", json!({})).unwrap();
+        let displayed = store.get("assisted-run").unwrap();
+        assert_eq!(displayed.field_reviews.len(), 1);
+        assert_eq!(displayed.field_reviews[0].field, "genre");
+        assert_eq!(displayed.field_reviews[0].state, "open");
         let provider_journal = store.begin("provider-run", &root).unwrap();
         ACTIVE_REVIEW
             .scope(
@@ -1227,10 +1872,45 @@ mod tests {
 
         let reopened = crate::state::worker::WorkerStore::new_in(state);
         assert!(reopened.initialize());
+        let desktop = ReviewStore::new_with_worker(reopened.clone()).unwrap();
+        let recovered = desktop.get("assisted-run").unwrap();
+        assert_eq!(recovered.field_reviews.len(), 1);
+        assert!(recovered.recovered);
+        assert!(
+            !recovered.can_revert,
+            "only the assisted field survived, not full album undo"
+        );
+        desktop.clear().unwrap();
+        assert_eq!(
+            desktop.list().unwrap().len(),
+            1,
+            "clearing session results retains open field review"
+        );
+        let reviewed_bytes = fs::read(&track).unwrap();
+        write_track_queued(
+            &WriteQueue::default(),
+            track.clone(),
+            serde_json::from_value::<TrackPatch>(json!({"genre":"Manual edit"})).unwrap(),
+        )
+        .await
+        .unwrap();
+        assert!(desktop
+            .keep("assisted-run")
+            .unwrap_err()
+            .to_string()
+            .contains("File changed"));
+        assert_eq!(
+            desktop.get("assisted-run").unwrap().field_reviews[0].state,
+            "open"
+        );
+        fs::write(&track, reviewed_bytes).unwrap();
+        let kept = desktop.keep("assisted-run").unwrap();
+        assert_eq!(kept.field_reviews[0].state, "acknowledged");
+        assert!(desktop.list().unwrap().is_empty());
         let obligations = reopened.field_review_obligations(&track).unwrap();
         assert_eq!(obligations.len(), 1);
         assert_eq!(obligations[0].field, "genre");
-        assert_eq!(obligations[0].state, "open");
+        assert_eq!(obligations[0].state, "acknowledged");
         assert_eq!(obligations[0].after, json!("Acoustic Pop"));
         assert_eq!(obligations[0].evidence_ids.len(), 1);
         assert_eq!(obligations[0].provenance["grounded"], false);
@@ -1251,6 +1931,66 @@ mod tests {
             "only the assisted genre write gets a durable recovery intent"
         );
         assert_eq!(recovery[0].action, WriteRecoveryAction::ReceiptRecoverable);
+        fs::remove_file(&track).unwrap();
+        reopened.reconcile_writes_at_startup().unwrap();
+        assert!(desktop.list().unwrap().is_empty());
+        assert!(reopened.claim_desktop_run(&root, "new-run").is_ok());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn results_reopen_an_interrupted_write_without_claiming_it_was_applied() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let file = root.join("01.bin");
+        fs::write(&file, b"before").unwrap();
+        let worker = WorkerStore::new_in(root.join("state"));
+        assert!(worker.initialize());
+        worker
+            .prepare_write_intent(&file, "interrupted::attempt", &json!({"genre":"Jazz"}))
+            .unwrap();
+        worker
+            .begin_write_intent(&file, "interrupted::attempt")
+            .unwrap();
+        fs::write(&file, b"unknown").unwrap();
+        worker.reconcile_writes_at_startup().unwrap();
+
+        let store = ReviewStore::new_with_worker(worker.clone()).unwrap();
+        let reviews = store.list().unwrap();
+        assert_eq!(reviews.len(), 1);
+        let review = store.get("interrupted").unwrap();
+        assert!(review.recovery_required);
+        assert!(review.recovered);
+        assert!(!review.can_revert);
+        assert!(review.after.tracks.is_empty());
+        assert!(review.field_reviews.is_empty());
+        assert!(store.keep("interrupted").is_err());
+        assert_eq!(fs::read(&file).unwrap(), b"unknown");
+        let choice = &review.recovery_files[0];
+        assert_eq!(choice.path, fs::canonicalize(&file).unwrap());
+        let digest = choice.current_sha256.as_deref().unwrap();
+        fs::write(&file, b"new edit").unwrap();
+        assert!(store
+            .keep_recovery_file("interrupted", &choice.path, digest)
+            .is_err());
+        assert_eq!(fs::read(&file).unwrap(), b"new edit");
+        fs::write(&file, b"unknown").unwrap();
+        store
+            .keep_recovery_file("interrupted", &choice.path, digest)
+            .unwrap();
+        assert!(store.list().unwrap().is_empty());
+        assert_eq!(fs::read(&file).unwrap(), b"unknown");
+        assert_eq!(
+            worker.reconcile_write_intents().unwrap()[0].action,
+            crate::state::worker::WriteRecoveryAction::KeptCurrent
+        );
+        assert!(store
+            .keep_recovery_file("interrupted", &choice.path, digest)
+            .is_err());
+        drop(store);
+        drop(worker);
+        let reopened = ReviewStore::new_in(root.join("state")).unwrap();
+        assert!(reopened.list().unwrap().is_empty());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -1428,6 +2168,330 @@ mod tests {
         assert!(!cover.exists());
         assert_eq!(store.get("run").unwrap().decision, "reverted");
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn interrupted_album_revert_resumes_all_files_after_restart() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let first = root.join("one.bin");
+        let second = root.join("two.bin");
+        let created = root.join("cover.jpg");
+        fs::write(&first, b"first before").unwrap();
+        fs::write(&second, b"second before").unwrap();
+        let state = root.join("state");
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        for (path, bytes) in [
+            (&first, b"first after".as_slice()),
+            (&second, b"second after".as_slice()),
+            (&created, b"new cover".as_slice()),
+        ] {
+            journal
+                .mutate(path, || {
+                    fs::write(path, bytes)?;
+                    Ok(())
+                })
+                .unwrap();
+        }
+        store.finish("run", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("run", Some(1)).is_err());
+        assert_eq!(fs::read(&first).unwrap(), b"first before");
+        assert_eq!(fs::read(&second).unwrap(), b"second after");
+        assert_eq!(fs::read(&created).unwrap(), b"new cover");
+        drop(journal);
+        drop(store);
+
+        let reopened = ReviewStore::new_in(state).unwrap();
+        let detail = reopened.get("run").unwrap();
+        assert!(detail.can_revert);
+        assert!(detail.recovery_required);
+        fs::write(&second, b"external edit").unwrap();
+        assert!(reopened.revert("run").is_err());
+        assert_eq!(fs::read(&first).unwrap(), b"first before");
+        assert_eq!(fs::read(&second).unwrap(), b"external edit");
+        assert_eq!(fs::read(&created).unwrap(), b"new cover");
+        fs::write(&second, b"second after").unwrap();
+        reopened.clear().unwrap();
+        assert_eq!(reopened.list().unwrap().len(), 1);
+        let worker =
+            WorkerStore::new_in(reopened.recovery.as_ref().unwrap().data_dir().to_path_buf());
+        assert!(worker.initialize());
+        let (_, value, _) = worker.reversal_manifest("run").unwrap().unwrap();
+        let manifest: ReversalManifest = serde_json::from_value(value).unwrap();
+        let backup = manifest
+            .files
+            .iter()
+            .find(|file| file.path == second)
+            .unwrap()
+            .backup
+            .as_ref()
+            .unwrap();
+        let original_backup = fs::read(backup).unwrap();
+        fs::write(backup, b"damaged").unwrap();
+        assert!(reopened.revert("run").is_err());
+        assert_eq!(fs::read(&second).unwrap(), b"second after");
+        assert_eq!(fs::read(&created).unwrap(), b"new cover");
+        fs::write(backup, original_backup).unwrap();
+        reopened.revert("run").unwrap();
+        assert_eq!(fs::read(&first).unwrap(), b"first before");
+        assert_eq!(fs::read(&second).unwrap(), b"second before");
+        assert!(!created.exists());
+        assert!(reopened.list().unwrap().is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn newer_shared_art_owner_in_another_store_blocks_an_older_reversal() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(root.join("one")).unwrap();
+        fs::create_dir_all(root.join("two")).unwrap();
+        let art = root.join("artist.jpg");
+        let first_store = ReviewStore::new_in(root.join("state")).unwrap();
+        let second_store = ReviewStore::new_in(root.join("state")).unwrap();
+        let first = first_store.begin("first", &root.join("one")).unwrap();
+        first
+            .mutate(&art, || {
+                fs::write(&art, b"same art")?;
+                Ok(())
+            })
+            .unwrap();
+        first_store.finish("first", "applied", json!({})).unwrap();
+        let second = second_store.begin("second", &root.join("two")).unwrap();
+        second
+            .mutate(&art, || {
+                fs::write(&art, b"same art")?;
+                Ok(())
+            })
+            .unwrap();
+        second_store.finish("second", "applied", json!({})).unwrap();
+        assert!(first_store.revert("first").is_err());
+        assert_eq!(fs::read(&art).unwrap(), b"same art");
+        second_store.revert("second").unwrap();
+        first_store.revert("first").unwrap();
+        assert!(!art.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn failed_unchanged_write_does_not_claim_newer_ownership() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(root.join("one")).unwrap();
+        fs::create_dir_all(root.join("two")).unwrap();
+        let art = root.join("artist.jpg");
+        let first_store = ReviewStore::new_in(root.join("state")).unwrap();
+        let second_store = ReviewStore::new_in(root.join("state")).unwrap();
+        let first = first_store.begin("first", &root.join("one")).unwrap();
+        first
+            .mutate(&art, || {
+                fs::write(&art, b"art")?;
+                Ok(())
+            })
+            .unwrap();
+        first_store.finish("first", "applied", json!({})).unwrap();
+        let second = second_store.begin("second", &root.join("two")).unwrap();
+        assert!(second
+            .mutate::<()>(&art, || Err(failure("injected failure")))
+            .is_err());
+        second_store.finish("second", "failed", json!({})).unwrap();
+        first_store.revert("first").unwrap();
+        assert!(!art.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn live_target_writer_blocks_reversal_from_another_store() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(root.join("one")).unwrap();
+        fs::create_dir_all(root.join("two")).unwrap();
+        let art = root.join("artist.jpg");
+        let first_store = ReviewStore::new_in(root.join("state")).unwrap();
+        let second_store = ReviewStore::new_in(root.join("state")).unwrap();
+        fs::write(&art, b"original").unwrap();
+        let first = first_store.begin("first", &root.join("one")).unwrap();
+        let second = second_store.begin("second", &root.join("two")).unwrap();
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let target = art.clone();
+        let writer = std::thread::spawn(move || {
+            first.mutate(&target, || {
+                started_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+                fs::write(&target, b"new art")?;
+                Ok(())
+            })
+        });
+        started_rx.recv().unwrap();
+        let competing = second.mutate(&art, || {
+            fs::write(&art, b"competing")?;
+            Ok(())
+        });
+        release_tx.send(()).unwrap();
+        writer.join().unwrap().unwrap();
+        assert!(
+            competing.is_err(),
+            "Another review must not write while the target is owned by a live writer"
+        );
+        assert_eq!(fs::read(&art).unwrap(), b"new art");
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    #[ignore = "subprocess entry for the interrupted reversal test"]
+    fn reversal_crash_child() {
+        let root = PathBuf::from(std::env::var_os("SOUNDROBE_TEST_REVERSAL_ROOT").unwrap());
+        let first = root.join("first.bin");
+        let second = root.join("second.bin");
+        let cover = root.join("cover.jpg");
+        fs::write(&first, b"first before").unwrap();
+        fs::write(&second, b"second before").unwrap();
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        let journal = store.begin("crash-run", &root).unwrap();
+        for (path, bytes) in [
+            (&first, b"first after".as_slice()),
+            (&second, b"second after".as_slice()),
+            (&cover, b"new cover".as_slice()),
+        ] {
+            journal
+                .mutate(path, || {
+                    fs::write(path, bytes)?;
+                    Ok(())
+                })
+                .unwrap();
+        }
+        store.finish("crash-run", "applied", json!({})).unwrap();
+        store.revert_with_limit("crash-run", Some(1)).unwrap();
+    }
+
+    #[test]
+    fn resumed_reversal_rechecks_all_restored_files_before_completion() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let file = root.join("track.bin");
+        fs::write(&file, b"before").unwrap();
+        let state = root.join("state");
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("run", &root).unwrap();
+        journal
+            .mutate(&file, || {
+                fs::write(&file, b"after")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("run", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("run", Some(1)).is_err());
+        assert_eq!(fs::read(&file).unwrap(), b"before");
+        drop(journal);
+        drop(store);
+        let reopened = ReviewStore::new_in(state).unwrap();
+        assert!(reopened
+            .resume_reversal("run", None, || {
+                fs::write(&file, b"later edit").unwrap();
+            })
+            .is_err());
+        assert_eq!(fs::read(&file).unwrap(), b"later edit");
+        assert!(reopened.get("run").unwrap().recovery_required);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn process_exit_after_replacement_can_resume_from_durable_manifest() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        fs::create_dir_all(&root).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "commands::auto_tag_review::tests::reversal_crash_child",
+                "--ignored",
+            ])
+            .env("SOUNDROBE_TEST_REVERSAL_ROOT", &root)
+            .env("SOUNDROBE_TEST_REVERSAL_CRASH", "1")
+            .status()
+            .unwrap();
+        assert_eq!(status.code(), Some(70));
+        assert_eq!(fs::read(root.join("first.bin")).unwrap(), b"first before");
+        assert_eq!(fs::read(root.join("second.bin")).unwrap(), b"second after");
+        let store = ReviewStore::new_in(root.join("state")).unwrap();
+        assert!(store.get("crash-run").unwrap().can_revert);
+        store.revert("crash-run").unwrap();
+        assert_eq!(store.revert("crash-run").unwrap().decision, "reverted");
+        assert_eq!(fs::read(root.join("first.bin")).unwrap(), b"first before");
+        assert_eq!(fs::read(root.join("second.bin")).unwrap(), b"second before");
+        assert!(!root.join("cover.jpg").exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn resumed_album_reversal_restores_copied_audio_and_shared_artwork() {
+        use crate::commands::mutations::{track_payload_digest, write_track_queued};
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let album = root.join("Artist/Album");
+        fs::create_dir_all(&album).unwrap();
+        let track = album.join("01.flac");
+        let art = root.join("Artist/artist.jpg");
+        let cover = album.join("cover.jpg");
+        fs::copy(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../test/fixtures/tauri/writer-corpus/padded.flac"),
+            &track,
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&track, fs::Permissions::from_mode(0o640)).unwrap();
+        }
+        fs::write(&art, b"original artist art").unwrap();
+        let original = fs::read(&track).unwrap();
+        let payload = track_payload_digest(&track).unwrap();
+        let state = root.join("state");
+        let store = ReviewStore::new_in(state.clone()).unwrap();
+        let journal = store.begin("copied-album", &album).unwrap();
+        ACTIVE_REVIEW
+            .scope(
+                journal.clone(),
+                write_track_queued(
+                    &WriteQueue::default(),
+                    track.clone(),
+                    serde_json::from_value(json!({"title":"New title"})).unwrap(),
+                ),
+            )
+            .await
+            .unwrap();
+        journal
+            .mutate(&art, || {
+                fs::write(&art, b"new artist art")?;
+                Ok(())
+            })
+            .unwrap();
+        journal
+            .mutate(&cover, || {
+                fs::write(&cover, b"new cover")?;
+                Ok(())
+            })
+            .unwrap();
+        store.finish("copied-album", "applied", json!({})).unwrap();
+        assert!(store.revert_with_limit("copied-album", Some(1)).is_err());
+        drop(journal);
+        drop(store);
+        let reopened = ReviewStore::new_in(state).unwrap();
+        let album_key = album.to_string_lossy();
+        super::super::covers::cover_cache_source(&album_key, "external", &cover.to_string_lossy());
+        reopened.revert("copied-album").unwrap();
+        assert!(super::super::covers::cover_source_cached(&album_key).is_none());
+        assert_eq!(fs::read(&track).unwrap(), original);
+        assert_eq!(track_payload_digest(&track).unwrap(), payload);
+        assert_eq!(fs::read(&art).unwrap(), b"original artist art");
+        assert!(!cover.exists());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&track).unwrap().permissions().mode() & 0o777,
+                0o640
+            );
+        }
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[tokio::test]
@@ -1672,7 +2736,7 @@ mod tests {
         store.clear().unwrap();
 
         assert!(
-            store.list().is_empty(),
+            store.list().unwrap().is_empty(),
             "previous run must not appear in Results"
         );
         assert!(
@@ -1681,7 +2745,11 @@ mod tests {
         );
         let second = store.begin("second", &root).unwrap();
         store.finish("second", "applied", json!({})).unwrap();
-        assert_eq!(store.list().len(), 1, "only the new run is retained");
+        assert_eq!(
+            store.list().unwrap().len(),
+            1,
+            "only the new run is retained"
+        );
         drop(second);
         fs::remove_dir_all(root).unwrap();
     }

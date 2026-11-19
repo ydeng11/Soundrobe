@@ -305,7 +305,7 @@ export function TitleBar({
       </div>
 
       {!webService && <>
-      {onAutoTagResults && <button type="button" onClick={onAutoTagResults} disabled={autoTagging || saving || reverting} className="px-2 py-1 text-xs rounded hover:bg-surface-hover disabled:opacity-50" title="Reopen this session’s auto-tag results">Results</button>}
+      {onAutoTagResults && <button type="button" onClick={onAutoTagResults} disabled={autoTagging || saving || reverting} className="px-2 py-1 text-xs rounded hover:bg-surface-hover disabled:opacity-50" title="Open auto-tag results and pending reviews">Results</button>}
 
       {/* Auto-Tag button */}
       <button

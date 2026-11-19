@@ -373,14 +373,14 @@ export async function runAutoTagBatch({
   return { items };
 }
 
-/** Reopening retains every session run and its original evidence. */
+/** Reopening includes session results and durable pending reviews. */
 export function summaryFromReviews(reviews: AutoTagReviewDetail[]): AutoTagBatchSummary {
   return { items: reviews.filter((review) => review.outcome !== "running").map((review) => ({
     albumPath: review.albumPath,
     reviewId: review.id,
     status: review.outcome === "running" ? "cancelled" : review.outcome,
     attempts: Array.isArray(review.result?.earlierAttempts) ? review.result.earlierAttempts.length + 1 : 1,
-    message: review.decision === "pending" ? "Awaiting review" : review.decision === "kept" ? "Reviewed — kept" : "Reverted",
+    message: review.recoveryRequired ? "Interrupted write needs recovery" : review.decision === "pending" ? "Awaiting review" : review.decision === "kept" ? "Reviewed — kept" : "Reverted",
     reasonCode: resultReasonCode(review.result),
     providerAttempts: providerAttemptsFromResult(review.result),
     readbackRequired: false,

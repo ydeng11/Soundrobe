@@ -161,6 +161,8 @@ export function createTauriDesktopApi(): DesktopAPI {
     getAutoTagReview: (reviewId) => invokeCommand("auto-tag:review:get", { reviewId }),
     markAutoTagReviewed: (reviewId) => invokeCommand("auto-tag:review:keep", { reviewId }),
     revertAutoTagReview: (reviewId) => invokeCommand("auto-tag:review:revert", { reviewId }),
+    keepAutoTagRecoveryFile: (reviewId, path, expectedSha256) =>
+      invokeCommand("auto-tag:review:keep-recovery-file", { reviewId, path, expectedSha256 }),
     getAutoTagReviewArtwork: (reviewId, artworkId) => invokeCommand("auto-tag:review:artwork", { reviewId, artworkId }),
     autoTagAlbum: (albumPath) => invokeCommand("album:auto-tag", { albumPath }),
     downloadAlbumLyrics: (albumPath) =>

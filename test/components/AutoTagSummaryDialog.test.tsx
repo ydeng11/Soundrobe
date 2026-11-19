@@ -64,4 +64,30 @@ describe("AutoTagSummaryDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("removes a resolved interrupted-write row without changing session undo", async () => {
+    const onChanged = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    window.api = {
+      getAutoTagReview: vi.fn().mockResolvedValue({
+        id: "run", albumPath: "/music/album", outcome: "needs_review", decision: "pending",
+        result: null, before: { tracks: [], artworks: [], errors: [] },
+        after: { tracks: [], artworks: [], errors: [] }, canRevert: false,
+        errors: ["Interrupted write"], recovered: true, recoveryRequired: true,
+        recoveryFiles: [{ path: "/music/album/1.flac", currentSha256: "a".repeat(64) }],
+      }),
+      keepAutoTagRecoveryFile: vi.fn().mockResolvedValue(null),
+    } as any;
+    render(<AutoTagSummaryDialog onClose={vi.fn()} onChanged={onChanged} summary={{ items: [{
+      albumPath: "/music/album", reviewId: "run", status: "needs_review", attempts: 1,
+      message: "Interrupted write needs recovery", reasonCode: null, providerAttempts: [], readbackRequired: false,
+    }] }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Review album" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Keep current file" }));
+    expect(await screen.findByRole("status")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Results" }));
+    expect(screen.queryByText("/music/album")).toBeNull();
+    expect(onChanged).not.toHaveBeenCalled();
+    confirm.mockRestore();
+  });
 });

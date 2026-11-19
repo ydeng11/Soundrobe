@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { AutoTagReview } from "../../src/components/AutoTagReview";
@@ -89,6 +90,80 @@ const review = {
   canRevert: false,
   errors: [],
 };
+
+it("uses stored field reviews to highlight only the written physical file", async () => {
+  const paths = ["/music/album/1.flac", "/music/album/2.flac"];
+  const affected = {
+    ...review,
+    outcome: "applied",
+    result: { candidate: { genre: "Dream pop", assisted_genre: { value: "Dream pop" } } },
+    before: { ...review.before, tracks: paths.map((path) => ({ path, genre: null })) },
+    after: { ...review.after, tracks: paths.map((path) => ({ path, genre: "Dream pop" })) },
+    fieldReviews: [{
+      path: paths[0],
+      field: "genre",
+      before: null,
+      after: "Dream pop",
+      source: "Discogs release notes",
+      state: "open",
+    }],
+  };
+  window.api = {
+    getAutoTagReview: vi.fn().mockResolvedValue(affected),
+    markAutoTagReviewed: vi.fn().mockResolvedValue({
+      ...affected,
+      decision: "kept",
+      fieldReviews: [{ ...affected.fieldReviews[0], state: "acknowledged" }],
+    }),
+  } as any;
+  render(<AutoTagReview reviewId="run" onRetry={vi.fn()} onSearch={vi.fn()} onChanged={vi.fn()} busy={false} />);
+
+  const firstTrack = (await screen.findByText(/1\.flac · 1 changed field/)).closest("details")!;
+  const secondTrack = screen.getByText(/2\.flac · 1 changed field/).closest("details")!;
+  expect(within(firstTrack).getByText("AI-assisted · review pending")).toBeTruthy();
+  expect(within(firstTrack).getByText("Discogs release notes")).toBeTruthy();
+  expect(within(secondTrack).queryByText(/AI-assisted|AI-inferred/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Keep changes" }));
+  expect(await within(firstTrack).findByText("AI-assisted · reviewed")).toBeTruthy();
+});
+
+it("confirms keeping the reviewed current file when resolving an interrupted write", async () => {
+  const keepRecoveryFile = vi.fn().mockResolvedValue(null);
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  window.api = {
+    getAutoTagReview: vi.fn().mockResolvedValue({
+      ...review,
+      recovered: true,
+      recoveryRequired: true,
+      recoveryFiles: [{ path: "/music/album/1.flac", currentSha256: "a".repeat(64) }],
+      fieldReviews: [],
+      result: null,
+      before: { ...review.before, tracks: [] },
+      after: { ...review.after, tracks: [] },
+      errors: ["Could not verify the interrupted write to /music/album/1.flac"],
+    }),
+    keepAutoTagRecoveryFile: keepRecoveryFile,
+  } as any;
+  render(<AutoTagReview reviewId="run" onRetry={vi.fn()} onSearch={vi.fn()} onChanged={vi.fn()} busy={false} />);
+  expect((await screen.findByRole("alert")).textContent).toContain("interrupted write to");
+  fireEvent.click(screen.getByRole("button", { name: /keep current file/i }));
+  await waitFor(() => expect(keepRecoveryFile).toHaveBeenCalledWith("run", "/music/album/1.flac", "a".repeat(64)));
+  expect(confirm).toHaveBeenCalled();
+  expect(screen.queryByText(/No changes written/)).toBeNull();
+  confirm.mockRestore();
+});
+it("reloads a partially interrupted reversal and offers resume", async () => {
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+  const initial = { ...review, outcome: "applied", canRevert: true };
+  const interrupted = { ...initial, recovered: true, recoveryRequired: true };
+  const get = vi.fn().mockResolvedValueOnce(initial).mockResolvedValue(interrupted);
+  window.api = { getAutoTagReview: get, revertAutoTagReview: vi.fn().mockRejectedValue(new Error("interrupted")) } as any;
+  render(<AutoTagReview reviewId="run" onRetry={vi.fn()} onSearch={vi.fn()} onChanged={vi.fn()} busy={false} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Revert album" }));
+  expect(await screen.findByRole("button", { name: "Resume album reversal" })).toBeTruthy();
+  expect((await screen.findByRole("alert")).textContent).toContain("interrupted");
+  confirm.mockRestore();
+});
 it("explains skipped albums and keeps current metadata without offering a fictitious revert", async () => {
   window.api = {
     getAutoTagReview: vi.fn().mockResolvedValue(review),

@@ -8,6 +8,7 @@
 
 use std::collections::HashMap;
 use std::future::Future;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -35,6 +36,7 @@ struct WriteQueueInner {
     /// album folders can proceed concurrently.
     folder_gates: Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>,
     active: AtomicUsize,
+    profile_lock: Option<PathBuf>,
 }
 
 impl Default for WriteQueue {
@@ -54,7 +56,49 @@ impl WriteQueue {
             gate: Mutex::new(()),
             folder_gates: Mutex::new(HashMap::new()),
             active: AtomicUsize::new(0),
+            profile_lock: None,
         }))
+    }
+
+    /// Share write coordination between runtimes using the same data directory.
+    pub fn for_profile(data_dir: &Path, configured: Option<usize>) -> io::Result<Self> {
+        std::fs::create_dir_all(data_dir)?;
+        let lock_path = std::fs::canonicalize(data_dir)?.join("write-queue.lock");
+        let file = open_profile_lock(&lock_path, true)?;
+        if !file.metadata()?.is_file() {
+            return Err(io::Error::other("Write queue lock is not a regular file"));
+        }
+        let max_folder_concurrency = configured
+            .filter(|value| *value > 0)
+            .unwrap_or(DEFAULT_FOLDER_CONCURRENCY);
+        Ok(Self(Arc::new(WriteQueueInner {
+            max_folder_concurrency,
+            coordination: RwLock::new(()),
+            gate: Mutex::new(()),
+            folder_gates: Mutex::new(HashMap::new()),
+            active: AtomicUsize::new(0),
+            profile_lock: Some(lock_path),
+        })))
+    }
+
+    async fn profile_guard(
+        &self,
+        exclusive: bool,
+        nonblocking: bool,
+    ) -> io::Result<Option<std::fs::File>> {
+        let Some(path) = self.0.profile_lock.clone() else {
+            return Ok(None);
+        };
+        let file = open_profile_lock(&path, false)?;
+        loop {
+            match lock_profile_file(&file, exclusive, true) {
+                Ok(()) => return Ok(Some(file)),
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock && !nonblocking => {
+                    tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+                }
+                Err(error) => return Err(error),
+            }
+        }
     }
 
     pub fn max_folder_concurrency(&self) -> usize {
@@ -73,12 +117,18 @@ impl WriteQueue {
     where
         F: Future<Output = T>,
     {
-        let activity = ActivityGuard::new(&self.0.active);
+        let activity = ActivityGuard::new(Arc::clone(&self.0));
         let _coordination = self.0.coordination.read().await;
         let _gate = self.0.gate.lock().await;
-        let output = operation.await;
-        drop(activity);
-        output
+        let profile = self
+            .profile_guard(false, false)
+            .await
+            .expect("Cannot acquire shared write queue lock");
+        let lease = Arc::new(QueueLease {
+            _profile: profile,
+            _activity: activity,
+        });
+        ACTIVE_QUEUE_LEASE.scope(lease, operation).await
     }
 
     /// Acquires a lock scoped to a single album folder.
@@ -92,7 +142,7 @@ impl WriteQueue {
     where
         F: Future<Output = T>,
     {
-        let activity = ActivityGuard::new(&self.0.active);
+        let activity = ActivityGuard::new(Arc::clone(&self.0));
         let _coordination = self.0.coordination.read().await;
         let folder_lock = {
             let mut gates = self.0.folder_gates.lock().await;
@@ -102,9 +152,15 @@ impl WriteQueue {
                 .clone()
         };
         let _guard = folder_lock.lock().await;
-        let output = operation.await;
-        drop(activity);
-        output
+        let profile = self
+            .profile_guard(false, false)
+            .await
+            .expect("Cannot acquire shared write queue lock");
+        let lease = Arc::new(QueueLease {
+            _profile: profile,
+            _activity: activity,
+        });
+        ACTIVE_QUEUE_LEASE.scope(lease, operation).await
     }
 
     /// Runs a multi-step mutation while excluding every other queued write.
@@ -114,11 +170,32 @@ impl WriteQueue {
     where
         F: Future<Output = T>,
     {
-        let activity = ActivityGuard::new(&self.0.active);
+        self.run_exclusive_checked(operation)
+            .await
+            .expect("Cannot acquire exclusive write queue lock")
+    }
+
+    /// Like `run_exclusive`, but reports profile lock failures to the caller.
+    pub async fn run_exclusive_checked<F, T>(&self, operation: F) -> io::Result<T>
+    where
+        F: Future<Output = T>,
+    {
+        let activity = ActivityGuard::new(Arc::clone(&self.0));
         let _coordination = self.0.coordination.write().await;
-        let output = operation.await;
-        drop(activity);
-        output
+        let profile = self
+            .profile_guard(true, false)
+            .await
+            .map_err(|error| {
+                io::Error::new(
+                    error.kind(),
+                    format!("Cannot acquire exclusive write queue lock: {error}"),
+                )
+            })?;
+        let lease = Arc::new(QueueLease {
+            _profile: profile,
+            _activity: activity,
+        });
+        Ok(ACTIVE_QUEUE_LEASE.scope(lease, operation).await)
     }
 
     /// Claim exclusive coordination only when no write is already active.
@@ -135,29 +212,137 @@ impl WriteQueue {
         if self.is_active() {
             return None;
         }
-        let activity = ActivityGuard::new(&self.0.active);
-        let output = operation.await;
-        drop(activity);
+        let activity = ActivityGuard::new(Arc::clone(&self.0));
+        let profile = match self.profile_guard(true, true).await {
+            Ok(guard) => guard,
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return None,
+            Err(error) => panic!("Cannot acquire exclusive write queue lock: {error}"),
+        };
+        let lease = Arc::new(QueueLease {
+            _profile: profile,
+            _activity: activity,
+        });
+        let output = ACTIVE_QUEUE_LEASE.scope(lease, operation).await;
         drop(coordination);
         Some(output)
     }
+
 }
 
-struct ActivityGuard<'a> {
-    active: &'a AtomicUsize,
+fn open_profile_lock(path: &Path, create: bool) -> io::Result<std::fs::File> {
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).write(true).create(create);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(io::Error::other("Write queue lock is not a regular file"));
+    }
+    Ok(file)
 }
 
-impl<'a> ActivityGuard<'a> {
-    fn new(active: &'a AtomicUsize) -> Self {
-        active.fetch_add(1, Ordering::AcqRel);
-        Self { active }
+#[cfg(unix)]
+fn lock_profile_file(file: &std::fs::File, exclusive: bool, nonblocking: bool) -> io::Result<()> {
+    use std::os::fd::AsRawFd;
+    let mut operation = if exclusive {
+        libc::LOCK_EX
+    } else {
+        libc::LOCK_SH
+    };
+    if nonblocking {
+        operation |= libc::LOCK_NB;
+    }
+    loop {
+        if unsafe { libc::flock(file.as_raw_fd(), operation) } == 0 {
+            return Ok(());
+        }
+        let error = io::Error::last_os_error();
+        if error.kind() != io::ErrorKind::Interrupted {
+            return Err(error);
+        }
     }
 }
 
-impl Drop for ActivityGuard<'_> {
+#[cfg(windows)]
+fn lock_profile_file(file: &std::fs::File, exclusive: bool, nonblocking: bool) -> io::Result<()> {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Storage::FileSystem::{
+        LockFileEx, LOCKFILE_EXCLUSIVE_LOCK, LOCKFILE_FAIL_IMMEDIATELY,
+    };
+    use windows_sys::Win32::System::IO::OVERLAPPED;
+    let flags = if exclusive {
+        LOCKFILE_EXCLUSIVE_LOCK
+    } else {
+        0
+    } | if nonblocking {
+        LOCKFILE_FAIL_IMMEDIATELY
+    } else {
+        0
+    };
+    let mut overlapped = OVERLAPPED::default();
+    if unsafe { LockFileEx(file.as_raw_handle().cast(), flags, 0, 1, 0, &mut overlapped) } != 0 {
+        Ok(())
+    } else {
+        let error = io::Error::last_os_error();
+        if nonblocking && error.raw_os_error() == Some(33) {
+            Err(io::Error::from(io::ErrorKind::WouldBlock))
+        } else {
+            Err(error)
+        }
+    }
+}
+
+struct ActivityGuard {
+    inner: Arc<WriteQueueInner>,
+}
+
+impl ActivityGuard {
+    fn new(inner: Arc<WriteQueueInner>) -> Self {
+        inner.active.fetch_add(1, Ordering::AcqRel);
+        Self { inner }
+    }
+}
+
+impl Drop for ActivityGuard {
     fn drop(&mut self) {
-        self.active.fetch_sub(1, Ordering::AcqRel);
+        self.inner.active.fetch_sub(1, Ordering::AcqRel);
     }
+}
+
+pub(crate) struct QueueLease {
+    _profile: Option<std::fs::File>,
+    _activity: ActivityGuard,
+}
+
+tokio::task_local! { static ACTIVE_QUEUE_LEASE: Arc<QueueLease>; }
+
+pub(crate) fn current_queue_lease() -> Option<Arc<QueueLease>> {
+    ACTIVE_QUEUE_LEASE.try_with(Arc::clone).ok()
+}
+
+pub(crate) async fn with_queue_lease<F: Future>(
+    lease: Option<Arc<QueueLease>>,
+    operation: F,
+) -> F::Output {
+    match lease {
+        Some(lease) => ACTIVE_QUEUE_LEASE.scope(lease, operation).await,
+        None => operation.await,
+    }
+}
+
+pub(crate) fn spawn_write_blocking<F, T>(operation: F) -> tokio::task::JoinHandle<T>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    let lease = current_queue_lease();
+    tokio::task::spawn_blocking(move || {
+        let _lease = lease;
+        operation()
+    })
 }
 
 #[cfg(test)]
@@ -166,6 +351,193 @@ mod tests {
     use std::sync::atomic::AtomicBool;
     use std::sync::Arc;
     use tokio::sync::{Barrier, Notify};
+
+    async fn assert_eventually_exclusive(queue: &WriteQueue) {
+        // A nonblocking attempt can see transient OS contention after the
+        // holder task finishes, so require eventual release within a bound.
+        tokio::time::timeout(std::time::Duration::from_secs(2), async {
+            loop {
+                if queue.try_run_exclusive(async {}).await.is_some() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("exclusive lock remained unavailable after the holder finished");
+    }
+
+    #[tokio::test]
+    async fn unavailable_profile_lock_returns_error_without_running_write() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        let queue = WriteQueue::for_profile(&root, None).unwrap();
+        std::fs::remove_file(root.join("write-queue.lock")).unwrap();
+        let written = root.join("media");
+        let outcome = queue
+            .run_exclusive_checked(async { std::fs::write(&written, b"changed") })
+            .await;
+        assert!(outcome.is_err());
+        assert!(!written.exists());
+        assert!(!queue.is_active());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    #[ignore = "subprocess entry for cross-process queue coordination"]
+    async fn profile_lock_child() {
+        let root = PathBuf::from(std::env::var_os("SOUNDROBE_TEST_QUEUE_ROOT").unwrap());
+        let queue = WriteQueue::for_profile(&root, None).unwrap();
+        queue
+            .run_exclusive(async {
+                std::fs::write(root.join("child-entered"), b"entered").unwrap();
+            })
+            .await;
+    }
+
+    #[tokio::test]
+    async fn profile_queue_excludes_reversal_from_another_process_write() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let queue = WriteQueue::for_profile(&root, None).unwrap();
+        let entered = Arc::new(Notify::new());
+        let release = Arc::new(Notify::new());
+        let entered_task = Arc::clone(&entered);
+        let release_task = Arc::clone(&release);
+        let held = tokio::spawn(async move {
+            queue
+                .run(async {
+                    entered_task.notify_one();
+                    release_task.notified().await;
+                })
+                .await;
+        });
+        entered.notified().await;
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "state::write_queue::tests::profile_lock_child",
+                "--ignored",
+            ])
+            .env("SOUNDROBE_TEST_QUEUE_ROOT", &root)
+            .spawn()
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        assert!(!root.join("child-entered").exists());
+        assert!(child.try_wait().unwrap().is_none());
+        release.notify_one();
+        held.await.unwrap();
+        assert!(child.wait().unwrap().success());
+        assert!(root.join("child-entered").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn profile_queue_preserves_shared_writes_and_rejects_nonblocking_exclusive() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let first = WriteQueue::for_profile(&root, None).unwrap();
+        let second = WriteQueue::for_profile(&root, None).unwrap();
+        let entered = Arc::new(Barrier::new(2));
+        let release = Arc::new(Notify::new());
+        let first_entered = Arc::clone(&entered);
+        let first_release = Arc::clone(&release);
+        let holding = tokio::spawn(async move {
+            first
+                .run(async {
+                    first_entered.wait().await;
+                    first_release.notified().await;
+                })
+                .await
+        });
+        entered.wait().await;
+        assert_eq!(second.run(async { 7 }).await, 7);
+        assert!(second.try_run_exclusive(async { 8 }).await.is_none());
+        release.notify_one();
+        holding.await.unwrap();
+        assert_eventually_exclusive(&second).await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_request_keeps_profile_locked_until_blocking_write_finishes() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let first = WriteQueue::for_profile(&root, None).unwrap();
+        let second = WriteQueue::for_profile(&root, None).unwrap();
+        let observed = first.clone();
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let (finished_tx, finished_rx) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            first
+                .run(async move {
+                    spawn_write_blocking(move || {
+                        started_tx.send(()).unwrap();
+                        release_rx.recv().unwrap();
+                        finished_tx.send(()).unwrap();
+                    })
+                    .await
+                    .unwrap();
+                })
+                .await
+        });
+        started_rx.await.unwrap();
+        task.abort();
+        let _ = task.await;
+        assert!(
+            observed.is_active(),
+            "A detached disk write still counts as active"
+        );
+        assert!(
+            second.try_run_exclusive(async { () }).await.is_none(),
+            "Reversal must wait for the disk write"
+        );
+        release_tx.send(()).unwrap();
+        finished_rx.await.unwrap();
+        for _ in 0..50 {
+            if !observed.is_active() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert!(!observed.is_active());
+        assert_eventually_exclusive(&second).await;
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn cancelled_profile_lock_wait_does_not_prevent_later_writes() {
+        let root = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
+        std::fs::create_dir_all(&root).unwrap();
+        let first = WriteQueue::for_profile(&root, None).unwrap();
+        let second = WriteQueue::for_profile(&root, None).unwrap();
+        let observed = second.clone();
+        let entered = Arc::new(Notify::new());
+        let release = Arc::new(Notify::new());
+        let entered_task = Arc::clone(&entered);
+        let release_task = Arc::clone(&release);
+        let hold = tokio::spawn(async move {
+            first
+                .run_exclusive(async {
+                    entered_task.notify_one();
+                    release_task.notified().await;
+                })
+                .await
+        });
+        entered.notified().await;
+        let waiter = tokio::spawn(async move { second.run(async {}).await });
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(observed.is_active());
+        waiter.abort();
+        let _ = waiter.await;
+        assert!(!observed.is_active());
+        release.notify_one();
+        hold.await.unwrap();
+        tokio::time::timeout(std::time::Duration::from_secs(2), observed.run(async {}))
+            .await
+            .unwrap();
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn write_concurrency_is_explicit_and_shared_across_clones() {

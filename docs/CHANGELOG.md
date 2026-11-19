@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- An interrupted album reversal can be resumed from Results after restart, with original files and artwork restored from a durable recovery manifest.
+
+- Interrupted auto-tag writes can be resolved per file by keeping the reviewed current contents. The recovery backup remains available.
+
+- Auto-tag Results highlights assisted fields on the exact tracks that changed and keeps pending reviews across restarts. Startup verifies recorded writes without rewriting audio and holds auto-tagging for albums with unresolved writes.
+
 - Offline auto-tag replay can compare frozen baseline and candidate builds on the same reviewed selection across three metadata profiles and cold/warm caches. A small safety selection covers multi-track mappings, sibling versions, and unsupported remaster claims that must not write. Compact reports retain improvements, regressions, wrong matches, abstentions, missing fixtures, skips, and process failures, with separate metadata-readback and write-safety checks. Incomplete physical exports cannot pass no-write controls. Malformed ancillary fields, including skip status, retain incomplete reports. Unavailable readback does not imply a wrong match. Failed partial writes still report independently observed wrong content and excluded release IDs without counting unchanged bad input tags as new wrong matches. Hosted and model calls remain disabled.
 - Owner-authorized offline evaluations can complete supervised preparation, tagging, readback and scoring with disposable keys and fake credentials. A withheld answer can complete an observation without accepting a tag; a disconnected response remains incomplete. Completion requires observed receiver exit, and independent auditing rejects non-public source substitutions before reading them. Hosted calls remain disabled, and scripted results receive no real-model quality credit.
 - Offline owner-signing controls bind approvals to the current frozen evaluation and independently pinned owner key. A separate signature audit checks the checkpoint and signed scope without claiming human presence, completed execution or model quality. Disposable-key offline checkpoint signing requires explicit signed execution intent; automatic hosted signing and hosted calls remain disabled.

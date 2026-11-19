@@ -659,7 +659,7 @@ pub async fn apply_album_lyrics_at(
     let album_path_display = album_path.to_string_lossy().into_owned();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let mut report = LyricsBatchReport {
                     total,
                     ..LyricsBatchReport::default()

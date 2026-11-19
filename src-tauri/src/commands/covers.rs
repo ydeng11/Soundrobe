@@ -332,7 +332,7 @@ async fn download_artwork_at(
     let review = super::auto_tag_review::active_review();
     let written = queue
         .run_exclusive(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 let journaled = review.is_some();
                 let write = || -> Result<(), ApiError> {
                     if journaled
@@ -638,10 +638,12 @@ async fn set_cover_from_path_queued(
     let album_str = album_path.display().to_string();
     let result = queue
         .run(async move {
-            tokio::task::spawn_blocking(move || set_cover_from_path(&album_path, &source))
-                .await
-                .ok()
-                .flatten()
+            crate::state::write_queue::spawn_write_blocking(move || {
+                set_cover_from_path(&album_path, &source)
+            })
+            .await
+            .ok()
+            .flatten()
         })
         .await;
     if result.is_some() {
@@ -669,7 +671,7 @@ async fn remove_cover_queued(queue: &WriteQueue, album_path: PathBuf) -> bool {
     cover_cache_invalidate(&album_str);
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || remove_cover_at(&album_path))
+            crate::state::write_queue::spawn_write_blocking(move || remove_cover_at(&album_path))
                 .await
                 .unwrap_or(false)
         })

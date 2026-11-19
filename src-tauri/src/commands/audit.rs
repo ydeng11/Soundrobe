@@ -1314,7 +1314,7 @@ async fn apply_album_fixes(
         .collect::<Vec<_>>();
     let successes = queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 writes
                     .into_iter()
                     .map(

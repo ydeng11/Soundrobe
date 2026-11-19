@@ -4684,7 +4684,7 @@ async fn relocate_file_queued(
     let library = library_canonical.to_path_buf();
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || {
+            crate::state::write_queue::spawn_write_blocking(move || {
                 if let Some(parent) = destination.parent() {
                     fs::create_dir_all(parent).map_err(ApiError::Io)?;
                     let parent_canonical = parent.canonicalize().map_err(|error| {

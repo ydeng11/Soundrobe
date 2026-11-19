@@ -54,9 +54,11 @@ pub async fn files_sort_by_album(
     let copy = options.and_then(|options| options.copy).unwrap_or(true);
     queue
         .run(async move {
-            tokio::task::spawn_blocking(move || sort_by_album(Path::new(&source_dir), copy))
-                .await
-                .map_err(|error| ApiError::WriteTask(error.to_string()))?
+            crate::state::write_queue::spawn_write_blocking(move || {
+                sort_by_album(Path::new(&source_dir), copy)
+            })
+            .await
+            .map_err(|error| ApiError::WriteTask(error.to_string()))?
         })
         .await
 }

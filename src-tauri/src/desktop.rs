@@ -210,6 +210,7 @@ pub fn run() {
     let app = builder
         .setup(|app| {
             let mut write_concurrency = None;
+            let mut write_data_dir = None;
             // Migrate legacy application data before loading the managed
             // config from ~/.soundrobe/config.yaml + env,
             // mirroring Electron's `initializeAssistantServices(getRawApi
@@ -221,6 +222,7 @@ pub fn run() {
                     .prepare()
                     .map_err(|error| -> Box<dyn std::error::Error> { Box::new(error) })?;
                 let data_dir = paths.data_dir().to_path_buf();
+                write_data_dir = Some(data_dir.clone());
                 let config = ConfigState::init_in(data_dir.clone());
                 let raw_config = config.raw();
                 write_concurrency = raw_config.write_concurrency;
@@ -234,6 +236,9 @@ pub fn run() {
                     )
                     .into());
                 }
+                worker
+                    .reconcile_writes_at_startup()
+                    .map_err(std::io::Error::other)?;
                 let reviews =
                     commands::auto_tag_review::ReviewStore::new_with_worker(worker.clone())
                         .map_err(|error| std::io::Error::other(error.to_string()))?;
@@ -268,7 +273,11 @@ pub fn run() {
             app.manage(AuditState::default());
             app.manage(ContextMenuState::default());
             app.manage(ProviderState::default());
-            app.manage(WriteQueue::with_concurrency(write_concurrency));
+            let queue = match write_data_dir {
+                Some(path) => WriteQueue::for_profile(&path, write_concurrency)?,
+                None => WriteQueue::with_concurrency(write_concurrency),
+            };
+            app.manage(queue);
             app.manage(QuitGuard::default());
             app.manage(TaskRegistry::default());
             app.manage(UpdaterState::default());
@@ -335,6 +344,7 @@ pub fn run() {
             commands::auto_tag_review::auto_tag_review_get,
             commands::auto_tag_review::auto_tag_review_keep,
             commands::auto_tag_review::auto_tag_review_revert,
+            commands::auto_tag_review::auto_tag_review_keep_recovery_file,
             commands::auto_tag_review::auto_tag_review_artwork,
             commands::lyrics::lyrics_fetch,
             commands::lyrics::album_download_lyrics,

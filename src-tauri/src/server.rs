@@ -2775,9 +2775,11 @@ async fn command(
             let result = state
                 .write_queue
                 .run(async move {
-                    tokio::task::spawn_blocking(move || sort_by_album(&source_dir, copy))
-                        .await
-                        .map_err(|error| crate::error::ApiError::WriteTask(error.to_string()))?
+                    crate::state::write_queue::spawn_write_blocking(move || {
+                        sort_by_album(&source_dir, copy)
+                    })
+                    .await
+                    .map_err(|error| crate::error::ApiError::WriteTask(error.to_string()))?
                 })
                 .await;
             match result {
@@ -3357,10 +3359,12 @@ async fn command(
             let result = state
                 .write_queue
                 .run(async move {
-                    tokio::task::spawn_blocking(move || remove_cover(&resolved.path))
-                        .await
-                        .map_err(|error| io::Error::other(error.to_string()))
-                        .and_then(|result| result)
+                    crate::state::write_queue::spawn_write_blocking(move || {
+                        remove_cover(&resolved.path)
+                    })
+                    .await
+                    .map_err(|error| io::Error::other(error.to_string()))
+                    .and_then(|result| result)
                 })
                 .await;
             match result {
@@ -3681,10 +3685,12 @@ async fn upload_cover(
     let result = state
         .write_queue
         .run(async move {
-            tokio::task::spawn_blocking(move || write_cover_upload(&album_path, &bytes))
-                .await
-                .map_err(|error| io::Error::other(error.to_string()))
-                .and_then(|result| result)
+            crate::state::write_queue::spawn_write_blocking(move || {
+                write_cover_upload(&album_path, &bytes)
+            })
+            .await
+            .map_err(|error| io::Error::other(error.to_string()))
+            .and_then(|result| result)
         })
         .await;
     match result {
@@ -3702,7 +3708,9 @@ async fn upload_cover(
 }
 
 pub fn router(config: ServerConfig) -> Router {
-    router_with_runtime(config, ServerLifecycle::default(), WriteQueue::default())
+    let queue = WriteQueue::for_profile(&config.data_dir, None)
+        .expect("Could not initialize cross-process write queue");
+    router_with_runtime(config, ServerLifecycle::default(), queue)
 }
 
 fn router_with_runtime(
@@ -3727,7 +3735,8 @@ fn router_with_runtime_and_events(
         Some("durable background worker store could not be initialized".to_string())
     } else {
         worker
-            .recover_interrupted()
+            .reconcile_writes_at_startup()
+            .and_then(|()| worker.recover_interrupted())
             .map(|_| None)
             .unwrap_or_else(|error| Some(format!("worker recovery failed: {error}")))
     };
@@ -3792,7 +3801,7 @@ pub async fn run() -> anyhow::Result<()> {
 
     let listener = tokio::net::TcpListener::bind(config.listen_addr).await?;
     let lifecycle = ServerLifecycle::default();
-    let write_queue = WriteQueue::default();
+    let write_queue = WriteQueue::for_profile(&config.data_dir, None)?;
     axum::serve(
         listener,
         router_with_runtime(config, lifecycle.clone(), write_queue.clone()),
@@ -6192,6 +6201,51 @@ mod tests {
         config.data_dir =
             std::env::temp_dir().join(format!("soundrobe-bg-{tag}-{}", Uuid::new_v4().simple()));
         config
+    }
+
+    #[tokio::test]
+    async fn server_start_reconciles_abandoned_tag_writes_before_serving() {
+        let config = isolated_config("write-recovery");
+        let album = config.data_dir.join("album");
+        let track = album.join("01.bin");
+        fs::create_dir_all(&album).unwrap();
+        fs::write(&track, b"original").unwrap();
+        let worker = WorkerStore::new_in(config.data_dir.clone());
+        assert!(worker.initialize());
+        worker
+            .prepare_write_intent(&track, "abandoned::attempt", &json!({"genre":"Jazz"}))
+            .unwrap();
+        worker
+            .begin_write_intent(&track, "abandoned::attempt")
+            .unwrap();
+        fs::write(&track, b"unknown post-state").unwrap();
+        assert_eq!(
+            worker.reconcile_write_intents().unwrap()[0].intent.state,
+            "applying"
+        );
+
+        let response = router(config.clone())
+            .oneshot(
+                Request::builder()
+                    .uri("/healthz")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            worker.reconcile_write_intents().unwrap()[0].intent.state,
+            "needs_recovery"
+        );
+        assert_eq!(fs::read(&track).unwrap(), b"unknown post-state");
+        assert!(worker
+            .claim_desktop_run(&album, "fresh")
+            .unwrap_err()
+            .contains("recovery"));
+        drop(worker);
+        fs::remove_dir_all(config.data_dir).unwrap();
     }
 
     async fn signed_in(app: Router) -> header::HeaderValue {
