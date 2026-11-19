@@ -4,8 +4,9 @@ import type { Options } from "@wdio/types";
 import { cleanupE2eWorkspace, prepareE2eWorkspace } from "./e2e-tauri/fixtures";
 
 const workspace = prepareE2eWorkspace();
+const authorityPhase = process.env.SOUNDROBE_E2E_AUTHORITY_PHASE;
 
-const binary = path.resolve(
+const binary = process.env.SOUNDROBE_E2E_BINARY ?? path.resolve(
   "src-tauri/target/release",
   process.platform === "win32" ? "soundrobe.exe" : "soundrobe",
 );
@@ -14,7 +15,7 @@ export const config: Options.Testrunner = {
   runner: "local",
   // Credentialed and real-display smokes are selected explicitly by their
   // `just` recipes; the default CI suite remains deterministic and offline.
-  specs: ["./e2e-tauri/workflows.spec.ts"],
+  specs: [authorityPhase ? "./e2e-tauri/library-authority.spec.ts" : "./e2e-tauri/workflows.spec.ts"],
   maxInstances: 1,
   services: [
     [
@@ -42,11 +43,13 @@ export const config: Options.Testrunner = {
   reporters: ["spec"],
   mochaOpts: { ui: "bdd", timeout: 60_000 },
   onPrepare: () => {
-    if (process.platform === "darwin" || process.platform === "linux") {
+    if (!authorityPhase && (process.platform === "darwin" || process.platform === "linux")) {
       execFileSync(binary, ["--nominate-library", workspace.manifest.library], {
         stdio: "inherit",
       });
     }
   },
-  onComplete: () => cleanupE2eWorkspace(workspace.root),
+  onComplete: () => {
+    if (!authorityPhase) cleanupE2eWorkspace(workspace.root);
+  },
 };
