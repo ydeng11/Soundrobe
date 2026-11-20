@@ -1186,3 +1186,9 @@ layout geometry for the split.
 Saved column preferences still determine which metadata columns appear. Their
 widths still come from `columns.ts`, which also defines the two workspace-only
 columns. An existing setting can hide the track inspector.
+
+## 30. Browser page navigation and provider layout
+
+This extends the workspace's navigation pattern to the existing views in sections 27 and 28. At desktop widths, Monitoring and Settings use a left rail capped at 256px and 26% of the page. The right pane shows one active view. At 900px and below, navigation returns to the top of the page.
+
+Tag sources uses two equal columns within the shared 1120px document width on desktop and a single column on mobile. The previous one-column document was capped at 880px. The layout uses existing colour, type, focus, and control tokens.

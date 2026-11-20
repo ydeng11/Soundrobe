@@ -64,6 +64,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Monitoring and Settings keep navigation beside the active view on desktop. Tag sources displays metadata providers beside AI fallback settings. Failed loads can be retried, and unsuccessful saves keep the remaining edits available.
+
 - The browser workspace places a track inspector beside the album list on desktop and below it on mobile. You can filter artists and albums, find tracks with missing tags or failed writes, and retry a failed save with the draft still in place. Successful saves update the selected file from the saved tags.
 
 - Reviewed, hash-checked catalog title localizations can resolve filename-only tracks while retaining canonical provider display titles and source receipts. Aliases apply only to their reviewed release and track occurrence with compatible durations; conflicting live, mix and remaster claims remain blocked.

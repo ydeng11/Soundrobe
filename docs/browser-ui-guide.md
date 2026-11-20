@@ -21,6 +21,12 @@ The prototype used a sample library, a preselected track, and simulated outcomes
 
 Use the reference-derived surfaces, palette, type scale, radii, and control geometry from `tokens.css` in `web.css`. Keep measured colours in `oklch()` and use `columns.ts` for widths. The parity record documents the denser workspace rows, solid selected-row fill, accessible muted and status text, and split-pane geometry. Record measured before and after values there when an approved change diverges from the reference. [Tokens](../src/web/tokens.css) · [Styles](../src/web/web.css) · [Column widths](../src/web/columns.ts) · [Parity record](mtw-parity.md)
 
+## Other browser pages
+
+- **Monitoring** uses a desktop rail for view tabs and linked counts. On mobile, the tabs stay above the active panel and Overview holds the counts. Failed refreshes retain the last available status, and the log view offers a retry for a failed read. [Monitoring](../src/web/MonitoringView.tsx)
+- **Tag sources** puts metadata providers and AI fallback side by side on desktop and stacks them on mobile. The page keeps unsaved fields visible, reports save outcomes, and retries the fields still pending after a partial save. [Tag sources](../src/web/TagSourcesView.tsx)
+- **Settings** shows one category at a time and marks categories with unsaved edits. Keep immediate changes and their confirmations at the field. Lyrics URL and custom schedules keep their own Save and Cancel controls, including after a failed save. [Settings](../src/web/SettingsView.tsx)
+
 ## Verification checklist
 
 - [ ] At **1920×1080**, check that the library, album list, and inspector stay visible together. At **390×844**, check the disclosure, selected row, scroll to the inspector, and sticky actions. Keep horizontal overflow inside the table.

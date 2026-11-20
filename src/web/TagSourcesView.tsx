@@ -114,7 +114,9 @@ export interface TagSourcesViewProps {
 
 export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
   const [settings, setSettings] = React.useState<TagSourceSettings>(EMPTY_TAG_SOURCES);
-  const [loaded, setLoaded] = React.useState(false);
+  const [savedSettings, setSavedSettings] = React.useState<TagSourceSettings | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const pending = React.useRef(false);
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -124,9 +126,13 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
+    if (pending.current) return;
+    pending.current = true;
+    setLoading(true);
+    setError(null);
     try {
       const config = (await api.getConfig()) as Record<string, unknown>;
-      setSettings({
+      const next = {
         discogsToken: settingString(config.discogsToken),
         acoustidApiKey: settingString(config.acoustidApiKey),
         acoustidEnabled: config.acoustidEnabled === true,
@@ -135,10 +141,14 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
         llmModel: settingString(config.llmModel),
         llmBaseUrl: settingString(config.llmBaseUrl),
         llmApiKey: settingString(config.llmApiKey),
-      });
-      setLoaded(true);
+      };
+      setSettings(next);
+      setSavedSettings(next);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      pending.current = false;
+      setLoading(false);
     }
   }, [api]);
 
@@ -153,25 +163,36 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
     setConnectionError(null);
   };
 
+  const loaded = savedSettings !== null;
+  const writes = buildTagSourceWrites(settings).filter(([key]) =>
+    settings[key as keyof TagSourceSettings] !== savedSettings?.[key as keyof TagSourceSettings],
+  );
+  const dirty = loaded && writes.length > 0;
+
   const save = async () => {
-    if (!loaded) return;
+    if (!dirty || pending.current) return;
+    pending.current = true;
     setSaving(true);
     setError(null);
     setMessage(null);
     try {
-      for (const [key, value] of buildTagSourceWrites(settings)) {
+      for (const [key, value] of writes) {
         await api.setConfig(key, value);
+        const field = key as keyof TagSourceSettings;
+        setSavedSettings((current) => current && { ...current, [field]: settings[field] });
       }
       setMessage("Tag sources saved");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
+      pending.current = false;
       setSaving(false);
     }
   };
 
   const testConnection = async () => {
-    if (!settings.llmModel) return;
+    if (!loaded || !settings.llmModel || pending.current) return;
+    pending.current = true;
     setConnection("testing");
     setConnectionError(null);
     try {
@@ -185,6 +206,8 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
     } catch (reason) {
       setConnection("error");
       setConnectionError(reason instanceof Error ? reason.message : "Connection failed");
+    } finally {
+      pending.current = false;
     }
   };
 
@@ -201,31 +224,36 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
           </p>
         </div>
         <div className="sr-page-actions">
+          {dirty && !saving && <span className="sr-freshness">Unsaved changes</span>}
           <button
             type="button"
             className="sr-btn sr-btn--primary"
-            disabled={!loaded || saving}
+            disabled={!dirty || saving || connection === "testing"}
             onClick={() => void save()}
           >
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : loaded && error ? "Retry save" : "Save"}
           </button>
         </div>
       </div>
 
-      {error && (
-        <p className="sr-banner sr-banner--error" role="alert">
-          {error}
-        </p>
-      )}
-      {message && <p className="sr-banner sr-banner--notice">{message}</p>}
+      <div className="sr-page-feedback">
+        {loading && <p className="sr-banner sr-banner--loading" role="status">Loading tag sources…</p>}
+        {error && (
+          <div className="sr-banner sr-banner--error" role="alert">
+            <span>{loaded ? "Could not save tag sources." : "Could not load tag sources."} {error}</span>
+            {!loaded && <button type="button" className="sr-btn" onClick={() => void load()}>Retry loading sources</button>}
+          </div>
+        )}
+        {message && <p className="sr-banner sr-banner--notice" role="status">{message}</p>}
+      </div>
 
-      <div className="sr-sources">
-        <section className="sr-section">
-          <h3 className="sr-section__title">Metadata sources</h3>
+      <fieldset className="sr-sources" disabled={!loaded || saving || connection === "testing"}>
+        <section className="sr-section" aria-labelledby="tag-sources-catalog">
+          <h2 id="tag-sources-catalog" className="sr-section__title">Metadata sources</h2>
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <h4 className="sr-source__name">MusicBrainz</h4>
+              <h3 className="sr-source__name">MusicBrainz</h3>
               <span className="sr-badge sr-badge--success">Always on</span>
             </div>
             <p className="sr-source__note">
@@ -234,7 +262,7 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
           </div>
 
           <div className="sr-source">
-            <div className="sr-source__head"><h4 className="sr-source__name">AcoustID</h4></div>
+            <div className="sr-source__head"><h3 className="sr-source__name">AcoustID</h3></div>
             <p className="sr-source__note">Recognize complete albums from audio when other providers cannot identify them. Requires a registered application key and fpcalc on the service host. Ambiguous matches need review.</p>
             <label className="sr-field sr-field--stacked">
               <span className="sr-field__label"><input type="checkbox" checked={settings.acoustidEnabled} disabled={!loaded || saving} onChange={(event) => update("acoustidEnabled", event.target.checked)} /> Enable AcoustID recognition</span>
@@ -247,11 +275,11 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <h4 className="sr-source__name">Discogs</h4>
+              <h3 className="sr-source__name">Discogs</h3>
               <span
-                className={`sr-badge ${settings.discogsToken ? "sr-badge--success" : "sr-badge--muted"}`}
+                className={`sr-badge ${savedSettings?.discogsToken ? "sr-badge--success" : "sr-badge--muted"}`}
               >
-                {settings.discogsToken ? "Configured" : "Not configured"}
+                {savedSettings?.discogsToken ? "Configured" : "Not configured"}
               </span>
             </div>
             <p className="sr-source__note">
@@ -271,11 +299,11 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
 
           <div className="sr-source">
             <div className="sr-source__head">
-              <h4 className="sr-source__name">TheAudioDB</h4>
+              <h3 className="sr-source__name">TheAudioDB</h3>
               <span
-                className={`sr-badge ${settings.theAudioDbApiKey ? "sr-badge--success" : "sr-badge--muted"}`}
+                className={`sr-badge ${savedSettings?.theAudioDbApiKey ? "sr-badge--success" : "sr-badge--muted"}`}
               >
-                {settings.theAudioDbApiKey ? "Configured" : "Not configured"}
+                {savedSettings?.theAudioDbApiKey ? "Configured" : "Not configured"}
               </span>
             </div>
             <p className="sr-source__note">
@@ -294,8 +322,8 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
           </div>
         </section>
 
-        <section className="sr-section">
-          <h3 className="sr-section__title">AI fallback</h3>
+        <section className="sr-section" aria-labelledby="tag-sources-ai">
+          <h2 id="tag-sources-ai" className="sr-section__title">AI fallback</h2>
           <p className="sr-source__note">
             Used only for the bounded fallback after folder evidence, exact
             provider IDs, MusicBrainz and Discogs.
@@ -366,26 +394,26 @@ export function TagSourcesView({ api = window.api }: TagSourcesViewProps) {
             />
           </label>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="sr-source__connection">
             <button
               type="button"
               className="sr-btn"
               disabled={connection === "testing" || !settings.llmModel}
               onClick={() => void testConnection()}
             >
-              {connection === "testing" ? "Testing…" : "Test connection"}
+              {connection === "testing" ? "Testing…" : connection === "error" ? "Retry connection" : "Test connection"}
             </button>
             {connection === "success" && (
-              <span className="sr-badge sr-badge--success">Connection OK</span>
+              <span className="sr-badge sr-badge--success" role="status">Connection OK</span>
             )}
             {connection === "error" && (
-              <span className="sr-badge sr-badge--danger">
+              <span className="sr-banner sr-banner--error" role="alert">
                 {connectionError ?? "Connection failed"}
               </span>
             )}
           </div>
         </section>
-      </div>
+      </fieldset>
     </div>
   );
 }
