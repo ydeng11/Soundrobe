@@ -100,9 +100,9 @@ describe("browser workspace state-token contract", () => {
     );
   });
 
-  it("keeps compact editor actions visible while the mobile dock scrolls", () => {
+  it("keeps inspector actions visible while the mobile workspace scrolls", () => {
     expect(web).toMatch(
-      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-editor--compact \.sr-editor__actions\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0[^}]*background:\s*var\(--sr-surface\)/s,
+      /@media \(max-width: 900px\) \{[\s\S]*?\.sr-editor--inspector \.sr-editor__actions\s*\{[^}]*position:\s*sticky[^}]*bottom:\s*0[^}]*background:\s*var\(--sr-surface\)/s,
     );
     expect(web).toContain("scroll-padding-bottom: var(--sr-control-h)");
   });
@@ -146,9 +146,9 @@ describe("browser workspace state-token contract", () => {
     );
   });
 
-  it("aligns compact editor actions to the right on desktop", () => {
+  it("aligns inspector actions to the right on desktop", () => {
     expect(web).toMatch(
-      /\.sr-editor--compact \.sr-editor__actions\s*\{[^}]*justify-content:\s*flex-end/s,
+      /\.sr-editor--inspector \.sr-editor__actions\s*\{[^}]*justify-content:\s*flex-end/s,
     );
   });
 });

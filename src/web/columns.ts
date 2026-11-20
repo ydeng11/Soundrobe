@@ -30,6 +30,10 @@ export const WEB_TABLE_COLUMNS: readonly WebTableColumn[] = [
   { key: "genres", label: "Genres", width: 78 },
 ] as const;
 
+/** Additional workspace columns for write outcomes and track duration. */
+export const WORKSPACE_TRACK_STATUS_COLUMN = { label: "Tag status", width: 124 };
+export const WORKSPACE_TRACK_TIME_COLUMN = { label: "Time", width: 58 };
+
 export type WebTableColumnKey = (typeof WEB_TABLE_COLUMNS)[number]["key"];
 
 /** Total pixel width of the reference column set (970px against a 971px table). */

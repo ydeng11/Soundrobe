@@ -477,11 +477,19 @@ export function SearchTool({
                 : undefined,
             },
       );
-      const written = await api.searchApplyCandidate(
-        albumPath,
-        { ...candidate, tracks: tracksEdit },
-        mappedRows.map((row) => row.localIndex),
-      );
+      let written: number;
+      try {
+        written = await api.searchApplyCandidate(
+          albumPath,
+          { ...candidate, tracks: tracksEdit },
+          mappedRows.map((row) => row.localIndex),
+        );
+      } catch (reason) {
+        // The native writer can save some files before reporting failed paths.
+        // Refresh the table and keep the mapping open for corrections or retry.
+        await onApplied();
+        throw reason;
+      }
       await onApplied();
       setPhase("results");
       return written === 0
@@ -620,7 +628,7 @@ export function SearchTool({
             disabled={busy || !canSearch}
             onClick={() => void search(1)}
           >
-            {busy ? "Searching…" : "Search releases"}
+            {busy ? "Searching…" : error ? "Retry search" : "Search releases"}
           </button>
         </div>
         </section>
@@ -930,7 +938,7 @@ export function SearchTool({
               <h3 className="sr-section__title" id="search-mapping-title">Match tracks before writing</h3>
               <p className="sr-field__static">Choose the remote track for each local file. The fields below are the values that will be written.</p>
             </div>
-            <button type="button" className="sr-btn" data-testid="search-back-top" onClick={() => setPhase("results")}>Back to releases</button>
+            <button type="button" className="sr-btn" data-testid="search-back-top" disabled={busy} onClick={() => setPhase("results")}>Back to releases</button>
           </div>
 
           <div className="sr-mapping-summary">
@@ -1013,9 +1021,9 @@ export function SearchTool({
           </div>
 
           <div className="sr-tool-actions">
-            <button type="button" className="sr-btn" data-testid="search-back" onClick={() => setPhase("results")}>Back to releases</button>
+            <button type="button" className="sr-btn" data-testid="search-back" disabled={busy} onClick={() => setPhase("results")}>Back to releases</button>
             <button type="button" className="sr-btn sr-btn--primary" data-testid="search-apply" disabled={busy || mappedRows.length === 0} onClick={() => void apply()}>
-              {busy ? "Writing…" : `Write ${mappedRows.length} track${mappedRows.length === 1 ? "" : "s"}`}
+              {busy ? "Writing…" : `${error ? "Retry writing" : "Write"} ${mappedRows.length} track${mappedRows.length === 1 ? "" : "s"}`}
             </button>
           </div>
         </section>

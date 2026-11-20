@@ -11,11 +11,8 @@
  * actually fire, the runs that actually happened, and the releases the last
  * survey actually classified. Nothing is inferred in the browser.
  *
- * Shape: an always-visible strip of counts, over four peer tabs. The strip is
- * the overview and every tile in it is a way in; the tabs are the detail, one
- * question each. That is the reference's own structure for the same problem
- * (`操作日志` / `运行日志` over a faceted list), and it is why the sections are
- * tabs rather than a six-section scroll.
+ * The navigation and linked counts stay next to the active view on desktop.
+ * On narrow screens, the counts are part of Overview.
  */
 
 import React from "react";
@@ -179,9 +176,18 @@ export function MonitoringView({
   const [log, setLog] = React.useState<MonitoringLog | null>(null);
   const [source, setSource] = React.useState<MonitoringLogSource>("app");
   const [error, setError] = React.useState<string | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<{ message: string; failed?: boolean } | null>(null);
+  const [refreshing, setRefreshing] = React.useState(true);
+  const refreshRequest = React.useRef(0);
+  const refreshInFlight = React.useRef(false);
+  const [logError, setLogError] = React.useState<string | null>(null);
+  const [logLoading, setLogLoading] = React.useState(false);
+  const logRequest = React.useRef(0);
   const [busy, setBusy] = React.useState(false);
   const [tab, setTab] = React.useState<MonitoringTab>("overview");
+  const [verticalTabs, setVerticalTabs] = React.useState(
+    () => window.matchMedia?.("(min-width: 901px)").matches ?? false,
+  );
   const [releaseFilter, setReleaseFilter] = React.useState<ReleaseHealthStatus | "all">("all");
   const [releaseQuery, setReleaseQuery] = React.useState("");
   const [releaseLimit, setReleaseLimit] = React.useState(RELEASE_PAGE);
@@ -191,15 +197,34 @@ export function MonitoringView({
   const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
   const [clock, setClock] = React.useState(() => new Date());
 
+  React.useEffect(() => {
+    const media = window.matchMedia?.("(min-width: 901px)");
+    if (!media) return;
+    const update = () => setVerticalTabs(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+
   const refresh = React.useCallback(async () => {
+    const request = ++refreshRequest.current;
+    refreshInFlight.current = true;
+    setRefreshing(true);
     try {
       const [next, monitored] = await Promise.all([loadStatus(), loadReleases()]);
+      if (request !== refreshRequest.current) return;
       setStatus(next);
       setReleases(monitored.releases);
       setError(null);
       setLastUpdated(new Date());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason));
+      if (request === refreshRequest.current) {
+        setError(reason instanceof Error ? reason.message : String(reason));
+      }
+    } finally {
+      if (request === refreshRequest.current) {
+        refreshInFlight.current = false;
+        setRefreshing(false);
+      }
     }
   }, [loadStatus, loadReleases]);
 
@@ -219,7 +244,7 @@ export function MonitoringView({
   React.useEffect(() => {
     if (refreshMs <= 0) return undefined;
     const timer = window.setInterval(() => {
-      if (tabIsHidden()) return;
+      if (tabIsHidden() || refreshInFlight.current) return;
       void refresh();
     }, refreshMs);
     return () => window.clearInterval(timer);
@@ -234,21 +259,28 @@ export function MonitoringView({
 
   const loadLog = React.useCallback(
     async (nextSource: MonitoringLogSource, lines: number) => {
+      const request = ++logRequest.current;
+      setLogLoading(true);
+      setLogError(null);
       try {
         const next = await readLog(nextSource, lines);
-        setLog(next);
-        setNotice(null);
+        if (request === logRequest.current) setLog(next);
       } catch (reason) {
-        // A source that has never written a file is an ordinary state, not a
-        // failure of the page.
-        setLog(null);
-        setNotice(reason instanceof Error ? reason.message : String(reason));
+        if (request === logRequest.current) {
+          const message = reason instanceof Error ? reason.message : String(reason);
+          // This is the service's 404 for a trace that has never been created.
+          if (message === "no auto-tag log yet") setLog(null);
+          else setLogError(message);
+        }
+      } finally {
+        if (request === logRequest.current) setLogLoading(false);
       }
     },
     [readLog],
   );
 
   React.useEffect(() => {
+    setLog(null);
     void loadLog(source, LOG_PAGE);
   }, [loadLog, source]);
 
@@ -271,11 +303,11 @@ export function MonitoringView({
     setNotice(null);
     try {
       const { taskId } = await runNow();
-      setNotice(`Background tagging started (${taskId}).`);
+      setNotice({ message: `Background tagging started (${taskId}).` });
       await refresh();
     } catch (reason) {
       // A refused start (disabled, busy, nothing to cover) is reported verbatim.
-      setNotice(reason instanceof Error ? reason.message : String(reason));
+      setNotice({ message: reason instanceof Error ? reason.message : String(reason), failed: true });
     } finally {
       setBusy(false);
     }
@@ -287,10 +319,10 @@ export function MonitoringView({
       setNotice(null);
       try {
         const { taskId } = await retryFailed(runId);
-        setNotice(`Retrying the releases that failed (${taskId}).`);
+        setNotice({ message: `Retrying the releases that failed (${taskId}).` });
         await refresh();
       } catch (reason) {
-        setNotice(reason instanceof Error ? reason.message : String(reason));
+        setNotice({ message: reason instanceof Error ? reason.message : String(reason), failed: true });
       } finally {
         setBusy(false);
       }
@@ -304,10 +336,10 @@ export function MonitoringView({
       setNotice(null);
       try {
         await markReviewed(path);
-        setNotice(`Review acknowledged for ${albumNameOf(path)}.`);
+        setNotice({ message: `Review acknowledged for ${albumNameOf(path)}.` });
         await refresh();
       } catch (reason) {
-        setNotice(reason instanceof Error ? reason.message : String(reason));
+        setNotice({ message: reason instanceof Error ? reason.message : String(reason), failed: true });
       } finally {
         setBusy(false);
       }
@@ -349,7 +381,7 @@ export function MonitoringView({
   const scheduleWords = status ? describeCron(status.schedule) : null;
 
   return (
-    <div className="sr-pane" data-testid="monitoring">
+    <div className="sr-pane sr-monitoring" data-testid="monitoring" data-view={tab}>
       <div className="sr-toolbar sr-page-header">
         <div className="sr-page-heading">
           <h1 className="sr-section__title">Monitoring</h1>
@@ -366,58 +398,16 @@ export function MonitoringView({
           <button
             type="button"
             className="sr-btn sr-btn--primary"
-            disabled={busy || status?.enabled === false}
+            disabled={busy || !status?.enabled}
             onClick={() => void handleRunNow()}
           >
             Tag now
           </button>
-          <button type="button" className="sr-btn" onClick={() => void refresh()}>
-            Refresh
+          <button type="button" className="sr-btn" disabled={refreshing} onClick={() => void refresh()}>
+            {refreshing ? "Refreshing…" : error ? "Retry refresh" : "Refresh"}
           </button>
         </div>
       </div>
-
-      {/*
-        The overview strip. Every count that has a list behind it is a button, so
-        "Needs review 5" is the way to those five rather than a number to note.
-      */}
-      <div className="sr-summary" data-testid="monitoring-summary">
-        <Tile
-          testId="monitoring-tile-enabled"
-          label="Background tagging"
-          value={status?.enabled ? "On" : "Off"}
-        />
-        <Tile
-          testId="monitoring-tile-next-run"
-          label="Next run"
-          value={status?.nextRunAt ? relativeTime(status.nextRunAt, clock) : "—"}
-          hint={status?.nextRunAt ? formatStamp(status.nextRunAt) : undefined}
-        />
-        {running.length > 0 && (
-          <Tile
-            testId="monitoring-tile-running"
-            label="Running now"
-            value={running.length}
-            onClick={() => setTab("operations")}
-          />
-        )}
-        {facets.map((facet) => (
-          <Tile
-            key={facet.status}
-            testId={`monitoring-tile-${facet.status}`}
-            label={facet.label}
-            value={facet.count}
-            onClick={() => openFacet(facet.status)}
-            active={tab === "releases" && releaseFilter === facet.status}
-          />
-        ))}
-        {facetTotal === 0 && (
-          <Tile testId="monitoring-tile-total" label="Releases surveyed" value={0} />
-        )}
-      </div>
-      <p className="sr-freshness">
-        Release status includes tag scans. Run details show what was verified during each recorded run.
-      </p>
 
       {/* Announce completion for anyone not watching the numbers. */}
       <p className="sr-sr-only" role="status" aria-live="polite" data-testid="monitoring-live">
@@ -426,37 +416,93 @@ export function MonitoringView({
           : "No background run in progress."}
       </p>
 
-      {error && (
-        <p className="sr-banner sr-banner--error" role="alert">
-          {error}
-        </p>
-      )}
-      {notice && (
-        <p className="sr-banner sr-banner--notice" role="status" data-testid="monitoring-notice">
-          {notice}
-        </p>
-      )}
-
-      <div className="sr-tabs" role="tablist" aria-label="Monitoring views">
-        {TABS.map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            role="tab"
-            id={`monitoring-tab-${entry.id}`}
-            aria-selected={tab === entry.id}
-            aria-controls={`monitoring-panel-${entry.id}`}
-            className={`sr-tab${tab === entry.id ? " is-active" : ""}`}
-            data-testid={`monitoring-tab-${entry.id}`}
-            onClick={() => setTab(entry.id)}
-          >
-            {entry.label}
-            {entry.id === "releases" && filtersActive && (
-              <span className="sr-tab__count">{shownReleases.length}</span>
-            )}
-          </button>
-        ))}
+      <div className="sr-page-feedback">
+        {error && <p className="sr-banner sr-banner--error" role="alert">Could not refresh Monitoring. {error}</p>}
+        {notice && (
+          <p className={`sr-banner sr-banner--${notice.failed ? "error" : "notice"}`}
+            role={notice.failed ? "alert" : "status"} data-testid="monitoring-notice">
+            {notice.message}
+          </p>
+        )}
       </div>
+
+      <aside className="sr-monitoring__rail" aria-label="Monitoring navigation and counts">
+        <div className="sr-tabs sr-monitoring__tabs" role="tablist" aria-label="Monitoring views" aria-orientation={verticalTabs ? "vertical" : "horizontal"}
+          onKeyDown={(event) => {
+            const current = TABS.findIndex((entry) => entry.id === tab);
+            let next: number;
+            if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = TABS.length - 1;
+            else if (event.key === (verticalTabs ? "ArrowDown" : "ArrowRight")) next = (current + 1) % TABS.length;
+            else if (event.key === (verticalTabs ? "ArrowUp" : "ArrowLeft")) next = (current + TABS.length - 1) % TABS.length;
+            else return;
+            event.preventDefault();
+            setTab(TABS[next].id);
+            event.currentTarget.querySelectorAll("button")[next]?.focus();
+          }}>
+          {TABS.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              role="tab"
+              id={`monitoring-tab-${entry.id}`}
+              aria-selected={tab === entry.id}
+              tabIndex={tab === entry.id ? 0 : -1}
+              aria-controls={`monitoring-panel-${entry.id}`}
+              className={`sr-tab${tab === entry.id ? " is-active" : ""}`}
+              data-testid={`monitoring-tab-${entry.id}`}
+              onClick={() => setTab(entry.id)}
+            >
+              {entry.label}
+              {entry.id === "releases" && filtersActive && (
+                <span className="sr-tab__count">{shownReleases.length}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/*
+          The overview strip. Every count that has a list behind it is a button, so
+          "Needs review 5" is the way to those five rather than a number to note.
+        */}
+        <div className="sr-summary" data-testid="monitoring-summary">
+          <Tile
+            testId="monitoring-tile-enabled"
+            label="Background tagging"
+            value={status ? status.enabled ? "On" : "Off" : refreshing ? "Loading…" : "Unknown"}
+          />
+          <Tile
+            testId="monitoring-tile-next-run"
+            label="Next run"
+            value={status?.nextRunAt ? relativeTime(status.nextRunAt, clock) : "—"}
+            hint={status?.nextRunAt ? formatStamp(status.nextRunAt) : undefined}
+          />
+          {running.length > 0 && (
+            <Tile
+              testId="monitoring-tile-running"
+              label="Running now"
+              value={running.length}
+              onClick={() => setTab("operations")}
+            />
+          )}
+          {facets.map((facet) => (
+            <Tile
+              key={facet.status}
+              testId={`monitoring-tile-${facet.status}`}
+              label={facet.label}
+              value={facet.count}
+              onClick={() => openFacet(facet.status)}
+              active={tab === "releases" && releaseFilter === facet.status}
+            />
+          ))}
+          {status && facetTotal === 0 && (
+            <Tile testId="monitoring-tile-total" label="Releases surveyed" value={0} />
+          )}
+        </div>
+        <p className="sr-freshness">
+          Release status includes tag scans. Run details show what was verified during each recorded run.
+        </p>
+      </aside>
 
       {tab === "overview" && (
         <div role="tabpanel" id="monitoring-panel-overview" aria-labelledby="monitoring-tab-overview">
@@ -753,7 +799,7 @@ export function MonitoringView({
                                     data-testid={`release-review-${release.path}`}
                                     onClick={() => void handleMarkReviewed(release.path)}
                                   >
-                                    Acknowledge review
+                                    Mark reviewed
                                   </button>
                                 )}
                                 {onOpenAlbum && (
@@ -827,13 +873,15 @@ export function MonitoringView({
                   type="button"
                   className="sr-btn"
                   data-testid="log-reload"
+                  disabled={logLoading}
                   onClick={() => void loadLog(source, LOG_PAGE)}
                 >
-                  Reload
+                  {logLoading ? "Loading…" : logError ? "Retry loading log" : "Reload"}
                 </button>
               </div>
             </div>
 
+            {logError && <p className="sr-banner sr-banner--error" role="alert">Could not load this log. {logError}</p>}
             {log ? (
               <>
                 <div className="sr-filterbar">
@@ -901,6 +949,7 @@ export function MonitoringView({
                     type="button"
                     className="sr-btn"
                     data-testid="log-more"
+                    disabled={logLoading}
                     onClick={() =>
                       void loadLog(source, Math.min(log.lines.length + LOG_PAGE, log.totalLines))
                     }
@@ -909,7 +958,9 @@ export function MonitoringView({
                   </button>
                 )}
               </>
-            ) : (
+            ) : logLoading ? (
+              <p className="sr-empty__body" role="status">Loading log…</p>
+            ) : !logError && (
               <p className="sr-empty__body" data-testid="monitoring-log-empty">
                 No log has been written for this source yet.
               </p>

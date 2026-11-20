@@ -150,6 +150,8 @@ export function SettingsView({
   const [appInfo, setAppInfo] = React.useState<AppInfo | null>(null);
   const [roots, setRoots] = React.useState<Array<{ name: string; path: string }>>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [loadAttempt, setLoadAttempt] = React.useState(0);
   /** Per-field, so a failed save says which field failed. */
   const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({});
   /** Per-field confirmations, each of which expires on its own. */
@@ -245,6 +247,8 @@ export function SettingsView({
 
   React.useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     void (async () => {
       try {
         const [settings, stored] = await Promise.all([loadBackground(), loadConfig()]);
@@ -262,12 +266,14 @@ export function SettingsView({
         setStoredLyricsUrl(url);
       } catch (reason) {
         if (active) setError(reason instanceof Error ? reason.message : String(reason));
+      } finally {
+        if (active) setLoading(false);
       }
     })();
     return () => {
       active = false;
     };
-  }, [loadBackground, loadConfig]);
+  }, [loadBackground, loadConfig, loadAttempt]);
 
   // Runtime details are informational; a failure here must not blank the page.
   React.useEffect(() => {
@@ -329,7 +335,7 @@ export function SettingsView({
       try {
         const next = await saveBackground(patch);
         setBackground(next);
-        setScheduleDraft(next.schedule);
+        if (patch.schedule !== undefined) setScheduleDraft(next.schedule);
         confirmField(field, message);
         return true;
       } catch (reason) {
@@ -351,8 +357,10 @@ export function SettingsView({
         await saveConfig(key, value);
         setConfig((current) => ({ ...current, [key]: value }));
         confirmField(key, message);
+        return true;
       } catch (reason) {
         failField(key, reason instanceof Error ? reason.message : String(reason));
+        return false;
       } finally {
         endField(key);
       }
@@ -477,8 +485,8 @@ export function SettingsView({
       return;
     }
     const value = lyricsUrlDraft.trim();
-    await persistConfig("lyricsApiUrl", value, "Lyrics URL saved");
-    setStoredLyricsUrl(value);
+    const saved = await persistConfig("lyricsApiUrl", value, "Lyrics URL saved");
+    if (saved) setStoredLyricsUrl(value);
   }, [failField, lyricsUrlDraft, persistConfig]);
 
   const saveCustomSchedule = React.useCallback(async () => {
@@ -566,594 +574,605 @@ export function SettingsView({
             onClick={() => setActiveGroup(group.id)}
           >
             {group.label}
+            {((group.id === "lyrics" && lyricsUrlDirty) || (group.id === "automation" && customScheduleDirty)) && (
+              <span className="sr-settings-draft">Unsaved</span>
+            )}
           </button>
         ))}
       </nav>
 
-      {error && (
-        <p className="sr-banner sr-banner--error" role="alert" data-testid="settings-load-error">
-          {error}
-        </p>
-      )}
-
-      <section
-        className="sr-section"
-        id="settings-group-sources"
-        hidden={activeGroup !== "sources"}
-        aria-labelledby="settings-heading-sources"
-        data-testid="settings-sources"
-      >
-        <h3 id="settings-heading-sources" className="sr-section__title" tabIndex={-1}>
-          Metadata sources
-        </h3>
-        <p className="sr-field__static">Where Soundrobe may look for metadata it cannot read from the files.</p>
-
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-remote-lookup">
-            <input
-              id="setting-remote-lookup"
-              type="checkbox"
-              checked={configBool(config, "remoteLookupEnabled")}
-              disabled={pending.remoteLookupEnabled}
-              aria-describedby="setting-remote-lookup-hint"
-              onChange={(event) =>
-                void persistConfig(
-                  "remoteLookupEnabled",
-                  event.target.checked,
-                  "Remote lookup updated",
-                )
-              }
-            />{" "}
-            Allow online metadata lookups
-          </label>
-          <p className="sr-field__static" id="setting-remote-lookup-hint">
-            Turning this off keeps everything local: albums are only tagged from what the files
-            already contain and from folder hints.
-          </p>
-          {fieldSaved("remoteLookupEnabled")}
-          {fieldError("remoteLookupEnabled")}
-        </div>
-
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-discogs">
-            <input
-              id="setting-discogs"
-              type="checkbox"
-              checked={configBool(config, "discogsEnabled")}
-              disabled={pending.discogsEnabled}
-              aria-describedby="setting-discogs-hint"
-              onChange={(event) =>
-                void persistConfig("discogsEnabled", event.target.checked, "Discogs updated")
-              }
-            />{" "}
-            Use Discogs
-          </label>
-          <p className="sr-field__static" id="setting-discogs-hint">
-            A second source, tried after MusicBrainz. Needs a Discogs token configured on the
-            service.
-          </p>
-          {fieldSaved("discogsEnabled")}
-          {fieldError("discogsEnabled")}
-        </div>
-      </section>
-
-      <section
-        className="sr-section"
-        id="settings-group-writing"
-        hidden={activeGroup !== "writing"}
-        aria-labelledby="settings-heading-writing"
-        data-testid="settings-writing"
-      >
-        <h3 id="settings-heading-writing" className="sr-section__title" tabIndex={-1}>
-          Tag writing
-        </h3>
-        <div className="sr-field">
-          <label className="sr-field__label" htmlFor="setting-chinese">
-            Chinese script conversion
-          </label>
-          <select
-            id="setting-chinese"
-            className="sr-input"
-            value={configString(config, "chineseScript")}
-            disabled={pending.chineseScript}
-            aria-describedby="setting-chinese-hint"
-            onChange={(event) =>
-              void persistConfig(
-                "chineseScript",
-                event.target.value === "" ? null : event.target.value,
-                "Chinese script updated",
-              )
-            }
-          >
-            {CHINESE_SCRIPT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="sr-field__static" id="setting-chinese-hint">
-            Converts Chinese text in tags as it is written. "Leave unchanged" writes what the file
-            already had.
-          </p>
-          {fieldSaved("chineseScript")}
-          {fieldError("chineseScript")}
-        </div>
-
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-clear-tags-enabled">
-            <input
-              id="setting-clear-tags-enabled"
-              type="checkbox"
-              checked={configBool(config, "clearTagsEnabled")}
-              disabled={pending.clearTagsEnabled}
-              aria-describedby="setting-clear-tags-hint"
-              onChange={(event) =>
-                void persistConfig(
-                  "clearTagsEnabled",
-                  event.target.checked,
-                  event.target.checked ? "Tag cleanup enabled" : "Tag cleanup disabled",
-                )
-              }
-            />{" "}
-            Clear selected tags before writing metadata
-          </label>
-          <p className="sr-field__static" id="setting-clear-tags-hint">
-            Only the supported ID3 / Navidrome tag catalog can be selected. The cleanup is applied
-            in the same write as the new metadata.
-          </p>
-          {fieldSaved("clearTagsEnabled")}
-          {fieldError("clearTagsEnabled")}
-        </div>
-
-        {configBool(config, "clearTagsEnabled") && (
-          <div className="sr-field sr-field--stacked" data-testid="settings-clear-tags">
-            <label className="sr-field__label" htmlFor="setting-clear-tag">
-              Selected tags will be cleared
-            </label>
-            <div className="sr-toolbar">
-              <input
-                id="setting-clear-tag"
-                className="sr-input"
-                value={clearTagDraft}
-                placeholder="Type Comment or Description"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-controls="setting-clear-tag-suggestions"
-                onChange={(event) => setClearTagDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    addTypedClearTag();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                className="sr-btn"
-                disabled={pending.clearTags || clearTagDraft.trim() === ""}
-                onClick={addTypedClearTag}
-              >
-                Add tag
-              </button>
-            </div>
-            {tagSuggestions.length > 0 && (
-              <div id="setting-clear-tag-suggestions" role="listbox" className="sr-chips">
-                {tagSuggestions.map((suggestion) => (
-                  <button
-                    key={suggestion.id}
-                    type="button"
-                    role="option"
-                    aria-selected={selectedClearTags.includes(suggestion.id)}
-                    className="sr-chip sr-btn"
-                    disabled={selectedClearTags.includes(suggestion.id) || pending.clearTags}
-                    onClick={() => addClearTag(suggestion)}
-                    title={`${suggestion.frame} · ${suggestion.source}`}
-                  >
-                    {suggestion.label}
-                  </button>
-                ))}
-              </div>
-            )}
-            {selectedClearTags.length > 0 && (
-              <ul className="sr-chips" data-testid="settings-clear-tag-list">
-                {selectedClearTags.map((tagId) => {
-                  const suggestion = supportedTags.find((tag) => tag.id === tagId);
-                  return (
-                    <li key={tagId} className="sr-chip">
-                      {suggestion?.label ?? tagId}
-                      <button
-                        type="button"
-                        className="sr-btn sr-chip__remove"
-                        aria-label={`Remove ${suggestion?.label ?? tagId} from clear list`}
-                        title="Remove from clear list"
-                        disabled={pending.clearTags}
-                        onClick={() => removeClearTag(tagId)}
-                      >
-                        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M6 6 18 18M18 6 6 18" />
-                        </svg>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <p className="sr-field__static" data-testid="settings-kept-tags">
-              Tags kept during tagging: {keptTagLabels.length > 0 ? keptTagLabels.join(", ") : "none"}.
-              Monitoring shows this list again when each run finishes.
-            </p>
-            {fieldSaved("clearTags")}
-            {fieldError("clearTags")}
+      <div className="sr-page-feedback">
+        {loading && <p className="sr-banner sr-banner--loading" role="status">Loading settings…</p>}
+        {error && (
+          <div className="sr-banner sr-banner--error" role="alert" data-testid="settings-load-error">
+            <span>Could not load settings. {error}</span>
+            <button type="button" className="sr-btn" onClick={() => setLoadAttempt((value) => value + 1)}>
+              Retry loading settings
+            </button>
           </div>
         )}
-      </section>
+      </div>
 
-      <section
-        className="sr-section"
-        id="settings-group-lyrics"
-        hidden={activeGroup !== "lyrics"}
-        aria-labelledby="settings-heading-lyrics"
-        data-testid="settings-lyrics"
-      >
-        <h3 id="settings-heading-lyrics" className="sr-section__title" tabIndex={-1}>
-          Lyrics
-        </h3>
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-lyrics">
-            <input
-              id="setting-lyrics"
-              type="checkbox"
-              checked={configBool(config, "lyricsDownloadEnabled")}
-              disabled={pending.lyricsDownloadEnabled}
-              aria-describedby="setting-lyrics-hint"
+      <fieldset className="sr-settings-content" disabled={loading || error !== null}>
+        <section
+          className="sr-section"
+          id="settings-group-sources"
+          hidden={activeGroup !== "sources"}
+          aria-labelledby="settings-heading-sources"
+          data-testid="settings-sources"
+        >
+          <h3 id="settings-heading-sources" className="sr-section__title" tabIndex={-1}>
+            Metadata sources
+          </h3>
+          <p className="sr-field__static">Where Soundrobe may look for metadata it cannot read from the files.</p>
+
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-remote-lookup">
+              <input
+                id="setting-remote-lookup"
+                type="checkbox"
+                checked={configBool(config, "remoteLookupEnabled")}
+                disabled={pending.remoteLookupEnabled}
+                aria-describedby="setting-remote-lookup-hint"
+                onChange={(event) =>
+                  void persistConfig(
+                    "remoteLookupEnabled",
+                    event.target.checked,
+                    "Remote lookup updated",
+                  )
+                }
+              />{" "}
+              Allow online metadata lookups
+            </label>
+            <p className="sr-field__static" id="setting-remote-lookup-hint">
+              Turning this off keeps everything local: albums are only tagged from what the files
+              already contain and from folder hints.
+            </p>
+            {fieldSaved("remoteLookupEnabled")}
+            {fieldError("remoteLookupEnabled")}
+          </div>
+
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-discogs">
+              <input
+                id="setting-discogs"
+                type="checkbox"
+                checked={configBool(config, "discogsEnabled")}
+                disabled={pending.discogsEnabled}
+                aria-describedby="setting-discogs-hint"
+                onChange={(event) =>
+                  void persistConfig("discogsEnabled", event.target.checked, "Discogs updated")
+                }
+              />{" "}
+              Use Discogs
+            </label>
+            <p className="sr-field__static" id="setting-discogs-hint">
+              A second source, tried after MusicBrainz. Needs a Discogs token configured on the
+              service.
+            </p>
+            {fieldSaved("discogsEnabled")}
+            {fieldError("discogsEnabled")}
+          </div>
+        </section>
+
+        <section
+          className="sr-section"
+          id="settings-group-writing"
+          hidden={activeGroup !== "writing"}
+          aria-labelledby="settings-heading-writing"
+          data-testid="settings-writing"
+        >
+          <h3 id="settings-heading-writing" className="sr-section__title" tabIndex={-1}>
+            Tag writing
+          </h3>
+          <div className="sr-field">
+            <label className="sr-field__label" htmlFor="setting-chinese">
+              Chinese script conversion
+            </label>
+            <select
+              id="setting-chinese"
+              className="sr-input"
+              value={configString(config, "chineseScript")}
+              disabled={pending.chineseScript}
+              aria-describedby="setting-chinese-hint"
               onChange={(event) =>
                 void persistConfig(
-                  "lyricsDownloadEnabled",
-                  event.target.checked,
-                  "Lyrics downloads updated",
+                  "chineseScript",
+                  event.target.value === "" ? null : event.target.value,
+                  "Chinese script updated",
                 )
               }
-            />{" "}
-            Download remote lyrics when no local lyrics exist
-          </label>
-          <p className="sr-field__static" id="setting-lyrics-hint">
-            Local lyrics always win. This only fills in albums that have none at all.
-          </p>
-          {fieldSaved("lyricsDownloadEnabled")}
-          {fieldError("lyricsDownloadEnabled")}
-        </div>
-
-        <div className="sr-field">
-          <label className="sr-field__label" htmlFor="setting-lyrics-url">
-            Lyrics service URL
-          </label>
-          <div className="sr-toolbar">
-            <input
-              id="setting-lyrics-url"
-              ref={lyricsUrlRef}
-              className="sr-input"
-              value={lyricsUrlDraft}
-              disabled={pending.lyricsApiUrl}
-              placeholder="https://lrclib.net"
-              aria-invalid={fieldErrors.lyricsApiUrl ? true : undefined}
-              aria-describedby="setting-lyrics-url-hint"
-              onChange={(event) => setLyricsUrlDraft(event.target.value)}
-            />
-            <button
-              type="button"
-              className="sr-btn sr-btn--primary"
-              disabled={pending.lyricsApiUrl || !lyricsUrlDirty}
-              onClick={() => void saveLyricsUrl()}
             >
-              Save
-            </button>
-            <button
-              type="button"
-              className="sr-btn"
-              disabled={pending.lyricsApiUrl || !lyricsUrlDirty}
-              onClick={() => setLyricsUrlDraft(storedLyricsUrl)}
-            >
-              Cancel
-            </button>
+              {CHINESE_SCRIPT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <p className="sr-field__static" id="setting-chinese-hint">
+              Converts Chinese text in tags as it is written. "Leave unchanged" writes what the file
+              already had.
+            </p>
+            {fieldSaved("chineseScript")}
+            {fieldError("chineseScript")}
           </div>
-          <p className="sr-field__static" id="setting-lyrics-url-hint">
-            The lyrics provider to ask. Stored only when you save it, so a half-typed address is
-            never used.
-          </p>
-          {fieldSaved("lyricsApiUrl")}
-          {fieldError("lyricsApiUrl")}
-        </div>
-      </section>
 
-      <section
-        className="sr-section"
-        id="settings-group-automation"
-        hidden={activeGroup !== "automation"}
-        aria-labelledby="settings-heading-automation"
-        data-testid="settings-automation"
-      >
-        <h3 id="settings-heading-automation" className="sr-section__title" tabIndex={-1}>
-          Automation
-        </h3>
-        <p className="sr-field__static">
-          Tagging runs unattended on the schedule below. Each run records its outcome, visible
-          under Monitoring.
-        </p>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-clear-tags-enabled">
+              <input
+                id="setting-clear-tags-enabled"
+                type="checkbox"
+                checked={configBool(config, "clearTagsEnabled")}
+                disabled={pending.clearTagsEnabled}
+                aria-describedby="setting-clear-tags-hint"
+                onChange={(event) =>
+                  void persistConfig(
+                    "clearTagsEnabled",
+                    event.target.checked,
+                    event.target.checked ? "Tag cleanup enabled" : "Tag cleanup disabled",
+                  )
+                }
+              />{" "}
+              Clear selected tags before writing metadata
+            </label>
+            <p className="sr-field__static" id="setting-clear-tags-hint">
+              Only the supported ID3 / Navidrome tag catalog can be selected. The cleanup is applied
+              in the same write as the new metadata.
+            </p>
+            {fieldSaved("clearTagsEnabled")}
+            {fieldError("clearTagsEnabled")}
+          </div>
 
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-background-enabled">
-            <input
-              id="setting-background-enabled"
-              type="checkbox"
-              checked={background?.enabled ?? false}
-              disabled={pending.background || !background}
-              aria-describedby="setting-background-enabled-hint"
-              onChange={(event) =>
-                void persist(
-                  { enabled: event.target.checked },
-                  event.target.checked
-                    ? "Background tagging enabled"
-                    : "Background tagging disabled",
-                )
-              }
-            />{" "}
-            Enable background tagging
-          </label>
-          <p className="sr-field__static" id="setting-background-enabled-hint">
-            Off means nothing is tagged until you start it by hand from Monitoring.
-          </p>
-          {fieldSaved("background")}
-          {fieldError("background")}
-        </div>
+          {configBool(config, "clearTagsEnabled") && (
+            <div className="sr-field sr-field--stacked" data-testid="settings-clear-tags">
+              <label className="sr-field__label" htmlFor="setting-clear-tag">
+                Selected tags will be cleared
+              </label>
+              <div className="sr-toolbar">
+                <input
+                  id="setting-clear-tag"
+                  className="sr-input"
+                  value={clearTagDraft}
+                  placeholder="Type Comment or Description"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="setting-clear-tag-suggestions"
+                  onChange={(event) => setClearTagDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      addTypedClearTag();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="sr-btn"
+                  disabled={pending.clearTags || clearTagDraft.trim() === ""}
+                  onClick={addTypedClearTag}
+                >
+                  Add tag
+                </button>
+              </div>
+              {tagSuggestions.length > 0 && (
+                <div id="setting-clear-tag-suggestions" role="listbox" className="sr-chips">
+                  {tagSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      role="option"
+                      aria-selected={selectedClearTags.includes(suggestion.id)}
+                      className="sr-chip sr-btn"
+                      disabled={selectedClearTags.includes(suggestion.id) || pending.clearTags}
+                      onClick={() => addClearTag(suggestion)}
+                      title={`${suggestion.frame} · ${suggestion.source}`}
+                    >
+                      {suggestion.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedClearTags.length > 0 && (
+                <ul className="sr-chips" data-testid="settings-clear-tag-list">
+                  {selectedClearTags.map((tagId) => {
+                    const suggestion = supportedTags.find((tag) => tag.id === tagId);
+                    return (
+                      <li key={tagId} className="sr-chip">
+                        {suggestion?.label ?? tagId}
+                        <button
+                          type="button"
+                          className="sr-btn sr-chip__remove"
+                          aria-label={`Remove ${suggestion?.label ?? tagId} from clear list`}
+                          title="Remove from clear list"
+                          disabled={pending.clearTags}
+                          onClick={() => removeClearTag(tagId)}
+                        >
+                          <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M6 6 18 18M18 6 6 18" />
+                          </svg>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              <p className="sr-field__static" data-testid="settings-kept-tags">
+                Tags kept during tagging: {keptTagLabels.length > 0 ? keptTagLabels.join(", ") : "none"}.
+                Monitoring shows this list again when each run finishes.
+              </p>
+              {fieldSaved("clearTags")}
+              {fieldError("clearTags")}
+            </div>
+          )}
+        </section>
 
-        <div className="sr-field">
-          <label className="sr-field__label" htmlFor="setting-schedule-preset">
-            Schedule
-          </label>
-          <select
-            id="setting-schedule-preset"
-            className="sr-input"
-            value={preset}
-            disabled={pending.background || !background}
-            aria-describedby="setting-schedule-hint"
-            onChange={(event) => {
-              const value = event.target.value;
-              setPreset(value);
-              if (value === "custom") return;
-              setScheduleDraft(value);
-              void persist({ schedule: value }, `Schedule set to ${value}`);
-            }}
-          >
-            {SCHEDULE_PRESETS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <p className="sr-field__static" id="setting-schedule-hint" data-testid="settings-schedule-hint">
-            {SCHEDULE_PRESETS.find((option) => option.value === preset)?.hint ?? ""}
-          </p>
-        </div>
+        <section
+          className="sr-section"
+          id="settings-group-lyrics"
+          hidden={activeGroup !== "lyrics"}
+          aria-labelledby="settings-heading-lyrics"
+          data-testid="settings-lyrics"
+        >
+          <h3 id="settings-heading-lyrics" className="sr-section__title" tabIndex={-1}>
+            Lyrics
+          </h3>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-lyrics">
+              <input
+                id="setting-lyrics"
+                type="checkbox"
+                checked={configBool(config, "lyricsDownloadEnabled")}
+                disabled={pending.lyricsDownloadEnabled}
+                aria-describedby="setting-lyrics-hint"
+                onChange={(event) =>
+                  void persistConfig(
+                    "lyricsDownloadEnabled",
+                    event.target.checked,
+                    "Lyrics downloads updated",
+                  )
+                }
+              />{" "}
+              Download remote lyrics when no local lyrics exist
+            </label>
+            <p className="sr-field__static" id="setting-lyrics-hint">
+              Local lyrics always win. This only fills in albums that have none at all.
+            </p>
+            {fieldSaved("lyricsDownloadEnabled")}
+            {fieldError("lyricsDownloadEnabled")}
+          </div>
 
-        {preset === "custom" && (
           <div className="sr-field">
-            <label className="sr-field__label" htmlFor="setting-schedule-custom">
-              Crontab expression
+            <label className="sr-field__label" htmlFor="setting-lyrics-url">
+              Lyrics service URL
             </label>
             <div className="sr-toolbar">
               <input
-                id="setting-schedule-custom"
-                ref={crontabRef}
+                id="setting-lyrics-url"
+                ref={lyricsUrlRef}
                 className="sr-input"
-                value={scheduleDraft}
-                disabled={pending.schedule}
-                placeholder="minute hour day month weekday"
-                aria-invalid={fieldErrors.schedule ? true : undefined}
-                aria-describedby="setting-schedule-custom-hint"
-                onChange={(event) => setScheduleDraft(event.target.value)}
+                value={lyricsUrlDraft}
+                disabled={pending.lyricsApiUrl}
+                placeholder="https://lrclib.net"
+                aria-invalid={fieldErrors.lyricsApiUrl ? true : undefined}
+                aria-describedby="setting-lyrics-url-hint"
+                onChange={(event) => setLyricsUrlDraft(event.target.value)}
               />
               <button
                 type="button"
                 className="sr-btn sr-btn--primary"
-                disabled={pending.schedule || !customScheduleDirty}
-                onClick={() => void saveCustomSchedule()}
+                disabled={pending.lyricsApiUrl || !lyricsUrlDirty}
+                onClick={() => void saveLyricsUrl()}
               >
-                Save schedule
+                {pending.lyricsApiUrl ? "Saving…" : fieldErrors.lyricsApiUrl ? "Retry save" : "Save"}
               </button>
               <button
                 type="button"
                 className="sr-btn"
-                disabled={pending.schedule || !customScheduleDirty}
-                onClick={() => setScheduleDraft(background?.schedule ?? scheduleDraft)}
+                disabled={pending.lyricsApiUrl || !lyricsUrlDirty}
+                onClick={() => setLyricsUrlDraft(storedLyricsUrl)}
               >
                 Cancel
               </button>
             </div>
-            {/*
-              A five-field expression is not readable, so the page says what it
-              means. When it cannot be sure, it says that instead of guessing:
-              the service owns when this actually fires.
-            */}
-            <p className="sr-field__static" id="setting-schedule-custom-hint" data-testid="settings-schedule-words">
-              {scheduleWords ?? "This pattern is not one the page can put into words — check the five fields."}
+            <p className="sr-field__static" id="setting-lyrics-url-hint">
+              The lyrics provider to ask. Stored only when you save it, so a half-typed address is
+              never used.
             </p>
-            {fieldSaved("schedule")}
-            {fieldError("schedule")}
+            {fieldSaved("lyricsApiUrl")}
+            {fieldError("lyricsApiUrl")}
           </div>
-        )}
+        </section>
 
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-watch">
-            <input
-              id="setting-watch"
-              type="checkbox"
-              checked={background?.watchEnabled ?? false}
-              disabled={pending.background || !background}
-              aria-describedby="setting-watch-hint"
-              onChange={(event) =>
-                void persist(
-                  { watchEnabled: event.target.checked },
-                  event.target.checked
-                    ? "Watching for new music"
-                    : "Stopped watching for new music",
-                )
-              }
-            />{" "}
-            Tag music as it appears in the covered folders
-          </label>
-          <p className="sr-field__static" id="setting-watch-hint">
-            New albums are picked up shortly after they appear, without waiting for the schedule.
+        <section
+          className="sr-section"
+          id="settings-group-automation"
+          hidden={activeGroup !== "automation"}
+          aria-labelledby="settings-heading-automation"
+          data-testid="settings-automation"
+        >
+          <h3 id="settings-heading-automation" className="sr-section__title" tabIndex={-1}>
+            Automation
+          </h3>
+          <p className="sr-field__static">
+            Tagging runs unattended on the schedule below. Each run records its outcome, visible
+            under Monitoring.
           </p>
-        </div>
 
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-skip-unchanged">
-            <input
-              id="setting-skip-unchanged"
-              type="checkbox"
-              checked={background?.skipUnchanged ?? true}
-              disabled={pending.background || !background}
-              aria-describedby="setting-skip-unchanged-hint"
-              onChange={(event) =>
-                void persist({ skipUnchanged: event.target.checked }, "Coverage rule updated")
-              }
-            />{" "}
-            Only tag releases with incomplete tags
-          </label>
-          <p className="sr-field__static" id="setting-skip-unchanged-hint">
-            Keeps a run short by leaving already-complete albums alone.
-          </p>
-        </div>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-background-enabled">
+              <input
+                id="setting-background-enabled"
+                type="checkbox"
+                checked={background?.enabled ?? false}
+                disabled={pending.background || !background}
+                aria-describedby="setting-background-enabled-hint"
+                onChange={(event) =>
+                  void persist(
+                    { enabled: event.target.checked },
+                    event.target.checked
+                      ? "Background tagging enabled"
+                      : "Background tagging disabled",
+                  )
+                }
+              />{" "}
+              Enable background tagging
+            </label>
+            <p className="sr-field__static" id="setting-background-enabled-hint">
+              Off means nothing is tagged until you start it by hand from Monitoring.
+            </p>
+            {fieldSaved("background")}
+            {fieldError("background")}
+          </div>
 
-        <div className="sr-field">
-          <label className="sr-field__label" htmlFor="setting-directory">
-            Covered folders
-          </label>
-          <div className="sr-toolbar">
-            <input
-              id="setting-directory"
-              ref={directoryRef}
+          <div className="sr-field">
+            <label className="sr-field__label" htmlFor="setting-schedule-preset">
+              Schedule
+            </label>
+            <select
+              id="setting-schedule-preset"
               className="sr-input"
-              value={directoryDraft}
-              disabled={pending.directories}
-              placeholder="/path/to/music"
-              aria-invalid={fieldErrors.directories ? true : undefined}
-              aria-describedby="setting-directory-hint"
-              onChange={(event) => setDirectoryDraft(event.target.value)}
-            />
-            <button
-              type="button"
-              className="sr-btn"
-              disabled={pending.directories || directoryDraft.trim() === ""}
-              onClick={() => void addDirectory()}
+              value={preset}
+              disabled={pending.background || !background}
+              aria-describedby="setting-schedule-hint"
+              onChange={(event) => {
+                const value = event.target.value;
+                setPreset(value);
+                if (value === "custom") return;
+                setScheduleDraft(value);
+                void persist({ schedule: value }, `Schedule set to ${value}`);
+              }}
             >
-              Add folder
-            </button>
-          </div>
-          <p className="sr-field__static" id="setting-directory-hint">
-            {roots.length > 0
-              ? `Must be inside a served library: ${roots.map((root) => root.path).join(", ")}.`
-              : "Leave empty to cover every mounted library."}
-          </p>
-          {fieldError("directories")}
-          {background && background.directories.length > 0 ? (
-            <ul className="sr-chips" data-testid="settings-directories">
-              {background.directories.map((directory) => (
-                <li key={directory} className="sr-chip">
-                  {directory}
-                  <button
-                    type="button"
-                    className="sr-btn"
-                    aria-label={`Remove ${directory}`}
-                    disabled={pending.directories}
-                    onClick={() => removeDirectory(directory)}
-                  >
-                    Remove
-                  </button>
-                </li>
+              {SCHEDULE_PRESETS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
               ))}
-            </ul>
-          ) : (
-            <p className="sr-field__static" data-testid="settings-directories-empty">
-              No folder configured — every mounted library is covered.
+            </select>
+            <p className="sr-field__static" id="setting-schedule-hint" data-testid="settings-schedule-hint">
+              {SCHEDULE_PRESETS.find((option) => option.value === preset)?.hint ?? ""}
             </p>
+          </div>
+
+          {preset === "custom" && (
+            <div className="sr-field">
+              <label className="sr-field__label" htmlFor="setting-schedule-custom">
+                Crontab expression
+              </label>
+              <div className="sr-toolbar">
+                <input
+                  id="setting-schedule-custom"
+                  ref={crontabRef}
+                  className="sr-input"
+                  value={scheduleDraft}
+                  disabled={pending.schedule}
+                  placeholder="minute hour day month weekday"
+                  aria-invalid={fieldErrors.schedule ? true : undefined}
+                  aria-describedby="setting-schedule-custom-hint"
+                  onChange={(event) => setScheduleDraft(event.target.value)}
+                />
+                <button
+                  type="button"
+                  className="sr-btn sr-btn--primary"
+                  disabled={pending.schedule || !customScheduleDirty}
+                  onClick={() => void saveCustomSchedule()}
+                >
+                  {pending.schedule ? "Saving…" : fieldErrors.schedule ? "Retry save" : "Save schedule"}
+                </button>
+                <button
+                  type="button"
+                  className="sr-btn"
+                  disabled={pending.schedule || !customScheduleDirty}
+                  onClick={() => setScheduleDraft(background?.schedule ?? scheduleDraft)}
+                >
+                  Cancel
+                </button>
+              </div>
+              {/*
+                A five-field expression is not readable, so the page says what it
+                means. When it cannot be sure, it says that instead of guessing:
+                the service owns when this actually fires.
+              */}
+              <p className="sr-field__static" id="setting-schedule-custom-hint" data-testid="settings-schedule-words">
+                {scheduleWords ?? "This pattern is not one the page can put into words — check the five fields."}
+              </p>
+              {fieldSaved("schedule")}
+              {fieldError("schedule")}
+            </div>
           )}
-        </div>
-      </section>
 
-      <section
-        className="sr-section"
-        id="settings-group-assistant"
-        hidden={activeGroup !== "assistant"}
-        aria-labelledby="settings-heading-assistant"
-        data-testid="settings-assistant"
-      >
-        <h3 id="settings-heading-assistant" className="sr-section__title" tabIndex={-1}>
-          Assistant
-        </h3>
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-assistant">
-            <input
-              id="setting-assistant"
-              type="checkbox"
-              checked={configBool(config, "assistantAutonomous")}
-              disabled={pending.assistantAutonomous}
-              aria-describedby="setting-assistant-hint"
-              onChange={(event) =>
-                void persistConfig(
-                  "assistantAutonomous",
-                  event.target.checked,
-                  "Assistant behaviour updated",
-                )
-              }
-            />{" "}
-            Let the assistant apply its own actions without confirmation
-          </label>
-          <p className="sr-field__static" id="setting-assistant-hint">
-            Off by default, and deliberately so: with this on the assistant can write tags
-            without asking you first.
-          </p>
-          {fieldSaved("assistantAutonomous")}
-          {fieldError("assistantAutonomous")}
-        </div>
-      </section>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-watch">
+              <input
+                id="setting-watch"
+                type="checkbox"
+                checked={background?.watchEnabled ?? false}
+                disabled={pending.background || !background}
+                aria-describedby="setting-watch-hint"
+                onChange={(event) =>
+                  void persist(
+                    { watchEnabled: event.target.checked },
+                    event.target.checked
+                      ? "Watching for new music"
+                      : "Stopped watching for new music",
+                  )
+                }
+              />{" "}
+              Tag music as it appears in the covered folders
+            </label>
+            <p className="sr-field__static" id="setting-watch-hint">
+              New albums are picked up shortly after they appear, without waiting for the schedule.
+            </p>
+          </div>
 
-      <section
-        className="sr-section"
-        id="settings-group-system"
-        hidden={activeGroup !== "system"}
-        aria-labelledby="settings-heading-system"
-        data-testid="settings-system"
-      >
-        <h3 id="settings-heading-system" className="sr-section__title" tabIndex={-1}>
-          System
-        </h3>
-        <div className="sr-field sr-field--stacked">
-          <label className="sr-field__label" htmlFor="setting-debug">
-            <input
-              id="setting-debug"
-              type="checkbox"
-              checked={configBool(config, "debug")}
-              disabled={pending.debug}
-              aria-describedby="setting-debug-hint"
-              onChange={(event) => void toggleDebug(event.target.checked)}
-            />{" "}
-            Verbose debug logging
-          </label>
-          <p className="sr-field__static" id="setting-debug-hint">
-            Writes a per-release trace, readable under Monitoring → Logs. Useful when a run
-            leaves something flagged.
-          </p>
-          {fieldSaved("debug")}
-          {fieldError("debug")}
-        </div>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-skip-unchanged">
+              <input
+                id="setting-skip-unchanged"
+                type="checkbox"
+                checked={background?.skipUnchanged ?? true}
+                disabled={pending.background || !background}
+                aria-describedby="setting-skip-unchanged-hint"
+                onChange={(event) =>
+                  void persist({ skipUnchanged: event.target.checked }, "Coverage rule updated")
+                }
+              />{" "}
+              Only tag releases with incomplete tags
+            </label>
+            <p className="sr-field__static" id="setting-skip-unchanged-hint">
+              Keeps a run short by leaving already-complete albums alone.
+            </p>
+          </div>
 
-        <div className="sr-technical" data-testid="settings-runtime">
-          <TechnicalRow label="Version" value={appInfo?.version ?? "—"} />
-          <TechnicalRow label="Runtime" value={appInfo?.runtime ?? "—"} />
-          <TechnicalRow label="Identifier" value={appInfo?.identifier ?? "—"} />
-        </div>
-      </section>
+          <div className="sr-field">
+            <label className="sr-field__label" htmlFor="setting-directory">
+              Covered folders
+            </label>
+            <div className="sr-toolbar">
+              <input
+                id="setting-directory"
+                ref={directoryRef}
+                className="sr-input"
+                value={directoryDraft}
+                disabled={pending.directories}
+                placeholder="/path/to/music"
+                aria-invalid={fieldErrors.directories ? true : undefined}
+                aria-describedby="setting-directory-hint"
+                onChange={(event) => setDirectoryDraft(event.target.value)}
+              />
+              <button
+                type="button"
+                className="sr-btn"
+                disabled={pending.directories || directoryDraft.trim() === ""}
+                onClick={() => void addDirectory()}
+              >
+                Add folder
+              </button>
+            </div>
+            <p className="sr-field__static" id="setting-directory-hint">
+              {roots.length > 0
+                ? `Must be inside a served library: ${roots.map((root) => root.path).join(", ")}.`
+                : "Leave empty to cover every mounted library."}
+            </p>
+            {fieldError("directories")}
+            {background && background.directories.length > 0 ? (
+              <ul className="sr-chips" data-testid="settings-directories">
+                {background.directories.map((directory) => (
+                  <li key={directory} className="sr-chip">
+                    {directory}
+                    <button
+                      type="button"
+                      className="sr-btn"
+                      aria-label={`Remove ${directory}`}
+                      disabled={pending.directories}
+                      onClick={() => removeDirectory(directory)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="sr-field__static" data-testid="settings-directories-empty">
+                No folder configured — every mounted library is covered.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section
+          className="sr-section"
+          id="settings-group-assistant"
+          hidden={activeGroup !== "assistant"}
+          aria-labelledby="settings-heading-assistant"
+          data-testid="settings-assistant"
+        >
+          <h3 id="settings-heading-assistant" className="sr-section__title" tabIndex={-1}>
+            Assistant
+          </h3>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-assistant">
+              <input
+                id="setting-assistant"
+                type="checkbox"
+                checked={configBool(config, "assistantAutonomous")}
+                disabled={pending.assistantAutonomous}
+                aria-describedby="setting-assistant-hint"
+                onChange={(event) =>
+                  void persistConfig(
+                    "assistantAutonomous",
+                    event.target.checked,
+                    "Assistant behaviour updated",
+                  )
+                }
+              />{" "}
+              Let the assistant apply its own actions without confirmation
+            </label>
+            <p className="sr-field__static" id="setting-assistant-hint">
+              Off by default, and deliberately so: with this on the assistant can write tags
+              without asking you first.
+            </p>
+            {fieldSaved("assistantAutonomous")}
+            {fieldError("assistantAutonomous")}
+          </div>
+        </section>
+
+        <section
+          className="sr-section"
+          id="settings-group-system"
+          hidden={activeGroup !== "system"}
+          aria-labelledby="settings-heading-system"
+          data-testid="settings-system"
+        >
+          <h3 id="settings-heading-system" className="sr-section__title" tabIndex={-1}>
+            System
+          </h3>
+          <div className="sr-field sr-field--stacked">
+            <label className="sr-field__label" htmlFor="setting-debug">
+              <input
+                id="setting-debug"
+                type="checkbox"
+                checked={configBool(config, "debug")}
+                disabled={pending.debug}
+                aria-describedby="setting-debug-hint"
+                onChange={(event) => void toggleDebug(event.target.checked)}
+              />{" "}
+              Verbose debug logging
+            </label>
+            <p className="sr-field__static" id="setting-debug-hint">
+              Writes a per-release trace, readable under Monitoring → Logs. Useful when a run
+              leaves something flagged.
+            </p>
+            {fieldSaved("debug")}
+            {fieldError("debug")}
+          </div>
+
+          <div className="sr-technical" data-testid="settings-runtime">
+            <TechnicalRow label="Version" value={appInfo?.version ?? "—"} />
+            <TechnicalRow label="Runtime" value={appInfo?.runtime ?? "—"} />
+            <TechnicalRow label="Identifier" value={appInfo?.identifier ?? "—"} />
+          </div>
+        </section>
+      </fieldset>
     </div>
   );
 }

@@ -8,9 +8,12 @@
  */
 
 import React from "react";
+import { formatDuration } from "./TrackDetailEditor";
 import type { TrackData } from "../shared/desktop-api";
 import {
   WEB_TABLE_COLUMNS,
+  WORKSPACE_TRACK_STATUS_COLUMN,
+  WORKSPACE_TRACK_TIME_COLUMN,
   fileNameOf,
   hasSidecarLrc,
   type WebTableColumnKey,
@@ -19,6 +22,12 @@ import {
 export interface WebTableSort {
   key: WebTableColumnKey;
   ascending: boolean;
+}
+
+export interface TrackStatus {
+  label: string;
+  detail?: string;
+  tone?: "notice" | "error" | "warning" | "success";
 }
 
 export interface TrackTableProps {
@@ -40,6 +49,7 @@ export interface TrackTableProps {
    * so the table keeps filling the pane instead of leaving a gap.
    */
   visibleColumns?: readonly WebTableColumnKey[];
+  trackStatus?: ReadonlyMap<string, TrackStatus>;
 }
 
 export function TrackTable({
@@ -52,6 +62,7 @@ export function TrackTable({
   onSelectTrack,
   onSelectionChange,
   visibleColumns,
+  trackStatus,
 }: TrackTableProps) {
   const selected = React.useMemo(() => new Set(selectedPaths), [selectedPaths]);
   const anchorRef = React.useRef<string | null>(null);
@@ -67,6 +78,12 @@ export function TrackTable({
     () => columns.reduce((total, column) => total + column.width, 0),
     [columns],
   );
+
+  const utilityWidth = trackStatus
+    ? WORKSPACE_TRACK_STATUS_COLUMN.width + WORKSPACE_TRACK_TIME_COLUMN.width
+    : 0;
+
+  const stackTitle = Boolean(trackStatus) && !columns.some(({ key }) => key === "title");
 
   const handleActivate = (event: React.MouseEvent, path: string) => {
     const additive = event.metaKey || event.ctrlKey;
@@ -108,18 +125,24 @@ export function TrackTable({
           scrolls instead. Each column keeps its share of the reference total,
           so the columns stay in proportion however wide the pane is. */}
       <table
-        className="sr-table"
+        className={trackStatus ? "sr-table sr-table--workspace" : "sr-table"}
         data-testid="workspace-table"
-        style={{ minWidth: referenceWidth }}
+        style={{ minWidth: referenceWidth + utilityWidth }}
       >
         <colgroup>
           {columns.map((column) => (
             <col
               key={column.key}
               data-testid={`workspace-col-${column.key}`}
-              style={{ width: `${((column.width / referenceWidth) * 100).toFixed(4)}%` }}
+              style={{ width: utilityWidth
+                ? `calc((100% - ${utilityWidth}px) * ${column.width / referenceWidth})`
+                : `${((column.width / referenceWidth) * 100).toFixed(4)}%` }}
             />
           ))}
+          {trackStatus && <>
+            <col style={{ width: WORKSPACE_TRACK_STATUS_COLUMN.width }} />
+            <col style={{ width: WORKSPACE_TRACK_TIME_COLUMN.width }} />
+          </>}
         </colgroup>
         <thead>
           <tr>
@@ -134,7 +157,7 @@ export function TrackTable({
                 >
                   {sortable ? (
                     <button type="button" onClick={() => toggleSort(column.key)}>
-                      {column.label}
+                      {trackStatus && column.key === "fileName" ? "Track" : column.label}
                       {active ? (sort!.ascending ? " ▲" : " ▼") : ""}
                     </button>
                   ) : (
@@ -143,6 +166,10 @@ export function TrackTable({
                 </th>
               );
             })}
+            {trackStatus && <>
+              <th scope="col">{WORKSPACE_TRACK_STATUS_COLUMN.label}</th>
+              <th scope="col">{WORKSPACE_TRACK_TIME_COLUMN.label}</th>
+            </>}
           </tr>
         </thead>
         <tbody>
@@ -153,6 +180,8 @@ export function TrackTable({
               track.albumArtist ??
               (track.albumArtists.length > 0 ? track.albumArtists.join(", ") : "");
             const lrc = directoryNames ? hasSidecarLrc(track.path, directoryNames) : false;
+
+            const status = trackStatus?.get(track.path);
 
             return (
               <tr
@@ -174,6 +203,7 @@ export function TrackTable({
                   >
                     {renderCell(column.key, {
                       track,
+                      stackTitle,
                       coverDataUrl,
                       lrc,
                       artists,
@@ -183,6 +213,12 @@ export function TrackTable({
                     })}
                   </td>
                 ))}
+                {trackStatus && <>
+                  <td className="sr-track-status">
+                    {status && <span data-tone={status.tone} title={status.detail}>{status.label}</span>}
+                  </td>
+                  <td className="sr-track-time">{formatDuration(track.duration)}</td>
+                </>}
               </tr>
             );
           })}
@@ -193,6 +229,7 @@ export function TrackTable({
 }
 
 interface CellContext {
+  stackTitle: boolean;
   track: TrackData;
   coverDataUrl: string | null | undefined;
   lrc: boolean;
@@ -204,7 +241,7 @@ interface CellContext {
 
 /** One cell per column, so hiding a column hides its header and cell together. */
 function renderCell(key: WebTableColumnKey, context: CellContext): React.ReactNode {
-  const { track, coverDataUrl, lrc, artists, albumArtist, onActivate, onSelect } = context;
+  const { stackTitle, track, coverDataUrl, lrc, artists, albumArtist, onActivate, onSelect } = context;
   switch (key) {
     case "cover":
       return coverDataUrl && track.hasCover ? (
@@ -217,6 +254,8 @@ function renderCell(key: WebTableColumnKey, context: CellContext): React.ReactNo
         <span
           role="button"
           tabIndex={0}
+          aria-label={stackTitle ? fileNameOf(track.path) : undefined}
+          title={stackTitle ? fileNameOf(track.path) : undefined}
           onClick={onActivate}
           onKeyDown={(event) => {
             if (event.key === "Enter" || event.key === " ") {
@@ -225,7 +264,12 @@ function renderCell(key: WebTableColumnKey, context: CellContext): React.ReactNo
             }
           }}
         >
-          {fileNameOf(track.path)}
+          {stackTitle && track.title?.trim() ? (
+            <>
+              <strong>{track.title}</strong>
+              <small>{fileNameOf(track.path)}</small>
+            </>
+          ) : fileNameOf(track.path)}
         </span>
       );
     case "title":

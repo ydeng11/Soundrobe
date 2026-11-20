@@ -132,21 +132,42 @@ describe("tag sources view", () => {
 
     await waitFor(() => expect(api.setConfig).toHaveBeenCalled());
     const writtenKeys = api.setConfig.mock.calls.map((call) => call[0]);
-    expect(writtenKeys).not.toContain("discogsToken");
+    expect(writtenKeys).toEqual(["llmModel"]);
     expect(writtenKeys).toContain("llmModel");
     expect(api.setConfig).toHaveBeenCalledWith("llmModel", "gpt-4o-mini");
   });
 
-  it("surfaces a save failure instead of reporting success", async () => {
-    const api = fakeApi({ llmModel: "gpt-4o" });
-    api.setConfig.mockRejectedValueOnce(new Error("config write failed"));
+  it("retries a failed save with the draft and skips fields already written", async () => {
+    const api = fakeApi({ llmModel: "gpt-4o", llmBaseUrl: "https://old.example.org" });
+    api.setConfig.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("config write failed"));
     render(<TagSourcesView api={api as unknown as Window["api"]} />);
 
-    await screen.findByLabelText("AI model");
+    const model = await screen.findByLabelText("AI model");
+    fireEvent.change(model, { target: { value: "gpt-4o-mini" } });
+    fireEvent.change(screen.getByLabelText("AI base URL"), { target: { value: "https://new.example.org" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect((await screen.findByRole("alert")).textContent).toContain("config write failed");
+    expect(model).toHaveProperty("value", "gpt-4o-mini");
     expect(screen.queryByText("Tag sources saved")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry save" }));
+    expect(await screen.findByText("Tag sources saved")).toBeTruthy();
+    expect(api.setConfig.mock.calls).toEqual([
+      ["llmModel", "gpt-4o-mini"],
+      ["llmBaseUrl", "https://new.example.org"],
+      ["llmBaseUrl", "https://new.example.org"],
+    ]);
+  });
+
+  it("exposes a load failure with a retry before credentials can be changed", async () => {
+    const api = fakeApi({ llmModel: "gpt-4o" });
+    api.getConfig.mockRejectedValueOnce(new Error("config unavailable"));
+    render(<TagSourcesView api={api as unknown as Window["api"]} />);
+    expect((await screen.findByRole("alert")).textContent).toContain("config unavailable");
+    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry loading sources" }));
+    await waitFor(() => expect(screen.getByLabelText("AI model")).toHaveProperty("value", "gpt-4o"));
   });
 
   it("tests the connection with a blank key when the key is redacted", async () => {

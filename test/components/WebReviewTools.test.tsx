@@ -982,6 +982,28 @@ describe("Search", () => {
     expect(screen.getAllByTestId(/^search-choose-/)).toHaveLength(4);
   });
 
+  it("retries the same provider query after a failure and keeps the selected file's draft", async () => {
+    const api = fakeApi();
+    api.searchReleases.mockRejectedValueOnce(new Error("Provider timed out"));
+    renderWorkspace(api, [{ path: ALBUM, status: "needs_review" }]);
+    await openAlbum(api);
+    fireEvent.click(within(screen.getAllByTestId("workspace-row")[0]).getByRole("button"));
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "My draft title" } });
+    fireEvent.click(screen.getByTestId("tools-search"));
+
+    fireEvent.click(await screen.findByTestId("search-run"));
+    expect((await screen.findByTestId("search-drawer-error")).textContent).toContain("Provider timed out");
+    fireEvent.click(screen.getByRole("button", { name: "Retry search" }));
+    fireEvent.click(await screen.findByTestId("search-choose-release-1"));
+
+    expect(await screen.findByTestId("search-mapping")).toBeTruthy();
+    expect(api.searchReleases.mock.calls[1]).toEqual(api.searchReleases.mock.calls[0]);
+    expect(api.searchApplyCandidate).not.toHaveBeenCalled();
+    fireEvent.click(within(screen.getByTestId("search-drawer")).getByRole("button", { name: "Close" }));
+    expect(screen.getByLabelText("Title")).toHaveProperty("value", "My draft title");
+    expect(screen.getAllByTestId("workspace-row")[0].getAttribute("aria-selected")).toBe("true");
+  });
+
   it("maps local files to provider tracks and writes only the mapped ones", async () => {
     // The mapping is the point of the step: an unmapped file must be left out of
     // the write, and the indices are the album's own track order.

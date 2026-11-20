@@ -293,7 +293,7 @@ describe("WorkspaceView", () => {
     }
   });
 
-  it("shows loaded album details and keeps every selected-track field in the bottom editor", async () => {
+  it("shows loaded album details and keeps every selected-track field in the adjacent inspector", async () => {
     const rootPath = "/music/Artist";
     const albumPath = `${rootPath}/4 (Deluxe Edition)`;
     const albumEntry = { name: "4 (Deluxe Edition)", path: albumPath, isDirectory: true };
@@ -330,13 +330,17 @@ describe("WorkspaceView", () => {
     // Filtering must not turn a display position back into an invalid stored tag number.
     fireEvent.change(screen.getByLabelText("Filter tracks"), { target: { value: "no matching track" } });
     expect(screen.getByRole("heading", { name: "Edit track 1 of 1" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Filter tracks"), { target: { value: "" } });
+    expect(screen.getByRole("heading", { name: "No matching tracks" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Clear track filter" }));
     expect(identity.querySelector("img")?.getAttribute("src")).toBe(coverDataUrl);
-    expect(screen.getByTestId("workspace-row").textContent).toContain("4");
+    expect(within(screen.getByTestId("workspace-row")).getByRole("button", { name: "01.mp3" }).textContent).toContain("Track title");
 
     const table = screen.getByTestId("workspace-table");
     const editor = screen.getByTestId("track-editor");
-    expect(table.compareDocumentPosition(editor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const inspector = screen.getByRole("complementary", { name: "Track editor" });
+    expect(inspector.contains(editor)).toBe(true);
+    expect(inspector.parentElement).toBe(table.closest(".sr-pane")?.parentElement);
+    expect(screen.getByLabelText("Genres")).toBeTruthy();
     fireEvent.click(screen.getByText("More fields"));
     expect(screen.getByLabelText("Disc Number")).toBeTruthy();
     expect(screen.getByLabelText("Track No.")).toBeTruthy();
@@ -350,7 +354,7 @@ describe("WorkspaceView", () => {
     expect(screen.getByTestId("editor-technical")).toBeTruthy();
   });
 
-  it("dismisses only the current editor and reopens it on a new track selection", async () => {
+  it("keeps the inspector visible by default and honors the saved preference to hide it", async () => {
     const detailsKey = "soundrobe.web.workspace.details";
     const storage = new Map<string, string>();
     const localStorage = {
@@ -384,19 +388,56 @@ describe("WorkspaceView", () => {
       fireEvent.click(await screen.findByRole("button", { name: "01.mp3" }));
       expect(screen.getByTestId("track-editor")).toBeTruthy();
 
-      fireEvent.click(screen.getByLabelText("Close track editor"));
-      expect(screen.queryByTestId("track-editor")).toBeNull();
-      expect(
-        screen.getAllByTestId("workspace-row").some((row) => row.getAttribute("aria-selected") === "true"),
-      ).toBe(true);
-      expect(localStorage.getItem(detailsKey)).toBe("true");
-
-      fireEvent.click(screen.getByRole("button", { name: "02.mp3" }));
-      expect(await screen.findByTestId("track-editor")).toBeTruthy();
+      expect(screen.queryByLabelText("Close track editor")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Workspace settings" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "Show file details" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+      expect(screen.queryByRole("complementary", { name: "Track editor" })).toBeNull();
+      expect(screen.getAllByTestId("workspace-row")[0].getAttribute("aria-selected")).toBe("true");
+      expect(localStorage.getItem(detailsKey)).toBe("false");
     } finally {
       if (localStorageDescriptor) Object.defineProperty(window, "localStorage", localStorageDescriptor);
       else Reflect.deleteProperty(window, "localStorage");
     }
+  });
+
+  it("retains a failed file's draft and selection, then reports a confirmed write on retry", async () => {
+    const rootPath = "/music/Artist";
+    const first = { ...makeTrack(rootPath + "/01.mp3", "First track"), genre: "Rock", year: "2024" };
+    const second = { ...makeTrack(rootPath + "/02.mp3", "Second track"), genre: null, year: "2024" };
+    const writeTrack = vi.fn()
+      .mockRejectedValueOnce(new Error("File is busy"))
+      .mockResolvedValueOnce({ ...first, genre: "Jazz" });
+    const readDirectory = vi.fn().mockResolvedValue(directory(rootPath, [], [first, second]));
+    const api = {
+      listLibraryRoots: vi.fn().mockResolvedValue([{ id: "artist", name: "Artist", path: rootPath }]),
+      readDirectory,
+      listDirectory: vi.fn().mockResolvedValue([]),
+      getCoverDataUrl: vi.fn().mockResolvedValue(null),
+      writeTrack,
+    } as unknown as Window["api"];
+
+    render(<WorkspaceView api={api} loadReleases={() => Promise.resolve({ releases: [] })} />);
+    fireEvent.click(await screen.findByRole("button", { name: "01.mp3" }));
+    fireEvent.change(screen.getByLabelText("Genres"), { target: { value: "Jazz" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save tags" }));
+
+    const inspector = screen.getByRole("complementary", { name: "Track editor" });
+    expect((await within(inspector).findByRole("alert")).textContent).toContain("File is busy");
+    expect(screen.getAllByTestId("workspace-row")[0].getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "02.mp3" }));
+    fireEvent.click(screen.getByRole("button", { name: "01.mp3" }));
+    expect(screen.getByLabelText("Genres")).toHaveProperty("value", "Jazz");
+    fireEvent.click(within(inspector).getByRole("button", { name: "Retry save" }));
+
+    expect(await within(inspector).findByText("Tags saved to file")).toBeTruthy();
+    expect(writeTrack.mock.calls).toEqual([[first.path, { genre: "Jazz" }], [first.path, { genre: "Jazz" }]]);
+    expect(readDirectory).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText("Genres")).toHaveProperty("value", "Jazz");
+    expect(screen.getAllByTestId("workspace-row")[0].textContent).toContain("Saved");
+    fireEvent.click(screen.getByRole("button", { name: "Needs attention (1)" }));
+    expect(screen.getAllByTestId("workspace-row")).toHaveLength(1);
+    expect(screen.getByText("Missing genre")).toBeTruthy();
   });
 
   it("keeps tracks visible while sixty review albums stay in a closed queue", async () => {

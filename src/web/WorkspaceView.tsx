@@ -1,8 +1,7 @@
 /**
  * Browser tagging workspace.
  *
- * The folder tree stays to the left of a music-first album view. Track details
- * dock beneath the table; all tag writes still go through the shared Rust writer.
+ * The library, track list, and track inspector form the browser workspace.
  */
 
 import React from "react";
@@ -14,7 +13,7 @@ import {
 } from "../shared/web-adapter";
 import { DirectoryTree } from "./DirectoryTree";
 import { TrackDetailEditor } from "./TrackDetailEditor";
-import { TrackTable, type WebTableSort } from "./TrackTable";
+import { TrackTable, type WebTableSort, type TrackStatus } from "./TrackTable";
 import { TrackTools } from "./TrackTools";
 import { WorkspaceSettingsDrawer } from "./WorkspaceSettingsDrawer";
 import { WEB_TABLE_COLUMNS, fileNameOf, type WebTableColumnKey } from "./columns";
@@ -29,16 +28,16 @@ const ALL_COLUMNS: WebTableColumnKey[] = WEB_TABLE_COLUMNS.map((column) => colum
 function loadVisibleColumns(): WebTableColumnKey[] {
   try {
     const raw = window.localStorage.getItem(COLUMNS_KEY);
-    if (!raw) return ALL_COLUMNS;
+    if (!raw) return ["fileName"];
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return ALL_COLUMNS;
+    if (!Array.isArray(parsed)) return ["fileName"];
     const known = parsed.filter(
       (key): key is WebTableColumnKey => ALL_COLUMNS.includes(key as WebTableColumnKey),
     );
     // The file name identifies the row, so it is never dropped.
     return known.includes("fileName") ? known : ["fileName", ...known];
   } catch {
-    return ALL_COLUMNS;
+    return ["fileName"];
   }
 }
 
@@ -143,11 +142,20 @@ export function WorkspaceView({
   const [filterText, setFilterText] = React.useState("");
   const [sort, setSort] = React.useState<WebTableSort>({ key: "fileName", ascending: true });
   const [loading, setLoading] = React.useState(true);
-  const [saving, setSaving] = React.useState(false);
+  const [savingPath, setSavingPath] = React.useState<string | null>(null);
+  const writeInFlight = React.useRef(false);
+  const [saveResults, setSaveResults] = React.useState<
+    Record<string, NonNullable<React.ComponentProps<typeof TrackDetailEditor>["saveResult"]>>
+  >({});
+  const [attentionOnly, setAttentionOnly] = React.useState(false);
+  const [folderFilter, setFolderFilter] = React.useState("");
+  const [loadingPath, setLoadingPath] = React.useState<string | null>(null);
+  const [libraryLoadAttempt, setLibraryLoadAttempt] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = React.useState(false);
   const [folderBrowserOpen, setFolderBrowserOpen] = React.useState(folderBrowserStartsOpen);
-  const [editorOpen, setEditorOpen] = React.useState(true);
+  const inspectorRef = React.useRef<HTMLElement>(null);
+  const revealInspector = React.useRef(false);
   const [detailsVisible, setDetailsVisible] = React.useState(loadDetailsVisible);
   const [visibleColumns, setVisibleColumns] =
     React.useState<WebTableColumnKey[]>(loadVisibleColumns);
@@ -231,6 +239,7 @@ export function WorkspaceView({
     async (path: string, includeChildTracks = false) => {
       const generation = ++directoryGeneration.current;
       setLoading(true);
+      setLoadingPath(path);
       setError(null);
       try {
         const [data, entries]: [DirectoryData, DirEntry[]] = await Promise.all([
@@ -263,11 +272,12 @@ export function WorkspaceView({
           ...Object.fromEntries(childDirectories.map((child) => [child.path, child.subdirs ?? []])),
         }));
         setExpanded((current) => new Set([...current, ...folderPathPrefixes(path)]));
-        setSelectedPaths([]);
+        setSelectedPaths((current) => current.filter((selected) => tracks.some((track) => track.path === selected)));
+        setAttentionOnly(false);
       } catch (reason) {
         if (generation === directoryGeneration.current) {
           setError(reason instanceof Error ? reason.message : String(reason));
-          setDirectory(null);
+          setDirectory((current) => current?.path === path ? current : null);
         }
       } finally {
         if (generation === directoryGeneration.current) setLoading(false);
@@ -279,6 +289,8 @@ export function WorkspaceView({
 
   React.useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError(null);
     void (async () => {
       try {
         const list = await api.listLibraryRoots();
@@ -296,7 +308,7 @@ export function WorkspaceView({
     return () => {
       active = false;
     };
-  }, [api, loadDirectory]);
+  }, [api, loadDirectory, libraryLoadAttempt]);
 
   /**
    * Open the album Monitoring pointed at, once it is known where the album sits.
@@ -432,25 +444,82 @@ export function WorkspaceView({
     ? directoryTracks.findIndex((track) => track.path === selectedTrack.path)
     : -1;
 
-  const applyFields = React.useCallback(
-    async (fields: Record<string, unknown>) => {
-      if (!selectedTrackPath || !directory) return;
-      setSaving(true);
-      setError(null);
-      try {
-        await api.writeTrack(selectedTrackPath, fields);
-        await loadDirectory(directory.path, directory.path === root.path);
-        setSelectedPaths([selectedTrackPath]);
-      } catch (reason) {
-        setError(reason instanceof Error ? reason.message : String(reason));
-      } finally {
-        setSaving(false);
+  const trackStatus = new Map<string, TrackStatus>();
+  const attentionPaths = new Set<string>();
+  for (const track of directoryTracks) {
+    const missingFields = [
+      !track.title?.trim() && "title",
+      !(track.artists.some((name) => name.trim()) || track.artist?.trim()) && "artist",
+      !track.album?.trim() && "album",
+      !track.year?.trim() && "year",
+      !track.genre?.trim() && "genre",
+    ].filter(Boolean);
+    const result = saveResults[track.path];
+    if (result?.state === "failed" || missingFields.length) attentionPaths.add(track.path);
+    let status: TrackStatus = result?.state === "saved" ? { label: "Saved", tone: "success" } : { label: "Tagged" };
+    if (missingFields.length) {
+      const detail = `Missing ${missingFields.join(", ")}`;
+      status = { label: missingFields.length === 1 ? detail : `${missingFields.length} tags missing`, detail, tone: "warning" };
+    }
+    if (result?.state === "failed") status = { label: "Save failed", detail: result.reason, tone: "error" };
+    if (track.path === savingPath) status = { label: "Saving…", tone: "notice" };
+    trackStatus.set(track.path, status);
+  }
+  const displayedTracks = attentionOnly ? visibleTracks.filter((track) => attentionPaths.has(track.path)) : visibleTracks;
+  const folderQuery = folderFilter.trim().toLowerCase();
+  const matchingFolders = folderQuery && root ? new Set<string>() : undefined;
+  if (matchingFolders && root) {
+    const prefix = root.path.replace(/[/\\]+$/, "") + (root.path.includes("\\") ? "\\" : "/");
+    for (const entries of Object.values(childrenByPath)) {
+      for (const entry of entries ?? []) {
+        if (!entry.path.startsWith(prefix)) continue;
+        const relative = entry.path.slice(prefix.length);
+        if (relative.toLowerCase().includes(folderQuery)) {
+          for (const ancestor of folderPathPrefixes(entry.path)) matchingFolders.add(ancestor);
+        }
       }
-    },
-    [api, directory, loadDirectory, selectedTrackPath],
-  );
+    }
+    if (matchingFolders.size > 0) matchingFolders.add(root.path);
+  }
 
-  if (loading && !directory) {
+  function selectTracks(paths: string[]) {
+    revealInspector.current = paths.length > 0 && detailsVisible && !folderBrowserStartsOpen();
+    setSelectedPaths(paths);
+  }
+
+  React.useEffect(() => {
+    if (!revealInspector.current) return;
+    revealInspector.current = false;
+    inspectorRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedPaths]);
+
+  const applyFields = async (fields: Record<string, unknown>) => {
+    if (!selectedTrackPath || !directory || writeInFlight.current) return false;
+    const path = selectedTrackPath;
+    const directoryPath = directory.path;
+    writeInFlight.current = true;
+    setSavingPath(path);
+    try {
+      const written = await api.writeTrack(path, fields);
+      setDirectory((current) => current?.path === directoryPath ? {
+        ...current,
+        tracks: current.tracks.map((track) => track.path === path ? written : track),
+      } : current);
+      setSaveResults((current) => ({ ...current, [path]: { state: "saved" } }));
+      return true;
+    } catch (reason) {
+      setSaveResults((current) => ({
+        ...current,
+        [path]: { state: "failed", reason: reason instanceof Error ? reason.message : String(reason) },
+      }));
+      return false;
+    } finally {
+      writeInFlight.current = false;
+      setSavingPath(null);
+    }
+  };
+
+  if (loading && !root) {
     return (
       <div className="sr-empty" data-testid="workspace-loading">
         <p className="sr-empty__body">Loading library…</p>
@@ -461,16 +530,19 @@ export function WorkspaceView({
   if (!root) {
     return (
       <div className="sr-empty" data-testid="workspace-no-root">
-        <h3 className="sr-empty__title">No library mounted</h3>
+        <h3 className="sr-empty__title">{error ? "Could not load libraries" : "No library mounted"}</h3>
         <p className="sr-empty__body">
-          Mount a music directory into the service to browse and tag files.
+          {error ?? "Mount a music directory into the service to browse and tag files."}
         </p>
+        <button type="button" className="sr-btn" onClick={() => setLibraryLoadAttempt((attempt) => attempt + 1)}>
+          {error ? "Retry loading libraries" : "Check for libraries"}
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="sr-workspace" data-testid="workspace">
+    <div className={`sr-workspace${detailsVisible ? " sr-workspace--with-inspector" : ""}`} data-testid="workspace">
       <aside className="sr-side">
         <details
           className="sr-folder-disclosure"
@@ -483,6 +555,7 @@ export function WorkspaceView({
             <span className="sr-folder-disclosure__current">{root.name}</span>
           </summary>
           <div className="sr-folder-disclosure__content">
+            <h2 className="sr-library-title">Your library</h2>
             {roots.length > 1 && (
               <label className="sr-field sr-field--stacked">
                 <span className="sr-field__label">Library</span>
@@ -493,6 +566,7 @@ export function WorkspaceView({
                   onChange={(event) => {
                     const index = Number(event.target.value);
                     setRootIndex(index);
+                    setFolderFilter("");
                     const nextRoot = roots[index];
                     if (nextRoot) void loadDirectory(nextRoot.path, true);
                   }}
@@ -506,20 +580,34 @@ export function WorkspaceView({
               </label>
             )}
 
-            <DirectoryTree
+            <input
+              type="search"
+              className="sr-input"
+              aria-label="Find artist or album"
+              placeholder="Find artist or album"
+              value={folderFilter}
+              onChange={(event) => setFolderFilter(event.target.value)}
+            />
+            {matchingFolders?.size === 0 ? (
+              <div className="sr-folder-empty">
+                <p>No matching folders</p>
+                <button type="button" className="sr-btn" onClick={() => setFolderFilter("")}>Clear folder filter</button>
+              </div>
+            ) : <DirectoryTree
               rootLabel={root.name}
               rootPath={root.path}
               activePath={directory?.path ?? null}
               reviewPaths={reviewPaths}
-              expanded={expanded}
+              expanded={matchingFolders ?? expanded}
+              visiblePaths={matchingFolders}
               childrenByPath={childrenByPath}
-              onToggle={handleToggle}
+              onToggle={matchingFolders ? undefined : handleToggle}
               onNavigate={(path) => {
                 if (path !== directory?.path || !childrenByPath[path]) {
                   void loadDirectory(path, path === root.path);
                 }
               }}
-            />
+            />}
           </div>
         </details>
       </aside>
@@ -567,8 +655,9 @@ export function WorkspaceView({
           <button
             type="button"
             className="sr-btn"
+            disabled={loading || savingPath !== null}
             onClick={() => {
-              const path = directory?.path ?? root.path;
+              const path = (error ? loadingPath : null) ?? directory?.path ?? root.path;
               void loadDirectory(path, path === root.path);
             }}
           >
@@ -576,6 +665,9 @@ export function WorkspaceView({
           </button>
         </div>
 
+        {loading && <p className="sr-banner sr-banner--loading" role="status">
+          Opening {loadingPath === root.path ? root.name : albumNameOf(loadingPath ?? root.path)}…
+        </p>}
         {error && (
           <p className="sr-banner sr-banner--error" role="alert">
             {error}
@@ -651,6 +743,7 @@ export function WorkspaceView({
             <div className="sr-album-hero__actions">
               <TrackTools
                 albumPath={isLibraryRoot ? null : directory?.path ?? null}
+                disabled={loading || savingPath !== null}
                 tracks={directoryTracks}
                 selectedPaths={selectedPaths}
                 api={api}
@@ -663,59 +756,72 @@ export function WorkspaceView({
           </div>
         </section>
 
-        {directory && visibleTracks.length === 0 ? (
+        <div className="sr-workspace__trackbar">
+          <h2>Tracks</h2>
+          {directoryTracks.length > 0 && <div className="sr-workspace__filters" role="group" aria-label="File status">
+            <button type="button" className="sr-btn" aria-pressed={!attentionOnly} onClick={() => setAttentionOnly(false)}>
+              All files ({directoryTracks.length})
+            </button>
+            <button type="button" className="sr-btn" aria-pressed={attentionOnly} onClick={() => setAttentionOnly(true)}>
+              Needs attention ({attentionPaths.size})
+            </button>
+          </div>}
+        </div>
+        {!loading && directory && displayedTracks.length === 0 ? (
           <div className="sr-empty" data-testid="workspace-empty">
-            <h3 className="sr-empty__title">This folder has no files</h3>
-            <p className="sr-empty__body">
-              Switch directory, clear the search term, or refresh the index.
-            </p>
+            <h3 className="sr-empty__title">
+              {directoryTracks.length === 0
+                ? isLibraryRoot ? "This library has no music" : "This folder has no music"
+                : filterText ? "No matching tracks" : "No files need attention"}
+            </h3>
+            {directoryTracks.length === 0 ? (
+              <p className="sr-empty__body">Add audio files to this folder and select Refresh, or choose another folder.</p>
+            ) : filterText ? (
+              <button type="button" className="sr-btn" onClick={() => setFilterText("")}>Clear track filter</button>
+            ) : (
+              <button type="button" className="sr-btn" onClick={() => setAttentionOnly(false)}>Show all files</button>
+            )}
           </div>
         ) : (
           <TrackTable
-            tracks={visibleTracks}
+            tracks={displayedTracks}
+            trackStatus={trackStatus}
             selectedPaths={selectedPaths}
             directoryNames={directory?.names}
             coverDataUrl={directory?.coverDataUrl ?? null}
             sort={sort}
             onSortChange={setSort}
-            onSelectTrack={(path) => {
-              setSelectedPaths([path]);
-              setEditorOpen(true);
-            }}
-            onSelectionChange={(paths) => {
-              setSelectedPaths(paths);
-              if (paths.length > 0) setEditorOpen(true);
-            }}
+            onSelectTrack={(path) => selectTracks([path])}
+            onSelectionChange={selectTracks}
             visibleColumns={visibleColumns}
           />
         )}
 
-        {detailsVisible && editorOpen && selectedTrack && (
-          <section className="sr-editor-dock" data-testid="editor-dock" aria-label="Track editor">
-            <TrackDetailEditor
-              track={selectedTrack}
-              coverDataUrl={directory?.coverDataUrl ?? null}
-              hasLrc={
-                directory?.names.has(
-                  `${fileNameOf(selectedTrack.path).replace(/\.[^.]+$/, "")}.lrc`.toLowerCase(),
-                ) ?? false
-              }
-              saving={saving}
-              compact
-              trackPosition={
-                isAlbumFolder
-                  ? selectedTrackPosition >= 0
-                    ? selectedTrackPosition + 1
-                    : undefined
-                  : selectedTrack.trackNumber ?? undefined
-              }
-              albumTrackCount={isAlbumFolder ? directoryTracks.length : undefined}
-              onApply={applyFields}
-              onClose={() => setEditorOpen(false)}
-            />
-          </section>
-        )}
       </section>
+      <aside
+        className="sr-pane sr-inspector"
+        ref={inspectorRef}
+        hidden={!detailsVisible}
+        aria-label="Track editor"
+      >
+        <h2 className="sr-inspector__label">Track editor</h2>
+        <TrackDetailEditor
+          track={selectedTrack}
+          coverDataUrl={directory?.coverDataUrl ?? null}
+          hasLrc={selectedTrack ? directory?.names.has(
+            `${fileNameOf(selectedTrack.path).replace(/\.[^.]+$/, "")}.lrc`.toLowerCase(),
+          ) : false}
+          saving={selectedTrackPath !== null && savingPath === selectedTrackPath}
+          anotherFileSaving={savingPath !== null && savingPath !== selectedTrackPath}
+          saveResult={selectedTrackPath ? saveResults[selectedTrackPath] : undefined}
+          inspector
+          trackPosition={selectedTrackPosition >= 0 && isAlbumFolder
+            ? selectedTrackPosition + 1
+            : selectedTrack?.trackNumber ?? undefined}
+          albumTrackCount={isAlbumFolder ? directoryTracks.length : undefined}
+          onApply={applyFields}
+        />
+      </aside>
 
       {settingsOpen && (
         <WorkspaceSettingsDrawer
@@ -723,7 +829,6 @@ export function WorkspaceView({
           visibleColumns={visibleColumns}
           onApply={(nextDetails, nextColumns) => {
             setDetailsVisible(nextDetails);
-            setEditorOpen(nextDetails);
             setVisibleColumns([...nextColumns]);
             try {
               window.localStorage.setItem(DETAILS_KEY, String(nextDetails));

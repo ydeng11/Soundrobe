@@ -67,6 +67,22 @@ describe("Monitoring", () => {
     expect(screen.getByText("Release status includes tag scans. Run details show what was verified during each recorded run.")).toBeTruthy();
   });
 
+  it("shows a retry for a failed refresh and keeps the last known context", async () => {
+    const loadStatus = vi.fn(async () => status()).mockRejectedValueOnce(new Error("Status unavailable"));
+    render(<MonitoringView refreshMs={0} loadStatus={loadStatus}
+      loadReleases={async () => ({ releases: [] })} readLog={async () => emptyLog()} />);
+
+    expect((await screen.findByRole("alert")).textContent).toContain("Status unavailable");
+    expect(screen.getByTestId("monitoring-tile-enabled").textContent).toContain("Unknown");
+    fireEvent.click(screen.getByRole("button", { name: "Retry refresh" }));
+    await screen.findByTestId("monitoring-freshness");
+
+    loadStatus.mockRejectedValueOnce(new Error("Offline"));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("Offline");
+    expect(screen.getByTestId("monitoring-tile-enabled").textContent).toContain("On");
+  });
+
   it("keeps AI-written releases visible until the operator acknowledges review", async () => {
     const albumPath = "/library/Music/Artist/Album";
     let acknowledged = false;
@@ -508,7 +524,7 @@ describe("Monitoring", () => {
       within(row).getByText("Album One").closest("td"),
     );
     expect(within(row).getByText("Needs review")).toBeTruthy();
-    expect(within(row).getByRole("button", { name: "Acknowledge review" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Mark reviewed" })).toBeTruthy();
     expect(within(row).getByRole("button", { name: "Open" })).toBeTruthy();
     expect(within(panel).queryByRole("columnheader", { name: "Path" })).toBeNull();
   });
@@ -661,6 +677,17 @@ describe("Settings", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeTruthy();
     expect(screen.getByText(/Most toggles and preset choices save when changed/i)).toBeTruthy();
     expect(screen.getByText(/Lyrics URL and a custom schedule keep a draft until you save/i)).toBeTruthy();
+  });
+
+  it("keeps settings controls disabled after a failed load and retries on request", async () => {
+    const loadConfig = vi.fn(async () => ({})).mockRejectedValueOnce(new Error("Settings unavailable"));
+    render(<SettingsView loadBackground={async () => SETTINGS} loadConfig={loadConfig} />);
+    expect((await screen.findByTestId("settings-load-error")).textContent).toContain("Settings unavailable");
+    const input = screen.getByLabelText(/Allow online metadata lookups/);
+    expect(input.matches(":disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Retry loading settings" }));
+    await waitFor(() => expect(input.matches(":disabled")).toBe(false));
+    expect(loadConfig).toHaveBeenCalledTimes(2);
   });
 
   it("gives every checkbox setting the whole row for its name", async () => {
@@ -950,6 +977,38 @@ describe("Settings", () => {
     await waitFor(() =>
       expect(saveConfig).toHaveBeenCalledWith("lyricsApiUrl", "https://example.org"),
     );
+  });
+
+  it("keeps the Lyrics URL draft dirty and retryable after a rejected save", async () => {
+    const saveConfig = vi.fn(async () => undefined).mockRejectedValueOnce(new Error("Settings unavailable"));
+    render(<SettingsView loadBackground={async () => SETTINGS}
+      loadConfig={async () => ({ lyricsApiUrl: "https://lrclib.net" })} saveConfig={saveConfig} />);
+    fireEvent.click(await screen.findByTestId("settings-nav-lyrics"));
+    const url = screen.getByLabelText("Lyrics service URL");
+    fireEvent.change(url, { target: { value: "https://example.org/draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect((await screen.findByTestId("settings-error-lyricsApiUrl")).textContent).toContain("Settings unavailable");
+    expect(screen.getByTestId("settings-dirty")).toBeTruthy();
+    expect(url).toHaveProperty("value", "https://example.org/draft");
+    fireEvent.click(screen.getByRole("button", { name: "Retry save" }));
+    await screen.findByTestId("settings-saved-lyricsApiUrl");
+    expect(screen.queryByTestId("settings-dirty")).toBeNull();
+  });
+
+  it("keeps a custom schedule draft when another automation setting saves", async () => {
+    const saveBackground = vi.fn(async (patch) => ({ ...SETTINGS, ...patch }));
+    render(<SettingsView loadBackground={async () => SETTINGS} loadConfig={async () => ({})}
+      saveBackground={saveBackground} />);
+    fireEvent.click(await screen.findByTestId("settings-nav-automation"));
+    fireEvent.change(await screen.findByLabelText("Schedule"), { target: { value: "custom" } });
+    const cron = screen.getByLabelText("Crontab expression");
+    fireEvent.change(cron, { target: { value: "0 3 * * *" } });
+    fireEvent.click(screen.getByLabelText("Enable background tagging"));
+
+    await screen.findByTestId("settings-saved-background");
+    expect(cron).toHaveProperty("value", "0 3 * * *");
+    expect(screen.getByTestId("settings-dirty")).toBeTruthy();
   });
 
   it("catches an unusable URL at the field without a round trip", async () => {
