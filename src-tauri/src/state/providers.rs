@@ -10,7 +10,7 @@ use opencc_fmmseg::OpenCC;
 use regex::Regex;
 use reqwest::Client;
 use serde::Deserialize;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -439,6 +439,8 @@ pub struct ProviderArtist {
 #[derive(Clone, Debug, Default, PartialEq, serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ProviderTrack {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub performer_entities: Vec<String>,
     pub title: Option<String>,
     pub match_titles: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -2001,7 +2003,10 @@ fn parse_musicbrainz_release(
         .and_then(|credit| credit.get("name"))
         .and_then(serde_json::Value::as_str)
         .map(str::to_string);
-    let artists = artist.iter().cloned().collect::<Vec<_>>();
+    let artists = release_credit
+        .and_then(complete_performer_entities)
+        .filter(|names| !names.is_empty())
+        .unwrap_or_else(|| artist.iter().cloned().collect());
     let artist_id = release_credit
         .and_then(|credit| credit.first())
         .and_then(|credit| credit.get("artist"))
@@ -2063,9 +2068,10 @@ fn parse_musicbrainz_release(
             let track_artists = if credit.is_some() {
                 artist_names(credit)
             } else {
-                artists.clone()
+                artist.iter().cloned().collect()
             };
             tracks.push(ProviderTrack {
+                performer_entities: credit.and_then(complete_performer_entities).unwrap_or_default(),
                 match_titles: recording_title
                     .filter(|recording_title| Some(*recording_title) != title.as_deref())
                     .map(|title| vec![title.to_string()])
@@ -2299,6 +2305,53 @@ fn discogs_position_bearing(track: &serde_json::Value) -> bool {
         .is_some_and(|position| !position.trim().is_empty())
 }
 
+/// Preserves names as supplied in separate provider objects. An unnamed
+/// object leaves the entire assertion incomplete.
+fn complete_performer_entities(credits: &[serde_json::Value]) -> Option<Vec<String>> {
+    credits
+        .iter()
+        .map(|item| {
+            item["name"]
+                .as_str()
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_owned)
+        })
+        .collect()
+}
+
+fn discogs_featured_credits(track: &serde_json::Value) -> impl Iterator<Item = &serde_json::Value> {
+    track["extraartists"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|credit| {
+            credit["role"].as_str().is_some_and(|role| {
+                role.split(',')
+                    .any(|role| role.trim().eq_ignore_ascii_case("Featuring"))
+            })
+        })
+}
+
+fn discogs_track_performer_entities(
+    track: &serde_json::Value,
+    release_artists: Option<&[serde_json::Value]>,
+    single_track: bool,
+) -> Option<Vec<String>> {
+    if track.get("type_").is_some_and(|kind| kind.as_str() != Some("track"))
+        || track.get("sub_tracks").is_some_and(|children| !children.as_array().is_some_and(Vec::is_empty))
+    {
+        return None;
+    }
+    let guests = discogs_featured_credits(track).cloned().collect::<Vec<_>>();
+    let primary = non_empty_credit(track.get("artists")).or_else(|| {
+        release_artists.filter(|artists| single_track || (artists.len() == 1 && !guests.is_empty()))
+    })?;
+    let mut performers = complete_performer_entities(primary)?;
+    performers.extend(complete_performer_entities(&guests)?);
+    Some(performers.iter().map(|name| clean_discogs_artist(name)).collect())
+}
+
 /// Count the same position-bearing entries that the release resolver exposes.
 fn discogs_track_count(value: &serde_json::Value) -> Option<u32> {
     let tracklist = value.get("tracklist")?.as_array()?;
@@ -2318,8 +2371,19 @@ fn parse_discogs_release(
     resource_kind: Option<&str>,
 ) -> Option<ProviderAlbum> {
     let title = value.get("title")?.as_str()?.to_string();
-    let artists = discogs_artists(value.get("artists"), None);
-    let artist = artist_display_name(&artists, None);
+    let artist = artist_display_name(&discogs_artists(value.get("artists"), None), None);
+    let mut names_seen = HashSet::new();
+    let artists = non_empty_credit(value.get("artists"))
+        .and_then(complete_performer_entities)
+        .map(|names| {
+            names
+                .iter()
+                .map(|name| clean_discogs_artist(name))
+                .filter(|name| !name.is_empty() && names_seen.insert(name.to_ascii_lowercase()))
+                .collect::<Vec<_>>()
+        })
+        .filter(|names| !names.is_empty())
+        .unwrap_or_else(|| artist.iter().cloned().collect());
     let discogs_artist_name_variants = positive_integer(value.get("id"))
         .map(|id| id.to_string())
         .filter(|id| resource_kind == Some("release") && id == fallback_id)
@@ -2373,6 +2437,8 @@ fn parse_discogs_release(
             .entry((disc_number, media_type))
             .or_default() += 1;
     }
+    let single_track = raw_tracks.len() == 1;
+    let release_artists = non_empty_credit(value.get("artists"));
     let mut tracks = Vec::new();
     for (index, track) in raw_tracks
         .iter()
@@ -2388,29 +2454,17 @@ fn parse_discogs_release(
             .get(&(disc_number, media_type.clone()))
             .copied();
         let mut track_artists = discogs_artists(track.get("artists"), artist.as_deref());
-        if let Some(credits) = track
-            .get("extraartists")
-            .and_then(serde_json::Value::as_array)
+        for name in discogs_featured_credits(track)
+            .filter_map(|credit| credit["name"].as_str().map(clean_discogs_artist))
+            .filter(|name| !name.is_empty())
         {
-            for credit in credits {
-                let featuring = credit
-                    .get("role")
-                    .and_then(serde_json::Value::as_str)
-                    .is_some_and(|role| {
-                        role.split(',')
-                            .any(|role| role.trim().eq_ignore_ascii_case("Featuring"))
-                    });
-                if featuring {
-                    if let Some(name) = credit.get("name").and_then(serde_json::Value::as_str) {
-                        let name = clean_discogs_artist(name);
-                        if !name.is_empty() && !track_artists.contains(&name) {
-                            track_artists.push(name);
-                        }
-                    }
-                }
+            if !track_artists.contains(&name) {
+                track_artists.push(name);
             }
         }
         tracks.push(ProviderTrack {
+            performer_entities: discogs_track_performer_entities(track, release_artists, single_track)
+                .unwrap_or_default(),
             title: track
                 .get("title")
                 .and_then(serde_json::Value::as_str)
@@ -4399,6 +4453,93 @@ fn valid_image(image: &RemoteImage) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn musicbrainz_release_keeps_ordered_album_performers_and_primary_identity() {
+        let body = serde_json::json!({
+            "id": "release", "title": "Single",
+            "artist-credit": [
+                {"name": "Billie Eilish", "joinphrase": " | ", "artist": {"id": "lead"}},
+                {"name": "ROSALÍA", "artist": {"id": "guest"}}
+            ],
+            "media": [{"position": 1, "tracks": [{"position": 1, "title": "Song"}]}]
+        });
+        let album = super::parse_musicbrainz_release(&body, "release").unwrap();
+        assert_eq!(album.artist.as_deref(), Some("Billie Eilish"));
+        assert_eq!(album.artist_id.as_deref(), Some("lead"));
+        assert_eq!(album.artists, ["Billie Eilish", "ROSALÍA"]);
+        assert_eq!(album.tracks[0].artists, ["Billie Eilish"]);
+        assert!(album.tracks[0].performer_entities.is_empty());
+    }
+
+    #[test]
+    fn discogs_album_credit_preserves_named_entities() {
+        let body = serde_json::json!({
+            "id": 42, "title": "Single",
+            "artists": [{"name": "Earth, Wind & Fire", "id": 1},
+                        {"name": "Guest (2)", "id": 2}, {"name": "Guest (2)", "id": 2}],
+            "tracklist": [{"position": "1", "title": "Song"}]
+        });
+        let album = super::parse_discogs_release(&body, "42", Some("release")).unwrap();
+        assert_eq!(album.artists, ["Earth, Wind & Fire", "Guest"]);
+    }
+
+    #[test]
+    fn discogs_performer_evidence_keeps_band_entities_and_featured_roles() {
+        let body = serde_json::json!({
+            "id": 42, "title": "Album",
+            "artists": [{"name": "Simon & Garfunkel"}],
+            "tracklist": [
+                {"position": "1", "extraartists": [
+                    {"name": "Guest (2)", "role": "Featuring, Vocals"},
+                    {"name": "Engineer", "role": "Engineer"}
+                ]},
+                {"position": "2"},
+                {"position": "3", "artists": [{"name": "Lead"}, {"id": 99}]}
+            ]
+        });
+        let album = super::parse_discogs_release(&body, "42", Some("release")).unwrap();
+        assert_eq!(album.tracks[0].performer_entities, ["Simon & Garfunkel", "Guest"]);
+        assert!(album.tracks[1].performer_entities.is_empty());
+        assert!(album.tracks[2].performer_entities.is_empty());
+        let single = serde_json::json!({
+            "id": 43, "title": "Single", "artists": [{"name": "Lead"}, {"name": "Guest"}],
+            "tracklist": [{"position": "1"}]
+        });
+        let single = super::parse_discogs_release(&single, "43", Some("release")).unwrap();
+        assert_eq!(single.tracks[0].performer_entities, ["Lead", "Guest"]);
+        let nested = serde_json::json!({
+            "id": 44, "title": "Indexed tracks", "artists": [{"name": "Lead"}, {"name": "Guest"}],
+            "tracklist": [
+                {"position": "", "sub_tracks": [{"position": "1", "title": "Child"}]},
+                {"position": "2", "title": "Other"}
+            ]
+        });
+        let nested = super::parse_discogs_release(&nested, "44", Some("release")).unwrap();
+        assert!(nested.tracks[0].performer_entities.is_empty());
+        let index = serde_json::json!({
+            "id": 45, "title": "Medley", "artists": [{"name": "Lead"}, {"name": "Guest"}],
+            "tracklist": [{"position": "1", "title": "Medley", "type_": "index"}]
+        });
+        let index = super::parse_discogs_release(&index, "45", Some("release")).unwrap();
+        assert!(index.tracks[0].performer_entities.is_empty());
+    }
+
+    #[test]
+    fn musicbrainz_performer_evidence_requires_complete_track_or_recording_credit() {
+        let body = serde_json::json!({
+            "id": "release", "title": "Album", "artist-credit": [{"name": "Lead"}, {"name": "Guest"}],
+            "media": [{"position": 1, "tracks": [
+                {"position": 1, "title": "Complete", "artist-credit": [{"name": "Lead"}, {"name": "Guest"}]},
+                {"position": 2, "title": "Missing"},
+                {"position": 3, "title": "Incomplete", "artist-credit": [{"name": "Lead"}, {"id": 99}]}
+            ]}]
+        });
+        let album = super::parse_musicbrainz_release(&body, "release").unwrap();
+        assert_eq!(album.tracks[0].performer_entities, ["Lead", "Guest"]);
+        assert!(album.tracks[1].performer_entities.is_empty());
+        assert!(album.tracks[2].performer_entities.is_empty());
+    }
+
     #[test]
     fn coverage_v3_recording_identity_requires_every_credit() {
         let id = "11111111-1111-4111-8111-111111111111";

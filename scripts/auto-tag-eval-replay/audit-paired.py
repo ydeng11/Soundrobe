@@ -129,6 +129,7 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
     if changed_files and require_no_write and not native.get('written'):
         row['safetyFailures'].append('required no-write control changed media')
     mappings = {m['localTrack']: m for m in truth['mapping']}
+    expected = expected_for_profile(expected, context.get('profile'))
     content_failures = []
     if native.get('written') and (len(tracks) != len(case['tracks']) or native['written'] != len(tracks)):
         row['readbackFailures'].append('incomplete physical-file write count')
@@ -139,16 +140,18 @@ def audit_phase(context, records, case, truth, review, expected, require_no_writ
                 or (not native.get('written') and file not in changed_files)):
             continue
         mapping = mappings[index]
-        title = titles.title_outcome(track.get('title'), mapping, case['artist'], context['caseId'])
+        title = track_title_outcome(track.get('title'), mapping, case['artist'], context['caseId'],
+                                    expected, track.get('musicbrainzTrackId'))
         if title['status'] != 'correct' or title['prefix']:
             content_failures.append(f'{index}: title {track.get("title")!r}')
         credits = expected['credits'][index - 1]
-        if ([titles.key(n) for n in track.get('artists', [])] != [titles.key(n) for n in credits]
-                or any(titles.key(n) not in titles.key(track.get('artist') or '') for n in credits)):
+        if not performer_credits_match(track.get('artist'), track.get('artists', []), credits, expected):
             content_failures.append(f'{index}: ordered performer credits')
-        if titles.key(track.get('album') or '') != titles.key(expected['album']):
+        if not album_title_matches(track.get('album'), expected):
             content_failures.append(f'{index}: album identity')
-        if titles.key(track.get('albumArtist') or '') != titles.key(case['artist']):
+        album_artist_ok = album_credit_matches(track.get('albumArtist'), track.get('albumArtists'), expected) \
+            if 'albumArtists' in expected else titles.key(track.get('albumArtist') or '') == titles.key(case['artist'])
+        if not album_artist_ok:
             content_failures.append(f'{index}: album artist')
         if any(track.get(key) is not None and str(track[key]) in map(str, review.get('hardNegativeIds', []))
                for key in ['musicbrainzAlbumId', 'discogsReleaseId']):
@@ -620,8 +623,135 @@ def summarize(before, after):
                 groundedModelQualityCredit=0)
 
 
+def album_title_matches(actual, expected):
+    documented = [expected['album'], *expected.get('albumAliases', [])]
+    return any(titles.key(actual or '') == titles.key(title) for title in documented)
+
+
+def performer_credits_match(display, performers, credits, expected):
+    display = titles.key(display or '')
+    actual = [titles.key(name) for name in performers]
+    reviewed = [titles.key(name) for name in credits]
+    if actual == reviewed and all(name in display for name in reviewed):
+        return True
+    spellings = {titles.key(name) for name in expected.get('principalArtistSpellings', [])}
+    return (len(actual) == len(reviewed) == 1
+            and {display, actual[0], reviewed[0]} <= spellings)
+
+
+def track_title_outcome(actual, mapping, artist, case_id, expected, recording_id=None):
+    result = titles.title_outcome(actual, mapping, artist, case_id)
+    alias = expected.get('trackTitleAlias')
+    if (alias and not result['prefix'] and case_id == alias['caseId']
+            and recording_id == alias['recordingId']
+            and mapping.get('localTrack') == alias['localTrack']
+            and str(mapping.get('providerTrack')) == alias['providerTrack']
+            and titles.key(mapping['providerTitle']) == titles.key(alias['reviewedTitle'])
+            and titles.key(actual or '') == titles.key(alias['title'])):
+        return {'status': 'correct', 'prefix': False}
+    return result
+
+
+def reviewed_alias_fields(review, truth, fixtures):
+    case_id = review['caseId']
+    spellings = {
+        '204915b5a4ec': ('盧廣仲', '卢广仲'),
+        '5da2dcff8d52': ('盧廣仲', '卢广仲'),
+        '7634f48421db': ('盧廣仲', '卢广仲'),
+        '90d6af52dacf': ('盧廣仲', '卢广仲'),
+        '5fdcfd7d2149': ('草東沒有派對', '草东没有派对'),
+    }.get(case_id)
+    if spellings and spellings[0] in review.get('artistAliases', []):
+        return {'principalArtistSpellings': list(spellings)}
+
+    identity = (case_id, review['provider'], str(review['releaseId']), review['snapshot'])
+    details = fixtures / 'provider-snapshots/discovery/details-2026-11-07'
+    if identity == ('c0e96540c785', 'discogs', '2994652', 'provider-snapshots/enya/discogs-release-2994652.json'):
+        alternate = details / 'musicbrainz-135228c9a6b562a8.json'
+        if (sha(fixtures / review['snapshot']) != '9617f5efd35ce0e00329a19a7b0ae0d223e16f592e1e62a4779a9e673eb1f142'
+                or sha(alternate) != '29b4374bc65a912a437722eb6c8df8e8e740dbe8b94b084b062e94da108eee16'):
+            raise ValueError('And Winter Came oracle requires the two linked release snapshots')
+        return {'albumAliases': [load(alternate)['title']]}
+
+    if identity == ('872fee627bfd', 'musicbrainz', '8d9aa53f-8d47-45ab-829a-8352078a39d4',
+                    'provider-snapshots/discovery/details-2026-11-07/musicbrainz-730231224291bcac.json'):
+        alternate = details / 'musicbrainz-2c085592cd2c0cc6.json'
+        reviewed = fixtures / review['snapshot']
+        if (sha(reviewed) != '7c9e50cc1c082e7916ee882dc49cefe3605652b8ed2dfc553d1b3ff914a0fbf5'
+                or sha(alternate) != 'b39c1c02c80d570e9287eb9c40f2fd1aeb56e402d53b50d0cb105ffc7b07e650'):
+            raise ValueError('Shepherd Moons oracle requires the two recording snapshots')
+        original, variant = (load(path)['media'][0]['tracks'][6] for path in (reviewed, alternate))
+        recording = original['recording']['id']
+        if recording != variant['recording']['id']:
+            raise ValueError('Shepherd Moons track aliases require the same recording')
+        if any(track['localTrack'] == 7 and str(track['providerTrack']) == '7'
+               and titles.key(track['providerTitle']) == titles.key(original['title']) for track in truth['mapping']):
+            return {'trackTitleAlias': dict(caseId=case_id, localTrack=7, providerTrack='7',
+                                            reviewedTitle=original['title'], title=variant['title'], recordingId=recording)}
+    return {}
+
+
+def album_credit_matches(display, performers, expected):
+    return (any(titles.key(display or '') == titles.key(name) for name in expected['albumArtistDisplays'])
+            and [titles.key(name) for name in (performers or [])] == [
+                titles.key(name) for name in expected['albumArtists']])
+
+
+def expected_for_profile(expected, profile):
+    if 'profileFields' not in expected:
+        return expected
+    return expected | expected['profileFields'][profile]
+
+
+def relapse_reviewed_fields(snapshot, source, truth, fixtures):
+    discogs = fixtures.parent / 'relapse-deluxe/release-36441795.json'
+    musicbrainz = fixtures / 'provider-snapshots/discovery/details-2026-11-07/musicbrainz-22be98f32a7f4174.json'
+    if (sha(snapshot) != 'c8ad11806c623231c430787599d051df2cd545d3f6a4ca7a067f4e8183e3e7c4'
+            or sha(discogs) != '791a57e61770548bc7964c53fb7aa601702bf90528ea3bb2f7362c22a6f17c8f'
+            or sha(musicbrainz) != 'cfa111b6bf92a5689262e13929fa8451443668b273306deaaaf017f3bdad6a62'):
+        raise ValueError('Relapse oracle requires the three reviewed release snapshots')
+    reviewed_tracks = {str(track['track_number']): track for track in source['tracks']}
+    positions = [str(mapping['providerTrack']) for mapping in truth['mapping']]
+    if len(positions) != len(reviewed_tracks) or set(positions) != set(reviewed_tracks):
+        raise ValueError('Relapse oracle requires one mapping for each reviewed track')
+    for index, mapping in enumerate(truth['mapping'], 1):
+        track = reviewed_tracks[positions[index - 1]]
+        if mapping['localTrack'] != index or titles.key(mapping['providerTitle']) != titles.key(track['title']):
+            raise ValueError('Relapse oracle requires the reviewed track mapping')
+    mb = load(musicbrainz)
+    discogs = load(discogs)
+    credits = [reviewed_tracks[position]['artists'] for position in positions]
+    tracks = mb['media'][0]['tracks']
+    credits[positions.index('13')] = [artist['name'] for artist in tracks[12]['artist-credit']]
+    filename_credits = credits.copy()
+    filename_credits[positions.index('18')] = [artist['name'] for artist in tracks[17]['artist-credit']]
+    # MusicBrainz supplies the missing track 13 guest. For track 18, the
+    # filename profile follows MusicBrainz and the tagged profiles retain
+    # the documented Discogs order. Captured edition labels must survive.
+    tagged = dict(album=discogs['title'], credits=credits)
+    return tagged | {'profileFields': {
+        'folder_filename': dict(album=mb['title'], credits=filename_credits),
+        'assisted_without_ids': tagged,
+        'tagged_recovery': tagged,
+    }}
+
+
 def reviewed_fields(review, truth, fixtures):
-    source = load(fixtures / review['snapshot'])
+    snapshot = fixtures / review['snapshot']
+    source = load(snapshot)
+    if (review['caseId'], review['provider'], str(review['releaseId']), review['snapshot']) == (
+            '8452b6f2b3ea', 'discogs', '36441795', 'provider-snapshots/relapse/discogs-release-36441795.json'):
+        return relapse_reviewed_fields(snapshot, source, truth, fixtures)
+    if (review['caseId'], review['provider'], str(review['releaseId']), review['snapshot']) == (
+            'e8a8a8d6b27d', 'discogs', '544082', 'provider-snapshots/enya/discogs-release-544082.json'):
+        alternate = fixtures / 'provider-snapshots/discovery/details-2026-11-07/musicbrainz-5eb14a0f3df79e2a.json'
+        if (sha(snapshot) != '60801c2b6a948cb189370283633d3a5a0ec05ab7e164437637a4547a1e58aa40'
+                or sha(alternate) != 'f2a315cc7d1a8dcbb02f505aedadf6512208e7c61c390e8902231ce638d95f3c'):
+            raise ValueError('Exile oracle requires the two reviewed release snapshots')
+        # Discogs presents artist 9807 twice, once with the Japanese alias.
+        # The directly linked MusicBrainz entry supplies the short album title.
+        return dict(album=source['title'], albumAliases=[load(alternate)['title']],
+                    credits=[['Enya'] for _ in truth['mapping']])
     remote = []
     if review['provider'] == 'musicbrainz':
         for medium in source['media']:
@@ -648,7 +778,23 @@ def reviewed_fields(review, truth, fixtures):
         if len(options) != 1:
             raise ValueError(f'{review["caseId"]}: ambiguous reviewed credits; not eligible for this checker')
         credits.append(list(options.pop()))
-    return dict(album=album, credits=credits)
+    expected = dict(album=album, credits=credits, **reviewed_alias_fields(review, truth, fixtures))
+    if (review['caseId'] in {'3b95f81ac351', '4060f1de6662'}
+            and review['provider'] == 'musicbrainz'
+            and str(review['releaseId']) == '2ca2b5dd-1695-40e2-8947-9baf4b4c12b0'
+            and review['snapshot'] == 'provider-snapshots/review-expansion-20261108/musicbrainz-372d24bff6c7bfdf.json'):
+        alternate = fixtures / 'provider-snapshots/nine-case-discovery-20261108/discogs-59f094dc7673f1e7.json'
+        if (sha(snapshot) != 'ae7334407e687f39e9f0b610eeafe2efb6e751a9087eb09e25f4eebbeaadb4f5'
+                or sha(alternate) != '6fa33bb2d8dfbb48ac1d2ca4dfd33119ec171a5278af17093c6ef815049990b8'):
+            raise ValueError('Lo Vas A Olvidar album credit requires both reviewed releases')
+        release_credits = source['artist-credit']
+        alternate_credits = load(alternate)['artists']
+        expected['albumArtists'] = [item['name'] for item in release_credits]
+        expected['albumArtistDisplays'] = [
+            ''.join(item['name'] + item.get('joinphrase', '') for item in release_credits),
+            ' & '.join(re.sub(r' \(\d+\)$', '', item['name']) for item in alternate_credits),
+        ]
+    return expected
 
 
 def audit(root):
@@ -672,7 +818,7 @@ def audit(root):
                         raise ValueError('expected nonempty object')
                     if name == 'inventory.json':
                         if (not isinstance(value.get('misses'), list) or not isinstance(value.get('modelRequests'), list)
-                                or any(not isinstance(m, dict) or type(m.get('count')) is not int or m['count'] < 0
+                                or any(not isinstance(m, dict) or type(m.get('count', 1)) is not int or m.get('count', 1) < 0
                                        for m in value['misses'])):
                             raise ValueError('invalid miss counts or model request array')
                     elif name == 'execution.json':

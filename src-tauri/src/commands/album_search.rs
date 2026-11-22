@@ -830,6 +830,7 @@ pub async fn album_preview_release_match(
     // transport type, so convert at the boundary instead of maintaining a
     // second matching algorithm.
     let matcher_track = |track: &TrackCandidate| crate::commands::auto_tag::TrackCandidate {
+        provider_performer_entities: Vec::new(),
         source: None,
         title: track.title.clone(),
         match_titles: track.match_titles.clone(),
@@ -1546,6 +1547,7 @@ mod tests {
                 year: None,
                 genre: None,
                 tracks: vec![crate::state::providers::ProviderTrack {
+                    performer_entities: Vec::new(),
                     title: Some("Track 1".into()),
                     match_titles: vec![],
                     title_alias_evidence: vec![],
@@ -1588,6 +1590,7 @@ mod tests {
                 genre: None,
                 tracks: vec![
                     crate::state::providers::ProviderTrack {
+                        performer_entities: Vec::new(),
                         title: Some("Track 1".into()),
                         match_titles: vec![],
                         title_alias_evidence: vec![],
@@ -1601,6 +1604,7 @@ mod tests {
                         length: None,
                     },
                     crate::state::providers::ProviderTrack {
+                        performer_entities: Vec::new(),
                         title: Some("Track 2".into()),
                         match_titles: vec![],
                         title_alias_evidence: vec![],

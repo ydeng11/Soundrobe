@@ -177,6 +177,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Content-only auto-tagging keeps a shared `(Deluxe)` suffix when the provider supplies the matching base album title and the edition remains unresolved.
+- Auto-tagging retains the ordered album performers on jointly credited releases, including content-only matches. Track performer credits stay separate.
+- Auto-tagging restores separate performer entries from a combined credit when the matched release corroborates every performer. The displayed credit and billing order are preserved.
 - Cancelling a request no longer lets another queued edit overlap its still-running disk write.
 - Later ordinary track, artwork, lyric, audit, and organizer edits now protect earlier review history, including byte-identical writes. On Unix, hard-linked recovery targets are refused rather than risking an edit through an untracked alias.
 - Media edits, artwork and lyrics changes, organizer and audit actions, and update installation now report an unavailable write lock without starting the affected write or consuming a pending update. Background tagging records a failed checkpoint if the lock disappears before completion.

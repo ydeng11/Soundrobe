@@ -16,6 +16,133 @@ if spec.loader and Path(spec.origin).exists():
 
 
 class PairedReportTests(unittest.TestCase):
+    def test_relapse_profile_oracle_retains_captured_title_and_supported_billing(self):
+        fixtures = Path(__file__).resolve().parents[2] / 'test/fixtures/tauri/auto-tag-eval'
+        review = next(row for row in paired.load(fixtures / 'reviewed-subset.json')['cases']
+                      if row['caseId'] == '8452b6f2b3ea')
+        discogs = paired.load(fixtures / review['snapshot'])
+        truth = {'mapping': [dict(localTrack=i, providerTrack=str(track['track_number']),
+                                  providerTitle=track['title']) for i, track in enumerate(discogs['tracks'], 1)]}
+        # The reviewed files reverse the two bonus tracks relative to Discogs.
+        for local, provider in ((21, 22), (22, 21)):
+            track = discogs['tracks'][provider - 1]
+            truth['mapping'][local - 1] = dict(localTrack=local, providerTrack=str(provider),
+                                              providerTitle=track['title'])
+        expected = paired.reviewed_fields(review, truth, fixtures)
+        plain = paired.expected_for_profile(expected, 'folder_filename')
+        self.assertEqual('Relapse', plain['album'])
+        self.assertEqual(['Eminem', 'Dr. Dre'], plain['credits'][12])
+        self.assertEqual(['Eminem', 'Dr. Dre', '50 Cent'], plain['credits'][17])
+        for profile in ('assisted_without_ids', 'tagged_recovery'):
+            tagged = paired.expected_for_profile(expected, profile)
+            self.assertEqual('Relapse (Deluxe)', tagged['album'])
+            self.assertFalse(paired.album_title_matches('Relapse', tagged))
+            self.assertEqual(['Eminem', 'Dr. Dre'], tagged['credits'][12])
+            self.assertEqual(['Eminem', '50 Cent', 'Dr. Dre'], tagged['credits'][17])
+            self.assertFalse(paired.performer_credits_match('Eminem', ['Eminem'], tagged['credits'][12], tagged))
+            self.assertFalse(paired.performer_credits_match('Eminem & 50 Cent & Dr. Dre',
+                             ['Eminem & 50 Cent & Dr. Dre'], tagged['credits'][17], tagged))
+        with self.assertRaises(ValueError):
+            mismapped = list(truth['mapping'])
+            mismapped[17] = dict(mismapped[17], providerTrack='13')
+            paired.reviewed_fields(review, {'mapping': mismapped}, fixtures)
+
+    def test_confirmed_solo_spellings_do_not_accept_duplicate_or_extra_credits(self):
+        fixtures = Path(__file__).resolve().parents[2] / 'test/fixtures/tauri/auto-tag-eval'
+        for case_id, manifest, traditional, simplified in [
+                ('204915b5a4ec', 'reviewed-cjk-artist-2-20261108.json', '盧廣仲', '卢广仲'),
+                ('5fdcfd7d2149', 'reviewed-cjk-library-20261108.json', '草東沒有派對', '草东没有派对')]:
+            review = next(row for row in paired.load(fixtures / manifest)['cases'] if row['caseId'] == case_id)
+            expected = paired.reviewed_alias_fields(review, {}, fixtures)
+            self.assertTrue(paired.performer_credits_match(simplified, [simplified], [traditional], expected))
+            self.assertFalse(paired.performer_credits_match('Other', [simplified], [traditional], expected))
+            self.assertFalse(paired.performer_credits_match(simplified, [simplified, simplified], [traditional], expected))
+            self.assertFalse(paired.performer_credits_match(simplified, [simplified], [traditional, 'Guest'], expected))
+            self.assertEqual({}, paired.reviewed_alias_fields(dict(review, caseId='other'), {}, fixtures))
+            self.assertEqual({}, paired.reviewed_alias_fields(dict(review, artistAliases=[]), {}, fixtures))
+
+    def test_confirmed_enya_titles_are_bound_to_release_and_track(self):
+        fixtures = Path(__file__).resolve().parents[2] / 'test/fixtures/tauri/auto-tag-eval'
+        winter = next(row for row in paired.load(fixtures / 'reviewed-subset.json')['cases']
+                      if row['caseId'] == 'c0e96540c785')
+        expected = dict(album='And Winter Came... = 雪と氷の旋律',
+                        **paired.reviewed_alias_fields(winter, {}, fixtures))
+        self.assertTrue(paired.album_title_matches('And Winter Came…', expected))
+        self.assertFalse(paired.album_title_matches('And Winter Came (Live)', expected))
+        self.assertEqual({}, paired.reviewed_alias_fields(dict(winter, releaseId='other'), {}, fixtures))
+
+        shepherd = next(row for row in paired.load(fixtures / 'reviewed-expansion-2-20261108.json')['cases']
+                        if row['caseId'] == '872fee627bfd')
+        track = dict(localTrack=7, providerTrack='7', providerTitle='Book of Days', localTitle='Book of Days')
+        expected = paired.reviewed_alias_fields(shepherd, {'mapping': [track]}, fixtures)
+        title = 'Book of Days (Gaelic only version)'
+        recording = 'e5cc479b-a250-4967-b84c-5b66bb12f487'
+        score = lambda value, mapping, recording_id=recording: paired.track_title_outcome(
+            value, mapping, 'Enya', shepherd['caseId'], expected, recording_id)['status']
+        self.assertEqual('correct', score(title, track))
+        self.assertNotEqual('correct', score(title, track, None))
+        for mapping in [dict(track, localTrack=8), dict(track, providerTrack='8'), dict(track, providerTitle='Other')]:
+            self.assertNotEqual('correct', score(title, mapping))
+        self.assertNotEqual('correct', score('Book of Days (Live)', track))
+        self.assertEqual({}, paired.reviewed_alias_fields(dict(shepherd, caseId='other'), {'mapping': [track]}, fixtures))
+
+    def test_lo_vas_a_olvidar_oracle_scores_album_display_and_ordered_performers(self):
+        fixtures = Path(__file__).resolve().parents[2] / 'test/fixtures/tauri/auto-tag-eval'
+        for case, manifest in [('3b95f81ac351', 'reviewed-expansion-2-20261108.json'),
+                               ('4060f1de6662', 'reviewed-billie-20261108.json')]:
+            review = next(row for row in paired.load(fixtures / manifest)['cases'] if row['caseId'] == case)
+            source = paired.load(fixtures / review['snapshot'])
+            mapping = {'mapping': [{'providerTitle': source['media'][0]['tracks'][0]['title']}]}
+            expected = paired.reviewed_fields(review, mapping, fixtures)
+            self.assertEqual(expected['albumArtists'], ['Billie Eilish', 'ROSALÍA'])
+            self.assertTrue(paired.album_credit_matches('Billie Eilish & Rosalía',
+                                                        ['Billie Eilish', 'Rosalía'], expected))
+            self.assertTrue(paired.album_credit_matches('Billie Eilish | ROSALÍA',
+                                                        ['Billie Eilish', 'ROSALÍA'], expected))
+            self.assertFalse(paired.album_credit_matches('Billie Eilish & Rosalía',
+                                                         ['Billie Eilish & Rosalía'], expected))
+            self.assertFalse(paired.album_credit_matches('Billie Eilish',
+                                                         ['Billie Eilish'], expected))
+            self.assertFalse(paired.album_credit_matches('Billie Eilish & Rosalía',
+                                                         ['Rosalía', 'Billie Eilish'], expected))
+            self.assertNotIn('albumArtists', paired.reviewed_fields(dict(review, caseId='other'), mapping, fixtures))
+
+    def test_exile_alternate_oracle_is_bound_to_the_reviewed_case(self):
+        fixtures = Path(__file__).resolve().parents[2] / 'test/fixtures/tauri/auto-tag-eval'
+        review = next(row for row in paired.load(fixtures / 'reviewed-subset.json')['cases']
+                      if row['caseId'] == 'e8a8a8d6b27d')
+        discogs = paired.load(fixtures / review['snapshot'])
+        truth = {'mapping': [{'providerTitle': track['title']} for track in discogs['tracklist']]}
+        expected = paired.reviewed_fields(review, truth, fixtures)
+        self.assertEqual(expected['credits'], [['Enya']] * 4)
+        self.assertEqual(expected['album'], discogs['title'])
+        self.assertEqual(expected['albumAliases'], ['Exile'])
+        self.assertTrue(paired.album_title_matches('Exile', expected))
+        self.assertTrue(paired.album_title_matches(discogs['title'], expected))
+        self.assertFalse(paired.album_title_matches('Exile (Live)', expected))
+        other = paired.reviewed_fields(dict(review, caseId='unrelated'), truth, fixtures)
+        self.assertEqual(other['credits'], [['Enya', 'Enya']] * 4)
+        self.assertFalse(paired.album_title_matches('Exile', other))
+
+    def test_paired_report_accepts_reviewed_album_alternate_but_rejects_other_titles(self):
+        for observed, recoveries in [('Exile', 2), ('Exile (Live)', 0)]:
+            with self.subTest(observed=observed), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                self.prepare_report(root, written=2)
+                inputs = paired.load(root / 'comparison-inputs.json')
+                expected = inputs['jobs'][0]['expected']
+                expected.update(album='Exile = エクサイル', albumAliases=['Exile'])
+                self.save(root / 'comparison-inputs.json', inputs)
+                for arm in ['baseline', 'candidate']:
+                    for phase in ['cold', 'warm']:
+                        path = root / arm / 'folder_filename' / 'case' / f'{phase}.jsonl'
+                        record = paired.load(path)
+                        for track in record['readbackTracks']:
+                            track['album'] = observed
+                        self.save(path, record)
+                report = self.report(root, expected_exit=0 if recoveries else 1)
+                self.assertEqual(report['candidate']['correctRecoveries'], recoveries)
+
     def test_source_mapping_audit_recomputes_binding_and_joins_locked_source_to_files(self):
         canonical = lambda value: json.dumps(value, ensure_ascii=False, sort_keys=True,
                                              separators=(',', ':')).encode()
@@ -586,7 +713,9 @@ class PairedReportTests(unittest.TestCase):
         invalid = [('inventory.json', value) for value in [
             {'misses': None, 'modelRequests': []}, {'misses': [None], 'modelRequests': []},
             {'misses': [{'count': '1'}], 'modelRequests': []},
-            {'misses': [{'count': -1}], 'modelRequests': []}, {'misses': [], 'modelRequests': None}]]
+            {'misses': [{'count': -1}], 'modelRequests': []},
+            {'misses': [{'count': None}], 'modelRequests': []},
+            {'misses': [{'count': True}], 'modelRequests': []}, {'misses': [], 'modelRequests': None}]]
         invalid += [('source-hashes-before.json', {'case': value}) for value in [None, {},
             {'First.flac': {'bytes': 1, 'fullSha256': 'bad'}}]]
         invalid += [('execution.json', {'exitCode': '0', 'signal': None})]
@@ -607,6 +736,22 @@ class PairedReportTests(unittest.TestCase):
                 self.assertFalse(report['comparable'])
                 if name == 'execution.json':
                     self.assertEqual(report['candidate']['processFailures'], 2)
+
+    def test_countless_mock_miss_marks_slots_unavailable_without_invalidating_inventory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.prepare_report(root)
+            directory = root / 'candidate' / 'folder_filename' / 'case'
+            route = dict(provider='musicbrainz', path='/release/example',
+                         query=[['fmt', 'json']], status=501)
+            self.save(directory / 'inventory.json', dict(misses=[route], modelRequests=[]))
+            report = self.report(root)
+            self.assertEqual(report['candidate']['missingFixtures'], 2)
+            self.assertEqual(report['candidate']['unavailable'], 2)
+            self.assertEqual(report['candidate']['passedNoWriteControls'], 0)
+            for row in report['rows']['candidate']:
+                self.assertEqual(row['missingFixtures'], 1)
+                self.assertEqual(row['safetyFailures'], [])
 
     def test_boolean_skipped_status_keeps_its_declared_meaning(self):
         for skipped in [False, True]:

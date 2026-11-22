@@ -228,7 +228,7 @@ impl<'a> DiscogsDiscovery<'a> {
         if let Some(candidate) = self.details.get(id) {
             return Ok(candidate.clone());
         }
-        if let Some(album) = cached_release_detail(self.cache, "discogs-v4", id) {
+        if let Some(album) = cached_release_detail(self.cache, "discogs-v5", id) {
             let candidate = discogs_candidate(album);
             self.remember(&candidate);
             return Ok(candidate);
@@ -243,7 +243,7 @@ impl<'a> DiscogsDiscovery<'a> {
         let album = self.client.release_metadata_result(id).await?;
         check_cancelled(self.cancelled).map_err(|error| error.to_string())?;
         if let Ok(value) = serde_json::to_value(&album) {
-            let _ = self.cache.set_release_detail("discogs-v4", id, &value);
+            let _ = self.cache.set_release_detail("discogs-v5", id, &value);
         }
         let candidate = discogs_candidate(album);
         self.remember(&candidate);
@@ -682,7 +682,7 @@ mod tests {
         let mut discovery = DiscogsDiscovery::new(&client, &cache, &cancelled);
         assert!(discovery.detail("42").await.is_err());
         assert!(discovery.candidates().is_empty());
-        assert!(cached_release_detail(&cache, "discogs-v4", "42").is_none());
+        assert!(cached_release_detail(&cache, "discogs-v5", "42").is_none());
         server.join().unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }

@@ -481,6 +481,26 @@ async fn album_content_fallback_writes_basic_tags_without_guessing_an_edition() 
 }
 
 #[tokio::test]
+async fn album_content_preserves_a_captured_edition_title_without_confirming_it() {
+    run_album_content_controls(&["tagged_edition"]).await;
+}
+
+#[tokio::test]
+async fn album_content_uses_provider_title_instead_of_captured_disc_subtitle() {
+    run_album_content_controls(&["captured_disc_subtitle"]).await;
+}
+
+#[tokio::test]
+async fn album_content_uses_provider_title_when_it_already_names_the_deluxe_edition() {
+    run_album_content_controls(&["provider_deluxe_title"]).await;
+}
+
+#[tokio::test]
+async fn album_content_does_not_apply_one_files_edition_label_to_the_folder() {
+    run_album_content_controls(&["mixed_edition", "partial_edition"]).await;
+}
+
+#[tokio::test]
 async fn content_enrichment_preserves_captured_numbering_and_credit_presentation() {
     run_album_content_controls(&["protected_content", "content_conflict"]).await;
 }
@@ -509,6 +529,11 @@ async fn content_composite_preservation_keeps_fallback_conflict_and_cleanup_boun
 async fn run_album_content_controls(modes: &[&'static str]) {
     for &mode in modes {
         let root = super::tests::temp_root();
+        let provider_album = if mode == "provider_deluxe_title" {
+            "Test Record (deluxe)"
+        } else {
+            "Test Record"
+        };
         let composite = mode.starts_with("composite_");
         let album_artist = if mode == "composite_missing" {
             "Billie Eilish"
@@ -537,6 +562,24 @@ async fn run_album_content_controls(modes: &[&'static str]) {
                 write_track_queued(&WriteQueue::default(), album.join(name),
                     serde_json::from_value(serde_json::json!({"genre":if seconds == 2 {"Rock"} else {"Pop"}, "discTotal":seconds})).unwrap()
                 ).await.unwrap();
+            }
+            let captured_album = match (mode, seconds) {
+                ("captured_disc_subtitle", _) => Some("Test Record (CD2 - Clouds)"),
+                ("provider_deluxe_title", _) => Some("Test Record (Deluxe Version)"),
+                ("mixed_edition", 3) => Some("Test Record (Standard Edition)"),
+                ("mixed_edition" | "partial_edition", 2) | ("tagged_edition" | "confirmed", _) => {
+                    Some("Test Record (Deluxe)")
+                }
+                _ => None,
+            };
+            if let Some(captured_album) = captured_album {
+                write_track_queued(
+                    &WriteQueue::default(),
+                    album.join(name),
+                    serde_json::from_value(serde_json::json!({"album":captured_album})).unwrap(),
+                )
+                .await
+                .unwrap();
             }
             if matches!(mode, "protected_content" | "content_conflict") {
                 write_track_queued(&WriteQueue::default(), album.join(name),
@@ -603,7 +646,7 @@ async fn run_album_content_controls(modes: &[&'static str]) {
                     _ => "Song (Live)",
                 };
                 let composite_credits = serde_json::json!([{"name":"Billie Eilish","joinphrase":" & "},{"name":"Rosalía"}]);
-                serde_json::json!({"id":id,"title":"Test Record","date":if mode == "confirmed" {"2000"} else {"1991"},"country":if mode == "confirmed" {"DE"} else {"JP"},
+                serde_json::json!({"id":id,"title":provider_album,"date":if mode == "confirmed" {"2000"} else {"1991"},"country":if mode == "confirmed" {"DE"} else {"JP"},
                     "artist-credit":[{"name":album_artist}], "media":[{"position":1,"track-count":2,"tracks":[
                         {"position":"1","title":"Second","recording":{"id":"22222222-2222-4222-8222-222222222222","title":"Second","length":3000,"artist-credit":if composite {composite_credits.clone()} else if mode=="album_fallback" {serde_json::json!([])} else if matches!(mode,"protected_content"|"content_conflict") {serde_json::json!([{"name":"Lead","joinphrase":" & "},{"name":"Guest"}])} else {serde_json::json!([{"name":"Lead"}])}}},
                         {"position":"2","title":title,"recording":{"id":"11111111-1111-4111-8111-111111111111","title":title,"length":if mode == "wrong_duration" {99000} else {2000},"artist-credit":if composite {composite_credits} else if mode=="album_fallback" {serde_json::json!([])} else {serde_json::json!([{"name":"Lead","joinphrase":" feat. "},{"name":"Guest"}])}}}
@@ -721,7 +764,11 @@ async fn run_album_content_controls(modes: &[&'static str]) {
                     read.title.as_deref(),
                     Some(if index == 0 { "Song (Live)" } else { "Second" })
                 );
-                assert_eq!(read.album.as_deref(), Some("Test Record"));
+                assert_eq!(read.album.as_deref(), Some(if mode == "tagged_edition" {
+                    "Test Record (Deluxe)"
+                } else {
+                    provider_album
+                }));
                 assert_eq!(
                     read.year.as_deref(),
                     (mode != "clear_year").then_some("2000")
@@ -751,7 +798,7 @@ async fn run_album_content_controls(modes: &[&'static str]) {
                         if mode == "composite_missing" {
                             vec!["Billie Eilish", "Rosalía"]
                         } else {
-                            vec!["Billie Eilish | ROSALÍA"]
+                            vec!["Billie Eilish", "ROSALÍA"]
                         }
                     } else if mode == "album_fallback" {
                         vec!["Lead"]
@@ -815,8 +862,7 @@ async fn run_album_content_controls(modes: &[&'static str]) {
                                     receipts.iter().any(|receipt| {
                                         receipt["stage"] == "local_track_preservation"
                                             && receipt["localIndex"] == index
-                                            && receipt["fields"]
-                                                == serde_json::json!(["artist", "artists"])
+                                            && receipt["fields"] == serde_json::json!(["artist"])
                                     })
                                 })
                         }),
